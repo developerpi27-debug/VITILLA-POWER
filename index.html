@@ -166,7 +166,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
     </div>
     <div class="lload" id="llod"><div class="spin"></div><div id="lmsg" style="font-size:13px;color:var(--text2);">Verificando...</div></div>
   </div>
-  <div style="margin-top:14px;font-size:12px;color:var(--text3);text-align:center;"><span class="cdot pend" id="cld"></span><span id="clt">Cargando...</span></div>
+  <div style="margin-top:14px;font-size:12px;color:var(--text3);text-align:center;"><span class="cdot pend" id="cld"></span><span id="clt"></span></div>
 </div>
 
 <!-- SETUP -->
@@ -238,8 +238,9 @@ const C={
   set url(v){localStorage.setItem('vsp_url',v);},
   get setup(){return localStorage.getItem('vsp_setup')==='1';},
   set setup(v){v?localStorage.setItem('vsp_setup','1'):localStorage.removeItem('vsp_setup');},
-  get demo(){return localStorage.getItem('vsp_demo')==='1';},
-  set demo(v){v?localStorage.setItem('vsp_demo','1'):localStorage.removeItem('vsp_demo');}
+  // demo=true si no hay URL configurada (modo por defecto)
+  get demo(){const d=localStorage.getItem('vsp_demo');if(d==='0')return false;return!this.url;},
+  set demo(v){localStorage.setItem('vsp_demo',v?'1':'0');}
 };
 
 // ── STATE ────────────────────────────────────────────
@@ -342,13 +343,12 @@ async function ldb(action,data){
 
 // ── INIT ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
-  // Si ya hay URL configurada, marcar setup como hecho
   if(C.url) C.setup=true;
-  // Si no hay URL, activar demo mode automáticamente para que funcione sin config
-  if(!C.url && !C.setup) C.demo=true;
   updCS();
   document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('lu').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('lp').focus();});
+  // Pre-focus en campo usuario
+  setTimeout(()=>document.getElementById('lu').focus(),100);
 });
 function updCS(){
   const dot=document.getElementById('cld'),txt=document.getElementById('clt');
@@ -388,27 +388,40 @@ function finishSetup(){
 async function doLogin(){
   const username=document.getElementById('lu').value.trim();
   const password=document.getElementById('lp').value;
-  const errEl=document.getElementById('lerr'),form=document.getElementById('lform'),load=document.getElementById('llod');
+  const errEl=document.getElementById('lerr');
+  const form=document.getElementById('lform');
+  const load=document.getElementById('llod');
+  const showErr=(msg)=>{
+    load.style.display='none';
+    form.style.display='block';
+    errEl.textContent=msg;
+    errEl.style.display='block';
+  };
   errEl.style.display='none';
-  if(!username||!password){errEl.textContent='Completa usuario y contraseña.';errEl.style.display='block';return;}
-  form.style.display='none';load.style.display='flex';
+  if(!username||!password){showErr('Completa usuario y contrasena.');return;}
+  form.style.display='none';
+  load.style.display='flex';
   document.getElementById('lmsg').textContent='Verificando credenciales...';
+  let res;
+  try{ res=await api('login',{username,password}); }
+  catch(e){ showErr('Error al conectar: '+e.message); return; }
+  if(!res||!res.ok){ showErr(res&&res.error?res.error:'Credenciales incorrectas.'); return; }
   try{
-    const res=await api('login',{username,password});
-    if(res.ok){
-      S.user=res.user;
-      document.getElementById('lmsg').textContent='Cargando datos...';
-      await loadAll();
-      load.style.display='none';form.style.display='block';
-      if(res.user.role==='admin'&&!C.setup&&!C.demo&&!C.url){document.getElementById('lscr').style.display='none';showSetup();return;}
-      document.getElementById('lscr').style.display='none';
-      document.getElementById('app').style.display='flex';
-      renderApp();startPolling();toast('¡Bienvenido, '+res.user.name+'!','success');
-    }else{
-      load.style.display='none';form.style.display='block';
-      errEl.textContent=res.error||'Credenciales incorrectas.';errEl.style.display='block';
-    }
-  }catch(e){load.style.display='none';form.style.display='block';errEl.textContent='Error inesperado: '+e.message;errEl.style.display='block';}
+    S.user=res.user;
+    document.getElementById('lmsg').textContent='Cargando datos...';
+    await loadAll();
+  }catch(e){ console.warn('loadAll error:',e); }
+  load.style.display='none';
+  form.style.display='block';
+  if(res.user.role==='admin'&&!C.setup&&!C.url){
+    document.getElementById('lscr').style.display='none';
+    showSetup();return;
+  }
+  document.getElementById('lscr').style.display='none';
+  document.getElementById('app').style.display='flex';
+  renderApp();
+  startPolling();
+  toast('Bienvenido, '+res.user.name+'!','success');
 }
 function guestAccess(){
   S.user={name:'Visitante',role:'public',username:'guest'};
