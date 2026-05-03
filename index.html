@@ -247,7 +247,7 @@ let S={user:null,tour:null,tournaments:[],teams:[],players:[],games:[],events:[]
 
 // ── API ──────────────────────────────────────────────
 async function api(action,data={}){
-  if(C.demo||!C.url) return ldb(action,data);
+  if(C.demo||!C.url) return await ldb(action,data);
   try{
     const r=await fetch(C.url,{method:'POST',body:JSON.stringify({action,...data})});
     if(!r.ok)throw new Error('HTTP '+r.status);
@@ -261,23 +261,53 @@ async function ping(url){
 }
 
 // ── LOCAL DB ─────────────────────────────────────────
+// ── HASH simple (SHA-256 via SubtleCrypto) ────────────
+async function hashPwd(pwd){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function checkPwd(plain,hashed){
+  // Soporte contraseñas sin hashear (migración) y hasheadas
+  if(!hashed) return false;
+  if(hashed.length!==64) return plain===hashed; // legacy plain
+  return (await hashPwd(plain))===hashed;
+}
+
 function gdb(){
   const raw=localStorage.getItem('vsp_db');
-  if(raw)return JSON.parse(raw);
-  const d={users:[{id:'u1',username:'developer',password:'1234',name:'Admin Developer',role:'admin',active:true,created:new Date().toISOString()}],tournaments:[],teams:[],players:[],games:[],events:[],lineups:[],license:{expires:'2026-12-31'}};
+  if(raw){
+    const d=JSON.parse(raw);
+    // Migración: si developer existe sin hash, marcar para re-hashear en login
+    return d;
+  }
+  // Primera vez: password se hasheará al primer login exitoso
+  const d={
+    users:[{id:'u1',username:'developer',password:'1234',name:'Admin Developer',
+            role:'admin',active:true,created:new Date().toISOString()}],
+    tournaments:[],teams:[],players:[],games:[],events:[],lineups:[],
+    pitching:[],profiles:[],license:{expires:'2026-12-31'}
+  };
   sdb(d);return d;
 }
 function sdb(d){localStorage.setItem('vsp_db',JSON.stringify(d));}
 function nid(){return 'id'+Date.now()+Math.random().toString(36).slice(2,6);}
 
-function ldb(action,data){
+async function ldb(action,data){
   const d=gdb(),sv=()=>sdb(d);
   switch(action){
     case 'ping':return{ok:true,message:'Demo',version:'demo'};
     case 'login':{
-      const u=d.users.find(u=>u.username===data.username&&u.password===data.password&&u.active!==false&&u.active!=='false');
+      const u=d.users.find(u=>u.username===data.username&&u.active!==false&&u.active!=='false');
       if(!u)return{ok:false,error:'Usuario o contraseña incorrectos'};
+      const pwOk=await checkPwd(data.password, u.password);
+      if(!pwOk)return{ok:false,error:'Usuario o contraseña incorrectos'};
       if(u.role!=='admin'){if(d.license?.expires&&new Date(d.license.expires)<new Date())return{ok:false,error:'Licencia expirada. Contacta al administrador.'};}
+      // Auto-upgrade contraseña legacy plain → hash
+      if(u.password.length!==64){
+        u.password=await hashPwd(data.password);
+        const i=d.users.findIndex(x=>x.id===u.id);if(i>=0)d.users[i]=u;
+        sv();
+      }
       const{password,...safe}=u;return{ok:true,user:safe};
     }
     case 'getAll':{const users=d.users.map(({password,...u})=>u);const profiles=d.profiles||JSON.parse(localStorage.getItem('vsp_profiles')||'[]');return{ok:true,data:{...d,users,profiles,pitching:d.pitching||[]}};}
@@ -287,7 +317,14 @@ function ldb(action,data){
     case 'saveGame':{const g=data.game;if(!g.id){g.id=nid();d.games.push(g);}else{const i=d.games.findIndex(x=>x.id===g.id);if(i>=0)d.games[i]=g;else d.games.push(g);}sv();return{ok:true,item:g};}
     case 'saveEvent':{const e=data.event;if(!e.id){e.id=nid();d.events.push(e);}else{const i=d.events.findIndex(x=>x.id===e.id);if(i>=0)d.events[i]=e;else d.events.push(e);}sv();return{ok:true,item:e};}
     case 'saveLineup':{const l=data.lineup;const i=d.lineups.findIndex(x=>x.gameId===l.gameId&&x.teamId===l.teamId);if(i>=0)d.lineups[i]=l;else d.lineups.push(l);sv();return{ok:true,item:l};}
-    case 'saveUser':{const u=data.user;if(!u.id){u.id=nid();d.users.push(u);}else{const i=d.users.findIndex(x=>x.id===u.id);if(i>=0){if(!u.password)u.password=d.users[i].password;d.users[i]=u;}else d.users.push(u);}sv();const{password,...safe}=u;return{ok:true,item:safe};}
+    case 'saveUser':{
+      const u=data.user;
+      // Hashear contraseña si viene en plano
+      if(u.password&&u.password.length!==64) u.password=await hashPwd(u.password);
+      if(!u.id){u.id=nid();d.users.push(u);}
+      else{const i=d.users.findIndex(x=>x.id===u.id);if(i>=0){if(!u.password)u.password=d.users[i].password;d.users[i]=u;}else d.users.push(u);}
+      sv();const{password,...safe}=u;return{ok:true,item:safe};
+    }
     case 'saveLicense':{d.license=data.license;sv();return{ok:true};}
     case 'deleteItem':{if(d[data.table])d[data.table]=d[data.table].filter(x=>x.id!==data.id);sv();return{ok:true};}
     case 'saveProfiles':{d.profiles=data.profiles||[];localStorage.setItem('vsp_profiles',JSON.stringify(d.profiles));sv();return{ok:true};}
@@ -305,6 +342,10 @@ function ldb(action,data){
 
 // ── INIT ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
+  // Si ya hay URL configurada, marcar setup como hecho
+  if(C.url) C.setup=true;
+  // Si no hay URL, activar demo mode automáticamente para que funcione sin config
+  if(!C.url && !C.setup) C.demo=true;
   updCS();
   document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('lu').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('lp').focus();});
@@ -359,7 +400,7 @@ async function doLogin(){
       document.getElementById('lmsg').textContent='Cargando datos...';
       await loadAll();
       load.style.display='none';form.style.display='block';
-      if(res.user.role==='admin'&&!C.setup){document.getElementById('lscr').style.display='none';showSetup();return;}
+      if(res.user.role==='admin'&&!C.setup&&!C.demo&&!C.url){document.getElementById('lscr').style.display='none';showSetup();return;}
       document.getElementById('lscr').style.display='none';
       document.getElementById('app').style.display='flex';
       renderApp();startPolling();toast('¡Bienvenido, '+res.user.name+'!','success');
@@ -1864,12 +1905,12 @@ async function changePassword(){
   if(!oldP||!newP||!confP){errEl.textContent='Completa todos los campos.';errEl.style.display='block';return;}
   if(newP.length<4){errEl.textContent='La nueva contraseña debe tener al menos 4 caracteres.';errEl.style.display='block';return;}
   if(newP!==confP){errEl.textContent='La nueva contraseña y la confirmación no coinciden.';errEl.style.display='block';return;}
-  // Verificar contraseña actual
+  // Verificar contraseña actual usando hash
   const verify=await api('login',{username:S.user.username,password:oldP});
   if(!verify.ok){errEl.textContent='La contraseña actual es incorrecta.';errEl.style.display='block';return;}
-  // Buscar usuario completo para mantener todos sus campos
-  const fullUser=S.users.find(x=>x.id===S.user.id)||S.user;
-  const updated={...fullUser, password:newP};
+  // Guardar nueva contraseña — se hashea dentro de saveUser/api
+  const fullUser=S.users.find(x=>x.id===S.user.id)||{...S.user};
+  const updated={...fullUser, password:newP}; // se hasheará en saveUser
   const r=await api('saveUser',{user:updated});
   if(r.ok){
     okEl.style.display='block';
