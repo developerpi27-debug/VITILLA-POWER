@@ -248,7 +248,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 var GS={getUrl:function(){return localStorage.getItem('vsp_url')||'';},setUrl:function(v){localStorage.setItem('vsp_url',v);}};
 
 // STATE
-var S={user:null,profile:null,game:null,tourFilter:'',tournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',sessionTimeout:30};
+var S={user:null,profile:null,game:null,tourFilter:'',tournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',sessionTimeout:30,pollInterval:30};
 
 // API
 async function api(action,data){
@@ -367,8 +367,12 @@ async function loadAll(){
   var res=await api('getAll');if(!res||!res.ok)return;
   var d=res.data;
   S.config=d.config||{};
-  S.licenseExpires=d.licenseExpires||d.config&&d.config.licenseExpires||'';
+  // Only update license if GS returns a non-empty value
+  var newLic=d.licenseExpires||(d.config&&d.config.licenseExpires)||'';
+  if(newLic) S.licenseExpires=newLic;
+  // else keep existing S.licenseExpires to avoid polling overwrite
   S.sessionTimeout=parseInt(d.config&&d.config.sessionTimeout)||30;
+  S.pollInterval=Math.max(10,parseInt(d.config&&d.config.pollInterval)||30);
   S.tournaments=d.tournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   S.games=d.games||[];S.lineups=d.lineups||[];S.events=d.events||[];
   S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];
@@ -376,13 +380,32 @@ async function loadAll(){
 
 // POLLING
 var _poll=null;
+var _saving=false;
+var _curPollMs=30000;
 function startPolling(){
   if(_poll)clearInterval(_poll);
+  _curPollMs=(S.pollInterval||30)*1000;
   _poll=setInterval(function(){
-    if(!S.user||document.hidden)return;
-    loadAll().then(function(){initPGS();if(PGS[curP])PGS[curP]();}).catch(function(){});
-    saveSession();
-  },15000);
+    if(!S.user||document.hidden||_saving)return;
+    var prevScroll=window.scrollY;
+    var prevPage=curP;
+    loadAll().then(function(){
+      // Only update state, never re-render to avoid moving user
+      // Just refresh badge counts in nav silently
+      if(S.user){
+        // Update license badge silently
+        if(S.licenseExpires){
+          var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
+          var lici=document.getElementById('lici');
+          if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
+        }
+      }
+      saveSession();
+      // Restart polling if interval changed
+      var newMs=(S.pollInterval||30)*1000;
+      if(newMs!==_curPollMs){startPolling();}
+    }).catch(function(){});
+  },_curPollMs);
 }
 function stopPolling(){if(_poll){clearInterval(_poll);_poll=null;}}
 document.addEventListener('visibilitychange',function(){document.hidden?stopPolling():startPolling();});
@@ -1537,10 +1560,16 @@ async function saveU(id){
   if(!id&&!pass){toast('Contrasena requerida para nuevos usuarios','error');return;}
   if(!name||!username){toast('Nombre y usuario requeridos','error');return;}
   var ex=id?S.users.filter(function(x){return x.id===id;})[0]:{};
-  var u={id:id||null,name:name,username:username,role:fv('ur')||'scorer',profileId:fv('uprof')||null,active:ex.active!==undefined?ex.active:true,created:ex.created||new Date().toISOString()};
+  var profId=fv('uprof')||''; // empty string = no profile, not null
+  var u={id:id||null,name:name,username:username,role:fv('ur')||'scorer',profileId:profId,active:ex.active!==undefined?ex.active:true,created:ex.created||new Date().toISOString()};
   if(pass)u.password=pass;
   var r=await api('saveUser',{user:u});
-  if(r&&r.ok){if(!id)S.users.push(r.item);else S.users=S.users.map(function(x){return x.id===id?r.item:x;});cM();pgUsers();toast('Usuario guardado','success');}
+  if(r&&r.ok){
+    var saved=r.item||u;
+    if(!id)S.users.push(saved);
+    else S.users=S.users.map(function(x){return x.id===id?saved:x;});
+    cM();pgUsers();toast('Usuario guardado','success');
+  }
   else toast(r&&r.error||'Error','error');
 }
 async function togU(id){
@@ -1608,7 +1637,12 @@ async function saveProf(id){
   var teams=S.teams.filter(function(t){var e=document.getElementById('ptm-'+t.id);return e&&e.checked;}).map(function(t){return t.id;});
   var prof={id:id||null,name:name,modules:mods,tournaments:tours,teams:teams};
   var r=await api('saveProfile',{profile:prof});
-  if(r&&r.ok){if(!id)S.profiles.push(r.item);else S.profiles=S.profiles.map(function(x){return x.id===id?r.item:x;});cM();pgProfiles();toast('Perfil guardado','success');}
+  if(r&&r.ok){
+    var savedP=r.item||prof;
+    if(!id)S.profiles.push(savedP);
+    else S.profiles=S.profiles.map(function(x){return x.id===id?savedP:x;});
+    cM();pgProfiles();toast('Perfil guardado','success');
+  }
   else toast(r&&r.error||'Error','error');
 }
 async function delProf(id){
@@ -1637,9 +1671,15 @@ function pgLic(){
 }
 async function saveLic(){
   var exp=fv('ld');if(!exp){toast('Fecha requerida','error');return;}
+  _saving=true;
   var r=await api('saveConfig',{key:'licenseExpires',value:exp});
-  if(r&&r.ok){S.licenseExpires=exp;pgLic();toast('Licencia actualizada: '+exp,'success');}
-  else toast(r&&r.error||'Error al guardar','error');
+  if(r&&r.ok){
+    S.licenseExpires=exp;
+    S.config=S.config||{};
+    S.config.licenseExpires=exp;
+    pgLic();toast('Licencia actualizada: '+exp,'success');
+  }else toast(r&&r.error||'Error al guardar','error');
+  _saving=false;
 }
 
 // SETTINGS
@@ -1654,9 +1694,12 @@ function pgSet(){
     +'<button class="btn bs bsm" onclick="testGSSet()">&#128269; Probar</button>'
     +'<button class="btn bp bsm" onclick="saveGSSet()">&#128190; Guardar URL</button>'
     +'</div></div>'
-    +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Sesion</div></div>'
-      +'<div class="fr c2"><div class="fg"><label class="fl">Tiempo de inactividad (minutos)</label><input class="fi" id="stout" type="number" min="5" max="480" value="'+(S.sessionTimeout||30)+'"></div>'
-      +'<div class="fg" style="display:flex;align-items:flex-end"><button class="btn bp" onclick="saveSessTimeout()">Guardar</button></div></div>'
+    +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Sesion y Actualizacion</div></div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">Cierre por inactividad (minutos)</label><input class="fi" id="stout" type="number" min="5" max="480" value="'+(S.sessionTimeout||30)+'"></div>'
+      +'<div class="fg"><label class="fl">Intervalo de actualizacion automatica (segundos)</label><input class="fi" id="spoll" type="number" min="10" max="300" value="'+(S.pollInterval||30)+'"></div>'
+      +'</div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">La actualizacion automatica sincroniza datos sin mover la pantalla. Minimo 10 segundos.</div>'
+      +'<button class="btn bp" onclick="saveSessParams()">Guardar Parametros</button>'
       +'</div>':'')
     +'<div class="card"><div class="chd"><div class="ctl">&#128202; Datos del sistema</div></div>'
     +'<div class="g4">'
@@ -1678,13 +1721,20 @@ async function saveGSSet(){
   var ok=await pingUrl(url);if(!ok){toast('No se pudo conectar','error');return;}
   GS.setUrl(url);await loadAll();pgSet();toast('URL actualizada','success');
 }
-async function saveSessTimeout(){
+async function saveSessParams(){
   var t=parseInt(fv('stout'))||30;
-  if(t<5||t>480){toast('Tiempo entre 5 y 480 minutos','error');return;}
-  S.sessionTimeout=t;
-  var r=await api('saveConfig',{key:'sessionTimeout',value:String(t)});
-  if(r&&r.ok){startSessionTimer();toast('Tiempo actualizado: '+t+' min','success');}
-  else toast(r&&r.error||'Error','error');
+  var p=parseInt(fv('spoll'))||30;
+  if(t<5||t>480){toast('Inactividad debe ser entre 5 y 480 minutos','error');return;}
+  if(p<10||p>300){toast('Intervalo debe ser entre 10 y 300 segundos','error');return;}
+  _saving=true;
+  S.sessionTimeout=t; S.pollInterval=p;
+  var r1=await api('saveConfig',{key:'sessionTimeout',value:String(t)});
+  var r2=await api('saveConfig',{key:'pollInterval',value:String(p)});
+  _saving=false;
+  if(r1&&r1.ok&&r2&&r2.ok){
+    startSessionTimer(); startPolling();
+    toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s','success');
+  } else toast('Error al guardar parametros','error');
 }
 
 // MY PROFILE
