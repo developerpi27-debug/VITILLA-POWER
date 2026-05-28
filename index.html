@@ -205,6 +205,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
       <div style="margin-top:10px;text-align:center">
         <button class="btn bs wf" onclick="guestLogin()">&#128065; Ver estadisticas publicas</button>
       </div>
+      <div style="margin-top:8px;text-align:center">
+        <button style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;text-decoration:underline" onclick="resetSetup()">&#9881; Reconfigurar sistema</button>
+      </div>
     </div>
     <div id="llod" style="display:none;padding:20px 0;text-align:center">
       <div class="spin"></div>
@@ -295,10 +298,21 @@ async function runSetup(){
   sp.style.display='block';
   var r=await api('setup',{adminUser:admu,adminPassword:admp,adminName:admn,licenseExpires:adml});
   sp.style.display='none';
-  if(!r||!r.ok){errEl.textContent=(r&&r.error)||'Error al configurar el sistema';errEl.style.display='block';return;}
+  if(!r||!r.ok){errEl.textContent=(r&&r.error)||'Error al configurar el sistema: '+(r&&r.error||'Verifica la URL y permisos del Apps Script');errEl.style.display='block';return;}
+  // Mark setup as complete in localStorage
+  localStorage.setItem('vsp_setup_done','1');
   showStep(3);
 }
-function goToLogin(){document.getElementById('sscr').style.display='none';showLoginScreen();}
+function goToLogin(){
+  document.getElementById('sscr').style.display='none';
+  showLoginScreen();
+}
+function resetSetup(){
+  if(!confirm('Esto borrara la URL configurada y mostrara el asistente de configuracion. Continuar?'))return;
+  localStorage.removeItem('vsp_url');
+  localStorage.removeItem('vsp_setup_done');
+  location.reload();
+}
 
 // LOGIN
 function showLoginScreen(){document.getElementById('lscr').style.display='flex';setTimeout(function(){document.getElementById('lu').focus();},100);}
@@ -384,28 +398,24 @@ var _saving=false;
 var _curPollMs=30000;
 function startPolling(){
   if(_poll)clearInterval(_poll);
-  _curPollMs=(S.pollInterval||30)*1000;
-  _poll=setInterval(function(){
-    if(!S.user||document.hidden||_saving)return;
-    var prevScroll=window.scrollY;
-    var prevPage=curP;
-    loadAll().then(function(){
-      // Only update state, never re-render to avoid moving user
-      // Just refresh badge counts in nav silently
-      if(S.user){
-        // Update license badge silently
-        if(S.licenseExpires){
-          var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
-          var lici=document.getElementById('lici');
-          if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
-        }
-      }
-      saveSession();
-      // Restart polling if interval changed
-      var newMs=(S.pollInterval||30)*1000;
-      if(newMs!==_curPollMs){startPolling();}
-    }).catch(function(){});
-  },_curPollMs);
+  _curPollMs=Math.max(10,(S.pollInterval||30))*1000;
+  _poll=setInterval(_doPoll, _curPollMs);
+}
+async function _doPoll(){
+  if(!S.user||document.hidden||_saving)return;
+  var prevPoll=S.pollInterval||30;
+  try{
+    await loadAll();
+    // Silent UI update - only badges, no page re-render
+    if(S.licenseExpires){
+      var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
+      var lici=document.getElementById('lici');
+      if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
+    }
+    saveSession();
+    // Restart if interval changed
+    if((S.pollInterval||30)!==prevPoll) startPolling();
+  }catch(e){console.warn('Poll error:',e);}
 }
 function stopPolling(){if(_poll){clearInterval(_poll);_poll=null;}}
 document.addEventListener('visibilitychange',function(){document.hidden?stopPolling():startPolling();});
@@ -1077,9 +1087,11 @@ async function rPlay(type){
   var enBase=(bases.first?1:0)+(bases.second?1:0)+(bases.third?1:0);
   var maxRbi=1+enBase;var rbi=0,runs=0;
   if(type==='HR'){
-    var rb=prompt('JONRON!\nCorredores en base: '+enBase+'\nMaximo: '+maxRbi+' RBI\n\nCuantas remolcadas?',String(maxRbi));
+    var rb=prompt('JONRON!\nCorredores en base: '+enBase+'\nMaximo posible: '+maxRbi+' RBI (bateador + corredores)\n\nCuantas remolcadas?',String(maxRbi));
     if(rb===null)return;
-    rbi=Math.max(1,Math.min(parseInt(rb)||maxRbi,maxRbi));runs=rbi;
+    // HR minimum is 1 (the batter himself), max is all bases + batter
+    rbi=Math.max(1,Math.min(parseInt(rb)||maxRbi,maxRbi));
+    runs=rbi; // all HR RBIs are runs
   }else if(['H1','H2','H3','E','OUT','DP','BB','HBP'].indexOf(type)>=0){
     var rb2=prompt(type+'\nCorredores en base: '+enBase+'\n\nCuantas remolcadas (RBI)?','0');
     if(rb2===null)return;
@@ -1090,10 +1102,11 @@ async function rPlay(type){
   if(isHit){if(isTop)gm.awayHits=(parseInt(gm.awayHits)||0)+1;else gm.homeHits=(parseInt(gm.homeHits)||0)+1;}
   if(type==='E'){if(isTop)gm.homeErrors=(parseInt(gm.homeErrors)||0)+1;else gm.awayErrors=(parseInt(gm.awayErrors)||0)+1;}
   if(runs>0){
-    var k=(gm.currentInning)+'_'+(isTop?'top':'bottom');
+    var inn_key=(gm.currentInning)+'_'+(isTop?'top':'bottom');
     gm.inningScores=gm.inningScores||{};
-    gm.inningScores[k]=(parseInt(gm.inningScores[k])||0)+runs;
-    if(isTop)gm.awayRuns=(parseInt(gm.awayRuns)||0)+runs;else gm.homeRuns=(parseInt(gm.homeRuns)||0)+runs;
+    gm.inningScores[inn_key]=(parseInt(gm.inningScores[inn_key])||0)+runs;
+    if(isTop)gm.awayRuns=(parseInt(gm.awayRuns)||0)+runs;
+    else gm.homeRuns=(parseInt(gm.homeRuns)||0)+runs;
   }
   if(type==='DP')gm.outs=(parseInt(gm.outs)||0)+2;else if(isOut)gm.outs=(parseInt(gm.outs)||0)+1;
   if(isTop)gm.awayBatterIdx=(parseInt(gm.awayBatterIdx)||0)+1;else gm.homeBatterIdx=(parseInt(gm.homeBatterIdx)||0)+1;
@@ -1690,9 +1703,10 @@ function pgSet(){
     +'<div style="font-size:12px;color:var(--t3);word-break:break-all;margin-bottom:12px">'+GS.getUrl()+'</div>'
     +'<div class="fg"><label class="fl">Cambiar URL del Apps Script</label><input class="fi" id="gsurl" value="'+GS.getUrl()+'" style="font-size:12px" placeholder="https://script.google.com/macros/s/.../exec"></div>'
     +'<div id="gsr" style="display:none;margin-bottom:10px"></div>'
-    +'<div style="display:flex;gap:8px">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<button class="btn bs bsm" onclick="testGSSet()">&#128269; Probar</button>'
     +'<button class="btn bp bsm" onclick="saveGSSet()">&#128190; Guardar URL</button>'
+    +'<button class="btn bs bsm" onclick="syncSchema()" title="Agrega columnas faltantes a los sheets existentes">&#128295; Sincronizar Columnas</button>'
     +'</div></div>'
     +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Sesion y Actualizacion</div></div>'
       +'<div class="fr c2"><div class="fg"><label class="fl">Cierre por inactividad (minutos)</label><input class="fi" id="stout" type="number" min="5" max="480" value="'+(S.sessionTimeout||30)+'"></div>'
@@ -1720,6 +1734,12 @@ async function saveGSSet(){
   var url=(fv('gsurl')||'').trim();if(!url){toast('Ingresa la URL','error');return;}
   var ok=await pingUrl(url);if(!ok){toast('No se pudo conectar','error');return;}
   GS.setUrl(url);await loadAll();pgSet();toast('URL actualizada','success');
+}
+async function syncSchema(){
+  toast('Sincronizando columnas con Google Sheets...','info');
+  var r=await api('syncSchema');
+  if(r&&r.ok){toast(r.message||'Sincronizacion completada','success');}
+  else toast(r&&r.error||'Error al sincronizar','error');
 }
 async function saveSessParams(){
   var t=parseInt(fv('stout'))||30;
@@ -1850,9 +1870,12 @@ document.addEventListener('keydown',function(e){
 window.onload=function(){
   var url=GS.getUrl();
   if(!url){
+    // No GS URL configured - show setup wizard
     document.getElementById('sscr').style.display='flex';
     return;
   }
+  // URL exists - always hide setup screen
+  document.getElementById('sscr').style.display='none';
   if(restoreSession()){
     loadAll().then(function(){
       document.getElementById('lscr').style.display='none';
