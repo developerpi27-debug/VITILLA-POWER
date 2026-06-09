@@ -660,6 +660,7 @@ async function saveT(id){
 }
 
 // TEAMS
+function pgTeamsTab(tab){pgTeams();setTimeout(function(){var t=document.getElementById(tab);if(t){t.style.display='block';var tabs=document.querySelectorAll('.tabs .tab');if(tabs.length>=2){tabs[0].classList.remove('on');tabs[1].classList.add('on');}}},50);}
 function pgTeams(){
   var isA=S.user&&S.user.role==='admin';
   var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
@@ -687,12 +688,13 @@ function pgTeams(){
       +'<div><div style="font-size:20px;font-weight:700;font-family:Barlow Condensed,sans-serif">'+pls.length+'</div><div style="font-size:11px;color:var(--t3)">Jugadores</div></div>'
       +'<div><div style="font-size:13px;font-weight:600">'+(t.manager||'—')+'</div><div style="font-size:11px;color:var(--t3)">Manager</div></div>'
       +'</div>'
-      +(isA?'<div style="display:flex;gap:6px;flex-wrap:wrap">'
-        +'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openEM(this.dataset.tid)">Editar</button>'
-        +'<button class="btn bp bsm" data-tid="'+t.id+'" onclick="openPM(\'\',this.dataset.tid)">+ Jugador</button>'
-        +'<button class="btn '+(t.active==='false'?'bg2':'bd')+' bsm" data-tid="'+t.id+'" onclick="togTeam(this.dataset.tid)">'+(t.active==='false'?'Activar':'Inact.')+'</button>'
-        +'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>'
-        +'</div>':'')+'</div>';
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
+        +'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="viewTeamPlayers(this.dataset.tid)">&#128101; Jugadores ('+pls.length+')</button>'
+        +(isA?'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openEM(this.dataset.tid)">&#9998; Editar</button>':'')
+        +(isA?'<button class="btn bp bsm" data-tid="'+t.id+'" onclick="openPM(\'\',this.dataset.tid)">+ Jugador</button>':'')
+        +(isA?'<button class="btn '+(t.active==='false'?'bg2':'bd')+' bsm" data-tid="'+t.id+'" onclick="togTeam(this.dataset.tid)">'+(t.active==='false'?'Activar':'Inact.')+'</button>':'')
+        +(isA?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>':'')
+        +'</div></div>';
   }).join('');
   var prows=sp.map(function(p){
     var tm=teamOf(p.teamId);
@@ -738,6 +740,23 @@ async function saveE(id){
   var r=await api('saveTeam',{team:t});
   if(r&&r.ok){if(!id)S.teams.push(r.item);else S.teams=S.teams.map(function(x){return x.id===id?r.item:x;});cM();pgTeams();toast('Equipo guardado','success');}
   else toast(r&&r.error||'Error','error');
+}
+function viewTeamPlayers(tid){
+  var team=S.teams.filter(function(t){return t.id===tid;})[0];
+  var pls=S.players.filter(function(p){return p.teamId===tid;}).sort(function(a,b){return (parseInt(a.number)||99)-(parseInt(b.number)||99);});
+  showM('<div class="mhd"><div class="mtl">&#128101; '+(team?team.name:'Equipo')+' - Roster ('+pls.length+')</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="tw"><table><thead><tr><th>#</th><th>Nombre</th><th>Pos</th><th>Batea</th><th>Lanza</th><th>Estado</th></tr></thead><tbody>'
+    +(pls.length?pls.map(function(p){
+      var act=p.active!=='false'&&p.active!==false&&p.active!=='0'&&p.active!==undefined;
+      return'<tr style="'+(act?'':'opacity:.55')+'">'
+        +'<td><b>#'+(p.number||'?')+'</b></td><td>'+p.name+'</td>'
+        +'<td><span class="chip">'+(p.position||'OF')+'</span></td>'
+        +'<td>'+(p.bats||'R')+'</td><td>'+(p.throws||'R')+'</td>'
+        +'<td><span class="badge '+(act?'bg':'bgr')+'">'+(act?'Activo':'Inactivo')+'</span></td>'
+        +'</tr>';
+    }).join(''):'<tr><td colspan="6"><div class="empty">Sin jugadores</div></td></tr>')
+    +'</tbody></table></div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
 async function togTeam(id){
   var t=S.teams.filter(function(x){return x.id===id;})[0];if(!t)return;
@@ -814,13 +833,13 @@ async function togPlayer(id){
   var wasActive=p.active!=='false'&&p.active!==false&&p.active!=='0';
   p.active=wasActive?'false':'true';
   var r=await api('savePlayer',{player:p});
-  if(r&&r.ok){S.players=S.players.map(function(x){return x.id===id?p:x;});pgTeams();toast((wasActive?'Inactivado':'Activado'),'info');}
+  if(r&&r.ok){S.players=S.players.map(function(x){return x.id===id?p:x;});pgTeamsTab('tb-pl');toast((wasActive?'Inactivado':'Activado'),'info');}
   else toast(r&&r.error||'Error','error');
 }
 async function delPlayer(id){
   if(!confirm('Eliminar jugador?'))return;
   var r=await api('deleteRow',{sheet:'Jugadores',id:id});
-  if(r&&r.ok){S.players=S.players.filter(function(p){return p.id!==id;});pgTeams();toast('Eliminado','info');}
+  if(r&&r.ok){S.players=S.players.filter(function(p){return p.id!==id;});pgTeamsTab('tb-pl');toast('Eliminado','info');}
   else toast(r&&r.error||'Error','error');
 }
 
@@ -839,7 +858,7 @@ function pgSched(){
     +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value;pgSched()">'+tOpts+'</select>'
     +(isA?'<button class="btn bp" onclick="openGM(\'\')">+ Programar</button>':'')
     +'</div></div>'
-    +(lv.length?'<div class="alert aw" style="cursor:pointer">&#128308; EN VIVO: '+lv.map(function(g){var a=teamOf(g.awayTeamId),h2=teamOf(g.homeTeamId);return(a?a.name:'?')+' '+(parseInt(g.awayRuns)||0)+' - '+(parseInt(g.homeRuns)||0)+' '+(h2?h2.name:'?')+' (Entrada '+(g.currentInning||1)+')';}).join(' | ')+'</div>':'')
+    +(lv.length?lv.map(function(g){var a=teamOf(g.awayTeamId),h2=teamOf(g.homeTeamId);return'<div class="alert aw" style="cursor:pointer;margin-bottom:4px" data-gid="'+g.id+'" onclick="startGame(this.dataset.gid)">&#128308; EN VIVO &mdash; '+(a?a.name:'?')+' '+(parseInt(g.awayRuns)||0)+' - '+(parseInt(g.homeRuns)||0)+' '+(h2?h2.name:'?')+' &bull; Entrada '+(g.currentInning||1)+(g.currentHalf==='top'?'&#9650;':'&#9660;')+' &mdash; <u>Ver en vivo</u></div>';}).join(''):'')
     +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128197; Proximos</div></div>'
     +(sc.length?sc.map(function(g){
       var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);if(!hw||!aw)return'';
@@ -948,6 +967,14 @@ function renderLU(side,teamId){
   var px=side==='aw'?'a':'h';
   var re=document.getElementById('r'+px),le=document.getElementById('l'+px),ce=document.getElementById('c'+px);
   if(ce)ce.textContent=_LU[side].length;
+  // Wire NoBat checkboxes (must be after innerHTML is set)
+  setTimeout(function(){
+    var prefix=px;
+    (_LU[side]||[]).forEach(function(lp,idx2){
+      var cb=document.getElementById('nb-'+side+'-'+idx2);
+      if(cb) cb.addEventListener('change',(function(s,ix){return function(){setNoBat(s,ix,this.checked);};})(side,idx2));
+    });
+  },10);
   if(re)re.innerHTML=avail.map(function(p){
     return'<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;background:var(--card)">'
       +'<div style="flex:1;font-size:12px"><b>#'+(p.number||'?')+'</b> '+p.name+' <span class="chip" style="font-size:10px">'+(p.position||'OF')+'</span></div>'
@@ -957,6 +984,7 @@ function renderLU(side,teamId){
   if(le)le.innerHTML=_LU[side].map(function(lp,i){
     var p=S.players.filter(function(x){return x.id===lp.playerId;})[0];
     var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(lp.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+    var isDH=lp.noBat===true;
     return'<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;background:var(--card2)">'
       +'<div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;color:var(--acc);width:20px">'+(i+1)+'</div>'
       +'<div style="flex:1;font-size:12px"><b>#'+(p?p.number||'?':'?')+'</b> '+(p?p.name:'?')+'</div>'
@@ -965,7 +993,8 @@ function renderLU(side,teamId){
       +(i>0?'<button data-s="'+side+'" data-i="'+i+'" data-t="'+teamId+'" onclick="moveLU(this.dataset.s,+this.dataset.i,-1,this.dataset.t)" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:3px;padding:1px 5px;cursor:pointer;font-size:10px">&#9650;</button>':'<div style="height:17px"></div>')
       +(i<_LU[side].length-1?'<button data-s="'+side+'" data-i="'+i+'" data-t="'+teamId+'" onclick="moveLU(this.dataset.s,+this.dataset.i,1,this.dataset.t)" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:3px;padding:1px 5px;cursor:pointer;font-size:10px">&#9660;</button>':'<div style="height:17px"></div>')
       +'</div>'
-      +'<button data-s="'+side+'" data-i="'+i+'" data-t="'+teamId+'" onclick="remLU(this.dataset.s,+this.dataset.i,this.dataset.t)" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:#f87171">&#10005;</button>'
+      +'<label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--t3);cursor:pointer;white-space:nowrap">'
+      +'<input type="checkbox" id="nb-nb-'+side+'-'+i+'" '+(isDH?'checked':'')+' style="accent-color:var(--acc);width:12px;height:12px"> NB</label>'
       +'</div>';
   }).join('')||'<div style="font-size:12px;color:var(--t3);padding:8px;text-align:center">Agrega jugadores &rarr;</div>';
 }
@@ -973,6 +1002,7 @@ function addLU(side,pid,tid){var p=S.players.filter(function(x){return x.id===pi
 function remLU(side,idx,tid){_LU[side].splice(idx,1);_LU[side].forEach(function(lp,i){lp.order=i+1;});renderLU(side,tid);}
 function moveLU(side,idx,dir,tid){var a=_LU[side],sw=idx+dir;if(sw<0||sw>=a.length)return;var tmp=a[idx];a[idx]=a[sw];a[sw]=tmp;a.forEach(function(lp,i){lp.order=i+1;});renderLU(side,tid);}
 function changePosLU(side,idx,pos){_LU[side][idx].position=pos;}
+function setNoBat(side,idx,val){_LU[side][idx].noBat=val;}
 async function saveLS(gid,awT,hmT){
   if(!_LU.aw.length){toast('Agrega jugadores al lineup visitante','error');return;}
   if(!_LU.hm.length){toast('Agrega jugadores al lineup local','error');return;}
@@ -1006,7 +1036,7 @@ function pgGC(){
   var plen=lu&&lu.players?lu.players.length:1;if(plen<1)plen=1;
   var idx=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
   // Active batting order (same logic as rPlay)
-  var gcRpIds=(lu&&lu.players?lu.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;}):[]);
+  var gcRpIds=(lu&&lu.players?lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;}):[]);
   var gcSlots=[];
   if(lu&&lu.players)lu.players.forEach(function(lp){var s=lp.order||0;if(gcSlots.indexOf(s)<0)gcSlots.push(s);});
   gcSlots.sort(function(a,b){return a-b;});
@@ -1075,6 +1105,7 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.awayTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+aw.name+'</button>'
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
+    +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
       +'</div>':'')
     +'</div>'
     +(cs?'<div><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
@@ -1324,7 +1355,7 @@ async function rPlay(type){
   // Get CURRENT batter (active, not replaced)
   var idx=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
   // Active batting order: for each slot, the player who hasn't been replaced
-  var rpIds=lu.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;});
+  var rpIds=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;});
   var slots2=[];
   lu.players.forEach(function(lp){var s=lp.order||0;if(slots2.indexOf(s)<0)slots2.push(s);});
   slots2.sort(function(a,b){return a-b;});
@@ -1496,6 +1527,51 @@ function rBSO(type){
   else if(type==='foul'){if((parseInt(gm.strikes)||0)<2)gm.strikes=(parseInt(gm.strikes)||0)+1;}
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});pgGC();
   api('saveGame',{game:gm}); // fire-and-forget
+}
+async function undoLastPlay(){
+  if(!confirm('Deshacer la ultima jugada? El bateador volvera al turno.'))return;
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  var gEvs=S.events.filter(function(e){return e.gameId===gm.id;});
+  if(!gEvs.length){toast('No hay jugadas para deshacer','info');return;}
+  // Get last event
+  var last=gEvs[gEvs.length-1];
+  var wasTop=last.half==='top';
+  // Revert batter index
+  if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
+  else gm.homeBatterIdx=Math.max(0,(parseInt(gm.homeBatterIdx)||0)-1);
+  // Revert runs if any
+  var runs=parseInt(last.runs)||0;
+  if(runs>0){
+    var k=String(last.inning)+'_'+last.half;
+    if(gm.inningScores&&gm.inningScores[k]){
+      gm.inningScores[k]=Math.max(0,(parseInt(gm.inningScores[k])||0)-runs);
+    }
+    if(wasTop)gm.awayRuns=Math.max(0,(parseInt(gm.awayRuns)||0)-runs);
+    else gm.homeRuns=Math.max(0,(parseInt(gm.homeRuns)||0)-runs);
+  }
+  // Revert hits/errors
+  var isHit=['H1','H2','H3','HR'].indexOf(last.type)>=0;
+  if(isHit){
+    if(wasTop)gm.awayHits=Math.max(0,(parseInt(gm.awayHits)||0)-1);
+    else gm.homeHits=Math.max(0,(parseInt(gm.homeHits)||0)-1);
+  }
+  if(last.type==='E'){
+    if(wasTop)gm.homeErrors=Math.max(0,(parseInt(gm.homeErrors)||0)-1);
+    else gm.awayErrors=Math.max(0,(parseInt(gm.awayErrors)||0)-1);
+  }
+  // Revert outs
+  var isOut=['K','OUT','DP','SAC'].indexOf(last.type)>=0;
+  var outsAdded=last.type==='DP'?2:isOut?1:0;
+  if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
+  // Remove event locally
+  S.events=S.events.filter(function(e){return e.id!==last.id;});
+  S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+  // Save to GS
+  _saving=true;
+  await api('deleteRow',{sheet:'Eventos',id:last.id});
+  await api('saveGame',{game:gm});
+  _saving=false;
+  pgGC();toast('Ultima jugada deshecha','success');
 }
 async function endGame(){
   if(!confirm('Confirmar finalizacion del juego?'))return;
@@ -1720,18 +1796,24 @@ function pgStand(){
     }
     return{tm:tm,w:w,l:l,gp:gp,pct:pct,rf:rf,ra:ra,dif:rf-ra,streak:sc>0?(lr==='G'?'&#10003;':'&#10007;')+sc:'&mdash;'};
   }).sort(function(a,b){
-    // MLB-style: W-L PCT first, tiebreak by head-to-head, then run differential
-    var aP=parseFloat(a.pct)||0; var bP=parseFloat(b.pct)||0;
-    if(Math.abs(aP-bP)>0.0005) return bP-aP;
-    // Same PCT: head-to-head (serie particular)
-    var ha=fg.filter(function(g){return(g.awayTeamId===a.tm.id&&g.homeTeamId===b.tm.id)||(g.homeTeamId===a.tm.id&&g.awayTeamId===b.tm.id);});
-    var aH2H=0,bH2H=0;
-    ha.forEach(function(g){
-      var aWon=(g.awayTeamId===a.tm.id&&parseInt(g.awayRuns)>parseInt(g.homeRuns))||(g.homeTeamId===a.tm.id&&parseInt(g.homeRuns)>parseInt(g.awayRuns));
-      if(aWon)aH2H++;else bH2H++;
+    // MLB: Sort by W-L PCT descending (higher PCT = better rank)
+    // PCT already stored as string like "0.750" or "1.000"
+    var aP=a.gp>0?a.w/a.gp:0;
+    var bP=b.gp>0?b.w/b.gp:0;
+    if(Math.abs(aP-bP)>0.001) return bP-aP; // different PCT -> higher PCT wins
+    // Same PCT -> head-to-head (serie particular)
+    var h2h=fg.filter(function(g){
+      return(g.awayTeamId===a.tm.id&&g.homeTeamId===b.tm.id)||
+             (g.homeTeamId===a.tm.id&&g.awayTeamId===b.tm.id);
     });
-    if(aH2H!==bH2H)return bH2H-aH2H;
-    // Same H2H: run differential
+    var aWins=0,bWins=0;
+    h2h.forEach(function(g){
+      var ar=parseInt(g.awayRuns)||0,hr=parseInt(g.homeRuns)||0;
+      if(g.awayTeamId===a.tm.id){if(ar>hr)aWins++;else if(hr>ar)bWins++;}
+      else{if(hr>ar)aWins++;else if(ar>hr)bWins++;}
+    });
+    if(aWins!==bWins) return bWins-aWins;
+    // Same H2H -> run differential
     return b.dif-a.dif;
   });
   var isA=S.user&&S.user.role==='admin';
@@ -1804,7 +1886,7 @@ async function undoDraft(pid,tourId){
 }
 
 // STATS
-var _ST={tourId:'',sortBy:'avg',sortDir:-1};
+var _ST={tourId:'',sortBy:'avg',sortDir:-1,search:''};
 function pgStats(tid,sBy){
   if(tid!==undefined)_ST.tourId=tid;
   if(sBy!==undefined){if(_ST.sortBy===sBy)_ST.sortDir*=-1;else{_ST.sortBy=sBy;_ST.sortDir=-1;}}
@@ -1812,7 +1894,8 @@ function pgStats(tid,sBy){
   var evs=S.events.filter(function(e){return gids.indexOf(e.gameId)>=0;});
   var pevs=S.pitching.filter(function(e){return gids.indexOf(e.gameId)>=0;});
   var tids=_ST.tourId?visibleTeams().filter(function(t){return t.tournamentId===_ST.tourId;}).map(function(t){return t.id;}):visibleTeams().map(function(t){return t.id;});
-  var ps=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;}).map(function(p){
+  var statsQ=(_ST.search||'').toLowerCase();
+  var ps=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&(!statsQ||p.name.toLowerCase().indexOf(statsQ)>=0);}).map(function(p){
     var pe=evs.filter(function(e){return e.batterId===p.id;});
     var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
@@ -1856,7 +1939,8 @@ function pgStats(tid,sBy){
   var tOpts='<option value="">Todos</option>'+visibleTournaments().map(function(t){return'<option value="'+t.id+'" '+(_ST.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   function th(col,lbl){var a=_ST.sortBy===col;return'<th onclick="pgStats(undefined,\''+col+'\')" style="cursor:pointer;user-select:none;'+(a?'color:var(--acc)':'')+'">'+(lbl+(_ST.sortDir===-1?'&darr;':'&uarr;'))+'</th>';}
   ct(yearBar()+'<div class="stl">Estadisticas</div>'
-    +'<div class="card" style="margin-bottom:14px"><select class="fs" style="width:180px" onchange="pgStats(this.value)">'+tOpts+'</select></div>'
+    +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="fs" style="width:180px" onchange="pgStats(this.value)">'+tOpts+'</select>'
+    +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." oninput="_ST.search=this.value;pgStats()" style="width:180px"></div></div>'
     +'<div class="tabs"><div class="tab on" onclick="showTab(this,\'st-b\')">&#127952; Bateo</div><div class="tab" onclick="showTab(this,\'st-p\')">&#9918; Pitcheo</div></div>'
     +'<div id="st-b"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipo</th>'+th('vb','VB')+th('h','H')+th('h2','2B')+th('h3','3B')+th('hr','HR')+th('rbi','RBI')+th('bb','BB')+th('k','K')+th('sb','SB')+th('avg','AVG')+th('obp','OBP')+th('slg','SLG')+'</tr></thead><tbody>'
     +(ps.map(function(s){
@@ -2292,6 +2376,7 @@ function exportReport(gid){
   var gm=S.games.filter(function(x){return x.id===gid;})[0];if(!gm)return;
   var hw=teamOf(gm.homeTeamId),aw=teamOf(gm.awayTeamId);
   if(!hw||!aw)return;
+  var gEvs2=S.events.filter(function(e){return e.gameId===gid;});
   var tour=S.tournaments.filter(function(t){return t.id===gm.tournamentId;})[0];
   var inn=parseInt(gm.totalInnings)||7;var maxInn=inn;
   if(gm.inningScores)Object.keys(gm.inningScores).forEach(function(k){var n=parseInt(k);if(!isNaN(n)&&n>maxInn)maxInn=n;});
@@ -2400,7 +2485,19 @@ function exportReport(gid){
     +'<div class="section"><h2>&#9918; Pitcheo &mdash; '+aw.name+'</h2>'+pitTable(gm.awayTeamId,aw.name)+'</div>'
     +'<div class="section"><h2>&#9918; Pitcheo &mdash; '+hw.name+'</h2>'+pitTable(gm.homeTeamId,hw.name)+'</div>'
     +'</div>'
-    +'<div class="footer">Generado por VitillaStats Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
+    +(gEvs2&&gEvs2.length?'<h2>&#128221; Jugadas del Partido</h2><div style="font-size:10px;line-height:1.7">'
+    +gEvs2.map(function(e){
+      var p2=playerOf(e.batterId);var tm2=teamOf(e.battingTeamId);
+      var isH2=['H1','H2','H3','HR'].indexOf(e.type)>=0;
+      return'<span style="color:'+(isH2?'#16a34a':['K','OUT','DP'].indexOf(e.type)>=0?'#dc2626':'#333')+'">'
+        +'Ent.'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+' '
+        +(tm2?'<b>'+tm2.name+'</b>':'?')+' | '
+        +(p2?'#'+(p2.number||'?')+' '+p2.name:'?')+' | <b>'+e.type+'</b>'
+        +(parseInt(e.rbi)>0?' | '+e.rbi+' RBI':'')
+        +(parseInt(e.runs)>0?' | +'+e.runs+' c':'')
+        +'</span><br>';
+    }).join('')+'</div>':'')
+  +'<div class="footer">Generado por VitillaStats Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   w.document.write(winHtml);
