@@ -12,20 +12,27 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--txt);min-h
 button{font-family:'Barlow',sans-serif;cursor:pointer;}
 input,select,textarea{font-family:'Barlow',sans-serif;}
 #app{display:none;min-height:100vh;}
-#sb{width:240px;background:var(--bg2);border-right:1px solid var(--bdr);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100;overflow-y:auto;transition:width .2s,transform .2s;}
-#sb.collapsed{width:52px;overflow:hidden;}
-#sb.collapsed .sbl h1,#sb.collapsed .sbl span,#sb.collapsed .ni-lbl,#sb.collapsed #snav .ni span:last-child,#sb.collapsed .sbf{display:none;}
-#sb.collapsed .ni{justify-content:center;padding:10px 0;}
-#sb.collapsed .sbl{justify-content:center;padding:12px 0;}
-#mn{margin-left:240px;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .2s;}
-#mn.sb-collapsed{margin-left:52px;}
-#sb-toggle{position:absolute;bottom:14px;right:-13px;width:26px;height:26px;border-radius:50%;background:var(--acc);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;z-index:110;color:#000;font-weight:700;user-select:none;}
+#sb{width:240px;background:var(--bg2);border-right:1px solid var(--bdr);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:width .25s cubic-bezier(.4,0,.2,1);}
+#sb.collapsed{width:56px;}
+#sb.collapsed .sbl-title{display:none;}
+#sb.collapsed .sbl{justify-content:center;gap:0;padding:0;height:60px;}
+#sb.collapsed .sbl-ico{font-size:20px;}
+#sb.collapsed #snav{overflow-x:hidden;}
+#sb.collapsed .ni{justify-content:center;padding:12px 0;gap:0;}
+#sb.collapsed .ni-lbl{display:none;}
+#sb.collapsed .nsec{display:none;}
+#sb.collapsed .sbf{display:none;}
+#mn{margin-left:240px;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s cubic-bezier(.4,0,.2,1);}
+#mn.sb-collapsed{margin-left:56px;}
+#sb-toggle{width:28px;height:28px;border-radius:8px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--acc);font-weight:700;user-select:none;flex-shrink:0;transition:background .15s;}
+#sb-toggle:hover{background:rgba(245,166,35,.3);}
 #tb{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
 #ct{padding:24px;flex:1;}
-.sbl{padding:18px 16px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;}
+.sbl{padding:0 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;height:60px;flex-shrink:0;}
 .sbl h1{font-size:20px;color:var(--acc);letter-spacing:1px;font-family:'Barlow Condensed',sans-serif;font-weight:800;}
 .sbl span{font-size:10px;color:var(--t3);display:block;letter-spacing:2px;}
-#snav{flex:1;padding:8px 0;}
+.sbl-title{flex:1;min-width:0;}
+#snav{flex:1;padding:8px 0;overflow-y:auto;overflow-x:hidden;}
 .nsec{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1.5px;padding:12px 16px 4px;text-transform:uppercase;}
 .ni{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--t2);font-size:13px;transition:all .15s;border-left:3px solid transparent;}
 .ni:hover{background:rgba(245,166,35,.07);color:var(--txt);}
@@ -225,13 +232,16 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <!-- APP -->
 <div id="app">
   <div id="sb">
-    <div class="sbl"><span style="font-size:24px">&#9918;</span><div><h1>VITILLA</h1><span>STATS PRO</span></div></div>
+    <div class="sbl">
+      <span class="sbl-ico" style="font-size:24px;flex-shrink:0">&#9918;</span>
+      <div class="sbl-title"><h1>VITILLA</h1><span>STATS PRO</span></div>
+      <div id="sb-toggle" onclick="toggleSidebar()" title="Colapsar menu">&#8249;</div>
+    </div>
     <div id="snav"></div>
     <div class="sbf">
       <div id="coni" style="margin-bottom:4px"></div>
       <div id="lici"></div>
     </div>
-    <div id="sb-toggle" onclick="toggleSidebar()" title="Colapsar/Expandir menu">&#9664;</div>
   </div>
   <div id="mn">
     <div id="tb">
@@ -397,7 +407,7 @@ async function loadAll(){
   S.pollInterval=Math.max(10,parseInt(d.config&&d.config.pollInterval)||30);
   S.tournaments=d.tournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   S.games=d.games||[];S.lineups=d.lineups||[];S.events=d.events||[];
-  S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];
+  S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];S.visits=d.visits||{};S.channels=d.channels||[];
 }
 
 // POLLING
@@ -435,6 +445,7 @@ var ALL_MOD=[
   {id:'teams',lbl:'Equipos',ico:'👥',sec:'General'},
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
+  {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
   {id:'leaders',lbl:'Lideres',ico:'🥇',sec:'Estadisticas'},
@@ -444,9 +455,9 @@ var ALL_MOD=[
   {id:'license',lbl:'Licencia',ico:'🔑',sec:'Admin'},
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
 ];
-var BASE_PUB=['standings','schedule','stats','leaders','awards'];
+var BASE_PUB=['standings','schedule','stats','leaders','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','leaders','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',leaders:'Lideres',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',leaders:'Lideres',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -536,9 +547,9 @@ function renderApp(){
   var mods=getUserMods(u);var nm='';var last='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
-    nm+='<div class="ni" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')"><span style="font-size:15px;width:20px;text-align:center">'+p.ico+'</span>'+p.lbl+'</div>';
+    nm+='<div class="ni" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'"><span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
   });
-  if(u.role!=='public'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')"><span style="font-size:15px;width:20px;text-align:center">&#128274;</span>Mi Perfil</div>';}
+  if(u.role!=='public'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
   document.getElementById('snav').innerHTML=nm;
   goNav(u.role==='public'?'standings':(mods[0]?mods[0].id:'dashboard'));
 }
@@ -551,12 +562,12 @@ function toggleSidebar(){
   if(_sbCollapsed){
     sb.classList.add('collapsed');
     mn.classList.add('sb-collapsed');
-    btn.innerHTML='&#9654;';
+    btn.innerHTML='&#8250;';
     btn.title='Expandir menu';
   } else {
     sb.classList.remove('collapsed');
     mn.classList.remove('sb-collapsed');
-    btn.innerHTML='&#9664;';
+    btn.innerHTML='&#8249;';
     btn.title='Colapsar menu';
   }
   try{localStorage.setItem('vsp_sb',_sbCollapsed?'1':'0');}catch(e){}
@@ -564,7 +575,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,leaders:pgLead,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,leaders:pgLead,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels};}
 function goNav(page){
   curP=page;
   document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
@@ -610,19 +621,48 @@ function gcH(g){
 function openGD(id){S.game=id;goNav('gamecontrol');}
 
 // DASHBOARD
+async function trackVisit(){
+  try{
+    var today=new Date().toISOString().slice(0,10);
+    var last=localStorage.getItem('vsp_lv');
+    if(last===today)return; // already counted today for this browser
+    var r=await api('trackVisit',{date:today});
+    if(r&&r.ok){
+      localStorage.setItem('vsp_lv',today);
+      S.visits=r.visits||S.visits||{};
+    }
+  }catch(e){}
+}
 function pgDash(){
   var vg=gamesByYear();
   var at=visibleTournaments().filter(function(t){return t.status==='active';}).length;
   function gmDT(g){return new Date((g.date||'2099-12-31')+'T'+(g.time&&g.time.indexOf('1899')<0?g.time:'00:00'));}
   var up=vg.filter(function(g){return g.status==='scheduled';}).sort(function(a,b){return gmDT(a)-gmDT(b);}).slice(0,5);
   var re=vg.filter(function(g){return g.status==='final';}).sort(function(a,b){return gmDT(b)-gmDT(a);}).slice(0,5);
+  var v=S.visits||{};
+  var today=new Date().toISOString().slice(0,10);
+  var ym=today.slice(0,7);
+  var yr=today.slice(0,4);
+  var vHoy=v[today]||0;
+  var vMes=Object.keys(v).filter(function(k){return k.slice(0,7)===ym;}).reduce(function(s,k){return s+(v[k]||0);},0);
+  var vAno=Object.keys(v).filter(function(k){return k.slice(0,4)===yr;}).reduce(function(s,k){return s+(v[k]||0);},0);
+  var vTotal=Object.keys(v).reduce(function(s,k){return s+(v[k]||0);},0);
+  var isA=S.user&&S.user.role==='admin';
+  var visitBlock=isA?('<div class="card" style="margin-bottom:16px">'
+    +'<div class="chd"><div class="ctl">&#128065; Visitantes</div></div>'
+    +'<div class="g4" style="margin-top:8px">'
+    +'<div class="scard"><div class="sv">'+vHoy+'</div><div class="sl">Hoy</div></div>'
+    +'<div class="scard"><div class="sv">'+vMes+'</div><div class="sl">Este Mes</div></div>'
+    +'<div class="scard"><div class="sv">'+vAno+'</div><div class="sl">Este Año</div></div>'
+    +'<div class="scard"><div class="sv">'+vTotal+'</div><div class="sl">Total</div></div>'
+    +'</div></div>'):'';
   ct(yearBar()+'<div class="stl">Dashboard</div><div class="ssb">Resumen general del sistema</div>'
     +'<div class="g4" style="margin-bottom:16px">'
     +'<div class="scard"><div class="sv">'+at+'</div><div class="sl">Torneos Activos</div></div>'
     +'<div class="scard"><div class="sv">'+visibleTeams().length+'</div><div class="sl">Equipos</div></div>'
     +'<div class="scard"><div class="sv">'+S.players.length+'</div><div class="sl">Jugadores</div></div>'
     +'<div class="scard"><div class="sv">'+vg.filter(function(g){return g.status==='final';}).length+'</div><div class="sl">Juegos Jugados</div></div>'
-    +'</div><div class="g2">'
+    +'</div>'+visitBlock+'<div class="g2">'
     +'<div class="card"><div class="chd"><div class="ctl">&#128197; Proximos</div></div>'+(up.length?up.map(gcH).join(''):'<div class="empty"><div>Sin juegos programados</div></div>')+'</div>'
     +'<div class="card"><div class="chd"><div class="ctl">&#10003; Resultados Recientes</div></div>'+(re.length?re.map(gcH).join(''):'<div class="empty"><div>Sin resultados</div></div>')+'</div>'
     +'</div>');
@@ -882,7 +922,8 @@ function pgSched(){
   function scDT(g){return new Date((g.date||'2099-12-31')+'T'+(g.time&&g.time.indexOf('1899')<0?g.time:'00:00'));}
   var sc=fg.filter(function(g){return g.status==='scheduled';}).sort(function(a,b){return scDT(a)-scDT(b);});
   var lv=fg.filter(function(g){return g.status==='live';});
-  var fn=fg.filter(function(g){return g.status==='final'||g.status==='suspended';}).sort(function(a,b){return scDT(b)-scDT(a);});
+  var _fnQ=S._schedDateFilter||'';
+  var fn=fg.filter(function(g){return(g.status==='final'||g.status==='suspended')&&(!_fnQ||g.date===_fnQ);}).sort(function(a,b){return scDT(b)-scDT(a);});
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Calendario</div><div class="ssb">Programa y gestiona juegos</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center">'
@@ -904,7 +945,11 @@ function pgSched(){
         +'</div></div>';
     }).join(''):'<div class="empty"><div>Sin juegos programados</div></div>')
     +'</div>'
-    +'<div class="card"><div class="chd"><div class="ctl">&#10003; Resultados</div></div>'+(fn.length?fn.map(gcH).join(''):'<div class="empty"><div>Sin resultados</div></div>')+'</div>');
+    +'<div class="card"><div class="chd" style="display:flex;align-items:center;justify-content:space-between"><div class="ctl">&#10003; Resultados</div>'
+    +'<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;color:var(--t3)">Filtrar fecha:</label>'
+    +'<input type="date" class="fi" style="width:150px;font-size:12px" value="'+(_fnQ||'')+'" onchange="S._schedDateFilter=this.value;pgSched()" title="Filtrar resultados por fecha">'
+    +(S._schedDateFilter?'<button class="btn bs bsm" onclick="S._schedDateFilter=\'\';pgSched()">&#10005;</button>':'')+'</div></div>'
+    +(fn.length?fn.map(gcH).join(''):'<div class="empty"><div>'+(S._schedDateFilter?'Sin resultados para esta fecha':'Sin resultados')+'</div></div>')+'</div>');
 }
 function openGM(id){
   var g=id?S.games.filter(function(x){return x.id===id;})[0]:{};if(!g)g={};
@@ -1394,7 +1439,7 @@ async function outEnJugada(){
     await api('saveEvent',{event:ojEv});
     toast('Out en jugada registrado','success');
     // Also update pitcher IP
-    await autoUpdatePitcher(gm,'OJ',0);
+    await autoUpdatePitcher(gm,'OJ',0,evHalf);
   }finally{_rPlayBusy=false;_saving=false;}
 }
 async function rPlay(type){
@@ -1469,11 +1514,29 @@ async function rPlay(type){
     if(rb5===null)return;
     rbi=Math.max(0,parseInt(rb5)||0); runs=rbi;
   } else if(type==='E'){
+    // First ask runs, then select fielder who committed the error
     var rb6=prompt('ERROR - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas por el error?','0');
     if(rb6===null)return;
     rbi=Math.max(0,parseInt(rb6)||0); runs=rbi;
+    // Pick fielder from fielding team (opposite of batting team)
+    var fldTeamId=isTop?gm.homeTeamId:gm.awayTeamId;
+    var fldLU=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===fldTeamId;})[0];
+    var fldPlayers=fldLU&&fldLU.players?fldLU.players.filter(function(lp){
+      return!lp.replacedBy&&!(lp.noBat===true||lp.noBat==='true');
+    }).map(function(lp){
+      var p=playerOf(lp.playerId);
+      return{id:lp.playerId,label:'#'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+' ('+lp.position+')'};
+    }):[];
+    if(fldPlayers.length){
+      var optList=fldPlayers.map(function(p,i){return(i+1)+'. '+p.label;}).join('\n');
+      var selIdx=prompt('ERROR\n\nSelecciona el jugador que cometió el error:\n'+optList+'\n\nIngresa el numero (1-'+fldPlayers.length+'):','');
+      if(selIdx===null)return;
+      var idx=parseInt(selIdx)-1;
+      if(idx>=0&&idx<fldPlayers.length) gm._errorFielderId=fldPlayers[idx].id;
+      else gm._errorFielderId=null;
+    }
   }
 
   _rPlayBusy=true;
@@ -1530,15 +1593,17 @@ async function rPlay(type){
     }
     // Build event record — generate ID on frontend to prevent backend collisions
     var evId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var errorFielderId=(type==='E'&&gm._errorFielderId)||null;
+    if(gm._errorFielderId)delete gm._errorFielderId;
     var ev={id:evId,gameId:gm.id,batterId:bi.playerId,battingTeamId:btId,
-      type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,
+      type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
       timestamp:new Date().toISOString()};
     // Push event IMMEDIATELY so box score reflects it before save
     S.events.push(Object.assign({},ev));
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     if(gameOver) S.game=null;
     pgGC();
-    await autoUpdatePitcher(gm,type,runs);
+    await autoUpdatePitcher(gm,type,runs,evHalf);
     // Save game FIRST (has updated scores), then event
     await api('saveGame',{game:gm});
     // Validate no duplicate before saving (guard against double-tap)
@@ -1562,8 +1627,10 @@ async function rPlay(type){
   }
 }
 
-async function autoUpdatePitcher(gm,type,runs){
-  var isTop=gm.currentHalf==='top';
+async function autoUpdatePitcher(gm,type,runs,half){
+  // Use passed half (captured BEFORE potential inning flip) not gm.currentHalf
+  var h=half||gm.currentHalf;
+  var isTop=h==='top';
   var ftId=isTop?gm.homeTeamId:gm.awayTeamId;
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===ftId;})[0];
   if(!lu||!lu.players)return;
@@ -2052,6 +2119,7 @@ function pgStats(tid,sBy,pSBy){
     var bb=pe.filter(function(e){return e.type==='BB'||e.type==='HBP';}).length;
     var k=pe.filter(function(e){return e.type==='K';}).length;
     var sb=pe.filter(function(e){return e.type==='SB';}).length;
+    var ef=evs.filter(function(e){return e.errorFielderId===p.id;}).length;
     var avg=vb>0?h/vb:0;var obp=(vb+bb)>0?(h+bb)/(vb+bb):0;var slg=vb>0?(h-h2-h3-hr+h2*2+h3*3+hr*4)/vb:0;
     var tm=teamOf(p.teamId);
     return{p:p,tm:tm,vb:vb,h:h,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:k,sb:sb,avg:avg,obp:obp,slg:slg};
@@ -2302,7 +2370,23 @@ async function delAward(id){
 }
 
 // USERS
+var _usrQ='';
+function filterUsersDisplay(){
+  var q=(_usrQ||'').toLowerCase();
+  var tbody=document.querySelector('#usr-table tbody');
+  if(!tbody)return;
+  var empty=document.getElementById('usr-empty');
+  var visible=0;
+  [].forEach.call(tbody.querySelectorAll('tr'),function(tr){
+    var txt=tr.textContent.toLowerCase();
+    var show=!q||txt.indexOf(q)>=0;
+    tr.style.display=show?'':'none';
+    if(show)visible++;
+  });
+  if(empty)empty.style.display=visible?'none':'';
+}
 function pgUsers(){
+  var q=''; // render all rows, filtering is DOM-only
   var rows=S.users.map(function(u){
     var prof=(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
     var rb=u.role==='admin'?'<span class="badge bo">Admin</span>':prof?'<span class="badge bb">'+prof.name+'</span>':'<span class="badge bgr">Anotador</span>';
@@ -2313,13 +2397,25 @@ function pgUsers(){
       +'<td><div style="display:flex;gap:5px">'
       +'<button class="btn bs bsm" data-uid="'+u.id+'" onclick="openUM(this.dataset.uid)">Editar</button>'
       +'<button class="btn '+(act?'bd':'bg2')+' bsm" data-uid="'+u.id+'" onclick="togU(this.dataset.uid)">'+(act?'Inactivar':'Activar')+'</button>'
+      +'<button class="btn bd bsm" data-uid="'+u.id+'" onclick="delU(this.dataset.uid)">&#128465;</button>'
       +'</div></td></tr>';
   }).join('');
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Usuarios</div><div class="ssb">Gestion de usuarios del sistema</div></div>'
     +'<button class="btn bp" onclick="openUM(\'\')">+ Nuevo Usuario</button></div>'
-    +'<div class="card"><div class="tw"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>'
-    +'<tbody>'+(rows||'<tr><td colspan="6"><div class="empty">Sin usuarios</div></td></tr>')+'</tbody></table></div></div>');
+    +'<div class="card" style="margin-bottom:12px"><input class="fi" id="usr-search" value="'+(_usrQ||'')+'" placeholder="&#128269; Buscar por nombre o usuario..." oninput="_usrQ=this.value;filterUsersDisplay()" style="width:280px"></div>'
+    +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>'
+    +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="6"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
+  // Restore search box value and apply filter without losing focus
+  var inp=document.getElementById('usr-search');
+  if(inp){inp.value=_usrQ;filterUsersDisplay();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
+}
+async function delU(id){
+  var u=S.users.filter(function(x){return x.id===id;})[0];if(!u)return;
+  if(!confirm('Eliminar usuario &ldquo;'+u.username+'&rdquo;? Esta accion no se puede deshacer.'))return;
+  var r=await api('deleteRow',{sheet:'Usuarios',id:id});
+  if(r&&r.ok){S.users=S.users.filter(function(x){return x.id!==id;});pgUsers();toast('Usuario eliminado','info');}
+  else toast(r&&r.error||'Error al eliminar','error');
 }
 function openUM(id){
   var u=id?S.users.filter(function(x){return x.id===id;})[0]:{};if(!u)u={};
@@ -2355,6 +2451,81 @@ async function togU(id){
   u.active=!(String(u.active)==='true');
   var r=await api('saveUser',{user:u});
   if(r&&r.ok){S.users=S.users.map(function(x){return x.id===id?u:x;});pgUsers();toast((u.active?'Activado':'Inactivado'),'info');}
+  else toast(r&&r.error||'Error','error');
+}
+
+// CHANNELS
+var PLATFORM_ICONS={'youtube':'🎬','tiktok':'📱','facebook':'📘','instagram':'📷','twitch':'🎮','twitter':'🐦','other':'📺'};
+function getPlatform(url){
+  if(!url)return'other';
+  var u=url.toLowerCase();
+  if(u.indexOf('youtube')>=0||u.indexOf('youtu.be')>=0)return'youtube';
+  if(u.indexOf('tiktok')>=0)return'tiktok';
+  if(u.indexOf('facebook')>=0||u.indexOf('fb.watch')>=0)return'facebook';
+  if(u.indexOf('instagram')>=0)return'instagram';
+  if(u.indexOf('twitch')>=0)return'twitch';
+  if(u.indexOf('twitter')>=0||u.indexOf('x.com')>=0)return'twitter';
+  return'other';
+}
+function pgChannels(){
+  var isA=S.user&&S.user.role!=='public'&&canDo('create','channels');
+  var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.chTourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var chs=(S.channels||[]).filter(function(c){return!S.chTourFilter||c.tournamentId===S.chTourFilter;});
+  var cards=chs.map(function(c){
+    var plt=getPlatform(c.url);
+    var ico=PLATFORM_ICONS[plt]||'📺';
+    var tm=toursByYear().filter(function(t){return t.id===c.tournamentId;})[0];
+    return'<div class="card" style="margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:12px">'
+      +'<div style="font-size:32px;width:48px;text-align:center">'+ico+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:700;font-size:15px">'+c.name+'</div>'
+      +(tm?'<div style="font-size:12px;color:var(--acc);margin-top:2px">'+tm.name+'</div>':'')
+      +(c.description?'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+c.description+'</div>':'')
+      +'<a href="'+c.url+'" target="_blank" style="font-size:12px;color:var(--grn);word-break:break-all">'+c.url+'</a>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px">'
+      +'<a href="'+c.url+'" target="_blank" class="btn bp bsm" style="text-decoration:none;text-align:center">&#9654; Ver</a>'
+      +(isA?'<button class="btn bs bsm" data-cid="'+c.id+'" onclick="openChannelM(this.dataset.cid)">Editar</button>':'')
+      +(isA?'<button class="btn bd bsm" data-cid="'+c.id+'" onclick="delChannel(this.dataset.cid)">&#128465;</button>':'')
+      +'</div>'
+      +'</div></div>';
+  }).join('');
+  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<div><div class="stl">&#128250; Canales en Vivo</div><div class="ssb">Accede a los medios de transmision de los torneos</div></div>'
+    +(isA?'<button class="btn bp" onclick="openChannelM(\'\')">+ Agregar Canal</button>':'')+'</div>'
+    +'<div class="card" style="margin-bottom:14px"><select class="fs" style="width:220px" onchange="S.chTourFilter=this.value;pgChannels()">'+tOpts+'</select></div>'
+    +(cards||'<div class="card"><div class="empty"><div>&#128250; Sin canales registrados</div><div style="font-size:12px;color:var(--t3)">El administrador puede agregar enlaces de transmision</div></div></div>'));
+}
+function openChannelM(id){
+  var c=id?(S.channels||[]).filter(function(x){return x.id===id;})[0]:{};if(!c)c={};
+  var tOpts='<option value="">-- Sin torneo --</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(c.tournamentId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Canal</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="fg"><label class="fl">Nombre del canal *</label><input class="fi" id="chn" value="'+(c.name||'')+'" placeholder="Ej: Canal Oficial Liga A"></div>'
+    +'<div class="fg"><label class="fl">URL del enlace *</label><input class="fi" id="chu" value="'+(c.url||'')+'" placeholder="https://youtube.com/live/..."></div>'
+    +'<div class="fg"><label class="fl">Torneo</label><select class="fs" id="cht">'+tOpts+'</select></div>'
+    +'<div class="fg"><label class="fl">Descripcion (opcional)</label><input class="fi" id="chd" value="'+(c.description||'')+'" placeholder="Descripcion breve"></div>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bp" data-cid="'+(id||'')+'" onclick="saveChannel(this.dataset.cid)">Guardar</button></div>');
+}
+async function saveChannel(id){
+  var name=fv('chn'),url=fv('chu');
+  if(!name||!url){toast('Nombre y URL son requeridos','error');return;}
+  var c={id:id||null,name:name,url:url,tournamentId:fv('cht')||'',description:fv('chd')||'',createdAt:new Date().toISOString()};
+  var r=await api('saveChannel',{channel:c});
+  if(r&&r.ok){
+    var saved=r.item||c;
+    if(!id)S.channels.push(saved);
+    else S.channels=S.channels.map(function(x){return x.id===id?saved:x;});
+    cM();pgChannels();toast('Canal guardado','success');
+  } else toast(r&&r.error||'Error','error');
+}
+async function delChannel(id){
+  if(!confirm('Eliminar este canal?'))return;
+  var r=await api('deleteRow',{sheet:'Canales',id:id});
+  if(r&&r.ok){S.channels=S.channels.filter(function(x){return x.id!==id;});pgChannels();toast('Canal eliminado','info');}
   else toast(r&&r.error||'Error','error');
 }
 
@@ -2423,8 +2594,14 @@ function profChkAll(section,val){
   if(section==='mod') ALL_MOD.forEach(function(m){var e=document.getElementById('pm-'+m.id);if(e)e.checked=val;});
   else if(section==='tour'){S.tournaments.forEach(function(t){var e=document.getElementById('pt-'+t.id);if(e)e.checked=val;});refreshProfTeams();}
   else if(section==='team'){
-    var visTeams=getProfVisibleTeams();
-    visTeams.forEach(function(t){var e=document.getElementById('ptm-'+t.id);if(e)e.checked=val;});
+    if(!val){
+      // Ninguno: uncheck ALL teams across all tournaments
+      S.teams.forEach(function(t){var e=document.getElementById('ptm-'+t.id);if(e)e.checked=false;});
+    } else {
+      // Todos: only check teams belonging to checked tournaments
+      var visTeams=getProfVisibleTeams();
+      visTeams.forEach(function(t){var e=document.getElementById('ptm-'+t.id);if(e)e.checked=true;});
+    }
   }
   else if(section==='perm'){
     ALL_MOD.forEach(function(m){
@@ -2788,7 +2965,7 @@ window.onload=function(){
     loadAll().then(function(){
       document.getElementById('lscr').style.display='none';
       document.getElementById('app').style.display='flex';
-      renderApp();startPolling();startSessionTimer();restoreSidebar();
+      renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();
     }).catch(function(){clearSession();showLoginScreen();});
     return;
   }
