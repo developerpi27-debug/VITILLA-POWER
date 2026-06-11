@@ -624,13 +624,8 @@ function openGD(id){S.game=id;goNav('gamecontrol');}
 async function trackVisit(){
   try{
     var today=new Date().toISOString().slice(0,10);
-    var last=localStorage.getItem('vsp_lv');
-    if(last===today)return; // already counted today for this browser
     var r=await api('trackVisit',{date:today});
-    if(r&&r.ok){
-      localStorage.setItem('vsp_lv',today);
-      S.visits=r.visits||S.visits||{};
-    }
+    if(r&&r.ok) S.visits=r.visits||S.visits||{};
   }catch(e){}
 }
 function pgDash(){
