@@ -489,6 +489,7 @@ function canDo(action,moduleId){
   // action: 'create','edit','delete'
   var u=S.user;if(!u)return false;
   if(u.role==='admin')return true;
+  if(u.role==='public')return false; // visitors never create/edit/delete
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
   if(!prof||!prof.permissions)return true; // no restrictions = full access
   var modPerms=prof.permissions[moduleId];
@@ -666,7 +667,11 @@ async function trackVisit(){
     if(r&&r.ok) S.visits=r.visits||S.visits||{};
   }catch(e){}
 }
-function pgDash(){
+async function pgDash(){
+  // Admin: always refresh visit counts from server to get latest guest visits
+  if(S.user&&S.user.role==='admin'){
+    try{var vr=await api('trackVisit',{date:'__read_only__'});if(vr&&vr.ok&&vr.visits)S.visits=vr.visits;}catch(e){}
+  }
   var vg=gamesByYear();
   var at=visibleTournaments().filter(function(t){return t.status==='active';}).length;
   function gmDT(g){return new Date((g.date||'2099-12-31')+'T'+(g.time&&g.time.indexOf('1899')<0?g.time:'00:00'));}
@@ -873,6 +878,8 @@ async function doImportTeams(){
         for(var j=0;j<srcPlayers.length;j++){
           var sp=srcPlayers[j];
           var clone={id:null,name:sp.name,number:sp.number,position:sp.position,bats:sp.bats,throws:sp.throws,teamId:savedTeam.id,dob:sp.dob||null,importedFrom:sp.id};
+          // Small delay to prevent same-millisecond ID collisions in GAS generateId
+          await new Promise(function(res){setTimeout(res,50);});
           var rp=await api('savePlayer',{player:clone});
           if(rp&&rp.ok)S.players.push(rp.item);
         }
@@ -1048,7 +1055,9 @@ function openGM(id){
     +'<div class="fg"><label class="fl">Estadio</label><input class="fi" id="gvn" value="'+(g.venue||'')+'"></div></div>'
     +'<div class="fr c3"><div class="fg"><label class="fl">Torneo</label><select class="fs" id="gtr" onchange="reloadGameTeams(this.value)"><option value="">Sin torneo</option>'+trs+'</select></div>'
     +'<div class="fg"><label class="fl">Fase</label><select class="fs" id="gph">'+phOpts2+'</select></div>'
-    +'<div class="fg"><label class="fl">Entradas</label><input class="fi" id="gin" type="number" value="'+(g.totalInnings||7)+'" min="3" max="9"></div></div></div>'
+    +'<div class="fg"><label class="fl">Entradas</label><input class="fi" id="gin" type="number" value="'+(g.totalInnings||7)+'" min="3" max="9"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Bases del juego</label><select class="fs" id="gnb"><option value="2" '+((!g.numBases||g.numBases==2)?'selected':'')+'>2 bases (sin 3ra)</option><option value="3" '+(g.numBases==3?'selected':'')+'>3 bases (completo)</option></select></div>'
+    +'<div class="fg"></div></div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +(id&&g.status!=='final'?'<button class="btn bd" data-gid="'+id+'" onclick="suspG(this.dataset.gid)">Suspender</button>':'')
     +'<button class="btn bp" data-gid="'+(id||'')+'" onclick="saveG(this.dataset.gid)">Guardar</button></div>');
@@ -1061,7 +1070,7 @@ async function saveG(id){
   var ex=id?S.games.filter(function(x){return x.id===id;})[0]:{};
   var tourId=fv('gtr')||null;
   var tourObj=tourId?S.tournaments.filter(function(t){return t.id===tourId;})[0]:null;
-  var g=Object.assign({},ex,{id:id||null,awayTeamId:aw,homeTeamId:hm,date:fv('gdt'),time:fv('gtm')||null,venue:fv('gvn')||null,tournamentId:tourId,totalInnings:parseInt(fv('gin'))||7,status:ex.status||'scheduled',phase:fv('gph')||'regular'});
+  var g=Object.assign({},ex,{id:id||null,awayTeamId:aw,homeTeamId:hm,date:fv('gdt'),time:fv('gtm')||null,venue:fv('gvn')||null,tournamentId:tourId,totalInnings:parseInt(fv('gin'))||7,numBases:parseInt(fv('gnb'))||2,status:ex.status||'scheduled',phase:fv('gph')||'regular'});
   var r=await api('saveGame',{game:g});
   if(r&&r.ok){if(!id)S.games.push(r.item);else S.games=S.games.map(function(x){return x.id===id?r.item:x;});cM();pgSched();toast('Juego guardado','success');}
   else toast(r&&r.error||'Error','error');
@@ -1258,7 +1267,12 @@ function pgGC(){
     +'<div><div class="bslbl">STRIKES</div><div class="bsdots">'+[0,1].map(function(i){return'<div class="dot '+(parseInt(gm.strikes||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
     +'<div><div class="bslbl">OUTS</div><div class="bsdots">'+[0,1].map(function(i){return'<div class="dot '+(parseInt(gm.outs||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
     +'</div>'
-    +'<div class="diamond"><div class="base b2 '+(bases.second?'on':'')+'"></div><div class="base b3 '+(bases.third?'on':'')+'"></div><div class="base b1 '+(bases.first?'on':'')+'"></div></div>'
+    +'<div class="diamond">'
+    +'<div class="base b2 '+(bases.second?'on':'')+'"></div>'
+    +((parseInt(gm.numBases)||2)>=3?'<div class="base b3 '+(bases.third?'on':'')+'"></div>':'<div class="base b3" style="opacity:.15;pointer-events:none"></div>')
+    +'<div class="base b1 '+(bases.first?'on':'')+'"></div>'
+    +'<div style="text-align:center;font-size:9px;color:var(--t3);margin-top:4px">'+(parseInt(gm.numBases)||2)+' BASES</div>'
+    +'</div>'
     +'</div>'
     +'<div style="overflow-x:auto"><table class="lst"><thead><tr><th class="tc">Equipo</th>'+hdrs+'<th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th></tr></thead><tbody>'+lsRow(aw,true)+lsRow(hw,false)+'</tbody></table></div>'
     +'</div>'
@@ -1326,7 +1340,7 @@ function bsHTML(gid,tid){
     slots[slot].forEach(function(entry){
       var lp=entry.lp; var p=playerOf(lp.playerId); var isSub=entry.isSub;
       var pe=evs.filter(function(e){return e.batterId===lp.playerId;});
-      var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
       var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -1509,9 +1523,15 @@ async function outEnJugada(){
     var evInning=parseInt(gm.currentInning)||1;
     var evHalf=gm.currentHalf;
     gm.outs=(parseInt(gm.outs)||0)+1;
-    // Advance batter index: OJ terminates the at-bat (batter reached base and was put out)
-    if(isTop)gm.awayBatterIdx=(parseInt(gm.awayBatterIdx)||0)+1;
-    else gm.homeBatterIdx=(parseInt(gm.homeBatterIdx)||0)+1;
+    // OJ = out on a baserunner, NOT a completed at-bat.
+    // Remove ONE runner from the bases (ask which base if multiple runners).
+    // Batter stays at bat — do NOT increment batterIdx.
+    var b2=gm.bases||{first:null,second:null,third:null};
+    // Remove the lead runner (3rd > 2nd > 1st priority)
+    if(b2.third)gm.bases=Object.assign({},b2,{third:null});
+    else if(b2.second)gm.bases=Object.assign({},b2,{second:null});
+    else if(b2.first)gm.bases=Object.assign({},b2,{first:null});
+    else gm.bases=b2; // no runners — OJ still counts the out
     gm.balls=0;gm.strikes=0;
     if(parseInt(gm.outs)>=3){
       gm.outs=0;gm.bases={first:null,second:null,third:null};
@@ -1674,8 +1694,68 @@ async function rPlay(type){
       if(isTop) gm.awayRuns=(parseInt(gm.awayRuns)||0)+runs;
       else gm.homeRuns=(parseInt(gm.homeRuns)||0)+runs;
     }
-    // HR clears bases
-    if(type==='HR') gm.bases={first:null,second:null,third:null};
+    // ── BASE ADVANCEMENT ──────────────────────────────────────────
+    // numBases: 2 = juego sin 3ra base, 3 = juego completo
+    var nb=parseInt(gm.numBases)||2;
+    var b=gm.bases||{first:null,second:null,third:null};
+    var batter=bi?bi.playerId:('batter_'+Date.now());
+
+    if(type==='HR'){
+      gm.bases={first:null,second:null,third:null};
+    } else if(type==='H1'||type==='BB'||type==='HBP'||type==='E'){
+      // Batter goes to 1st. Push runners ahead 1 base.
+      if(nb>=3){
+        // 3-base game: 3rd→scores, 2nd→3rd, 1st→2nd, batter→1st
+        var sc1=0;
+        if(b.third)sc1++;        // runner on 3rd scores
+        gm.bases={first:batter,second:b.first||null,third:b.second||null};
+      } else {
+        // 2-base game: 2nd→scores, 1st→2nd, batter→1st
+        var sc1=0;
+        if(b.second)sc1++;       // runner on 2nd scores
+        if(b.first)sc1++;        // runner on 1st → 2nd is already 2nd... wait:
+        // Actually in 2-base: bases are 1st and 2nd (home plate = 2nd)
+        // Sencillo: runner on 2nd scores, runner on 1st→2nd, batter→1st
+        gm.bases={first:batter,second:b.first||null};
+        gm.bases.third=null;
+      }
+    } else if(type==='H2'){
+      // Batter goes to 2nd. Push runners ahead 2 bases.
+      if(nb>=3){
+        // 3rd→scores, 2nd→scores, 1st→3rd, batter→2nd
+        gm.bases={first:null,second:batter,third:b.first||null};
+      } else {
+        // 2-base game: 2nd→scores, 1st→scores, batter→2nd (home)
+        gm.bases={first:null,second:batter,third:null};
+      }
+    } else if(type==='H3'){
+      if(nb>=3){
+        // 3-base game: everyone scores, batter→3rd
+        gm.bases={first:null,second:null,third:batter};
+      } else {
+        // 2-base game: H3 = everyone scores, batter also scores (3 bases > 2)
+        gm.bases={first:null,second:null,third:null};
+      }
+    } else if(type==='SB'){
+      // Stolen base: runner on 1st → 2nd (or 2nd→3rd in 3-base game)
+      if(nb>=3){
+        if(b.second){gm.bases=Object.assign({},b,{second:null,third:b.second});}
+        else if(b.first){gm.bases=Object.assign({},b,{first:null,second:b.first});}
+      } else {
+        if(b.first){gm.bases=Object.assign({},b,{first:null,second:b.first});}
+      }
+    } else if(type==='OUT'||type==='K'||type==='SAC'){
+      // Outs: bases unchanged (runners stay unless run scored was already accounted)
+      gm.bases=b;
+    } else if(type==='DP'){
+      // Double play: clear one runner from base if any
+      if(b.first)gm.bases=Object.assign({},b,{first:null});
+      else if(b.second)gm.bases=Object.assign({},b,{second:null});
+      else gm.bases=b;
+    } else {
+      gm.bases=b;
+    }
+    // ── END BASE ADVANCEMENT ──────────────────────────────────────
     // Update outs
     if(type==='DP') gm.outs=Math.min((parseInt(gm.outs)||0)+2,3);
     else if(isOut) gm.outs=(parseInt(gm.outs)||0)+1;
@@ -2415,7 +2495,7 @@ function pgStats(tid,sBy,pSBy){
   var statsQ=(_ST.search||'').toLowerCase();
   var ps=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&(!statsQ||p.name.toLowerCase().indexOf(statsQ)>=0);}).map(function(p){
     var pe=evs.filter(function(e){return e.batterId===p.id;});
-    var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h2=pe.filter(function(e){return e.type==='H2';}).length;
     var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -2499,7 +2579,7 @@ function pgStats(tid,sBy,pSBy){
     var rh=hg.reduce(function(s,g){return s+(parseInt(g.homeHits)||0);},0)+ag.reduce(function(s,g){return s+(parseInt(g.awayHits)||0);},0);
     var re=hg.reduce(function(s,g){return s+(parseInt(g.homeErrors)||0);},0)+ag.reduce(function(s,g){return s+(parseInt(g.awayErrors)||0);},0);
     var tEvs=evs.filter(function(e){return e.battingTeamId===tid;});
-    var tvb=tEvs.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;
+    var tvb=tEvs.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
     var th2=tEvs.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var thr=tEvs.filter(function(e){return e.type==='HR';}).length;
     var trbi=tEvs.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
@@ -2612,8 +2692,8 @@ function pgLead(tid){
     return'<div class="card"><div class="chd"><div class="ctl">'+ttl+'</div></div>'
       +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.p.number||'?')+' '+x.p.name+'</div><div style="font-size:11px;color:var(--t3)">'+(x.tm?x.tm.name:'&mdash;')+'</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')+'</div>';
   }
-  function getAvg(id){var pe=evs.filter(function(e){return e.batterId===id;});var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
-  function getSLG(id){var pe=evs.filter(function(e){return e.batterId===id;});var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function getAvg(id){var pe=evs.filter(function(e){return e.batterId===id;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
+  function getSLG(id){var pe=evs.filter(function(e){return e.batterId===id;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
   function getHR(id){return evs.filter(function(e){return e.batterId===id&&e.type==='HR';}).length;}
   function getRBI(id){return evs.reduce(function(s,e){return s+(e.batterId===id?parseInt(e.rbi)||0:0);},0);}
   function getH(id){return evs.filter(function(e){return e.batterId===id&&['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;}
@@ -2645,13 +2725,20 @@ function pgLead(tid){
 
 // AWARDS
 var _awTour='';
+var _awPhase='';
 var AWARD_TYPES=['MVP','Mejor Bateador','Mejor Pitcher','Mejor Defensa','Mejor Relevista','Lider de Bateo','Lider de Jonrones','Lider de Remolcadas','Jugador del Año','Novato del Año','Otro'];
 function pgAwards(){
   var isA=S.user&&S.user.role==='admin';
   var awTours=toursByYear().map(function(t){return t.id;});
   var awBase=S.yearFilter?(S.awards||[]).filter(function(a){return awTours.indexOf(a.tournamentId)>=0;}):(S.awards||[]);
-  var filtered=_awTour?awBase.filter(function(a){return a.tournamentId===_awTour;}):awBase;
-  var tOpts='<option value="">Todos</option>'+visibleTournaments().map(function(t){return'<option value="'+t.id+'" '+(_awTour===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var filtered=awBase;
+  if(_awTour) filtered=filtered.filter(function(a){return a.tournamentId===_awTour;});
+  if(_awPhase) filtered=filtered.filter(function(a){return(a.phase||'regular')===_awPhase;});
+  var tOpts='<option value="">Todos los torneos</option>'+visibleTournaments().map(function(t){return'<option value="'+t.id+'" '+(_awTour===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var phOpts='<option value="">Todas las fases</option>'
+    +'<option value="regular" '+(_awPhase==='regular'?'selected':'')+'>Serie Regular</option>'
+    +'<option value="playoff" '+(_awPhase==='playoff'?'selected':'')+'>Playoffs</option>'
+    +'<option value="final" '+(_awPhase==='final'?'selected':'')+'>Serie Final</option>';
   var rows=filtered.slice().reverse().map(function(a){
     var p=playerOf(a.playerId);var team=teamOf(a.teamId);var tour=S.tournaments.filter(function(t){return t.id===a.tournamentId;})[0];
     return'<tr><td><div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:800;color:#000">'+(p?p.name[0].toUpperCase():'?')+'</div><div><div style="font-weight:600">#'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+'</div><div style="font-size:11px;color:var(--t3)">'+(team?team.name:'&mdash;')+'</div></div></div></td>'
@@ -2664,7 +2751,10 @@ function pgAwards(){
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">&#127885; Premiaciones</div><div class="ssb">Registro de jugadores premiados</div></div>'
     +(S.user&&S.user.role!=='public'&&canDo('create','awards')?'<button class="btn bp" onclick="openAwardM(\'\')">+ Registrar Premio</button>':'')+'</div>'
-    +'<div class="card" style="margin-bottom:14px"><select class="fs" style="width:200px" onchange="_awTour=this.value;pgAwards()">'+tOpts+'</select></div>'
+    +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">'
+    +'<select class="fs" style="width:200px" onchange="_awTour=this.value;pgAwards()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="_awPhase=this.value;pgAwards()">'+phOpts+'</select>'
+    +'</div>'
     +'<div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Premio</th><th>Torneo</th><th>Fase</th><th>Motivo</th><th>Fecha</th>'+((S.user&&S.user.role!=='public'&&(isA||canDo('edit','awards')))?'<th>Acciones</th>':'')+'</tr></thead>'
     +'<tbody>'+(rows||'<tr><td colspan="7"><div class="empty"><div style="font-size:30px">&#127885;</div><div>Sin premiaciones</div></div></td></tr>')+'</tbody></table></div></div>');
 }
@@ -3183,7 +3273,7 @@ function exportReport(gid){
     var rows='';
     lu.players.forEach(function(lp){
       var p=playerOf(lp.playerId); var pe=evs.filter(function(e){return e.batterId===lp.playerId;});
-      var vb=pe.filter(function(e){return['BB','HBP','SAC'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
       var h3=pe.filter(function(e){return e.type==='H3';}).length;
