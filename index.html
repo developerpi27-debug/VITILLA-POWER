@@ -168,6 +168,25 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 /* ── REABRIR JUEGO ── */
 .reopen-btn{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.35);color:var(--acc);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
 .reopen-btn:hover{background:rgba(245,166,35,.25);}
+
+/* ── GS IMPORT ── */
+.gsi-step{background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-bottom:14px;}
+.gsi-step-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.gsi-step-num{width:28px;height:28px;border-radius:50%;background:var(--acc);color:#000;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.gsi-step-title{font-weight:700;font-size:14px;}
+.gsi-preview{max-height:220px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px;margin-top:10px;}
+.gsi-preview table{width:100%;border-collapse:collapse;font-size:11px;}
+.gsi-preview th{background:var(--bg3);padding:5px 8px;text-align:left;position:sticky;top:0;font-size:10px;color:var(--t2);letter-spacing:.8px;text-transform:uppercase;}
+.gsi-preview td{padding:4px 8px;border-bottom:1px solid var(--bdr);}
+.gsi-preview tr:last-child td{border-bottom:none;}
+.gsi-map-row{display:grid;grid-template-columns:1fr 20px 1fr;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;}
+.gsi-map-arrow{text-align:center;color:var(--acc);font-weight:700;}
+.gsi-result-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;margin-bottom:3px;font-size:12px;}
+.gsi-ok{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);}
+.gsi-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);}
+.gsi-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);}
+.gsi-progress{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:10px 0;}
+.gsi-progress-bar{height:100%;background:var(--acc);border-radius:3px;transition:width .3s;}
 </style>
 </head>
 <body>
@@ -251,7 +270,7 @@ var CFG = {
   // URL del Cloudflare Worker (cambia esto al tuyo)
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
   // App Token — debe coincidir con APP_SECRET en el Worker
-  appToken: 'd91ebe2292d660483e775cebf42cce5947c4ab3d44c05968d8b7c18c4ccac221',
+  appToken: '87a7f0b9fe3c2d0135a425f54bdc878a184da61a1e0560a2e75a2a8fd353989c',
 };
 
 // STATE
@@ -411,7 +430,31 @@ async function _doPoll(){
   if(!S.user||document.hidden||_saving)return;
   var prevPoll=S.pollInterval||30;
   try{
+    // Guardar índices de bateador del juego activo ANTES de loadAll
+    // para que el servidor no los pise si hay lag de escritura
+    var savedAwayIdx=null,savedHomeIdx=null,savedGameId=null;
+    if(S.game){
+      var liveGm=S.games.filter(function(x){return x.id===S.game&&x.status==='live';})[0];
+      if(liveGm){
+        savedGameId=liveGm.id;
+        savedAwayIdx=parseInt(liveGm.awayBatterIdx)||0;
+        savedHomeIdx=parseInt(liveGm.homeBatterIdx)||0;
+      }
+    }
+
     await loadAll();
+
+    // Restaurar índices si el servidor devolvió valores menores (lag de escritura)
+    if(savedGameId&&savedAwayIdx!==null){
+      S.games=S.games.map(function(x){
+        if(x.id!==savedGameId) return x;
+        return Object.assign({},x,{
+          awayBatterIdx: Math.max(parseInt(x.awayBatterIdx)||0, savedAwayIdx),
+          homeBatterIdx: Math.max(parseInt(x.homeBatterIdx)||0, savedHomeIdx),
+        });
+      });
+    }
+
     // Actualizar badge de licencia
     if(S.licenseExpires){
       var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
@@ -419,12 +462,14 @@ async function _doPoll(){
       if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
     }
     saveSession();
-    // ── Auto-refresh del módulo activo (silencioso) ──────────────────
-    // Refrescamos módulos que muestran datos en tiempo real
-    var liveModules=['standings','stats','leaders','leaderslife','statslife','schedule','gamecontrol','dashboard'];
-    if(curP&&liveModules.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
+
+    // ── Auto-refresh del módulo activo (silencioso) ──────────────
+    // NUNCA re-renderizar gamecontrol desde el poll — tiene su propio estado en vivo
+    var refreshableMods=['standings','stats','leaders','leaderslife','statslife','schedule','dashboard'];
+    if(curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
       try{ initPGS(); PGS[curP](); } catch(e2){ console.warn('Auto-refresh module error:',e2); }
     }
+
     if((S.pollInterval||30)!==prevPoll) startPolling();
   }catch(e){console.warn('Poll error:',e);}
 }
@@ -449,10 +494,11 @@ var ALL_MOD=[
   {id:'profiles',lbl:'Perfiles',ico:'🔐',sec:'Admin'},
   {id:'license',lbl:'Licencia',ico:'🔑',sec:'Admin'},
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
+  {id:'gsimport',lbl:'Importar desde GSheets',ico:'📥',sec:'Admin'},
 ];
 var BASE_PUB=['standings','schedule','stats','statslife','leaders','leaderslife','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -616,7 +662,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport};}
 function goNav(page){
   curP=page;
   document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
@@ -3997,6 +4043,337 @@ async function saveTourLic(tid){
 }
 
 // SETTINGS
+
+// ══════════════════════════════════════════════════════════════
+// IMPORTAR DESDE GOOGLE SHEETS
+// ══════════════════════════════════════════════════════════════
+var _GSI = {
+  csvTour: null, csvTeams: null, csvPlayers: null,
+  parsedTour: [], parsedTeams: [], parsedPlayers: [],
+  tourMap: {}, teamMap: {},   // oldId → newId
+};
+
+function pgGSImport(){
+  ct('<div class="stl">Importar desde Google Sheets</div>'
+    +'<div class="ssb">Exporta cada hoja como CSV desde Google Sheets y cárgalas aquí. El importador creará los registros en Supabase respetando los existentes.</div>'
+
+    // ── INSTRUCCIONES ──────────────────────────────────────────
+    +'<div class="card" style="margin-bottom:14px;background:rgba(245,166,35,.06);border-color:rgba(245,166,35,.25)">'
+    +'<div style="font-weight:700;margin-bottom:8px">📋 Cómo exportar desde Google Sheets</div>'
+    +'<ol style="margin:0;padding-left:18px;font-size:13px;line-height:2">'
+    +'<li>Abre tu Google Sheet de VitillaStats</li>'
+    +'<li>Clic en la pestaña <b>Torneos</b> → Archivo → Descargar → <b>CSV</b></li>'
+    +'<li>Repite para las pestañas <b>Equipos</b> y <b>Jugadores</b></li>'
+    +'<li>Carga los 3 archivos aquí abajo (puedes cargar solo los que necesites)</li>'
+    +'</ol>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px">⚠️ Si un torneo o equipo ya existe con el mismo nombre, se omitirá para evitar duplicados.</div>'
+    +'</div>'
+
+    // ── PASO 1: TORNEOS ────────────────────────────────────────
+    +'<div class="gsi-step">'
+    +'<div class="gsi-step-hd"><div class="gsi-step-num">1</div><div class="gsi-step-title">🏆 Archivo CSV de Torneos</div></div>'
+    +'<input type="file" id="csv-tour" accept=".csv,text/csv" class="fi" style="margin-bottom:8px" onchange="gsiLoadCSV(this,\'tour\')">'
+    +'<div id="gsi-prev-tour"></div>'
+    +'</div>'
+
+    // ── PASO 2: EQUIPOS ────────────────────────────────────────
+    +'<div class="gsi-step">'
+    +'<div class="gsi-step-hd"><div class="gsi-step-num">2</div><div class="gsi-step-title">👥 Archivo CSV de Equipos</div></div>'
+    +'<input type="file" id="csv-teams" accept=".csv,text/csv" class="fi" style="margin-bottom:8px" onchange="gsiLoadCSV(this,\'teams\')">'
+    +'<div id="gsi-prev-teams"></div>'
+    +'</div>'
+
+    // ── PASO 3: JUGADORES ──────────────────────────────────────
+    +'<div class="gsi-step">'
+    +'<div class="gsi-step-hd"><div class="gsi-step-num">3</div><div class="gsi-step-title">🧑 Archivo CSV de Jugadores</div></div>'
+    +'<input type="file" id="csv-players" accept=".csv,text/csv" class="fi" style="margin-bottom:8px" onchange="gsiLoadCSV(this,\'players\')">'
+    +'<div id="gsi-prev-players"></div>'
+    +'</div>'
+
+    // ── BOTÓN IMPORTAR ─────────────────────────────────────────
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
+    +'<button class="btn bp" onclick="gsiRunImport()">⬆️ Importar a Supabase</button>'
+    +'<button class="btn bs" onclick="gsiReset()">🔄 Limpiar todo</button>'
+    +'</div>'
+
+    // ── RESULTADO ──────────────────────────────────────────────
+    +'<div id="gsi-log"></div>'
+  );
+}
+
+// ── Parsear CSV ────────────────────────────────────────────────
+function gsiParseCSV(text){
+  var lines = text.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(!lines.length) return [];
+  // Detectar separador: coma o punto y coma
+  var sep = lines[0].indexOf(';') > lines[0].indexOf(',') ? ';' : ',';
+  var headers = gsiSplitCSVLine(lines[0], sep).map(function(h){return h.trim().replace(/^"|"$/g,'');});
+  var rows = [];
+  for(var i=1;i<lines.length;i++){
+    var vals = gsiSplitCSVLine(lines[i], sep);
+    var obj = {};
+    headers.forEach(function(h,j){ obj[h] = (vals[j]||'').trim().replace(/^"|"$/g,''); });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function gsiSplitCSVLine(line, sep){
+  var result=[], cur='', inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(c==='"'){ inQ=!inQ; continue; }
+    if(c===sep && !inQ){ result.push(cur); cur=''; continue; }
+    cur+=c;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── Cargar y previsualizar CSV ─────────────────────────────────
+function gsiLoadCSV(input, type){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var rows = gsiParseCSV(e.target.result);
+    if(type==='tour')   { _GSI.parsedTour    = rows; gsiPreview('gsi-prev-tour',    rows, gsiTourFields()); }
+    if(type==='teams')  { _GSI.parsedTeams   = rows; gsiPreview('gsi-prev-teams',   rows, gsiTeamFields()); }
+    if(type==='players'){ _GSI.parsedPlayers = rows; gsiPreview('gsi-prev-players', rows, gsiPlayerFields()); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Campos esperados por tipo ──────────────────────────────────
+// El importador es flexible: busca la columna por múltiples nombres posibles
+function gsiCol(row, candidates){
+  var keys = Object.keys(row);
+  for(var i=0;i<candidates.length;i++){
+    var c = candidates[i].toLowerCase();
+    for(var j=0;j<keys.length;j++){
+      if(keys[j].toLowerCase()===c || keys[j].toLowerCase().replace(/\s/g,'')===c.replace(/\s/g,''))
+        return row[keys[j]]||'';
+    }
+  }
+  return '';
+}
+
+function gsiTourFields(){ return ['id','name','year','category','status','startDate','start_date','endDate','end_date','phase','gamesRegular','games_regular']; }
+function gsiTeamFields(){ return ['id','name','tournamentId','tournament_id','abbreviation','manager','city','color','active','division']; }
+function gsiPlayerFields(){ return ['id','name','teamId','team_id','number','position','bats','throws','dob','active']; }
+
+// ── Preview table ──────────────────────────────────────────────
+function gsiPreview(containerId, rows, fields){
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  if(!rows.length){ el.innerHTML='<div class="gsi-warn gsi-result-item">⚠️ El CSV está vacío o no se pudo leer</div>'; return; }
+  var visFields = Object.keys(rows[0]).slice(0,8); // mostrar máx 8 columnas
+  var h = '<div style="font-size:12px;color:var(--t3);margin-bottom:6px">✅ '+rows.length+' filas cargadas — Columnas detectadas: <b>'+Object.keys(rows[0]).join(', ')+'</b></div>';
+  h += '<div class="gsi-preview"><table><thead><tr>'+visFields.map(function(f){return'<th>'+f+'</th>';}).join('')+'</tr></thead><tbody>';
+  rows.slice(0,8).forEach(function(r){
+    h += '<tr>'+visFields.map(function(f){return'<td>'+(r[f]||'')+'</td>';}).join('')+'</tr>';
+  });
+  if(rows.length>8) h+='<tr><td colspan="'+visFields.length+'" style="text-align:center;color:var(--t3);font-style:italic">... y '+(rows.length-8)+' filas más</td></tr>';
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
+// ── IMPORTAR ──────────────────────────────────────────────────
+async function gsiRunImport(){
+  var log = document.getElementById('gsi-log');
+  if(!log) return;
+  var hasTour = _GSI.parsedTour.length>0;
+  var hasTeams = _GSI.parsedTeams.length>0;
+  var hasPlayers = _GSI.parsedPlayers.length>0;
+  if(!hasTour && !hasTeams && !hasPlayers){
+    toast('Carga al menos un CSV primero','error'); return;
+  }
+
+  log.innerHTML = '<div class="card"><div style="font-weight:700;margin-bottom:10px">📥 Importando...</div>'
+    +'<div class="gsi-progress"><div class="gsi-progress-bar" id="gsi-pb" style="width:0%"></div></div>'
+    +'<div id="gsi-log-lines"></div></div>';
+
+  var logLines = document.getElementById('gsi-log-lines');
+  var pb = document.getElementById('gsi-pb');
+  var total = _GSI.parsedTour.length + _GSI.parsedTeams.length + _GSI.parsedPlayers.length;
+  var done = 0;
+  var ok=0, skipped=0, errors=0;
+  _GSI.tourMap = {}; _GSI.teamMap = {};
+
+  function addLine(cls, icon, msg){
+    var d = document.createElement('div');
+    d.className = 'gsi-result-item '+cls;
+    d.textContent = icon+' '+msg;
+    logLines.appendChild(d);
+    logLines.scrollTop = logLines.scrollHeight;
+  }
+  function updatePB(){ if(pb) pb.style.width = (total>0?Math.round(done/total*100):100)+'%'; }
+
+  // ── TORNEOS ──────────────────────────────────────────────────
+  if(hasTour){
+    addLine('gsi-warn','🏆','Importando '+_GSI.parsedTour.length+' torneos...');
+    for(var i=0;i<_GSI.parsedTour.length;i++){
+      var row = _GSI.parsedTour[i];
+      var nm = gsiCol(row,['name','nombre','torneo']);
+      if(!nm){ done++; updatePB(); skipped++; continue; }
+      // ¿ya existe?
+      var existing = S.tournaments.filter(function(t){return t.name.trim().toLowerCase()===nm.trim().toLowerCase();})[0];
+      if(existing){
+        addLine('gsi-warn','⚠️','Torneo "'+nm+'" ya existe — omitido (ID existente: '+existing.id+')');
+        _GSI.tourMap[gsiCol(row,['id'])]=existing.id;
+        done++; updatePB(); skipped++; continue;
+      }
+      var newTour = {
+        id: null,
+        name: nm,
+        year: gsiCol(row,['year','año','anio']) || new Date().getFullYear()+'',
+        category: gsiCol(row,['category','categoria','cat']) || '',
+        status: gsiCol(row,['status','estado']) || 'active',
+        startDate: gsiCol(row,['startDate','start_date','fechainicio','fecha inicio','inicio']) || '',
+        endDate:   gsiCol(row,['endDate','end_date','fechafin','fecha fin','fin']) || '',
+        gamesRegular: parseInt(gsiCol(row,['gamesRegular','games_regular','juegosregular','juegos regular']))||14,
+        teamsPlayoff: parseInt(gsiCol(row,['teamsPlayoff','teams_playoff','equiposplayoff']))||4,
+        gamesPlayoff: parseInt(gsiCol(row,['gamesPlayoff','games_playoff','juegosplayoff']))||5,
+        teamsFinal:   parseInt(gsiCol(row,['teamsFinal','teams_final','equiposfinal']))||2,
+        gamesFinal:   parseInt(gsiCol(row,['gamesFinal','games_final','juegosfinal']))||7,
+        phase: gsiCol(row,['phase','fase']) || 'regular',
+      };
+      var r = await api('saveTournament',{tournament:newTour});
+      done++; updatePB();
+      if(r&&r.ok){
+        var oldId = gsiCol(row,['id']);
+        _GSI.tourMap[oldId] = r.item.id;
+        S.tournaments.push(r.item);
+        addLine('gsi-ok','✅','Torneo "'+nm+'" importado → ID: '+r.item.id);
+        ok++;
+      } else {
+        addLine('gsi-err','❌','Torneo "'+nm+'": '+(r&&r.error||'Error desconocido'));
+        errors++;
+      }
+    }
+  }
+
+  // ── EQUIPOS ──────────────────────────────────────────────────
+  if(hasTeams){
+    addLine('gsi-warn','👥','Importando '+_GSI.parsedTeams.length+' equipos...');
+    for(var i=0;i<_GSI.parsedTeams.length;i++){
+      var row = _GSI.parsedTeams[i];
+      var nm = gsiCol(row,['name','nombre','equipo']);
+      if(!nm){ done++; updatePB(); skipped++; continue; }
+      // Resolver tournamentId via mapa o nombre
+      var oldTourId = gsiCol(row,['tournamentId','tournament_id','idtorneo']);
+      var newTourId = _GSI.tourMap[oldTourId] || oldTourId;
+      // Si no está en el mapa, buscar por id directo en los torneos actuales
+      if(!newTourId || !S.tournaments.filter(function(t){return t.id===newTourId;}).length){
+        var tNm = gsiCol(row,['tournamentName','tournament_name','torneo']);
+        if(tNm){
+          var found = S.tournaments.filter(function(t){return t.name.trim().toLowerCase()===tNm.trim().toLowerCase();})[0];
+          if(found) newTourId = found.id;
+        }
+      }
+      // ¿ya existe el equipo en ese torneo?
+      var existing = S.teams.filter(function(t){
+        return t.name.trim().toLowerCase()===nm.trim().toLowerCase() && t.tournamentId===newTourId;
+      })[0];
+      if(existing){
+        addLine('gsi-warn','⚠️','Equipo "'+nm+'" ya existe en ese torneo — omitido');
+        _GSI.teamMap[gsiCol(row,['id'])]=existing.id;
+        done++; updatePB(); skipped++; continue;
+      }
+      var newTeam = {
+        id: null,
+        name: nm,
+        tournamentId: newTourId || '',
+        abbreviation: (gsiCol(row,['abbreviation','abreviacion','abb','abr'])||nm.slice(0,3)).toUpperCase(),
+        manager: gsiCol(row,['manager','mánager','manejador']) || '',
+        city: gsiCol(row,['city','ciudad']) || '',
+        color: gsiCol(row,['color']) || '#f5a623',
+        active: gsiCol(row,['active','activo'])||'true',
+        division: gsiCol(row,['division','división']) || '',
+        logoUrl: gsiCol(row,['logoUrl','logo_url','logo']) || '',
+      };
+      var r = await api('saveTeam',{team:newTeam});
+      done++; updatePB();
+      if(r&&r.ok){
+        var oldId = gsiCol(row,['id']);
+        _GSI.teamMap[oldId] = r.item.id;
+        S.teams.push(r.item);
+        addLine('gsi-ok','✅','Equipo "'+nm+'" importado → ID: '+r.item.id);
+        ok++;
+      } else {
+        addLine('gsi-err','❌','Equipo "'+nm+'": '+(r&&r.error||'Error desconocido'));
+        errors++;
+      }
+    }
+  }
+
+  // ── JUGADORES ─────────────────────────────────────────────────
+  if(hasPlayers){
+    addLine('gsi-warn','🧑','Importando '+_GSI.parsedPlayers.length+' jugadores...');
+    for(var i=0;i<_GSI.parsedPlayers.length;i++){
+      var row = _GSI.parsedPlayers[i];
+      var nm = gsiCol(row,['name','nombre','jugador']);
+      if(!nm){ done++; updatePB(); skipped++; continue; }
+      // Resolver teamId
+      var oldTeamId = gsiCol(row,['teamId','team_id','idequipo']);
+      var newTeamId = _GSI.teamMap[oldTeamId] || oldTeamId;
+      if(!newTeamId || !S.teams.filter(function(t){return t.id===newTeamId;}).length){
+        var tmNm2 = gsiCol(row,['teamName','team_name','equipo']);
+        if(tmNm2){
+          var found = S.teams.filter(function(t){return t.name.trim().toLowerCase()===tmNm2.trim().toLowerCase();})[0];
+          if(found) newTeamId = found.id;
+        }
+      }
+      // ¿ya existe (mismo nombre + mismo equipo)?
+      var existing = S.players.filter(function(p){
+        return p.name.trim().toLowerCase()===nm.trim().toLowerCase() && p.teamId===newTeamId;
+      })[0];
+      if(existing){
+        addLine('gsi-warn','⚠️','Jugador "'+nm+'" ya existe en ese equipo — omitido');
+        done++; updatePB(); skipped++; continue;
+      }
+      var newPlayer = {
+        id: null,
+        name: nm,
+        teamId: newTeamId || '',
+        number: gsiCol(row,['number','numero','num','#']) || '',
+        position: gsiCol(row,['position','posicion','pos']) || '',
+        bats: gsiCol(row,['bats','batea','bateo']) || '',
+        throws: gsiCol(row,['throws','lanza','tira']) || '',
+        dob: gsiCol(row,['dob','fechanacimiento','fecha_nacimiento','nacimiento','birthdate']) || '',
+        active: gsiCol(row,['active','activo'])||'true',
+        importedFrom: gsiCol(row,['id'])||'',
+      };
+      var r = await api('savePlayer',{player:newPlayer});
+      done++; updatePB();
+      if(r&&r.ok){
+        S.players.push(r.item);
+        addLine('gsi-ok','✅','Jugador "'+nm+'" → '+( S.teams.filter(function(t){return t.id===newTeamId;})[0]||{name:'?'}).name);
+        ok++;
+      } else {
+        addLine('gsi-err','❌','Jugador "'+nm+'": '+(r&&r.error||'Error desconocido'));
+        errors++;
+      }
+    }
+  }
+
+  // ── RESUMEN ───────────────────────────────────────────────────
+  pb.style.width='100%';
+  var summary = '<div style="margin-top:12px;padding:12px;background:var(--bg3);border-radius:8px;font-size:13px">'
+    +'<b>Resumen:</b> '
+    +'<span style="color:var(--grn)">✅ '+ok+' importados</span> &nbsp;'
+    +'<span style="color:var(--acc)">⚠️ '+skipped+' omitidos</span> &nbsp;'
+    +(errors>0?'<span style="color:var(--red)">❌ '+errors+' errores</span>':'')
+    +'</div>';
+  logLines.insertAdjacentHTML('afterend', summary);
+  toast(ok+' registros importados, '+skipped+' omitidos'+(errors?' ('+errors+' errores)':''), errors?'error':'success');
+}
+
+function gsiReset(){
+  _GSI = {csvTour:null,csvTeams:null,csvPlayers:null,parsedTour:[],parsedTeams:[],parsedPlayers:[],tourMap:{},teamMap:{}};
+  pgGSImport();
+}
+
 function pgSet(){
   var isA=S.user&&S.user.role==='admin';
   ct('<div class="stl">Configuracion</div><div class="ssb">Parametros del sistema</div>'
