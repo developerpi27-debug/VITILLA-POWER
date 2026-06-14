@@ -263,14 +263,12 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <div id="modals"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
-// CONFIG — Supabase via Cloudflare Worker
-// ═══════════════════════════════════════════════════════════
+
 var CFG = {
   // URL del Cloudflare Worker (cambia esto al tuyo)
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
   // App Token — debe coincidir con APP_SECRET en el Worker
-  appToken: '87a7f0b9fe3c2d0135a425f54bdc878a184da61a1e0560a2e75a2a8fd353989c',
+  appToken: '0d06cb9c885ff8a44e25f4fd161edf23307769d8d56605aad5c10b5340221e2c',
 };
 
 // STATE
@@ -464,10 +462,20 @@ async function _doPoll(){
     saveSession();
 
     // ── Auto-refresh del módulo activo (silencioso) ──────────────
-    // NUNCA re-renderizar gamecontrol desde el poll — tiene su propio estado en vivo
     var refreshableMods=['standings','stats','leaders','leaderslife','statslife','schedule','dashboard'];
     if(curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
       try{ initPGS(); PGS[curP](); } catch(e2){ console.warn('Auto-refresh module error:',e2); }
+    }
+    // gamecontrol: refrescar SOLO si es visitante/read-only (no puede anotar)
+    // El anotador activo NUNCA se re-renderiza desde el poll
+    if(curP==='gamecontrol'&&S.game){
+      var _pollGm=S.games.filter(function(x){return x.id===S.game;})[0];
+      var _pollCanScore=_pollGm&&canScore(_pollGm)&&_pollGm.status==='live';
+      var _isScorer=S.user&&(S.user.role==='admin'||S.user.role==='scorer'||S.user.role==='anotador');
+      // Solo refrescar si es pure viewer (no tiene acceso a anotar)
+      if(!_pollCanScore||!_isScorer){
+        try{ initPGS(); pgGC(); } catch(e2){ console.warn('Viewer GC refresh error:',e2); }
+      }
     }
 
     if((S.pollInterval||30)!==prevPoll) startPolling();
@@ -1294,6 +1302,43 @@ async function saveLS(gid,awT,hmT){
 }
 
 // GAME CONTROL MAIN PAGE
+
+// ══════════════════════════════════════════════════════════════════
+// REFRESCAR CONTROL DE JUEGO — recarga datos del servidor y re-renderiza
+// ══════════════════════════════════════════════════════════════════
+var _gcRefreshing = false;
+async function refreshGC(){
+  if(_gcRefreshing) return;
+  _gcRefreshing = true;
+  var btn = document.getElementById('gc-refresh-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='&#8635; Refrescando...'; }
+  try{
+    // Guardar batterIdx actual antes de loadAll
+    var gid = S.game;
+    var curGm = gid ? S.games.filter(function(x){return x.id===gid;})[0] : null;
+    var savedAway = curGm ? (parseInt(curGm.awayBatterIdx)||0) : 0;
+    var savedHome = curGm ? (parseInt(curGm.homeBatterIdx)||0) : 0;
+
+    await loadAll();
+
+    // Restaurar batterIdx si el servidor devolvió algo menor (lag)
+    if(gid){
+      S.games = S.games.map(function(x){
+        if(x.id !== gid) return x;
+        return Object.assign({}, x, {
+          awayBatterIdx: Math.max(parseInt(x.awayBatterIdx)||0, savedAway),
+          homeBatterIdx: Math.max(parseInt(x.homeBatterIdx)||0, savedHome),
+        });
+      });
+    }
+    pgGC();
+    toast('Juego actualizado','success');
+  } catch(e){
+    toast('Error al refrescar: '+e.message,'error');
+  } finally {
+    _gcRefreshing = false;
+  }
+}
 function pgGC(){
   if(!S.game){
     var gs=visibleGames().filter(function(g){return g.status==='live'||g.status==='scheduled';});
@@ -1361,8 +1406,9 @@ function pgGC(){
   var hdrs='';for(var i=1;i<=maxInn;i++)hdrs+='<th>'+i+(i>inn?'<sup style="color:var(--acc)">+</sup>':'')+'</th>';
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
     +'<div><div class="stl">&#9918; En Juego</div><div class="ssb">'+aw.name+' vs '+hw.name+'</div></div>'
-    +'<div style="display:flex;gap:8px">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<button class="btn bs bsm" onclick="S.game=null;pgGC()">&larr; Cambiar</button>'
+    +'<button class="btn bs bsm" id="gc-refresh-btn" onclick="refreshGC()" title="Recargar datos del juego desde el servidor">&#8635; Refrescar</button>'
     +(cs?'<button class="btn bd bsm" onclick="endGame()">&#9989; Finalizar</button>':'')
     +(cs?'<button class="btn bd bsm" onclick="openSuspendLiveM()" style="background:var(--acc);border-color:var(--acc);color:#000">&#9208; Suspender</button>':'')
     +(gm.status==="final"?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="exportReport(this.dataset.gid)">&#128196; Informe</button>':'')
@@ -1470,7 +1516,7 @@ function bsHTML(gid,tid){
         +'<td style="text-align:center;color:'+(rbi>0?'var(--grn)':'inherit')+';font-weight:'+(rbi>0?700:400)+'">'+rbi+'</td>'
         +'<td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
         +'<td style="text-align:center;font-weight:700">'+avg+'</td>'
-        +'<td><span class="chip">'+(lp.position||p&&p.position||'OF')+'</span></td></tr>';
+        +'<td><span class="chip">'+(lp.position||p&&p.position||'OF')+(lp.originalPosition?'<span style="font-size:9px;color:var(--t3);font-weight:400"> ('+lp.originalPosition+')</span>':'')+'</span></td></tr>';
     });
   });
   return'<div class="tw"><table><thead><tr><th>#</th><th>Jugador</th><th>VB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>BB</th><th>K</th><th>AVG</th><th>POS</th></tr></thead><tbody>'+(rows||'<tr><td colspan="12"><div class="empty">Sin datos</div></td></tr>')+'</tbody></table></div>';
@@ -2332,49 +2378,101 @@ function openSubM(type){
   var tid=type==='emergente'?(isTop?gm.awayTeamId:gm.homeTeamId):(isTop?gm.homeTeamId:gm.awayTeamId);
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
   var actIds=lu&&lu.players?lu.players.map(function(p){return p.playerId;}):[]; 
-  // Players who can exit: active and NOT already replaced
   var replacedIds=lu&&lu.players?lu.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;}):[]; 
   var active=S.players.filter(function(p){return actIds.indexOf(p.id)>=0&&replacedIds.indexOf(p.id)<0;});
-  // Bench: not currently active in game
-  var bench=S.players.filter(function(p){return p.teamId===tid&&actIds.indexOf(p.id)<0&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
+  // Para cambio de pitcher: mostrar TODOS los jugadores activos del equipo (no solo lineup)
+  // Para emergente: solo banco (no en lineup)
+  var bench;
+  if(type==='pitcher'){
+    // Todos los jugadores activos del equipo, excepto los ya en juego actualmente
+    var currentActiveIds=lu&&lu.players?lu.players.filter(function(lp){return replacedIds.indexOf(lp.playerId)<0;}).map(function(lp){return lp.playerId;}):[]; 
+    bench=S.players.filter(function(p){
+      return p.teamId===tid
+        &&p.active!=='false'&&p.active!==false&&p.active!=='0'
+        &&currentActiveIds.indexOf(p.id)<0; // no está en juego activo
+    }).sort(function(a,b){
+      // Pitchers primero
+      var aP=(a.position||'').toUpperCase()==='P'?0:1;
+      var bP=(b.position||'').toUpperCase()==='P'?0:1;
+      if(aP!==bP)return aP-bP;
+      return a.name.localeCompare(b.name);
+    });
+  } else {
+    bench=S.players.filter(function(p){return p.teamId===tid&&actIds.indexOf(p.id)<0&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
+  }
+  // Para cambio de pitcher: el que sale debe ser el lanzador actual (P)
+  var saleOpts;
+  if(type==='pitcher'){
+    var pitchers=active.filter(function(p){
+      var lp=lu&&lu.players?lu.players.filter(function(x){return x.playerId===p.id;})[0]:null;
+      return lp&&(lp.position||'').toUpperCase()==='P';
+    });
+    saleOpts=(pitchers.length?pitchers:active).map(function(p){return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+'</option>';}).join('');
+  } else {
+    saleOpts=active.map(function(p){return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+'</option>';}).join('');
+  }
   showM('<div class="mhd"><div class="mtl">'+(type==='emergente'?'Bateador Emergente':'Cambio de Pitcher')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="fr c2">'
-    +'<div class="fg"><label class="fl">Sale</label><select class="fs" id="so">'+active.map(function(p){return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+'</option>';}).join('')+'</select></div>'
-    +'<div class="fg"><label class="fl">Entra</label><select class="fs" id="si">'+(bench.length?bench.map(function(p){return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+' ('+(p.position||'OF')+')</option>';}).join(''):'<option value="">Sin jugadores</option>')+'</select></div>'
-    +'</div></div>'
+    +'<div class="fg"><label class="fl">'+(type==='pitcher'?'Pitcher que sale':'Sale')+'</label><select class="fs" id="so">'+saleOpts+'</select></div>'
+    +'<div class="fg"><label class="fl">'+(type==='pitcher'?'Pitcher que entra':'Entra')+'</label><select class="fs" id="si">'+(bench.length?bench.map(function(p){var pos=(p.position||'').toUpperCase();return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+(pos?' ('+pos+')':'')+'</option>';}).join(''):'<option value="">Sin jugadores disponibles</option>')+'</select></div>'
+    +'</div>'
+    +(type==='pitcher'?'<div class="alert ai" style="font-size:11px;margin-top:8px">El pitcher entrante tomará la posición P. Su posición original se mostrará entre paréntesis en el box score.</div>':'')
+    +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
-    +'<button class="btn bp" data-gid="'+gm.id+'" data-tid="'+tid+'" onclick="applySub(this.dataset.gid,this.dataset.tid)">Confirmar</button></div>');
+    +'<button class="btn bp" data-gid="'+gm.id+'" data-tid="'+tid+'" data-type="'+type+'" onclick="applySub(this.dataset.gid,this.dataset.tid,this.dataset.type)">Confirmar</button></div>');
 }
-async function applySub(gid,tid){
+async function applySub(gid,tid,type){
   var outId=fv('so'),inId=fv('si');
-  if(!outId||!inId){toast('Selecciona ambos jugadores','error');return;}
+  if(!outId||!inId||inId===''){toast('Selecciona ambos jugadores','error');return;}
   if(outId===inId){toast('El jugador entrante y saliente no pueden ser el mismo','error');return;}
   var lu=S.lineups.filter(function(l){return l.gameId===gid&&l.teamId===tid;})[0];
-  // Check: the incoming player can't already be substituted out in this game
   var alreadySub=lu.players.filter(function(lp){return lp.playerId===inId&&lp.replacedBy;});
   if(alreadySub.length){toast('Ese jugador ya fue sustituido y no puede volver a jugar','error');return;}
   var outPos='OF';
+  var isPitcherChange=type==='pitcher';
   for(var i=0;i<lu.players.length;i++){
     var lp=lu.players[i];
     if(lp.playerId===outId){
-      outPos=lp.position;
-      // Mark the outgoing player as replaced
+      outPos=lp.position||'OF';
       lu.players[i]=Object.assign({},lp,{replacedBy:inId});
-      // Add incoming player as substitute, linked to the outgoing player
       var np=playerOf(inId);
+      var inPos=isPitcherChange?'P':(np&&np.position||outPos);
+      var origPos=np&&np.position||outPos; // posición original del entrante
       lu.players.push({
         playerId:inId,
         order:lp.order,
-        position:np&&np.position||outPos,
+        position:inPos,
+        originalPosition:isPitcherChange&&origPos!=='P'?origPos:null, // guardar pos original si es diferente
         isSubstitute:true,
         replacedPlayerId:outId
       });
       break;
     }
   }
-  if(outPos==='P'){
+  // Para pitcher que entra desde fuera del lineup, agregarlo directamente
+  var alreadyInLu=lu.players.filter(function(lp){return lp.playerId===inId;}).length;
+  if(!alreadyInLu){
+    // Nunca fue encontrado como salida — el jugador entra como pitcher nuevo (no estaba en lineup)
+    var np2=playerOf(inId);
+    var origPos2=np2&&np2.position||'OF';
+    lu.players.push({
+      playerId:inId,
+      order: lu.players.reduce(function(mx,lp){return Math.max(mx,lp.order||0);},0)+1,
+      position:'P',
+      originalPosition:origPos2!=='P'?origPos2:null,
+      isSubstitute:true,
+      replacedPlayerId:outId
+    });
+  }
+  // Cerrar línea de pitcheo del pitcher saliente
+  if(outPos==='P'||isPitcherChange){
+    S.pitching=S.pitching.map(function(p){
+      if(p.gameId===gid&&p.teamId===tid&&p.pitcherId===outId)
+        return Object.assign({},p,{pitchingClosed:true});
+      return p;
+    });
     var op=S.pitching.filter(function(p){return p.gameId===gid&&p.teamId===tid&&p.pitcherId===outId;})[0];
-    if(op)op.pitchingClosed=true;
+    if(op)await api('savePitching',{event:op});
   }
   await api('saveLineup',{lineup:lu});
   S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
@@ -3755,8 +3853,8 @@ async function saveU(id){
   if(!id&&!pass){toast('Contrasena requerida para nuevos usuarios','error');return;}
   if(!name||!username){toast('Nombre y usuario requeridos','error');return;}
   var ex=id?S.users.filter(function(x){return x.id===id;})[0]:{};
-  var profId=fv('uprof')||''; // empty string = no profile, not null
-  var u={id:id||null,name:name,username:username,role:fv('ur')||'scorer',profileId:profId,active:ex.active!==undefined?ex.active:true,created:ex.created||new Date().toISOString()};
+  var profId=fv('uprof')||null; // null = sin perfil
+  var u={id:id||null,name:name,username:username,role:fv('ur')||'scorer',profileId:profId||'',active:ex.active!==undefined?ex.active:true,created:ex.created||new Date().toISOString()};
   if(pass)u.password=pass;
   var r=await api('saveUser',{user:u});
   if(r&&r.ok){
