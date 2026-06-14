@@ -139,67 +139,38 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lsub{font-size:12px;letter-spacing:3px;color:var(--t3);margin-bottom:26px;font-family:'Barlow Condensed',sans-serif;text-align:center;}
 .spin{width:26px;height:26px;border:3px solid var(--bdr2);border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto;}
 @keyframes sp{to{transform:rotate(360deg);}}
+
+/* ── LOGO EQUIPO ── */
+.team-logo-img{width:100%;height:100%;object-fit:cover;border-radius:inherit;}
+.team-badge{display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;flex-shrink:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;color:#000;}
+/* ── SLOGAN BANNER ── */
+#slogan-bar{background:linear-gradient(90deg,#0d1628 0%,#1a2235 40%,#0d1628 100%);border-bottom:1px solid rgba(245,166,35,.18);padding:7px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
+#slogan-bar .sl-main{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
+#slogan-bar .sl-sub{font-size:11px;color:var(--t2);font-style:italic;}
+/* ── FOOTER ── */
+#app-footer{background:var(--bg2);border-top:1px solid var(--bdr);padding:14px 24px;text-align:center;font-size:11px;color:var(--t3);line-height:1.8;}
+#app-footer .ft-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
+#app-footer .ft-heart{color:var(--red);}
+/* ── RACHAS ── */
+.streak-section{background:linear-gradient(135deg,rgba(245,166,35,.06) 0%,rgba(245,166,35,.02) 100%);border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:16px;margin-bottom:16px;}
+.streak-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--acc);display:flex;align-items:center;gap:6px;margin-bottom:12px;}
+.streak-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+@media(max-width:700px){.streak-cols{grid-template-columns:1fr;}}
+.streak-col-title{font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:7px;border-bottom:1px solid var(--bdr);padding-bottom:5px;}
+.streak-item{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;background:rgba(245,166,35,.07);margin-bottom:4px;}
+.streak-item .si-name{font-size:12px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.streak-item .si-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--acc);}
+.streak-item .si-fire{font-size:14px;}
+.past-streak-item{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:7px;background:rgba(148,163,184,.05);border:1px solid rgba(148,163,184,.1);margin-bottom:3px;}
+.past-streak-item .si-name{font-size:11px;flex:1;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.past-streak-item .si-val{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t2);}
+.streak-empty{font-size:11px;color:var(--t3);text-align:center;padding:8px 0;}
+/* ── REABRIR JUEGO ── */
+.reopen-btn{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.35);color:var(--acc);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.reopen-btn:hover{background:rgba(245,166,35,.25);}
 </style>
 </head>
 <body>
-
-<!-- SETUP WIZARD -->
-<div id="sscr">
-  <div class="sbox">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;color:var(--acc)">&#9918; VITILLASTATS PRO</div>
-      <div style="font-size:12px;color:var(--t3);margin-top:4px;letter-spacing:2px">CONFIGURACION INICIAL</div>
-    </div>
-    <div class="step on" id="st1">
-      <div class="alert ai" style="font-size:12px">
-        <b>Pasos previos en Google:</b><br>
-        1. Abre Google Sheets y crea una hoja en blanco<br>
-        2. Extensiones &rarr; Apps Script &rarr; pega el archivo <b>.gs</b> adjunto<br>
-        3. En el .gs reemplaza <code>TU_SHEET_ID_AQUI</code> con el ID de tu hoja (lo encuentras en la URL de Sheets)<br>
-        4. Implementar &rarr; Nueva implementacion &rarr; App web &rarr; Acceso: <b>Cualquier persona</b><br>
-        5. Copia la URL generada y pegala abajo
-      </div>
-      <div class="fg"><label class="fl">URL del Apps Script *</label>
-        <input class="fi" id="gsurl" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px">
-      </div>
-      <div id="st1err" class="alert ae" style="display:none"></div>
-      <div id="st1sp" style="display:none;text-align:center;padding:10px">
-        <div class="spin" style="width:20px;height:20px;border-width:2px;display:inline-block"></div>
-        <div style="font-size:12px;color:var(--t2);margin-top:6px">Verificando...</div>
-      </div>
-      <button class="btn bp wf" onclick="testGSUrl()">Verificar y Continuar &rarr;</button>
-    </div>
-    <div class="step" id="st2">
-      <div class="alert as" style="margin-bottom:18px">&#10003; Conexion verificada. Configura el administrador inicial.</div>
-      <div class="fr c2">
-        <div class="fg"><label class="fl">Usuario admin *</label><input class="fi" id="admu" value="admin" autocorrect="off" autocapitalize="none"></div>
-        <div class="fg"><label class="fl">Nombre completo *</label><input class="fi" id="admn" value="Administrador"></div>
-      </div>
-      <div class="fr c2">
-        <div class="fg"><label class="fl">Contrasena *</label><input class="fi" type="password" id="admp" placeholder="Minimo 6 caracteres"></div>
-        <div class="fg"><label class="fl">Confirmar contrasena *</label><input class="fi" type="password" id="admp2" placeholder="Repite la contrasena"></div>
-      </div>
-      <div class="fg"><label class="fl">Fecha de vencimiento de licencia *</label><input class="fi" type="date" id="adml"></div>
-      <div id="st2err" class="alert ae" style="display:none"></div>
-      <div id="st2sp" style="display:none;text-align:center;padding:10px">
-        <div class="spin" style="width:20px;height:20px;border-width:2px;display:inline-block"></div>
-        <div style="font-size:12px;color:var(--t2);margin-top:6px">Configurando sistema...</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn bs" onclick="showStep(1)">&larr; Atras</button>
-        <button class="btn bp" style="flex:1" onclick="runSetup()">Iniciar Sistema &rarr;</button>
-      </div>
-    </div>
-    <div class="step" id="st3">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-size:48px;margin-bottom:12px">&#10003;</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--grn);margin-bottom:8px">Sistema configurado correctamente</div>
-        <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Google Sheets conectado. Ya puedes iniciar sesion.</div>
-        <button class="btn bp blg" onclick="goToLogin()">Ir al Login &rarr;</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- LOGIN -->
 <div id="lscr">
@@ -218,9 +189,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
       <div style="margin-top:10px;text-align:center">
         <button class="btn bs wf" onclick="guestLogin()">&#128065; Ver estadisticas publicas</button>
       </div>
-      <div style="margin-top:8px;text-align:center">
-        <button style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;text-decoration:underline" onclick="resetSetup()">&#9881; Reconfigurar sistema</button>
-      </div>
+
     </div>
     <div id="llod" style="display:none;padding:20px 0;text-align:center">
       <div class="spin"></div>
@@ -255,7 +224,19 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <button class="btn bs bsm" onclick="doLogout()">Salir</button>
       </div>
     </div>
+
+    <!-- SLOGAN -->
+    <div id="slogan-bar">
+      <span class="sl-main">⚾ La APP para llevar la gestión y control de los torneos de vitilla.</span>
+      <span class="sl-sub">Vitilla, más que un juego es pasión, hermandad y competitividad al límite.</span>
+    </div>
     <div id="ct"></div>
+    <!-- FOOTER -->
+    <footer id="app-footer">
+      <div class="ft-name">VitillaStats Pro</div>
+      <div>Hecha con <span class="ft-heart">❤️</span> por un vitillero &nbsp;|&nbsp; <b>ING. CARLOS REYES</b></div>
+      <div style="margin-top:2px">📞 Contacto: <a href="tel:8496393540" style="color:var(--acc);text-decoration:none;font-weight:600">849-639-3540</a></div>
+    </footer>
   </div>
 </div>
 
@@ -263,77 +244,79 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <div id="modals"></div>
 
 <script>
-
-// CONFIG
-var GS={getUrl:function(){return localStorage.getItem('vsp_url')||'';},setUrl:function(v){localStorage.setItem('vsp_url',v);}};
+// ═══════════════════════════════════════════════════════════
+// CONFIG — Supabase via Cloudflare Worker
+// ═══════════════════════════════════════════════════════════
+var CFG = {
+  // URL del Cloudflare Worker (cambia esto al tuyo)
+  workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
+  // App Token — debe coincidir con APP_SECRET en el Worker
+  appToken: 'd91ebe2292d660483e775cebf42cce5947c4ab3d44c05968d8b7c18c4ccac221',
+};
 
 // STATE
 var _curYear=new Date().getFullYear();
 var S={user:null,profile:null,game:null,tourFilter:'',yearFilter:_curYear,tournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30};
 
-// API
+// API — llama al Worker con el token
 async function api(action,data){
-  var url=GS.getUrl();
-  if(!url){toast('Google Sheets no configurado','error');return{ok:false,error:'Sin GS'};}
   try{
-    var r=await fetch(url,{method:'POST',body:JSON.stringify(Object.assign({action:action},data||{}))});
+    var r=await fetch(CFG.workerUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},
+      body:JSON.stringify(Object.assign({action:action},data||{}))
+    });
     if(!r.ok)throw new Error('HTTP '+r.status);
     return await r.json();
-  }catch(e){return{ok:false,error:'Error: '+e.message};}
+  }catch(e){
+    toast('Error de conexión: '+e.message,'error');
+    return{ok:false,error:e.message};
+  }
 }
 async function pingUrl(url){
-  try{var r=await fetch(url,{method:'GET'});if(!r.ok)return false;var j=await r.json();return j.ok===true;}catch(e){return false;}
+  try{
+    var r=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},
+      body:JSON.stringify({action:'ping'})
+    });
+    if(!r.ok)return false;
+    var j=await r.json();return j.ok===true;
+  }catch(e){return false;}
 }
 
+// [GS config eliminado - usar CFG arriba]
+
+// [STATE movido arriba]
+
+// [API movida arriba]
+
 // SETUP
-function showStep(n){document.querySelectorAll('.step').forEach(function(s){s.classList.remove('on');});document.getElementById('st'+n).classList.add('on');}
-async function testGSUrl(){
-  var url=(document.getElementById('gsurl').value||'').trim();
-  var errEl=document.getElementById('st1err'),sp=document.getElementById('st1sp');
-  errEl.style.display='none';
-  if(!url){errEl.textContent='Ingresa la URL del Apps Script';errEl.style.display='block';return;}
-  if(!url.includes('script.google.com')){errEl.textContent='La URL debe ser de Google Apps Script';errEl.style.display='block';return;}
-  sp.style.display='block';
-  var ok=await pingUrl(url);
-  sp.style.display='none';
-  if(!ok){errEl.textContent='No se pudo conectar. Verifica la URL y los permisos de despliegue.';errEl.style.display='block';return;}
-  GS.setUrl(url);
-  var d=new Date();d.setFullYear(d.getFullYear()+1);
-  document.getElementById('adml').value=d.toISOString().slice(0,10);
-  showStep(2);
-}
-async function runSetup(){
-  var admu=(document.getElementById('admu').value||'').trim();
-  var admn=(document.getElementById('admn').value||'').trim();
-  var admp=document.getElementById('admp').value;
-  var admp2=document.getElementById('admp2').value;
-  var adml=document.getElementById('adml').value;
-  var errEl=document.getElementById('st2err'),sp=document.getElementById('st2sp');
-  errEl.style.display='none';
-  if(!admu||!admn||!admp||!adml){errEl.textContent='Todos los campos son requeridos';errEl.style.display='block';return;}
-  if(admp.length<6){errEl.textContent='La contrasena debe tener al menos 6 caracteres';errEl.style.display='block';return;}
-  if(admp!==admp2){errEl.textContent='Las contrasenas no coinciden';errEl.style.display='block';return;}
-  sp.style.display='block';
-  var r=await api('setup',{adminUser:admu,adminPassword:admp,adminName:admn,licenseExpires:adml});
-  sp.style.display='none';
-  if(!r||!r.ok){errEl.textContent=(r&&r.error)||'Error al configurar el sistema: '+(r&&r.error||'Verifica la URL y permisos del Apps Script');errEl.style.display='block';return;}
-  // Mark setup as complete in localStorage
-  localStorage.setItem('vsp_setup_done','1');
-  showStep(3);
-}
-function goToLogin(){
-  document.getElementById('sscr').style.display='none';
-  showLoginScreen();
-}
-function resetSetup(){
-  if(!confirm('Esto borrara la URL configurada y mostrara el asistente de configuracion. Continuar?'))return;
-  localStorage.removeItem('vsp_url');
-  localStorage.removeItem('vsp_setup_done');
-  location.reload();
-}
+// [eliminado en migración Supabase]
+// [testGSUrl eliminado]
+
+// [runSetup eliminado]
 
 // LOGIN
 function showLoginScreen(){document.getElementById('lscr').style.display='flex';setTimeout(function(){document.getElementById('lu').focus();},100);}
+function resetModuleState(){
+  // Reset all per-module UI state so a new session starts clean
+  curP='';
+  S.tourFilter='';
+  // Stats module state
+  if(typeof _ST!=='undefined'){
+    _ST.tourId='';_ST.sortBy='avg';_ST.sortDir=-1;_ST.search='';
+    _ST.pitSortBy='era';_ST.pitSortDir=1;_ST.tmSortBy='w';_ST.tmSortDir=-1;
+    _ST.defSortBy='e';_ST.defSortDir=-1;_ST.activeTab='st-b';
+  }
+  // Stats de por vida state
+  if(typeof _SL!=='undefined'){
+    _SL.sortBy='avg';_SL.sortDir=-1;_SL.pitSortBy='era';_SL.pitSortDir=1;_SL.search='';
+  }
+  // Box score tab
+  if(typeof _gcTab!=='undefined') _gcTab='bs-a';
+}
+
 async function doLogin(){
   var username=(document.getElementById('lu').value||'').trim();
   var password=document.getElementById('lp').value||'';
@@ -351,6 +334,7 @@ async function doLogin(){
   saveSession();
   document.getElementById('lscr').style.display='none';
   document.getElementById('app').style.display='flex';
+  resetModuleState();
   renderApp();startPolling();startSessionTimer();
   toast('Bienvenido, '+res.user.name+'!','success');
 }
@@ -359,12 +343,14 @@ function guestLogin(){
   loadAll().catch(function(){}).finally(function(){
     document.getElementById('lscr').style.display='none';
     document.getElementById('app').style.display='flex';
+    resetModuleState();
     renderApp();goNav('standings');
     trackVisit();
   });
 }
 function doLogout(){
   stopPolling();stopSessionTimer();clearSession();
+  resetModuleState();
   S.user=null;S.profile=null;S.game=null;
   document.getElementById('app').style.display='none';
   document.getElementById('lscr').style.display='flex';
@@ -426,14 +412,19 @@ async function _doPoll(){
   var prevPoll=S.pollInterval||30;
   try{
     await loadAll();
-    // Silent UI update - only badges, no page re-render
+    // Actualizar badge de licencia
     if(S.licenseExpires){
       var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
       var lici=document.getElementById('lici');
       if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
     }
     saveSession();
-    // Restart if interval changed
+    // ── Auto-refresh del módulo activo (silencioso) ──────────────────
+    // Refrescamos módulos que muestran datos en tiempo real
+    var liveModules=['standings','stats','leaders','leaderslife','statslife','schedule','gamecontrol','dashboard'];
+    if(curP&&liveModules.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
+      try{ initPGS(); PGS[curP](); } catch(e2){ console.warn('Auto-refresh module error:',e2); }
+    }
     if((S.pollInterval||30)!==prevPoll) startPolling();
   }catch(e){console.warn('Poll error:',e);}
 }
@@ -450,16 +441,18 @@ var ALL_MOD=[
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
+  {id:'statslife',lbl:'Stats de Por Vida',ico:'♾️',sec:'Estadisticas'},
   {id:'leaders',lbl:'Lideres',ico:'🥇',sec:'Estadisticas'},
+  {id:'leaderslife',lbl:'Lideres de Por Vida',ico:'🌟',sec:'Estadisticas'},
   {id:'awards',lbl:'Premiaciones',ico:'🏅',sec:'Estadisticas'},
   {id:'users',lbl:'Usuarios',ico:'👤',sec:'Admin'},
   {id:'profiles',lbl:'Perfiles',ico:'🔐',sec:'Admin'},
   {id:'license',lbl:'Licencia',ico:'🔑',sec:'Admin'},
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
 ];
-var BASE_PUB=['standings','schedule','stats','leaders','awards','channels'];
-var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','leaders','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',leaders:'Lideres',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo'};
+var BASE_PUB=['standings','schedule','stats','statslife','leaders','leaderslife','awards','channels'];
+var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','awards'];
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -505,10 +498,17 @@ function getUserMods(u){
   return ALL_MOD.filter(function(m){return BASE_SCR.indexOf(m.id)>=0;});
 }
 function visibleTournaments(){
-  var u=S.user;if(!u||u.role==='admin')return S.tournaments;
-  var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-  if(!prof||!prof.tournaments||!prof.tournaments.length)return S.tournaments;
-  return S.tournaments.filter(function(t){return prof.tournaments.indexOf(t.id)>=0;});
+  var u=S.user;
+  var tours=(!u||u.role==='admin')?S.tournaments.slice():(function(){
+    var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
+    if(!prof||!prof.tournaments||!prof.tournaments.length)return S.tournaments.slice();
+    return S.tournaments.filter(function(t){return prof.tournaments.indexOf(t.id)>=0;});
+  })();
+  return tours.sort(function(a,b){
+    var ya=parseInt(a.year)||0,yb=parseInt(b.year)||0;
+    if(ya!==yb)return ya-yb;
+    return(a.name||'').localeCompare(b.name||'');
+  });
 }
 function visibleTeams(){
   var u=S.user;if(!u||u.role==='admin')return S.teams;
@@ -582,11 +582,13 @@ function renderApp(){
     }
   }
   document.getElementById('lici').innerHTML=licHtml;
-  document.getElementById('coni').innerHTML='<span style="color:var(--grn)">&#9679; Google Sheets</span>';
+  document.getElementById('coni').innerHTML='<span style="color:var(--grn)">&#9679; Supabase</span>';
   var mods=getUserMods(u);var nm='';var last='';
+  var subMods=['statslife','leaderslife'];
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
-    nm+='<div class="ni" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'"><span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
+    var isSub=subMods.indexOf(p.id)>=0;
+    nm+='<div class="ni'+(isSub?' ni-sub':'')+'" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'" style="'+(isSub?'padding-left:28px;font-size:12px;':'')+'"><span style="font-size:'+(isSub?'13':'15')+'px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
   });
   if(u.role!=='public'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
   document.getElementById('snav').innerHTML=nm;
@@ -614,7 +616,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,leaders:pgLead,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels};}
 function goNav(page){
   curP=page;
   document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
@@ -630,6 +632,17 @@ function fv(id){var e=document.getElementById(id);return e?(e.value||''):'';}
 function nid(){return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function tmNm(id){var t=S.tournaments.filter(function(x){return x.id===id;})[0];return t?t.name:'—';}
 function teamOf(id){return S.teams.filter(function(t){return t.id===id;})[0]||null;}
+
+function teamLogoHtml(t,size,radius){
+  if(!t)return'';
+  var sz=size||40; var rd=radius||8;
+  var style='width:'+sz+'px;height:'+sz+'px;border-radius:'+rd+'px;background:'+(t.color||'var(--acc)')+';';
+  if(t.logoUrl){
+    return'<div class="team-badge" style="'+style+'"><img class="team-logo-img" src="'+t.logoUrl+'" alt="'+t.name+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+((t.abbreviation||t.name.slice(0,2)).replace(/'/g,''))+'\'"></div>';
+  }
+  return'<div class="team-badge" style="'+style+';font-size:'+Math.round(sz*0.35)+'px;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div>';
+}
+
 function playerOf(id){return S.players.filter(function(p){return p.id===id;})[0]||null;}
 function showM(html,cls){document.getElementById('modals').innerHTML='<div class="mbg" id="mo" onclick="if(event.target.id===\'mo\')cM()"><div class="modal'+(cls?' '+cls:'')+'" onclick="event.stopPropagation()">'+html+'</div></div>';}
 function cM(){document.getElementById('modals').innerHTML='';}
@@ -651,7 +664,7 @@ function gcH(g){
   var day='?',mon='';
   if(g.date){var dp=String(g.date).split('-');if(dp.length>=3){day=parseInt(dp[2]);var mnames=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];mon=mnames[parseInt(dp[1])-1]||'';}}
   var rgt='';
-  if(g.status==='final')rgt='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700">'+(+g.awayRuns||0)+' - '+(+g.homeRuns||0)+'</div><span class="badge bg">FINAL</span></div>';
+  if(g.status==='final'){var _awR=parseInt(g.awayRuns)||0,_hmR=parseInt(g.homeRuns)||0;var _isTie=_awR===_hmR;var _isAdmin=S.user&&S.user.role==='admin';rgt='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700">'+_awR+' - '+_hmR+'</div>'+(_isTie&&_isAdmin?'<button class="reopen-btn" data-gid="'+g.id+'" onclick="event.stopPropagation();reopenGame(this.dataset.gid)">&#128275; Reabrir</button>':'<span class="badge bg">FINAL</span>')+'</div>';}
   else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div></div>';
   else if(g.status==='live')rgt='<div style="text-align:right"><span class="badge br">&#128308; EN VIVO</span><div style="font-size:16px;font-weight:700">'+(+g.awayRuns||0)+' - '+(+g.homeRuns||0)+'</div></div>';
   else rgt='<div style="text-align:right"><span class="badge bb">PROG.</span><div style="font-size:12px;color:var(--t3)">'+(g.time&&g.time.indexOf&&g.time.indexOf('1899')<0&&g.time.indexOf('1900')<0?g.time:'TBD')+'</div></div>';
@@ -768,7 +781,31 @@ async function saveT(id){
 }
 
 // TEAMS
-function pgTeamsTab(tab){pgTeams();setTimeout(function(){var t=document.getElementById(tab);if(t){t.style.display='block';var tabs=document.querySelectorAll('.tabs .tab');if(tabs.length>=2){tabs[0].classList.remove('on');tabs[1].classList.add('on');}}},50);}
+function pgTeamsTab(tab){
+  var scrollY=window.scrollY;
+  pgTeams();
+  setTimeout(function(){
+    // Show the target tab content
+    var t=document.getElementById(tab);
+    if(t){
+      // Hide all sibling tab panels (tb-eq and tb-pl)
+      ['tb-eq','tb-pl'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(el)el.style.display=(id===tab?'block':'none');
+      });
+      // Activate the correct tab button: find the tab whose onclick targets this panel
+      var allTabBtns=document.querySelectorAll('.tab');
+      allTabBtns.forEach(function(btn){
+        var oc=btn.getAttribute('onclick')||'';
+        if(oc.indexOf("'tb-eq'")>=0||oc.indexOf("'tb-pl'")>=0||oc.indexOf('"tb-eq"')>=0||oc.indexOf('"tb-pl"')>=0){
+          var targets=(oc.indexOf(tab)>=0);
+          btn.classList.toggle('on',targets);
+        }
+      });
+    }
+    window.scrollTo(0,scrollY);
+  },50);
+}
 function pgTeams(){
   var isA=S.user&&S.user.role==='admin';
   var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
@@ -789,7 +826,7 @@ function pgTeams(){
     var pls=S.players.filter(function(p){return p.teamId===t.id;});
     var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];
     return'<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-      +'<div style="width:40px;height:40px;border-radius:8px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:800;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div>'
+      +teamLogoHtml(t,40,8)
       +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:700">'+t.name+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+'</div></div></div>'
       +'<div style="display:flex;gap:16px;margin-bottom:12px">'
@@ -833,19 +870,31 @@ function pgTeams(){
 function openEM(id){
   var t=id?S.teams.filter(function(x){return x.id===id;})[0]:{};if(!t)t={};
   var tOpts=visibleTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(x){return'<option value="'+x.id+'" '+(t.tournamentId===x.id?'selected':'')+'>'+x.name+'</option>';}).join('');
+  var logoPreviewStyle='display:'+(t.logoUrl?'flex':'none')+';width:60px;height:60px;border-radius:10px;background:'+(t.color||'#f5a623')+';overflow:hidden;align-items:center;justify-content:center;margin-bottom:8px;';
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="en" value="'+(t.name||'')+'"></div>'
+    +'<div class="mbd">'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="en" value="'+(t.name||'')+'"></div>'
     +'<div class="fg"><label class="fl">Abreviacion (3)</label><input class="fi" id="ea" value="'+(t.abbreviation||'')+'" maxlength="3"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Torneo</label><select class="fs" id="et"><option value="">Sin torneo</option>'+tOpts+'</select></div>'
     +'<div class="fg"><label class="fl">Manager</label><input class="fi" id="em" value="'+(t.manager||'')+'"></div></div>'
     +'<div class="fr c3"><div class="fg"><label class="fl">Ciudad</label><input class="fi" id="ec" value="'+(t.city||'')+'"></div>'
     +'<div class="fg"><label class="fl">Division</label><input class="fi" id="ediv" value="'+(t.division||'')+'" placeholder="Ej: Norte, Sur, A, B..."></div>'
-    +'<div class="fg"><label class="fl">Color</label><input class="fi" id="ecl" type="color" value="'+(t.color||'#f5a623')+'" style="height:40px;padding:4px"></div></div></div>'
+    +'<div class="fg"><label class="fl">Color</label><input class="fi" id="ecl" type="color" value="'+(t.color||'#f5a623')+'" style="height:40px;padding:4px"></div></div>'
+    +'<div class="fg"><label class="fl">&#128247; URL del Logo (imagen PNG/JPG pública)</label>'
+    +'<div style="'+logoPreviewStyle+'" id="logo-prev">'+(t.logoUrl?'<img src="'+t.logoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentNode.style.display=\'none\'">':'')+'</div>'
+    +'<input class="fi" id="elogo" value="'+(t.logoUrl||'')+'" placeholder="https://... (opcional)" oninput="previewLogo(this.value)" style="font-size:12px">'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px">Pega la URL de una imagen pública (imgur, github, etc.). Déjalo vacío para usar el color con las iniciales.</div></div>'
+    +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveE(this.dataset.tid)">Guardar</button></div>');
 }
+function previewLogo(url){
+  var prev=document.getElementById('logo-prev');if(!prev)return;
+  if(url){prev.style.display='flex';prev.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentNode.style.display=\'none\'">';}
+  else prev.style.display='none';
+}
 async function saveE(id){
-  var t={id:id||null,name:fv('en'),abbreviation:(fv('ea')||'').toUpperCase(),tournamentId:fv('et')||null,manager:fv('em'),city:fv('ec'),color:fv('ecl'),division:fv('ediv')||''};
+  var t={id:id||null,name:fv('en'),abbreviation:(fv('ea')||'').toUpperCase(),tournamentId:fv('et')||null,manager:fv('em'),city:fv('ec'),color:fv('ecl'),division:fv('ediv')||'',logoUrl:(fv('elogo')||'').trim()};
   if(!t.name){toast('Nombre requerido','error');return;}
   if(t.tournamentId){var dup=S.teams.filter(function(x){return x.id!==t.id&&x.tournamentId===t.tournamentId&&x.name.toLowerCase()===t.name.toLowerCase();});if(dup.length){toast('Ya existe un equipo con ese nombre en este torneo','error');return;}}
   var r=await api('saveTeam',{team:t});
@@ -925,7 +974,21 @@ function openPM(id,tid){
   var p=id?S.players.filter(function(x){return x.id===id;})[0]:{teamId:tid||null};if(!p)p={teamId:tid||null};
   var tOpts=S.teams.slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
-  var exOpts=S.players.filter(function(pl){return pl.id!==id;}).sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pl){var tm=teamOf(pl.teamId);return'<option value="'+pl.id+'">#'+(pl.number||'?')+' '+pl.name+(tm?' ('+tm.name+')':'')+'</option>';}).join('');
+  // Build deduplicated import list: one entry per career-root player, listing all teams
+  var exMap={};
+  S.players.filter(function(pl){return pl.id!==id;}).forEach(function(pl){
+    var root=careerRootId(String(pl.id));
+    if(!exMap[root]){exMap[root]={pl:pl,teams:[]};}
+    var tm=teamOf(pl.teamId);
+    var tnm=tm?tm.name:null;
+    if(tnm&&exMap[root].teams.indexOf(tnm)<0)exMap[root].teams.push(tnm);
+    // keep the entry with the most info (prefer ones with team)
+    if(tm&&!teamOf(exMap[root].pl.teamId))exMap[root].pl=pl;
+  });
+  var exOpts=Object.keys(exMap).sort(function(a,b){return exMap[a].pl.name<exMap[b].pl.name?-1:1;}).map(function(root){
+    var entry=exMap[root];var pl=entry.pl;var teamStr=entry.teams.length?'('+entry.teams.join(', ')+')':'';
+    return'<option value="'+pl.id+'">#'+(pl.number||'?')+' '+pl.name+(teamStr?' '+teamStr:'')+'</option>';
+  }).join('');
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Agregar')+' Jugador</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +(!id?'<div class="tabs"><div class="tab on" onclick="pmTab(this,0)">&#10000; Nuevo</div><div class="tab" onclick="pmTab(this,1)">&#128203; Importar Existente</div></div>':'')
@@ -1190,7 +1253,7 @@ function pgGC(){
     var gs=visibleGames().filter(function(g){return g.status==='live'||g.status==='scheduled';});
     ct('<div class="stl">Control de Juego</div><div class="ssb">Selecciona un juego</div>'
       +(gs.length?gs.map(function(g){var h=teamOf(g.homeTeamId),a=teamOf(g.awayTeamId);if(!h||!a)return'';
-        return'<div class="gcrd" onclick="'+(g.status==='live'?'S.game=\''+g.id+'\';goNav(\'gamecontrol\')':'startGame(\''+g.id+'\')')+'"><div style="flex:1"><div class="gvs">'+a.name+' vs '+h.name+'</div><div class="ginf">'+g.date+' &middot; '+(g.venue||'TBD')+'</div></div><span class="badge '+(g.status==='live'?'br':'bb')+'">'+(g.status==='live'?'&#128308; EN VIVO':'PROGRAMADO')+'</span></div>';
+        return'<div class="gcrd" onclick="'+(g.status==='live'?'S.game=\''+g.id+'\';goNav(\'gamecontrol\')':'startGame(\''+g.id+'\')')+'"><div style="flex:1"><div class="gvs">'+a.name+' vs '+h.name+'<div class="ginf">'+g.date+' &middot; '+(g.venue||'TBD')+'</div></div><span class="badge '+(g.status==='live'?'br':'bb')+'">'+(g.status==='live'?'&#128308; EN VIVO':'PROGRAMADO')+'</span></div>';
       }).join(''):'<div class="empty"><div style="font-size:40px">&#9918;</div><div>No hay juegos activos</div></div>'));
     return;
   }
@@ -1261,7 +1324,7 @@ function pgGC(){
     +'<div class="scoreboard">'
     +'<div class="tscore"><div class="tbox"><div class="tnm" style="color:'+(isTop?'var(--acc)':'var(--txt)')+'">'+aw.name+'</div><div class="sbig">'+(parseInt(gm.awayRuns)||0)+'</div><div style="font-size:11px;color:var(--t3)">VISITANTE</div></div>'
     +'<div style="text-align:center"><div style="font-size:11px;color:var(--t3);margin-bottom:2px">'+(isTop?'&#9650;':'&#9660;')+' ENTRADA</div><div style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:800">'+(parseInt(gm.currentInning)||1)+'</div><div style="font-size:11px;color:var(--t3)">DE '+inn+'</div></div>'
-    +'<div class="tbox"><div class="tnm" style="color:'+(!isTop?'var(--acc)':'var(--txt)')+'">'+hw.name+'</div><div class="sbig">'+(parseInt(gm.homeRuns)||0)+'</div><div style="font-size:11px;color:var(--t3)">LOCAL</div></div></div>'
+    +'<div class="tbox"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">'+teamLogoHtml(hw,28,6)+'<div class="tnm" style="color:'+(!isTop?'var(--acc)':'var(--txt)')+'">'+hw.name+'</div></div><div class="sbig">'+(parseInt(gm.homeRuns)||0)+'</div><div style="font-size:11px;color:var(--t3)">LOCAL</div></div></div>'
     +'<div style="display:flex;justify-content:center;align-items:center;gap:32px;margin:12px 0">'
     +'<div style="display:flex;gap:16px">'
     +'<div><div class="bslbl">BOLAS</div><div class="bsdots">'+[0,1,2].map(function(i){return'<div class="dot '+(parseInt(gm.balls||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
@@ -1326,7 +1389,7 @@ function pgGC(){
 function bsHTML(gid,tid){
   var lu=S.lineups.filter(function(l){return l.gameId===gid&&l.teamId===tid;})[0];
   if(!lu||!lu.players||!lu.players.length)return'<div class="empty"><div>Sin lineup</div></div>';
-  var evs=S.events.filter(function(e){return e.gameId===gid&&e.battingTeamId===tid;});
+  var evs=S.events.filter(function(e){return e.gameId===gid&&e.battingTeamId===tid&&e.type!=='UNDO';});
   // Build display order: for each batting slot, show original then subs in chain
   var slots={};
   lu.players.forEach(function(lp){
@@ -1622,11 +1685,14 @@ async function rPlay(type){
   // Ask for RBI - always ask, anotador decides
   var rbi=0, runs=0;
   var bName=bi&&playerOf(bi.playerId)?'#'+( playerOf(bi.playerId).number||'?')+' '+playerOf(bi.playerId).name:'Bateador';
+  // FIX 5: Block concurrent calls BEFORE prompts to prevent double-registration
+  if(_rPlayBusy){toast('Procesando jugada anterior...','info');return;}
+  _rPlayBusy=true;
   if(type==='HR'){
     var rb=prompt('JONRON! - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCuantas remolcadas (RBI)? (minimo 1, incluye al bateador)',String(enBase+1));
-    if(rb===null)return;
+    if(rb===null){_rPlayBusy=false;return;}
     rbi=Math.max(1,parseInt(rb)||1);
     runs=rbi;
   } else if(type==='H1'||type==='H2'||type==='H3'){
@@ -1634,34 +1700,34 @@ async function rPlay(type){
     var rb2=prompt(tipH+' - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCuantas carreras anotaron? (0 si ninguna)','0');
-    if(rb2===null)return;
+    if(rb2===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb2)||0); runs=rbi;
   } else if(type==='OUT'){
     var rb3=prompt('OUT DE CAMPO - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas (sacrifice fly)? (0 si ninguna)','0');
-    if(rb3===null)return;
+    if(rb3===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb3)||0); runs=rbi;
   } else if(type==='DP'){
-    if((parseInt(gm.outs)||0)>=2){toast('No se puede marcar doble play con 2 outs','error');return;}
+    if((parseInt(gm.outs)||0)>=2){_rPlayBusy=false;toast('No se puede marcar doble play con 2 outs','error');return;}
     var rb4=prompt('DOBLE PLAY - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas? (0 si ninguna)','0');
-    if(rb4===null)return;
+    if(rb4===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb4)||0); runs=rbi;
   } else if(type==='BB'||type==='HBP'){
     var rb5=prompt(({BB:'BASE POR BOLAS',HBP:'GOLPEADO POR PITCHEO'}[type])+' - '+bName
       +'\nCorredores en base: '+enBase
       +(enBase===3?'\n(Bases llenas: anota 1 carrera forzada)':'')
       +'\n\nCarreras anotadas?',enBase===3?'1':'0');
-    if(rb5===null)return;
+    if(rb5===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb5)||0); runs=rbi;
   } else if(type==='E'){
     // First ask runs, then select fielder who committed the error
     var rb6=prompt('ERROR - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas por el error?','0');
-    if(rb6===null)return;
+    if(rb6===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb6)||0); runs=rbi;
     // Pick fielder from fielding team (opposite of batting team)
     var fldTeamId=isTop?gm.homeTeamId:gm.awayTeamId;
@@ -1675,14 +1741,13 @@ async function rPlay(type){
     if(fldPlayers.length){
       var optList=fldPlayers.map(function(p,i){return(i+1)+'. '+p.label;}).join('\n');
       var selIdx=prompt('ERROR\n\nSelecciona el jugador que cometió el error:\n'+optList+'\n\nIngresa el numero (1-'+fldPlayers.length+'):','');
-      if(selIdx===null)return;
+      if(selIdx===null){_rPlayBusy=false;return;}
       var idx=parseInt(selIdx)-1;
       if(idx>=0&&idx<fldPlayers.length) gm._errorFielderId=fldPlayers[idx].id;
       else gm._errorFielderId=null;
     }
   }
 
-  _rPlayBusy=true;
   _lastEvTs=Date.now();
   _saving=true;
   try{
@@ -1796,10 +1861,13 @@ async function rPlay(type){
       if(!gameOver) toast('3 outs - cambio de turno','info');
     }
     // Build event record — generate ID on frontend to prevent backend collisions
+    // FIX 5: Use the captured idx from before the increment to ensure correct batter
     var evId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     var errorFielderId=(type==='E'&&gm._errorFielderId)||null;
     if(gm._errorFielderId)delete gm._errorFielderId;
-    var ev={id:evId,gameId:gm.id,batterId:bi.playerId,battingTeamId:btId,
+    // bi was captured before prompts; re-verify it matches the idx we started with
+    var biPlayerId=bi?bi.playerId:null;
+    var ev={id:evId,gameId:gm.id,batterId:biPlayerId,battingTeamId:btId,
       type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
       timestamp:new Date().toISOString()};
     // Push event IMMEDIATELY so box score reflects it before save
@@ -1850,8 +1918,17 @@ async function autoUpdatePitcher(gm,type,runs,half){
   }
   if(!pe)return;
   var pid=pe.playerId;
-  var ex=null;for(var j=0;j<S.pitching.length;j++){if(S.pitching[j].gameId===gm.id&&S.pitching[j].teamId===ftId&&S.pitching[j].pitcherId===pid&&!S.pitching[j].pitchingClosed){ex=S.pitching[j];break;}}
-  if(!ex){ex={id:null,gameId:gm.id,teamId:ftId,pitcherId:pid,decision:'',ip:0,h:0,r:0,er:0,bb:0,k:0,hr:0,auto:true,timestamp:new Date().toISOString()};S.pitching.push(ex);}
+  // Find open record for this exact pitcher (not just any for the team)
+  var ex=null;
+  for(var j=0;j<S.pitching.length;j++){
+    if(S.pitching[j].gameId===gm.id&&S.pitching[j].teamId===ftId&&S.pitching[j].pitcherId===pid&&!S.pitching[j].pitchingClosed){ex=S.pitching[j];break;}
+  }
+  if(!ex){
+    // Double-check: don't create duplicate if one already exists with no id yet (pending save)
+    var pending=S.pitching.filter(function(p){return p.gameId===gm.id&&p.teamId===ftId&&p.pitcherId===pid&&!p.pitchingClosed;});
+    if(pending.length){ex=pending[0];}
+    else{ex={id:null,gameId:gm.id,teamId:ftId,pitcherId:pid,decision:'',ip:0,h:0,r:0,er:0,bb:0,k:0,hr:0,auto:true,timestamp:new Date().toISOString()};S.pitching.push(ex);}
+  }
   if(['H1','H2','H3','HR'].indexOf(type)>=0)ex.h=(parseInt(ex.h)||0)+1;
   if(type==='HR')ex.hr=(parseInt(ex.hr)||0)+1;
   if(type==='K')ex.k=(parseInt(ex.k)||0)+1;
@@ -1871,13 +1948,25 @@ function rBSO(type){
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});pgGC();
   api('saveGame',{game:gm}); // fire-and-forget
 }
+var _undoBusy=false;
 async function undoLastPlay(){
+  if(_undoBusy){toast('Procesando deshacer anterior...','info');return;}
   if(!confirm('Deshacer la ultima jugada? El bateador volvera al turno.'))return;
-  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  _undoBusy=true;
+  try{
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm){_undoBusy=false;return;}
   var gEvs=S.events.filter(function(e){return e.gameId===gm.id;});
-  if(!gEvs.length){toast('No hay jugadas para deshacer','info');return;}
-  // Get last event
-  var last=gEvs[gEvs.length-1];
+  if(!gEvs.length){toast('No hay jugadas para deshacer','info');_undoBusy=false;return;}
+  // Skip ALL UNDO log entries — find the last REAL play that hasn't been undone
+  // Build set of already-undone event IDs from UNDO log entries
+  var alreadyUndoneIds={};
+  gEvs.forEach(function(e){if(e.type==='UNDO'&&e.undoneEventId)alreadyUndoneIds[e.undoneEventId]=true;});
+  var last=null;
+  for(var i=gEvs.length-1;i>=0;i--){
+    var e=gEvs[i];
+    if(e.type!=='UNDO'&&!alreadyUndoneIds[e.id]){last=e;break;}
+  }
+  if(!last){toast('No hay jugadas reales para deshacer','info');_undoBusy=false;return;}
   var wasTop=last.half==='top';
   var wasInning=parseInt(last.inning)||1;
   // Detect if this play caused an inning change:
@@ -1928,10 +2017,23 @@ async function undoLastPlay(){
     if(wasTop)gm.homeErrors=Math.max(0,(parseInt(gm.homeErrors)||0)-1);
     else gm.awayErrors=Math.max(0,(parseInt(gm.awayErrors)||0)-1);
   }
-  // Revert pitcher stats for the batting team's pitcher (opposing pitcher)
-  var btId=wasTop?gm.awayTeamId:gm.homeTeamId;
+  // Revert pitcher stats — find the active record for the SPECIFIC pitcher who threw that play
+  var btId2=wasTop?gm.awayTeamId:gm.homeTeamId;
   var pitTeamId=wasTop?gm.homeTeamId:gm.awayTeamId;
-  var ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId;}).slice(-1)[0];
+  // Find current active pitcher from lineup (same logic as autoUpdatePitcher)
+  var lu2=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===pitTeamId;})[0];
+  var activePitId=null;
+  if(lu2&&lu2.players){
+    var rpIds2=lu2.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;});
+    for(var pi2=0;pi2<lu2.players.length;pi2++){var lp2=lu2.players[pi2];if(lp2.position==='P'&&rpIds2.indexOf(lp2.playerId)<0){activePitId=lp2.playerId;break;}}
+  }
+  var ex=null;
+  if(activePitId){
+    // Prefer the open record for that specific pitcher
+    ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&e.pitcherId===activePitId&&!e.pitchingClosed;})[0]||null;
+  }
+  // Fallback: last open record for that team
+  if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&!e.pitchingClosed;}).slice(-1)[0]||null;
   if(ex){
     // Revert IP for outs
     var isOutP=['K','OUT','DP','SAC','OJ'].indexOf(last.type)>=0;
@@ -1965,7 +2067,7 @@ async function undoLastPlay(){
   var undoLogId='undo'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   var undoLogEv={id:undoLogId,gameId:gm.id,batterId:last.batterId,battingTeamId:last.battingTeamId,
     type:'UNDO',inning:last.inning,half:last.half,rbi:0,runs:0,
-    undoneType:last.type,undoneTs:last.timestamp,
+    undoneType:last.type,undoneTs:last.timestamp,undoneEventId:last.id,
     timestamp:new Date().toISOString(),unofficial:'true'};
   S.events=S.events.filter(function(e){return e.id!==last.id;});
   S.events.push(undoLogEv);
@@ -1979,6 +2081,26 @@ async function undoLastPlay(){
     if(ex) await api('savePitching',{event:ex});
     await api('saveEvent',{event:undoLogEv});
   }finally{_saving=false;}
+  }finally{_undoBusy=false;}
+}
+
+// ════════════════════════════════════════════════════════════════
+// REABRIR JUEGO FINALIZADO (solo si el marcador está empatado)
+// ════════════════════════════════════════════════════════════════
+async function reopenGame(gid){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0];
+  if(!gm)return;
+  var awR=parseInt(gm.awayRuns)||0,hmR=parseInt(gm.homeRuns)||0;
+  if(awR!==hmR){toast('Solo se puede reabrir un juego con marcador empatado','error');return;}
+  if(!confirm('¿Reabrir juego? El marcador está '+awR+'-'+hmR+'. El juego regresará a estado EN VIVO para continuar anotando.'))return;
+  gm.status='live';
+  var r=await api('saveGame',{game:gm});
+  if(r&&r.ok){
+    S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+    S.game=gid;
+    goNav('gamecontrol');
+    toast('Juego reabierto — continúa anotando','success');
+  } else toast(r&&r.error||'Error al reabrir juego','error');
 }
 async function endGame(){
   if(!confirm('Confirmar finalizacion del juego?'))return;
@@ -2416,7 +2538,7 @@ function pgStand(){
     return'<tr style="'+(i===0&&s.w>0?'color:var(--acc)':'')+'">'
       +'<td style="font-weight:700;color:var(--t3)">'+(i+1)+'</td>'
       +'<td><div style="display:flex;align-items:center;gap:8px">'
-      +'<div style="width:24px;height:24px;border-radius:4px;background:'+(s.tm.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:800;color:#000">'+(s.tm.abbreviation||s.tm.name.slice(0,2))+'</div>'
+      +teamLogoHtml(s.tm,24,4)
       +s.tm.name+'</div></td>'
       +'<td style="text-align:center">'+s.gp+'</td>'
       +'<td style="text-align:center"><b>'+s.w+'</b></td>'
@@ -2508,7 +2630,38 @@ function filterStatsDisplay(){
   });}
 }
 
-// ── PLAYER STATS MODAL (batter vs pitcher/team; pitcher vs batter/team) ────────
+function filterStatsLifeDisplay(){
+  var q=(_SL.search||'').toLowerCase();
+  var bTbody=document.querySelector('#sl-b table tbody');
+  if(bTbody)[].forEach.call(bTbody.querySelectorAll('tr'),function(tr){tr.style.display=(!q||tr.textContent.toLowerCase().indexOf(q)>=0)?'':'none';});
+  var pTbody=document.querySelector('#sl-p table tbody');
+  if(pTbody)[].forEach.call(pTbody.querySelectorAll('tr'),function(tr){tr.style.display=(!q||tr.textContent.toLowerCase().indexOf(q)>=0)?'':'none';});
+}
+// Resolves the ROOT player id by following the importedFrom chain to its origin.
+// Handles chains of any depth: A → B → C → D all resolve to A.
+function careerRootId(pid){
+  var visited={};
+  var current=String(pid);
+  while(true){
+    if(visited[current])break; // cycle guard
+    visited[current]=true;
+    var p=playerOf(current);
+    if(!p||!p.importedFrom||String(p.importedFrom)===''||String(p.importedFrom)===current)break;
+    current=String(p.importedFrom);
+  }
+  return current; // this is the original player ID (the root)
+}
+// Returns ALL player IDs that share the same career identity as pid.
+// Works correctly even when chains go several levels deep:
+//   original → import1 → import2 → import3 (all grouped together)
+function careerInstances(pid){
+  var root=careerRootId(pid);
+  // Collect all players whose chain resolves to the same root
+  return S.players.filter(function(p){
+    return careerRootId(String(p.id))===root;
+  }).map(function(p){return p.id;});
+}
+// ── END CAREER STATS helpers ──────────────────────────────────────────────────
 function openPlayerStatsM(pid,role){
   if(!pid)return;
   var p=playerOf(pid);if(!p)return;
@@ -2516,11 +2669,15 @@ function openPlayerStatsM(pid,role){
   // All official events for this player
   var officialGids=S.games.filter(function(g){return g.status==='final'||(g.status==='suspended'&&g.official==='true');}).map(function(g){return g.id;});
   var evs=S.events.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+  // Career: all instances of this player across all teams/tournaments
+  var careerPids=careerInstances(pid);
 
   if(role==='batter'){
-    var pe=evs.filter(function(e){return e.batterId===pid&&['BB','HBP','SAC','OJ','UNDO'].indexOf(e.type)<0||e.batterId===pid&&['BB','HBP','SAC'].indexOf(e.type)>=0;});
-    // full events for this batter (including walks)
+    // Current instance events (for situational splits filtered by team/pitcher)
     var allPe=evs.filter(function(e){return e.batterId===pid&&e.type!=='UNDO';});
+    // Career events = all instances
+    var allCareerPe=evs.filter(function(e){return careerPids.indexOf(e.batterId)>=0&&e.type!=='UNDO';});
+    var isMultiInstance=careerPids.length>1;
 
     // ── STAT LINE helper ──────────────────────────────────────────────────────
     function calcLine(es){
@@ -2582,26 +2739,56 @@ function openPlayerStatsM(pid,role){
       return statLine(te,'vs '+(pp?pp.name:ppid));
     });
 
+    // Sort ascending by name
+    teamsVs.sort(function(a,b){var ta=teamOf(a),tb=teamOf(b);return(ta?ta.name:'').localeCompare(tb?tb.name:'');});
+    pitchersVs.sort(function(a,b){var pa=playerOf(a),pb=playerOf(b);return(pa?pa.name:'').localeCompare(pb?pb.name:'');});
+
+    // Build filter options
+    var teamOptsBat='<option value="">Todos los equipos</option>'+teamsVs.map(function(tid2){var t=teamOf(tid2);return'<option value="'+tid2+'">'+(t?t.name:tid2)+'</option>';}).join('');
+    var pitOptsBat='<option value="">Todos los pitchers</option>'+pitchersVs.map(function(ppid){var pp=playerOf(ppid);return'<option value="'+ppid+'">'+(pp?'#'+(pp.number||'?')+' '+pp.name:ppid)+'</option>';}).join('');
+
+    // Store data in global scope so onchange handlers can access them
+    window._msAllPe=allPe;window._msTeamsVs=teamsVs;window._msPitchersVs=pitchersVs;
+    window._msStatLine=statLine;window._msStatHdr=statHdr;
+
     showM('<div class="mhd"><div class="mtl">&#127952; '+p.name+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
       +'<div class="mbd">'
       +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">'
       +'<div style="width:44px;height:44px;border-radius:8px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#000">#'+(p.number||'?')+'</div>'
       +'<div><div style="font-weight:700">'+p.name+'</div><div style="font-size:12px;color:var(--t3)">'+(tm?tm.name:'Sin equipo')+' &middot; '+(p.position||'?')+'</div></div>'
       +'</div>'
-      +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TOTALES Y SITUACION</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TOTALES Y SITUACION'+(isMultiInstance?' <span style=&quot;font-size:10px;color:var(--acc)&quot;>(este equipo/torneo)</span>':'')+'</div>'
       +'<div class="tw">'+statHdr
       +statLine(allPe,'Total',true)
       +statLine(withRunners,'Con corredores en base')
       +statLine(noRunners,'Bases vacias')
       +'</tbody></table></div>'
-      +(vsTeamRows.length?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">VS EQUIPO</div><div class="tw">'+statHdr+vsTeamRows.join('')+'</tbody></table></div>':'')
-      +(vsPitRows.length?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">VS PITCHER</div><div class="tw">'+statHdr+vsPitRows.join('')+'</tbody></table></div>':'')
+      +(isMultiInstance?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">&#127775; DE POR VIDA (todos los equipos/torneos)</div>'
+        +'<div class="tw">'+statHdr
+        +statLine(allCareerPe,'Total carrera',true)
+        +(function(){var wr=allCareerPe.filter(function(e){var prior=evs.filter(function(ev){return ev.gameId===e.gameId&&ev.half===e.half&&ev.inning===e.inning&&ev.timestamp<e.timestamp;});return['H1','H2','H3','BB','HBP','E','SB'].filter(function(t){return prior.filter(function(ev){return ev.type===t;}).length>0;}).length>0;});return statLine(wr,'Con corredores (carrera)');})()
+        +(function(){var wr=allCareerPe.filter(function(e){var prior=evs.filter(function(ev){return ev.gameId===e.gameId&&ev.half===e.half&&ev.inning===e.inning&&ev.timestamp<e.timestamp;});return['H1','H2','H3','BB','HBP','E','SB'].filter(function(t){return prior.filter(function(ev){return ev.type===t;}).length>0;}).length===0;});return statLine(wr,'Bases vacias (carrera)');})()
+        +'</tbody></table></div>'
+        +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Equipos: '+careerPids.map(function(cid){var cp=playerOf(cid);var ct=cp?teamOf(cp.teamId):null;return ct?ct.name:'?';}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ')+'</div>'
+        :'')
+      +(teamsVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS EQUIPO</div>'
+        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="bat-vst-sel" onchange="var ids=this.value?[this.value]:window._msTeamsVs;document.getElementById(&quot;bat-vst-body&quot;).innerHTML=ids.map(function(tid2){var t=window.teamOf(tid2);var te=window._msAllPe.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&amp;&amp;(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)===tid2;});return window._msStatLine(te,&apos;vs &apos;+(t?t.name:tid2));}).join(&apos;&apos;)">'+teamOptsBat+'</select>'
+        +'</div><div class="tw">'+statHdr+'<tbody id="bat-vst-body">'+vsTeamRows.join('')+'</tbody></table></div>':'')
+      +(pitchersVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS PITCHER</div>'
+        +'<select class="fs" style="width:180px;padding:4px 8px;font-size:12px" id="bat-vsp-sel" onchange="var ids=this.value?[this.value]:window._msPitchersVs;document.getElementById(&quot;bat-vsp-body&quot;).innerHTML=ids.map(function(ppid){var pp=window.playerOf(ppid);var te=window._msAllPe.filter(function(e){return window.S.pitching.filter(function(pt){return pt.gameId===e.gameId&amp;&amp;pt.pitcherId===ppid&amp;&amp;pt.teamId!==e.battingTeamId;}).length>0;});return window._msStatLine(te,&apos;vs &apos;+(pp?pp.name:ppid));}).join(&apos;&apos;)">'+pitOptsBat+'</select>'
+        +'</div><div class="tw">'+statHdr+'<tbody id="bat-vsp-body">'+vsPitRows.join('')+'</tbody></table></div>':'')
       +'</div>'
       +'<div class="mft"><button class="btn bp" onclick="cM()">Cerrar</button></div>');
 
   } else {
     // ── PITCHER analysis ──────────────────────────────────────────────────────
     var pe2=S.pitching.filter(function(e){return e.pitcherId===pid&&officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+    // Career: all instances of this pitcher
+    var careerPitPids=careerInstances(pid);
+    var careerPe2=S.pitching.filter(function(e){return careerPitPids.indexOf(e.pitcherId)>=0&&officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+    var isPitMulti=careerPitPids.length>1;
     var gps=pe2.length;
     var totIP=pe2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
     var totK=pe2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
@@ -2633,36 +2820,55 @@ function openPlayerStatsM(pid,role){
     }
     var pitHdr='<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th style="text-align:left">Situacion</th><th>G</th><th>P</th><th>IP</th><th>H</th><th>BB</th><th>K</th><th style="color:var(--acc)">ERA</th><th>WHIP</th></tr></thead><tbody>';
 
-    // vs each batting team
+    // vs each batting team — sorted ascending
     var batTeams=[];
     pe2.forEach(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];if(!gm2)return;var opp=gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId;if(opp&&batTeams.indexOf(opp)<0)batTeams.push(opp);});
-    var vsTeamPRows=batTeams.map(function(tid2){
-      var t=teamOf(tid2);var te=pe2.filter(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&(gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId)===tid2;});
-      return pitLine(te,'vs '+(t?t.name:tid2));
-    });
+    batTeams.sort(function(a,b){var ta=teamOf(a),tb=teamOf(b);return(ta?ta.name:'').localeCompare(tb?tb.name:'');});
 
-    // vs each notable batter (batters who faced this pitcher with hits/K/BB)
+    // vs each notable batter — sorted ascending by name
     var battersVs=[];
     evs.forEach(function(e){
       if(e.type==='UNDO')return;
       var pitRec=pe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;});
       if(pitRec.length&&e.batterId&&battersVs.indexOf(e.batterId)<0)battersVs.push(e.batterId);
     });
-    var vsBatRows=battersVs.slice(0,10).map(function(bid){
-      var bp=playerOf(bid);
-      var be=evs.filter(function(e){return e.batterId===bid&&e.type!=='UNDO'&&pe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;});
-      var vb=be.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
-      var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
-      var bb=be.filter(function(e){return e.type==='BB';}).length;
-      var k=be.filter(function(e){return e.type==='K';}).length;
-      var avg=vb>0?(h/vb).toFixed(3):'—';
-      var col='';
-      return'<tr><td style="font-size:12px;color:var(--t2)">'+( bp?'#'+(bp.number||'?')+' '+bp.name:bid)+'</td>'
-        +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td>'
-        +'<td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td></tr>';
-    });
+    battersVs.sort(function(a,b){var pa=playerOf(a),pb=playerOf(b);return(pa?pa.name:'').localeCompare(pb?pb.name:'');});
+
+    // Build filter options
+    var teamOptsPit='<option value="">Todos los equipos</option>'+batTeams.map(function(tid2){var t=teamOf(tid2);return'<option value="'+tid2+'">'+(t?t.name:tid2)+'</option>';}).join('');
+    var batOptsP='<option value="">Todos los bateadores</option>'+battersVs.map(function(bid){var bp=playerOf(bid);return'<option value="'+bid+'">'+(bp?'#'+(bp.number||'?')+' '+bp.name:bid)+'</option>';}).join('');
+
     var batVsHdr='<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th style="text-align:left">Bateador</th><th>VB</th><th>H</th><th>BB</th><th>K</th><th style="color:var(--acc)">AVG</th></tr></thead><tbody>';
+
+    // Store in global scope so onchange handlers (DOM callbacks) can access them
+    window._msPe2=pe2;window._msBatTeams=batTeams;window._msBattersVs=battersVs;
+    window._msPitLine=pitLine;window._msPitHdr=pitHdr;window._msBatVsHdr=batVsHdr;
+    window._msEvs=evs;
+
+    function pitModalVsTeamRows(filterTid){
+      var ids=filterTid?[filterTid]:batTeams;
+      return ids.map(function(tid2){
+        var t=teamOf(tid2);
+        var te=pe2.filter(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&(gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId)===tid2;});
+        return pitLine(te,'vs '+(t?t.name:tid2));
+      }).join('');
+    }
+    function pitModalVsBatRows(filterBid){
+      var ids=filterBid?[filterBid]:battersVs;
+      return ids.map(function(bid){
+        var bp=playerOf(bid);
+        var be=evs.filter(function(e){return e.batterId===bid&&e.type!=='UNDO'&&pe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;});
+        var vb=be.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
+        var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+        var bb=be.filter(function(e){return e.type==='BB';}).length;
+        var k=be.filter(function(e){return e.type==='K';}).length;
+        var avg=vb>0?(h/vb).toFixed(3):'—';
+        return'<tr><td style="font-size:12px;color:var(--t2)">'+(bp?'#'+(bp.number||'?')+' '+bp.name:bid)+'</td>'
+          +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td>'
+          +'<td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
+          +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td></tr>';
+      }).join('');
+    }
 
     showM('<div class="mhd"><div class="mtl">&#9918; '+p.name+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
       +'<div class="mbd">'
@@ -2680,15 +2886,235 @@ function openPlayerStatsM(pid,role){
       +'<div class="card" style="flex:1;min-width:80px;text-align:center;padding:10px">'
       +'<div style="font-size:11px;color:var(--t3)">BB/JG</div><div style="font-size:22px;font-weight:800;color:var(--acc)">'+bbPer+'</div></div>'
       +'</div>'
-      +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TOTALES Y SPLITS</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TOTALES Y SPLITS'+(isPitMulti?' <span style=&quot;font-size:10px;color:var(--acc)&quot;>(este equipo/torneo)</span>':'')+'</div>'
       +'<div class="tw">'+pitHdr+pitLine(pe2,'Total',true)+'</tbody></table></div>'
-      +(vsTeamPRows.length?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">VS EQUIPO</div><div class="tw">'+pitHdr+vsTeamPRows.join('')+'</tbody></table></div>':'')
-      +(vsBatRows.length?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">VS BATEADORES (top 10)</div><div class="tw">'+batVsHdr+vsBatRows.join('')+'</tbody></table></div>':'')
+      +(isPitMulti?(function(){
+        var ctotIP=careerPe2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+        var ctotK=careerPe2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+        var ctotBB=careerPe2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+        var ctotER=careerPe2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
+        var ctotH=careerPe2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
+        var cEra=ctotIP>0?((ctotER*7)/ctotIP).toFixed(2):'—';
+        var cWhip=ctotIP>0?((ctotH+ctotBB)/ctotIP).toFixed(2):'—';
+        var cgps=careerPe2.length;
+        var ckPer=cgps>0?(ctotK/cgps).toFixed(1):'—';
+        var cbbPer=cgps>0?(ctotBB/cgps).toFixed(1):'—';
+        return '<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:12px 0 6px">&#127775; DE POR VIDA (todos los equipos/torneos)</div>'
+          +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+          +'<div class="card" style="flex:1;min-width:70px;text-align:center;padding:8px"><div style="font-size:10px;color:var(--t3)">ERA</div><div style="font-size:18px;font-weight:800;color:var(--acc)">'+cEra+'</div></div>'
+          +'<div class="card" style="flex:1;min-width:70px;text-align:center;padding:8px"><div style="font-size:10px;color:var(--t3)">WHIP</div><div style="font-size:18px;font-weight:800;color:var(--acc)">'+cWhip+'</div></div>'
+          +'<div class="card" style="flex:1;min-width:70px;text-align:center;padding:8px"><div style="font-size:10px;color:var(--t3)">K/JG</div><div style="font-size:18px;font-weight:800;color:var(--grn)">'+ckPer+'</div></div>'
+          +'<div class="card" style="flex:1;min-width:70px;text-align:center;padding:8px"><div style="font-size:10px;color:var(--t3)">BB/JG</div><div style="font-size:18px;font-weight:800;color:var(--acc)">'+cbbPer+'</div></div>'
+          +'</div>'
+          +'<div class="tw">'+pitHdr+pitLine(careerPe2,'Total carrera',true)+'</tbody></table></div>'
+          +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Equipos: '+careerPitPids.map(function(cid){var cp=playerOf(cid);var ct=cp?teamOf(cp.teamId):null;return ct?ct.name:'?';}).filter(function(n,i,a){return a.indexOf(n)===i;}).join(', ')+'</div>';
+      })():'')
+      +(batTeams.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS EQUIPO</div>'
+        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="pit-vst-sel" onchange="var ids=this.value?[this.value]:window._msBatTeams;document.getElementById(&quot;pit-vst-body&quot;).innerHTML=ids.map(function(tid2){var t=window.teamOf(tid2);var te=window._msPe2.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&amp;&amp;(gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId)===tid2;});return window._msPitLine(te,&apos;vs &apos;+(t?t.name:tid2));}).join(&apos;&apos;)">'+teamOptsPit+'</select>'
+        +'</div>'
+        +'<div class="tw">'+pitHdr+'<tbody id="pit-vst-body">'+pitModalVsTeamRows('')+'</tbody></table></div>':'')
+      +(battersVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS BATEADOR</div>'
+        +'<select class="fs" style="width:180px;padding:4px 8px;font-size:12px" id="pit-vsb-sel" onchange="var ids=this.value?[this.value]:window._msBattersVs;document.getElementById(&quot;pit-vsb-body&quot;).innerHTML=ids.map(function(bid){var bp=window.playerOf(bid);var be=window._msEvs.filter(function(e){return e.batterId===bid&amp;&amp;e.type!==&apos;UNDO&apos;&amp;&amp;window._msPe2.filter(function(pt){return pt.gameId===e.gameId&amp;&amp;pt.teamId!==e.battingTeamId;}).length>0;});var vb=be.filter(function(e){return[&apos;BB&apos;,&apos;HBP&apos;,&apos;SAC&apos;,&apos;OJ&apos;].indexOf(e.type)<0;}).length;var h=be.filter(function(e){return[&apos;H1&apos;,&apos;H2&apos;,&apos;H3&apos;,&apos;HR&apos;].indexOf(e.type)>=0;}).length;var bb=be.filter(function(e){return e.type===&apos;BB&apos;;}).length;var k=be.filter(function(e){return e.type===&apos;K&apos;;}).length;var avg=vb>0?(h/vb).toFixed(3):&apos;—&apos;;return&apos;<tr><td style=&quot;font-size:12px;color:var(--t2)&quot;>&apos;+(bp?&apos;#&apos;+(bp.number||&apos;?&apos;)+&apos; &apos;+bp.name:bid)+&apos;</td><td style=&quot;text-align:center&quot;&apos;+&apos;>&apos;+vb+&apos;</td><td style=&quot;text-align:center&quot;>&apos;+h+&apos;</td><td style=&quot;text-align:center&quot;>&apos;+bb+&apos;</td><td style=&quot;text-align:center&quot;>&apos;+k+&apos;</td><td style=&quot;text-align:center;font-weight:700;color:var(--acc)&quot;>&apos;+avg+&apos;</td></tr>&apos;;}).join(&apos;&apos;)">'+batOptsP+'</select>'
+        +'</div>'
+        +'<div class="tw">'+batVsHdr+'<tbody id="pit-vsb-body">'+pitModalVsBatRows('')+'</tbody></table></div>':'')
       +'</div>'
       +'<div class="mft"><button class="btn bp" onclick="cM()">Cerrar</button></div>');
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// RACHAS — calcula rachas activas y pasadas de jugadores/equipos
+// ════════════════════════════════════════════════════════════════
+function calcStreaks(tourId, yearFilter){
+  // ── Juegos válidos (finales u oficiales), filtrados por torneo/año
+  var finGames = S.games.filter(function(g){
+    if(g.status!=='final' && !(g.status==='suspended' && g.official==='true')) return false;
+    if(tourId && g.tournamentId!==tourId) return false;
+    if(yearFilter){
+      var tour=S.tournaments.filter(function(t){return t.id===g.tournamentId;})[0];
+      if(tour && parseInt(tour.year)!==yearFilter) return false;
+    }
+    return true;
+  }).sort(function(a,b){
+    var da=new Date((a.date||'2000-01-01')+'T'+(a.time||'00:00')),db=new Date((b.date||'2000-01-01')+'T'+(b.time||'00:00'));
+    return da-db;
+  });
+  var gids = finGames.map(function(g){return g.id;});
+
+  // ── Eventos y pitcheo filtrados
+  var evs = S.events.filter(function(e){
+    return gids.indexOf(e.gameId)>=0 && e.unofficial!=='true' && e.type!=='UNDO';
+  });
+  var pevs = S.pitching.filter(function(e){
+    return gids.indexOf(e.gameId)>=0 && e.unofficial!=='true';
+  });
+
+  // ──────────────────────────────────────────────
+  // RACHA DE BATEADORES: hits consecutivos (por turnos al bate)
+  // Un "turno al bate" es cualquier event que NO sea BB/HBP/SAC/OJ
+  // Un hit es H1/H2/H3/HR
+  // La racha se rompe en el primer VB sin hit
+  // ──────────────────────────────────────────────
+  var batStreaks = {};  // playerId → {cur, max, ended}
+  // ordenar eventos por juego (por fecha del juego) y por timestamp
+  var orderedEvs = evs.slice().sort(function(a,b){
+    var ga=S.games.filter(function(g){return g.id===a.gameId;})[0];
+    var gb=S.games.filter(function(g){return g.id===b.gameId;})[0];
+    var da=ga?new Date((ga.date||'2000-01-01')+'T'+(ga.time||'00:00')):new Date(0);
+    var db=gb?new Date((gb.date||'2000-01-01')+'T'+(gb.time||'00:00')):new Date(0);
+    if(da-db!==0) return da-db;
+    return (a.timestamp||'').localeCompare(b.timestamp||'');
+  });
+  var NOTAB=['BB','HBP','SAC','OJ'];
+  var HITS=['H1','H2','H3','HR'];
+  orderedEvs.forEach(function(e){
+    if(!e.batterId || NOTAB.indexOf(e.type)>=0) return;
+    var pid=e.batterId;
+    if(!batStreaks[pid]) batStreaks[pid]={cur:0,max:0,ended:false};
+    var s=batStreaks[pid];
+    if(HITS.indexOf(e.type)>=0){
+      s.cur++;
+      if(s.cur>s.max) s.max=s.cur;
+    } else {
+      if(s.cur>0) s.ended=true;
+      s.max=Math.max(s.max,s.cur);
+      s.cur=0;
+    }
+  });
+
+  // Separar activos (racha no terminada) y pasados
+  var activeBat=[], pastBat=[];
+  Object.keys(batStreaks).forEach(function(pid){
+    var s=batStreaks[pid];
+    var p=playerOf(pid);
+    var tm=p?teamOf(p.teamId):null;
+    if(s.cur>=5) activeBat.push({p:p,tm:tm,streak:s.cur});
+    else if(s.max>=5 && s.ended) pastBat.push({p:p,tm:tm,streak:s.max});
+  });
+  activeBat.sort(function(a,b){return b.streak-a.streak;});
+  pastBat.sort(function(a,b){return b.streak-a.streak;});
+
+  // ──────────────────────────────────────────────
+  // RACHA DE PITCHERS: IP consecutivas SIN carreras limpias
+  // Agrupamos por pitcher, por orden de juego
+  // Una "salida" es una línea en pitcheo. Si er>0, se rompe.
+  // ──────────────────────────────────────────────
+  var pitStreaks = {};  // pitcherId → {curIp, maxIp, ended}
+  var orderedPevs = pevs.slice().sort(function(a,b){
+    var ga=S.games.filter(function(g){return g.id===a.gameId;})[0];
+    var gb=S.games.filter(function(g){return g.id===b.gameId;})[0];
+    var da=ga?new Date((ga.date||'2000-01-01')+'T'+(ga.time||'00:00')):new Date(0);
+    var db=gb?new Date((gb.date||'2000-01-01')+'T'+(gb.time||'00:00')):new Date(0);
+    return da-db;
+  });
+  orderedPevs.forEach(function(e){
+    if(!e.pitcherId) return;
+    var pid=e.pitcherId;
+    if(!pitStreaks[pid]) pitStreaks[pid]={curIp:0,maxIp:0,ended:false};
+    var s=pitStreaks[pid];
+    var ip=parseFloat(e.ip)||0;
+    var er=parseInt(e.er)||0;
+    if(er===0 && ip>0){
+      s.curIp+=ip;
+      if(s.curIp>s.maxIp) s.maxIp=s.curIp;
+    } else {
+      if(s.curIp>0) s.ended=true;
+      s.maxIp=Math.max(s.maxIp,s.curIp);
+      s.curIp=0;
+    }
+  });
+
+  var activePit=[], pastPit=[];
+  Object.keys(pitStreaks).forEach(function(pid){
+    var s=pitStreaks[pid];
+    var p=playerOf(pid);
+    var tm=p?teamOf(p.teamId):null;
+    if(s.curIp>=5) activePit.push({p:p,tm:tm,streak:s.curIp});
+    else if(s.maxIp>=5 && s.ended) pastPit.push({p:p,tm:tm,streak:s.maxIp});
+  });
+  activePit.sort(function(a,b){return b.streak-a.streak;});
+  pastPit.sort(function(a,b){return b.streak-a.streak;});
+
+  // ──────────────────────────────────────────────
+  // RACHA DE EQUIPOS: victorias consecutivas
+  // ──────────────────────────────────────────────
+  var tmStreaks = {};
+  finGames.forEach(function(g){
+    var awT=g.awayTeamId, hmT=g.homeTeamId;
+    var awR=parseInt(g.awayRuns)||0, hmR=parseInt(g.homeRuns)||0;
+    if(!awT||!hmT||awR===hmR) return;  // empate no cuenta
+    var winner=awR>hmR?awT:hmT, loser=awR>hmR?hmT:awT;
+    if(!tmStreaks[winner]) tmStreaks[winner]={cur:0,max:0,ended:false};
+    if(!tmStreaks[loser])  tmStreaks[loser]={cur:0,max:0,ended:false};
+    var ws=tmStreaks[winner],ls=tmStreaks[loser];
+    ws.cur++;
+    if(ws.cur>ws.max) ws.max=ws.cur;
+    ls.ended=(ls.cur>0)||ls.ended;
+    ls.max=Math.max(ls.max,ls.cur);
+    ls.cur=0;
+  });
+
+  var activeTm=[], pastTm=[];
+  Object.keys(tmStreaks).forEach(function(tid){
+    var s=tmStreaks[tid];
+    var tm=teamOf(tid);
+    if(s.cur>=5) activeTm.push({tm:tm,streak:s.cur});
+    else if(s.max>=5 && s.ended) pastTm.push({tm:tm,streak:s.max});
+  });
+  activeTm.sort(function(a,b){return b.streak-a.streak;});
+  pastTm.sort(function(a,b){return b.streak-a.streak;});
+
+  return {activeBat:activeBat, pastBat:pastBat, activePit:activePit, pastPit:pastPit, activeTm:activeTm, pastTm:pastTm};
+}
+
+function streakSectionHTML(tourId, yearFilter){
+  var sk=calcStreaks(tourId, yearFilter);
+
+  function batItem(x,active){
+    var nm=x.p?x.p.name:'?';
+    var abb=x.tm?x.tm.abbreviation||x.tm.name.slice(0,3):'';
+    if(active) return'<div class="streak-item"><span class="si-fire">&#128293;</span><span class="si-name">'+nm+'<br><span style="font-size:10px;color:var(--t3)">'+abb+'</span></span><span class="si-val">'+x.streak+'H</span></div>';
+    return'<div class="past-streak-item"><span style="font-size:11px;color:var(--t3)">⏱</span><span class="si-name">'+nm+' <span style="color:var(--t3);font-size:10px">('+abb+')</span></span><span class="si-val">'+x.streak+'H</span></div>';
+  }
+  function pitItem(x,active){
+    var nm=x.p?x.p.name:'?';
+    var abb=x.tm?x.tm.abbreviation||x.tm.name.slice(0,3):'';
+    var ipStr=x.streak%1===0?x.streak+'.0':x.streak.toFixed(1);
+    if(active) return'<div class="streak-item"><span class="si-fire">&#128293;</span><span class="si-name">'+nm+'<br><span style="font-size:10px;color:var(--t3)">'+abb+'</span></span><span class="si-val">'+ipStr+'IP</span></div>';
+    return'<div class="past-streak-item"><span style="font-size:11px;color:var(--t3)">⏱</span><span class="si-name">'+nm+' <span style="color:var(--t3);font-size:10px">('+abb+')</span></span><span class="si-val">'+ipStr+'IP</span></div>';
+  }
+  function tmItem(x,active){
+    var nm=x.tm?x.tm.name:'?';
+    if(active) return'<div class="streak-item">'+teamLogoHtml(x.tm,20,4)+'<span class="si-name">'+nm+'</span><span class="si-val">'+x.streak+'G</span><span class="si-fire">&#128293;</span></div>';
+    return'<div class="past-streak-item">'+teamLogoHtml(x.tm,18,4)+'<span class="si-name">'+nm+'</span><span class="si-val">'+x.streak+'G</span><span style="font-size:11px;color:var(--t3)">⏱</span></div>';
+  }
+
+  var hasSomething=sk.activeBat.length||sk.activePit.length||sk.activeTm.length||sk.pastBat.length||sk.pastPit.length||sk.pastTm.length;
+  if(!hasSomething) return'<div class="streak-section"><div class="streak-title">&#128293; Top Jugadores y Equipos en Racha</div><div class="streak-empty">Sin rachas activas (mínimo 5). Las rachas aparecen automáticamente al registrar jugadas.</div></div>';
+
+  function col(title, activeItems, pastItems, renderFn){
+    var html='<div><div class="streak-col-title">'+title+'</div>';
+    if(activeItems.length===0 && pastItems.length===0){html+='<div class="streak-empty">Sin datos</div>';}
+    if(activeItems.length){html+=activeItems.slice(0,5).map(function(x){return renderFn(x,true);}).join('');}
+    if(pastItems.length){
+      html+='<div style="font-size:10px;color:var(--t3);margin:6px 0 3px;letter-spacing:.8px">ÚLTIMAS RACHAS</div>';
+      html+=pastItems.slice(0,3).map(function(x){return renderFn(x,false);}).join('');
+    }
+    html+='</div>';
+    return html;
+  }
+
+  return'<div class="streak-section">'
+    +'<div class="streak-title">&#128293; Top Jugadores y Equipos en Racha <span style="font-size:12px;color:var(--t3);font-weight:400;margin-left:6px">(mín. 5 para aparecer)</span></div>'
+    +'<div class="streak-cols">'
+    +col('&#127952; Bateadores — Hits Consecutivos', sk.activeBat, sk.pastBat, batItem)
+    +col('&#9918; Pitchers — IP sin Carreras', sk.activePit, sk.pastPit, pitItem)
+    +col('&#127970; Equipos — Victorias Seguidas', sk.activeTm, sk.pastTm, tmItem)
+    +'</div></div>';
+}
 function pgStats(tid,sBy,pSBy){
   if(tid!==undefined)_ST.tourId=tid;
   if(sBy!==undefined){if(_ST.sortBy===sBy)_ST.sortDir*=-1;else{_ST.sortBy=sBy;_ST.sortDir=-1;}}
@@ -2845,7 +3271,7 @@ function pgStats(tid,sBy,pSBy){
     var avgStr=s.avg.toFixed(3);
     var eraStr=s.tip>0?s.era.toFixed(2):'&mdash;';
     return'<tr>'
-      +'<td><div style="display:flex;align-items:center;gap:8px"><div style="width:22px;height:22px;border-radius:4px;background:'+(s.tm.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:9px;font-weight:800;color:#000">'+(s.tm.abbreviation||s.tm.name.slice(0,2))+'</div>'+s.tm.name+'</div></td>'
+      +'<td><div style="display:flex;align-items:center;gap:8px">'+teamLogoHtml(s.tm,22,4)+s.tm.name+'</div></td>'
       +'<td style="text-align:center;color:'+(_ST.tmSortBy==='gp'?'var(--acc)':'inherit')+'">'+s.gp+'</td>'
       +'<td style="text-align:center;font-weight:700;color:'+(_ST.tmSortBy==='w'?'var(--acc)':'var(--grn)')+'">'+s.w+'</td>'
       +'<td style="text-align:center;color:'+(_ST.tmSortBy==='l'?'var(--acc)':'var(--red)')+'">'+s.l+'</td>'
@@ -2878,9 +3304,12 @@ function pgStats(tid,sBy,pSBy){
       +'<td style="text-align:center;color:'+(s.e>0?'var(--red)':'inherit')+';font-weight:'+(s.e>0?700:400)+'">'+s.e+'</td>'
       +'<td style="text-align:center"><span class="chip">'+s.pos+'</span></td></tr>';
   }).join('');
+  var _streakTourId=_ST.tourId||'';
+  var _streakYear=S.yearFilter||null;
   ct(yearBar()+'<div class="stl">Estadisticas</div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="fs" style="width:180px" onchange="pgStats(this.value)">'+tOpts+'</select>'
     +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." value="'+(_ST.search||'')+'" oninput="_ST.search=this.value;filterStatsDisplay()" style="width:180px"></div></div>'
+    +streakSectionHTML(_streakTourId, _streakYear)
     +'<div class="tabs">'    +'<div class="tab'+(_ST.activeTab==='st-b'?' on':'')+'" onclick="_ST.activeTab=&quot;st-b&quot;;showTab(this,&quot;st-b&quot;)">&#127952; Bateo</div>'    +'<div class="tab'+(_ST.activeTab==='st-d'?' on':'')+'" onclick="_ST.activeTab=&quot;st-d&quot;;showTab(this,&quot;st-d&quot;)">&#129354; Defensa</div>'    +'<div class="tab'+(_ST.activeTab==='st-p'?' on':'')+'" onclick="_ST.activeTab=&quot;st-p&quot;;showTab(this,&quot;st-p&quot;)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_ST.activeTab==='st-t'?' on':'')+'" onclick="_ST.activeTab=&quot;st-t&quot;;showTab(this,&quot;st-t&quot;)">&#127970; Equipos</div>'    +'</div>'
     +'<div id="st-b" style="'+(_ST.activeTab==='st-b'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipo</th>'+th('vb','VB')+th('h','H')+th('h2','2B')+th('h3','3B')+th('hr','HR')+th('rbi','RBI')+th('bb','BB')+th('k','K')+th('sb','SB')+th('avg','AVG')+th('obp','OBP')+th('slg','SLG')+'</tr></thead><tbody>'
     +(ps.map(function(s){
@@ -2966,7 +3395,189 @@ function pgLead(tid){
     +'</div>');
 }
 
-// AWARDS
+// STATS DE POR VIDA
+var _SL={sortBy:'avg',sortDir:-1,pitSortBy:'era',pitSortDir:1,search:''};
+function pgStatsLife(sBy,pSBy){
+  if(sBy!==undefined){if(_SL.sortBy===sBy)_SL.sortDir*=-1;else{_SL.sortBy=sBy;_SL.sortDir=-1;}}
+  if(pSBy!==undefined){if(_SL.pitSortBy===pSBy)_SL.pitSortDir*=-1;else{_SL.pitSortBy=pSBy;_SL.pitSortDir=1;}}
+  // All official events across all time
+  var officialGids=S.games.filter(function(g){return g.status==='final'||(g.status==='suspended'&&g.official==='true');}).map(function(g){return g.id;});
+  var evs=S.events.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';});
+  var pevs=S.pitching.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+  var srch=(_SL.search||'').toLowerCase();
+  function slh(col,lbl){var a=_SL.sortBy===col;return'<th onclick="pgStatsLife(\''+col+'\')" style="cursor:pointer;user-select:none;text-align:center;'+(a?'color:var(--acc)':'')+'">'+(lbl)+(_SL.sortDir===1?'&#8593;':'&#8595;')+'</th>';}
+  function plh(col,lbl){var a=_SL.pitSortBy===col;return'<th onclick="pgStatsLife(undefined,\''+col+'\')" style="cursor:pointer;user-select:none;text-align:center;'+(a?'color:var(--acc)':'')+'">'+(lbl)+(_SL.pitSortDir===1?'&#8593;':'&#8595;')+'</th>';}
+  // Build unique career players (deduplicate by root)
+  var seenRoots={};
+  var careerPlayers=[];
+  S.players.forEach(function(p){
+    var root=careerRootId(String(p.id));
+    if(!seenRoots[root]){seenRoots[root]={rootId:root,ids:[],name:p.name,teams:[]};careerPlayers.push(seenRoots[root]);}
+    seenRoots[root].ids.push(p.id);
+    var tm=teamOf(p.teamId);
+    if(tm&&seenRoots[root].teams.indexOf(tm.name)<0)seenRoots[root].teams.push(tm.name);
+    if(p.number&&!seenRoots[root].number)seenRoots[root].number=p.number;
+    if(p.position&&!seenRoots[root].position)seenRoots[root].position=p.position;
+  });
+  if(srch)careerPlayers=careerPlayers.filter(function(cp){return cp.name.toLowerCase().indexOf(srch)>=0;});
+  // Batting career stats
+  var batData=careerPlayers.map(function(cp){
+    var pe=evs.filter(function(e){return cp.ids.indexOf(e.batterId)>=0;});
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
+    var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+    var h2=pe.filter(function(e){return e.type==='H2';}).length;
+    var h3=pe.filter(function(e){return e.type==='H3';}).length;
+    var hr=pe.filter(function(e){return e.type==='HR';}).length;
+    var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
+    var bb=pe.filter(function(e){return e.type==='BB'||e.type==='HBP';}).length;
+    var k=pe.filter(function(e){return e.type==='K';}).length;
+    var sb=pe.filter(function(e){return e.type==='SB';}).length;
+    var avg=vb>0?h/vb:0;var obp=(vb+bb)>0?(h+bb)/(vb+bb):0;var slg=vb>0?(h-h2-h3-hr+h2*2+h3*3+hr*4)/vb:0;
+    return{cp:cp,vb:vb,h:h,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:k,sb:sb,avg:avg,obp:obp,slg:slg};
+  }).filter(function(s){return s.vb>0;}).sort(function(a,b){return _SL.sortDir*(b[_SL.sortBy]-a[_SL.sortBy]);});
+  // Pitching career stats
+  var pitData=careerPlayers.map(function(cp){
+    var pe=pevs.filter(function(e){return cp.ids.indexOf(e.pitcherId)>=0;});
+    if(!pe.length)return null;
+    var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var h=pe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
+    var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
+    var bb=pe.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+    var k=pe.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+    var w=pe.filter(function(e){return e.decision==='W';}).length;
+    var l=pe.filter(function(e){return e.decision==='L';}).length;
+    var sv=pe.filter(function(e){return e.decision==='S';}).length;
+    var era=ip>0?(er*7)/ip:99;var whip=ip>0?(h+bb)/ip:99;
+    return{cp:cp,ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip};
+  }).filter(Boolean).sort(function(a,b){
+    var col=_SL.pitSortBy;var av=a[col],bv=b[col];
+    if(col==='era'||col==='whip'){if(av===99&&bv===99)return 0;if(av===99)return 1;if(bv===99)return -1;}
+    return _SL.pitSortDir*(av-bv);
+  });
+  // open per-team breakdown modal
+  window.openCareerByTeam=function(rootId){
+    var cp=careerPlayers.filter(function(c){return c.rootId===rootId;})[0];if(!cp)return;
+    var rows=cp.ids.map(function(pid){
+      var p=playerOf(pid);var tm=p?teamOf(p.teamId):null;
+      var pe=evs.filter(function(e){return e.batterId===pid;});
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
+      var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+      var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;
+      var hr=pe.filter(function(e){return e.type==='HR';}).length;
+      var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
+      var bb=pe.filter(function(e){return e.type==='BB'||e.type==='HBP';}).length;
+      var k=pe.filter(function(e){return e.type==='K';}).length;
+      var avg=vb>0?(h/vb).toFixed(3):'—';var obp=(vb+bb)>0?((h+bb)/(vb+bb)).toFixed(3):'—';var slg=vb>0?((h-h2-h3-hr+h2*2+h3*3+hr*4)/vb).toFixed(3):'—';
+      var pp2=S.pitching.filter(function(e){return e.pitcherId===pid&&officialGids.indexOf(e.gameId)>=0;});
+      var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
+      var bb2=pp2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+      var h2p=pp2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
+      var k2=pp2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+      var w2=pp2.filter(function(e){return e.decision==='W';}).length;
+      var l2=pp2.filter(function(e){return e.decision==='L';}).length;
+      var era2=ip2>0?((er2*7)/ip2).toFixed(2):'—';var whip2=ip2>0?((h2p+bb2)/ip2).toFixed(2):'—';
+      return'<tr><td><span class="chip">'+(tm?tm.abbreviation||tm.name:'?')+'</span></td><td style="font-size:12px">'+(tm?tm.name:'?')+'</td>'
+        +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td><td style="text-align:center">'+h2+'</td><td style="text-align:center">'+h3+'</td><td style="text-align:center">'+hr+'</td><td style="text-align:center">'+rbi+'</td><td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td><td style="text-align:center">'+obp+'</td><td style="text-align:center">'+slg+'</td>'
+        +(ip2>0?'<td style="text-align:center">'+w2+'-'+l2+'</td><td style="text-align:center">'+ip2.toFixed(1)+'</td><td style="text-align:center;font-weight:700;color:var(--acc)">'+era2+'</td><td style="text-align:center">'+whip2+'</td>':'<td colspan="4" style="text-align:center;color:var(--t3)">Sin pitcheo</td>')
+        +'</tr>';
+    }).join('');
+    showM('<div class="mhd"><div class="mtl">&#128202; '+cp.name+' &mdash; Por Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+      +'<div class="mbd"><div class="tw"><table style="font-size:12px"><thead><tr><th>Eq.</th><th>Equipo</th><th>VB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>BB</th><th>K</th><th style="color:var(--acc)">AVG</th><th>OBP</th><th>SLG</th><th>G-P</th><th>IP</th><th style="color:var(--acc)">ERA</th><th>WHIP</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
+      +'<div class="mft"><button class="btn bp" onclick="cM()">Cerrar</button></div>','mlg');
+  };
+  var batRows=batData.map(function(s){
+    var rid=s.cp.rootId;
+    return'<tr><td style="color:var(--acc);font-weight:600">#'+(s.cp.number||'?')+' '+s.cp.name+'</td>'
+      +'<td style="font-size:12px;color:var(--t2)">'+s.cp.teams.join(', ')+'</td>'
+      +'<td style="text-align:center">'+s.vb+'</td><td style="text-align:center">'+s.h+'</td>'
+      +'<td style="text-align:center">'+s.h2+'</td><td style="text-align:center">'+s.h3+'</td>'
+      +'<td style="text-align:center;color:'+(s.hr>0?'var(--red)':'inherit')+';font-weight:'+(s.hr>0?700:400)+'">'+s.hr+'</td>'
+      +'<td style="text-align:center;color:'+(s.rbi>0?'var(--grn)':'inherit')+';font-weight:'+(s.rbi>0?700:400)+'">'+s.rbi+'</td>'
+      +'<td style="text-align:center">'+s.bb+'</td><td style="text-align:center">'+s.k+'</td><td style="text-align:center">'+s.sb+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(_SL.sortBy==='avg'?'var(--acc)':'inherit')+'">'+s.avg.toFixed(3)+'</td>'
+      +'<td style="text-align:center">'+s.obp.toFixed(3)+'</td><td style="text-align:center">'+s.slg.toFixed(3)+'</td>'
+      +'<td><button class="btn bs bsm" data-rid="'+rid+'" onclick="openCareerByTeam(this.dataset.rid)">Detalle x Equipo</button></td></tr>';
+  }).join('');
+  var pitRows2=pitData.map(function(s){
+    return'<tr><td style="color:var(--acc);font-weight:600">#'+(s.cp.number||'?')+' '+s.cp.name+'</td>'
+      +'<td style="font-size:12px;color:var(--t2)">'+s.cp.teams.join(', ')+'</td>'
+      +'<td style="text-align:center">'+s.w+'</td><td style="text-align:center">'+s.l+'</td><td style="text-align:center">'+s.sv+'</td>'
+      +'<td style="text-align:center">'+s.ip.toFixed(1)+'</td><td style="text-align:center">'+s.h+'</td>'
+      +'<td style="text-align:center">'+s.bb+'</td><td style="text-align:center">'+s.k+'</td>'
+      +'<td style="text-align:center;font-weight:700;color:'+(s.ip>0?(s.era<3?'var(--grn)':s.era>6?'var(--red)':'var(--acc)'):'var(--t3)')+'">'+(s.ip>0?s.era.toFixed(2):'&mdash;')+'</td>'
+      +'<td style="text-align:center">'+(s.ip>0?s.whip.toFixed(2):'&mdash;')+'</td></tr>';
+  }).join('');
+  ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+    +'<div><div class="stl">&#9854; Stats de Por Vida</div><div class="ssb">Estadisticas acumuladas de toda la carrera, independiente de torneo o año</div></div>'
+    +'<input class="fi" id="sl-search" placeholder="&#128269; Buscar jugador..." value="'+(_SL.search||'')+'" oninput="_SL.search=this.value;filterStatsLifeDisplay()" style="width:200px"></div>'
+    +'<div class="tabs"><div class="tab on" onclick="_SL.activeTab=\'sl-b\';showTab(this,\'sl-b\')">&#127952; Bateo</div>'
+    +'<div class="tab" onclick="_SL.activeTab=\'sl-p\';showTab(this,\'sl-p\')">&#9918; Pitcheo</div></div>'
+    +'<div id="sl-b"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipos</th>'
+    +slh('vb','VB')+slh('h','H')+slh('h2','2B')+slh('h3','3B')+slh('hr','HR')+slh('rbi','RBI')+slh('bb','BB')+slh('k','K')+slh('sb','SB')+slh('avg','AVG')+slh('obp','OBP')+slh('slg','SLG')
+    +'<th>Detalle</th></tr></thead><tbody>'+(batRows||'<tr><td colspan="16"><div class="empty">Sin datos</div></td></tr>')+'</tbody></table></div></div></div>'
+    +'<div id="sl-p" style="display:none"><div class="card"><div class="tw"><table><thead><tr><th>Pitcher</th><th>Equipos</th>'
+    +plh('w','G')+plh('l','P')+plh('sv','S')+plh('ip','IP')+plh('h','H')+plh('bb','BB')+plh('k','K')+plh('era','ERA')+plh('whip','WHIP')
+    +'</tr></thead><tbody>'+(pitRows2||'<tr><td colspan="12"><div class="empty">Sin datos de pitcheo</div></td></tr>')+'</tbody></table></div></div></div>');
+}
+
+// LIDERES DE POR VIDA
+function pgLeadLife(){
+  // All official events across all time
+  var officialGids=S.games.filter(function(g){return g.status==='final'||(g.status==='suspended'&&g.official==='true');}).map(function(g){return g.id;});
+  var evs=S.events.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';});
+  var pevs=S.pitching.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+  // Build unique career players
+  var seenRoots2={};var careerPlayers2=[];
+  S.players.forEach(function(p){
+    var root=careerRootId(String(p.id));
+    if(!seenRoots2[root]){seenRoots2[root]={rootId:root,ids:[],name:p.name,number:p.number,teams:[]};careerPlayers2.push(seenRoots2[root]);}
+    seenRoots2[root].ids.push(p.id);
+    var tm=teamOf(p.teamId);if(tm&&seenRoots2[root].teams.indexOf(tm.name)<0)seenRoots2[root].teams.push(tm.name);
+    if(p.number&&!seenRoots2[root].number)seenRoots2[root].number=p.number;
+  });
+  function lCard2(ttl,items,fmt){
+    fmt=fmt||function(v){return v;};
+    return'<div class="card"><div class="chd"><div class="ctl">'+ttl+'</div></div>'
+      +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.cp.number||'?')+' '+x.cp.name+'</div><div style="font-size:11px;color:var(--t3)">'+x.cp.teams.slice(0,2).join(', ')+(x.cp.teams.length>2?' +'+( x.cp.teams.length-2):'')+'</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')+'</div>';
+  }
+  function topLife(fn,n){return careerPlayers2.map(function(cp){return{cp:cp,val:fn(cp.ids)};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||5);}
+  function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=5?h/vb:0;}
+  function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=5?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function cHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
+  function cRBI(ids){return evs.reduce(function(s,e){return s+(ids.indexOf(e.batterId)>=0?parseInt(e.rbi)||0:0);},0);}
+  function cH(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;}
+  function c2B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H2';}).length;}
+  function c3B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H3';}).length;}
+  function cSB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='SB';}).length;}
+  function cERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);return ip>=3?(er*7/ip):99;}
+  function cWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
+  function cK(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
+  function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=3?wh/ip:99;}
+  function cIP(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}).reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);}
+  function pitLifeCard(ttl,fn,fmt,asc){
+    fmt=fmt||function(v){return v;};
+    var items=careerPlayers2.map(function(cp){return{cp:cp,val:fn(cp.ids)};}).filter(function(x){return x.val<99&&x.val>0;}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;}).slice(0,5);
+    return'<div class="card"><div class="chd"><div class="ctl">'+ttl+'</div></div>'
+      +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.cp.number||'?')+' '+x.cp.name+'</div><div style="font-size:11px;color:var(--t3)">'+x.cp.teams.slice(0,2).join(', ')+(x.cp.teams.length>2?' +'+(x.cp.teams.length-2):'')+'</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')+'</div>';
+  }
+  ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+    +'<div><div class="stl">&#127775; Lideres de Por Vida</div><div class="ssb">Top jugadores historicos — sin filtro de torneo o año</div></div></div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
+    +'<div class="g3" style="margin-bottom:18px">'
+    +lCard2('&#128200; SLG (carrera)',topLife(cSLG),function(v){return v.toFixed(3);})+lCard2('&#127952; AVG (carrera)',topLife(cAvg),function(v){return v.toFixed(3);})+lCard2('&#128165; HR (carrera)',topLife(cHR))+lCard2('&#127919; RBI (carrera)',topLife(cRBI))
+    +lCard2('&#127939; Hits (carrera)',topLife(cH))+lCard2('&#9889; 2B (carrera)',topLife(c2B))+lCard2('&#128293; 3B (carrera)',topLife(c3B))+lCard2('&#128168; SB (carrera)',topLife(cSB))
+    +'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
+    +'<div class="g3">'
+    +pitLifeCard('&#128201; ERA (carrera)',cERA,function(v){return v.toFixed(2);},true)
+    +lCard2('&#127942; Victorias (carrera)',topLife(cWins))
+    +lCard2('&#127744; Ponches K (carrera)',topLife(cK))
+    +pitLifeCard('&#128202; WHIP (carrera)',cWHIP,function(v){return v.toFixed(2);},true)
+    +lCard2('&#9203; IP (carrera)',topLife(cIP),function(v){return v.toFixed(1);})
+    +'</div>');
+}
 var _awTour='';
 var _awPhase='';
 var AWARD_TYPES=['MVP','Mejor Bateador','Mejor Pitcher','Mejor Defensa','Mejor Relevista','Lider de Bateo','Lider de Jonrones','Lider de Remolcadas','Jugador del Año','Novato del Año','Otro'];
@@ -3388,21 +3999,15 @@ async function saveTourLic(tid){
 // SETTINGS
 function pgSet(){
   var isA=S.user&&S.user.role==='admin';
-  ct('<div class="stl">Configuracion</div><div class="ssb">Conexion y parametros del sistema</div>'
-    +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128279; Google Sheets</div><span class="badge bg">&#10003; Conectado</span></div>'
-    +'<div style="font-size:12px;color:var(--t3);word-break:break-all;margin-bottom:12px">'+GS.getUrl()+'</div>'
-    +'<div class="fg"><label class="fl">Cambiar URL del Apps Script</label><input class="fi" id="gsurl" value="'+GS.getUrl()+'" style="font-size:12px" placeholder="https://script.google.com/macros/s/.../exec"></div>'
-    +'<div id="gsr" style="display:none;margin-bottom:10px"></div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +'<button class="btn bs bsm" onclick="testGSSet()">&#128269; Probar</button>'
-    +'<button class="btn bp bsm" onclick="saveGSSet()">&#128190; Guardar URL</button>'
-    +'<button class="btn bs bsm" onclick="syncSchema()" title="Agrega columnas faltantes a los sheets existentes">&#128295; Sincronizar Columnas</button>'
-    +'</div></div>'
+  ct('<div class="stl">Configuracion</div><div class="ssb">Parametros del sistema</div>'
+    +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127760; Conexión</div><span class="badge bg">&#10003; Supabase activo</span></div>'
+    +'<div style="font-size:12px;color:var(--t3);word-break:break-all;margin-bottom:8px">Worker: '+CFG.workerUrl+'</div>'
+    +'</div>'
     +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Sesion y Actualizacion</div></div>'
       +'<div class="fr c2"><div class="fg"><label class="fl">Cierre por inactividad (minutos)</label><input class="fi" id="stout" type="number" min="5" max="480" value="'+(S.sessionTimeout||30)+'"></div>'
       +'<div class="fg"><label class="fl">Intervalo de actualizacion automatica (segundos)</label><input class="fi" id="spoll" type="number" min="10" max="300" value="'+(S.pollInterval||30)+'"></div>'
       +'</div>'
-      +'<div class="alert ai" style="font-size:12px;margin-top:4px">La actualizacion automatica sincroniza datos sin mover la pantalla. Minimo 10 segundos.</div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; La actualización automática refresca todos los módulos de datos (posiciones, estadísticas, calendario, etc.) sin interrumpir al usuario. Mínimo 10 segundos. Los visitantes y otros usuarios verán los cambios en el próximo ciclo automáticamente.</div>'
       +'<button class="btn bp" onclick="saveSessParams()">Guardar Parametros</button>'
       +'</div>':'')
     +'<div class="card"><div class="chd"><div class="ctl">&#128202; Datos del sistema</div></div>'
@@ -3413,13 +4018,7 @@ function pgSet(){
     +'<div class="scard"><div class="sv">'+S.events.length+'</div><div class="sl">Eventos</div></div>'
     +'</div></div>');
 }
-async function testGSSet(){
-  var url=(fv('gsurl')||'').trim();var r=document.getElementById('gsr');r.style.display='block';
-  r.className='alert ai';r.textContent='Probando...';
-  if(!url){r.className='alert ae';r.textContent='Ingresa la URL';return;}
-  var ok=await pingUrl(url);
-  r.className=ok?'alert as':'alert ae';r.textContent=ok?'&#10003; Conexion exitosa!':'&#10007; No se pudo conectar';
-}
+// [testGSSet eliminado]
 function reloadGameTeams(tourId){
   var teams=tourId?S.teams.filter(function(t){return t.tournamentId===tourId;}):S.teams;
   var aw=document.getElementById('gaw'); var hm=document.getElementById('ghm');
@@ -3427,16 +4026,9 @@ function reloadGameTeams(tourId){
   if(hm){hm.innerHTML='<option value="">Seleccionar</option>'+teams.map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');}
 }
 
-async function saveGSSet(){
-  var url=(fv('gsurl')||'').trim();if(!url){toast('Ingresa la URL','error');return;}
-  var ok=await pingUrl(url);if(!ok){toast('No se pudo conectar','error');return;}
-  GS.setUrl(url);await loadAll();pgSet();toast('URL actualizada','success');
-}
+// [saveGSSet eliminado]
 async function syncSchema(){
-  toast('Sincronizando columnas con Google Sheets...','info');
-  var r=await api('syncSchema');
-  if(r&&r.ok){toast(r.message||'Sincronizacion completada','success');}
-  else toast(r&&r.error||'Error al sincronizar','error');
+  toast('syncSchema no aplica en Supabase','info');
 }
 async function saveSessParams(){
   var t=parseInt(fv('stout'))||30;
@@ -3512,7 +4104,7 @@ function exportReport(gid){
   function batTable(tid,tname){
     var lu=S.lineups.filter(function(l){return l.gameId===gid&&l.teamId===tid;})[0];
     if(!lu||!lu.players)return'<p>Sin lineup registrado.</p>';
-    var evs=S.events.filter(function(e){return e.gameId===gid&&e.battingTeamId===tid;});
+    var evs=S.events.filter(function(e){return e.gameId===gid&&e.battingTeamId===tid&&e.type!=='UNDO';});
     var rows='';
     lu.players.forEach(function(lp){
       var p=playerOf(lp.playerId); var pe=evs.filter(function(e){return e.batterId===lp.playerId;});
@@ -3637,15 +4229,19 @@ document.addEventListener('keydown',function(e){
   }
 });
 
-window.onload=function(){
-  var url=GS.getUrl();
-  if(!url){
-    // No GS URL configured - show setup wizard
-    document.getElementById('sscr').style.display='flex';
-    return;
+// INIT
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&document.getElementById('lscr').style.display==='flex'){
+    var focused=document.activeElement;
+    if(focused&&focused.id==='lu')document.getElementById('lp').focus();
+    else doLogin();
   }
-  // URL exists - always hide setup screen
-  document.getElementById('sscr').style.display='none';
+});
+
+window.onload=function(){
+  // Siempre mostrar login directamente (sin setup wizard)
+  document.getElementById('lscr').style.display='none';
+  document.getElementById('app').style.display='none';
   if(restoreSession()){
     loadAll().then(function(){
       document.getElementById('lscr').style.display='none';
