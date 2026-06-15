@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vitilla Power</title>
+<title>VitillaStats Pro</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;}
@@ -346,7 +346,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   <div id="sb">
     <div class="sbl">
       <span class="sbl-ico" style="font-size:24px;flex-shrink:0">&#9918;</span>
-      <div class="sbl-title"><h1>VITILLA</h1><span>Power</span></div>
+      <div class="sbl-title"><h1>VITILLA</h1><span>STATS PRO</span></div>
       <div id="sb-toggle" onclick="toggleSidebar()" title="Colapsar menu">&#8249;</div>
     </div>
     <div id="snav"></div>
@@ -3875,7 +3875,7 @@ function pgStatsLife(sBy,pSBy){
       +'<td style="text-align:center">'+(s.ip>0?s.whip.toFixed(2):'&mdash;')+'</td></tr>';
   }).join('');
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
-    +'<div><div class="stl">&#9854; Stats de Por Vida</div><div class="ssb">Estadisticas acumuladas de toda la carrera.</div></div>'
+    +'<div><div class="stl">&#9854; Stats de Por Vida</div><div class="ssb">Estadisticas acumuladas de toda la carrera, independiente de torneo o año</div></div>'
     +'<input class="fi" id="sl-search" placeholder="&#128269; Buscar jugador..." value="'+(_SL.search||'')+'" oninput="_SL.search=this.value;filterStatsLifeDisplay()" style="width:200px"></div>'
     +'<div class="tabs"><div class="tab on" onclick="_SL.activeTab=\'sl-b\';showTab(this,\'sl-b\')">&#127952; Bateo</div>'
     +'<div class="tab" onclick="_SL.activeTab=\'sl-p\';showTab(this,\'sl-p\')">&#9918; Pitcheo</div></div>'
@@ -4905,7 +4905,7 @@ function exportReport(gid){
         +(parseInt(e.runs)>0?' | +'+e.runs+' c':'')
         +'</span><br>';
     }).join('')+'</div>':'')
-  +'<div class="footer">Generado por Vitilla Power Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
+  +'<div class="footer">Generado por VitillaStats Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   w.document.write(winHtml);
