@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VitillaStats Pro</title>
+<title>Vitilla Power</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;}
@@ -131,10 +131,10 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .tis{border-left:3px solid var(--grn);}.tie{border-left:3px solid var(--red);}.tii{border-left:3px solid var(--blu);}
 @keyframes sli{from{transform:translateX(60px);opacity:0;}to{transform:translateX(0);opacity:1;}}
 #sscr{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
-.sbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:36px;width:520px;max-height:90vh;overflow-y:auto;}
+.sbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:36px;width:min(520px,calc(100vw - 32px));max-height:90vh;overflow-y:auto;}
 .step{display:none;}.step.on{display:block;}
 #lscr{position:fixed;inset:0;background:var(--bg);z-index:9998;display:none;align-items:center;justify-content:center;}
-.lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:380px;}
+.lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:min(380px,calc(100vw - 32px));}
 .llogo{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--acc);text-align:center;}
 .lsub{font-size:12px;letter-spacing:3px;color:var(--t3);margin-bottom:26px;font-family:'Barlow Condensed',sans-serif;text-align:center;}
 .spin{width:26px;height:26px;border:3px solid var(--bdr2);border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto;}
@@ -187,6 +187,204 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .gsi-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);}
 .gsi-progress{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:10px 0;}
 .gsi-progress-bar{height:100%;background:var(--acc);border-radius:3px;transition:width .3s;}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile First
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tablet (≤ 900px) ───────────────────────────────────────── */
+@media (max-width:900px){
+  #sb{width:200px;}
+  #mn{margin-left:200px;}
+  #ct{padding:16px;}
+  .g4{grid-template-columns:1fr 1fr;}
+  .g3{grid-template-columns:1fr 1fr;}
+  .c3{grid-template-columns:1fr 1fr;}
+  .card{padding:14px;}
+  .scoreboard{padding:12px;}
+  .sbig{font-size:42px;}
+  .pbts{grid-template-columns:repeat(4,1fr);gap:5px;}
+  .pbtn{padding:8px 4px;font-size:13px;}
+  .modal{max-width:96vw;}
+  #slogan-bar{flex-direction:column;gap:2px;padding:5px 16px;}
+  #slogan-bar .sl-main{font-size:12px;}
+  #slogan-bar .sl-sub{font-size:10px;}
+  .streak-cols{grid-template-columns:1fr 1fr;}
+}
+
+/* ── Mobile (≤ 600px) ───────────────────────────────────────── */
+@media (max-width:600px){
+  /* Sidebar — drawer oculto por defecto en móvil */
+  #sb{
+    width:260px !important;
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1), width .25s;
+    z-index:200;
+    box-shadow:4px 0 24px rgba(0,0,0,.5);
+  }
+  #sb.mob-open{transform:translateX(0);}
+  #sb.collapsed{width:260px !important;transform:translateX(-100%);}
+  #sb.collapsed.mob-open{transform:translateX(0);}
+  /* Overlay oscuro detrás del drawer */
+  #sb-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+    z-index:199;
+  }
+  #sb-overlay.on{display:block;}
+  /* Contenido principal ocupa todo el ancho */
+  #mn{margin-left:0 !important;transition:none;}
+  #mn.sb-collapsed{margin-left:0 !important;}
+  /* Toolbar */
+  #tb{padding:0 12px;height:54px;}
+  .tbt{font-size:16px;}
+  /* Botón hamburguesa en toolbar */
+  #mob-menu-btn{
+    display:flex;width:36px;height:36px;align-items:center;justify-content:center;
+    background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.25);
+    border-radius:8px;cursor:pointer;font-size:18px;color:var(--acc);
+    margin-right:8px;flex-shrink:0;
+  }
+  /* Ocultar toggle de colapsar sidebar en móvil */
+  #sb-toggle{display:none;}
+  /* Contenido */
+  #ct{padding:12px;}
+  /* Slogan */
+  #slogan-bar{padding:5px 12px;gap:1px;}
+  #slogan-bar .sl-main{font-size:11px;}
+  #slogan-bar .sl-sub{font-size:9px;display:none;}
+  /* Grillas — 1 columna en móvil */
+  .g4,.g3,.g2{grid-template-columns:1fr !important;}
+  .c2,.c3{grid-template-columns:1fr !important;}
+  .fr.c2,.fr.c3{grid-template-columns:1fr !important;}
+  /* Cards */
+  .card,.scard{padding:12px;}
+  /* Scoreboard */
+  .scoreboard{padding:10px;}
+  .sbig{font-size:38px;}
+  .tnm{font-size:16px;}
+  .tscore{gap:8px;}
+  /* Botones de jugadas — 3 columnas en móvil */
+  .pbts{grid-template-columns:repeat(3,1fr);gap:5px;}
+  .pbtn{padding:10px 4px;font-size:12px;}
+  /* Modal — full screen en móvil */
+  .mbg{padding:0;align-items:flex-end;}
+  .modal{
+    max-width:100vw !important;
+    width:100vw;
+    border-radius:16px 16px 0 0;
+    max-height:92vh;
+  }
+  .mlg{max-width:100vw !important;}
+  .mhd{padding:14px 16px 12px;}
+  .mbd{padding:14px 16px;}
+  .mft{padding:12px 16px;flex-wrap:wrap;}
+  .mft .btn{flex:1;justify-content:center;}
+  /* Login box */
+  .lbox{width:calc(100vw - 32px);padding:24px 20px;}
+  /* Tablas con scroll */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{font-size:11px;}
+  th,td{padding:6px 8px;}
+  /* Pizarra game control */
+  .diamond{width:56px;height:56px;}
+  .base{width:13px;height:13px;}
+  /* Stats section title */
+  .stl{font-size:20px;}
+  /* Rachas — 1 col */
+  .streak-cols{grid-template-columns:1fr !important;}
+  /* Botones superiores en game control */
+  .gc-btn-bar{flex-wrap:wrap;gap:5px;}
+  /* Footer */
+  #app-footer{padding:10px 12px;font-size:10px;}
+  /* Toast */
+  #toast{bottom:12px;right:12px;left:12px;}
+  .ti{min-width:unset;width:100%;}
+  /* User info en toolbar — abreviar */
+  .ub span.unm-lbl{display:none;}
+}
+
+/* ── Landscape mobile (≤ 900px & altura baja) ──────────────── */
+@media (max-width:900px) and (max-height:500px){
+  #sb{width:180px;}
+  #ct{padding:10px;}
+  .modal{max-height:95vh;}
+  .scoreboard{padding:8px;}
+  .sbig{font-size:32px;}
+}
+
+/* ── Ajustes específicos de módulos en móvil ─────────────────── */
+@media (max-width:600px){
+  /* Tabs del box score */
+  .tabs{gap:1px;}
+  .tab{padding:6px 4px;font-size:11px;}
+  /* Scoreboard compacto */
+  .sbig{font-size:34px;}
+  .bsdots .dot{width:10px;height:10px;}
+  /* Botones superiores del game control */
+  .btn.bsm{padding:5px 8px;font-size:11px;}
+  /* Tabla de posiciones — scroll horizontal */
+  .tw table{min-width:480px;}
+  /* Stats table */
+  .lst{font-size:11px;}
+  .lst th,.lst td{padding:4px 5px;min-width:20px;}
+  /* Cards de jugadores en el lineup */
+  .gcrd{padding:10px 12px;}
+  .gvs{font-size:13px;}
+  /* Campos en formularios — tamaño de texto aumentado para evitar zoom en iOS */
+  .fi,.fs,.fta{font-size:16px !important;}
+  /* Rachas — ajuste de ítems */
+  .streak-item .si-val{font-size:16px;}
+  .streak-title{font-size:14px;}
+  /* GS import preview */
+  .gsi-preview{max-height:160px;}
+  /* Pizarra — columna de entradas más compacta */
+  .lst .rhe{min-width:18px;}
+  /* Botones del footer del modal */
+  .mft{gap:8px;}
+  /* User badge en toolbar — solo avatar */
+  .ub .uname{display:none;}
+  /* Slogan más corto */
+  #slogan-bar{padding:4px 12px;}
+}
+
+/* ── Ajuste de tabla de stats en tablet ─────────────────────── */
+@media (max-width:900px){
+  .lst{font-size:11px;}
+  .lst th,.lst td{padding:5px 6px;}
+  /* GC botones en 2 filas */
+  .pbts{grid-template-columns:repeat(4,1fr);}
+}
+
+/* ── Touch improvements ─────────────────────────────────────── */
+@media (hover:none){
+  /* Targets táctiles más grandes */
+  .ni{padding:12px 16px;}
+  .pbtn{min-height:48px;}
+  .btn{min-height:36px;}
+  .fi,.fs{min-height:44px;}
+  /* Eliminar hover effects que se quedan pegados en touch */
+  .ni:hover{background:transparent;color:var(--t2);}
+  .ni.on{background:rgba(245,166,35,.12);color:var(--acc);}
+  .gcrd:hover{border-color:var(--bdr);}
+}
+
+@media (max-width:440px){
+  .tscore{
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto auto;
+    text-align:center;
+    gap:8px;
+  }
+  .tscore .tbox:first-child{order:1;}
+  .tscore .tbox:last-child{order:3;}
+  .tscore > div:nth-child(2){order:2;} /* inning center */
+  .sbig{font-size:40px;}
+  .tnm{font-size:17px;}
+  /* Tabla box score en pantalla muy pequeña */
+  .lst{font-size:10px;}
+  .lst th,.lst td{padding:3px 4px;min-width:16px;}
+  .lst .tc{min-width:70px;font-size:10px;}
+}
 </style>
 </head>
 <body>
@@ -195,7 +393,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <div id="lscr">
   <div class="lbox">
     <div class="llogo">&#9918; VITILLA</div>
-    <div class="lsub">STATS PRO</div>
+    <div class="lsub">Power</div>
     <div id="lerr" class="alert ae" style="display:none"></div>
     <div id="lfrm">
       <div class="fg"><label class="fl">Usuario</label>
@@ -222,7 +420,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   <div id="sb">
     <div class="sbl">
       <span class="sbl-ico" style="font-size:24px;flex-shrink:0">&#9918;</span>
-      <div class="sbl-title"><h1>VITILLA</h1><span>STATS PRO</span></div>
+      <div class="sbl-title"><h1>VITILLA</h1><span>Power</span></div>
       <div id="sb-toggle" onclick="toggleSidebar()" title="Colapsar menu">&#8249;</div>
     </div>
     <div id="snav"></div>
@@ -252,7 +450,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
     <div id="ct"></div>
     <!-- FOOTER -->
     <footer id="app-footer">
-      <div class="ft-name">VitillaStats Pro</div>
+      <div class="ft-name">Vitilla Power</div>
       <div>Hecha con <span class="ft-heart">❤️</span> por un vitillero &nbsp;|&nbsp; <b>ING. CARLOS REYES</b></div>
       <div style="margin-top:2px">📞 Contacto: <a href="tel:8496393540" style="color:var(--acc);text-decoration:none;font-weight:600">849-639-3540</a></div>
     </footer>
@@ -263,12 +461,14 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <div id="modals"></div>
 
 <script>
-
+// ═══════════════════════════════════════════════════════════
+// CONFIG — Supabase via Cloudflare Worker
+// ═══════════════════════════════════════════════════════════
 var CFG = {
   // URL del Cloudflare Worker (cambia esto al tuyo)
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
   // App Token — debe coincidir con APP_SECRET en el Worker
-  appToken: '32b49d0eb3d868b5df8e9122f2650ca1fec1e21be8a1dd580023df4845470a48',
+  appToken: '595d18eea99dfb0af9fe415732e23d7a6ba18465554eb156844aad9f493c02ae',
 };
 
 // STATE
@@ -453,8 +653,8 @@ async function _doPoll(){
       });
     }
 
-    // Actualizar badge de licencia
-    if(S.licenseExpires){
+    // Actualizar badge de licencia (solo si no es visitante)
+    if(S.licenseExpires&&S.user&&S.user.role!=='public'){
       var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
       var lici=document.getElementById('lici');
       if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
@@ -466,15 +666,21 @@ async function _doPoll(){
     if(curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
       try{ initPGS(); PGS[curP](); } catch(e2){ console.warn('Auto-refresh module error:',e2); }
     }
-    // gamecontrol: refrescar SOLO si es visitante/read-only (no puede anotar)
-    // El anotador activo NUNCA se re-renderiza desde el poll
+    // gamecontrol: visitantes/read-only se refrescan desde el poll
+    // El anotador activo (quien tiene botones de anotar en pantalla) NO se toca
+    // Se detecta si hay un juego activo con botones de anotacion renderizados
     if(curP==='gamecontrol'&&S.game){
       var _pollGm=S.games.filter(function(x){return x.id===S.game;})[0];
-      var _pollCanScore=_pollGm&&canScore(_pollGm)&&_pollGm.status==='live';
-      var _isScorer=S.user&&(S.user.role==='admin'||S.user.role==='scorer'||S.user.role==='anotador');
-      // Solo refrescar si es pure viewer (no tiene acceso a anotar)
-      if(!_pollCanScore||!_isScorer){
+      // Hay botones de anotacion si existe el elemento de rPlay en el DOM
+      var _hasScoreControls=!!document.getElementById('gc-rplay-area');
+      if(!_hasScoreControls){
+        // Es visitante o juego no en vivo — refrescar libremente
         try{ initPGS(); pgGC(); } catch(e2){ console.warn('Viewer GC refresh error:',e2); }
+      }
+      // Si es anotador activo: solo actualizar silenciosamente el scoreboard y pizarra
+      // sin re-renderizar el módulo completo (para no perder estado)
+      else if(_pollGm){
+        try{ _updateGCScoreboard(_pollGm); } catch(e2){}
       }
     }
 
@@ -635,8 +841,10 @@ function renderApp(){
       licHtml=gdays<30?'<span style="color:var(--acc)">&#9888; Licencia: '+gdays+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
     }
   }
-  document.getElementById('lici').innerHTML=licHtml;
-  document.getElementById('coni').innerHTML='<span style="color:var(--grn)">&#9679; Supabase</span>';
+  // Visitantes no ven los indicadores de Supabase ni licencia
+  var isPublic=S.user&&S.user.role==='public';
+  document.getElementById('lici').innerHTML=isPublic?'':licHtml;
+  document.getElementById('coni').innerHTML=isPublic?'':'<span style="color:var(--grn)">&#9679; Supabase</span>';
   var mods=getUserMods(u);var nm='';var last='';
   var subMods=['statslife','leaderslife'];
   mods.forEach(function(p){
@@ -729,7 +937,8 @@ function openGD(id){S.game=id;goNav('gamecontrol');}
 // DASHBOARD
 async function trackVisit(){
   try{
-    var today=new Date().toISOString().slice(0,10);
+    var _rdNow=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Santo_Domingo'}));
+  var today=_rdNow.getFullYear()+'-'+String(_rdNow.getMonth()+1).padStart(2,'0')+'-'+String(_rdNow.getDate()).padStart(2,'0');
     var r=await api('trackVisit',{date:today});
     if(r&&r.ok) S.visits=r.visits||S.visits||{};
   }catch(e){}
@@ -1313,15 +1522,17 @@ async function refreshGC(){
   var btn = document.getElementById('gc-refresh-btn');
   if(btn){ btn.disabled=true; btn.innerHTML='&#8635; Refrescando...'; }
   try{
-    // Guardar batterIdx actual antes de loadAll
     var gid = S.game;
     var curGm = gid ? S.games.filter(function(x){return x.id===gid;})[0] : null;
     var savedAway = curGm ? (parseInt(curGm.awayBatterIdx)||0) : 0;
     var savedHome = curGm ? (parseInt(curGm.homeBatterIdx)||0) : 0;
+    // Preservar pestaña activa y scroll antes de re-renderizar
+    var savedTab = _gcTab || 'bs-a';
+    var logEl = document.getElementById('bs-l');
+    var savedScroll = logEl ? logEl.scrollTop : 0;
 
     await loadAll();
 
-    // Restaurar batterIdx si el servidor devolvió algo menor (lag)
     if(gid){
       S.games = S.games.map(function(x){
         if(x.id !== gid) return x;
@@ -1331,13 +1542,32 @@ async function refreshGC(){
         });
       });
     }
+    // Restaurar pestaña antes de re-renderizar
+    _gcTab = savedTab;
     pgGC();
+    // Restaurar scroll de jugadas si estaba en esa pestaña
+    if(savedTab==='bs-l'){
+      var newLogEl = document.getElementById('bs-l');
+      if(newLogEl) newLogEl.scrollTop = savedScroll;
+    }
     toast('Juego actualizado','success');
   } catch(e){
     toast('Error al refrescar: '+e.message,'error');
   } finally {
     _gcRefreshing = false;
+    var btn2 = document.getElementById('gc-refresh-btn');
+    if(btn2){ btn2.disabled=false; btn2.innerHTML='&#8635; Refrescar'; }
   }
+}
+
+// Actualización silenciosa del scoreboard para el anotador activo durante el poll
+function _updateGCScoreboard(gm){
+  // Solo actualizar elementos que no afectan el estado de anotación
+  // (el anotador ya tiene el estado correcto en memoria)
+  var sbEl=document.getElementById('gc-live-score');
+  if(!sbEl) return; // Si no hay scoreboard renderizado, no hacer nada
+  // Actualizar inning scores en la pizarra (puede haber cambiado en otro dispositivo)
+  // pero NO tocar batterIdx ni estado de turnos
 }
 function pgGC(){
   if(!S.game){
@@ -1408,7 +1638,7 @@ function pgGC(){
     +'<div><div class="stl">&#9918; En Juego</div><div class="ssb">'+aw.name+' vs '+hw.name+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<button class="btn bs bsm" onclick="S.game=null;pgGC()">&larr; Cambiar</button>'
-    +'<button class="btn bs bsm" id="gc-refresh-btn" onclick="refreshGC()" title="Recargar datos del juego desde el servidor">&#8635; Refrescar</button>'
++(S.user&&S.user.role!=='public'?'<button class="btn bs bsm" id="gc-refresh-btn" onclick="refreshGC()" title="Recargar datos del juego desde el servidor">&#8635; Refrescar</button>':'')
     +(cs?'<button class="btn bd bsm" onclick="endGame()">&#9989; Finalizar</button>':'')
     +(cs?'<button class="btn bd bsm" onclick="openSuspendLiveM()" style="background:var(--acc);border-color:var(--acc);color:#000">&#9208; Suspender</button>':'')
     +(gm.status==="final"?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="exportReport(this.dataset.gid)">&#128196; Informe</button>':'')
@@ -1523,6 +1753,7 @@ function bsHTML(gid,tid){
 }
 
 function pitHTML(gid,awT,hmT){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0]; // necesario para ERA
   var evs=S.pitching.filter(function(e){return e.gameId===gid;});
   if(!evs.length)return'<div class="empty"><div style="font-size:30px">&#9918;</div><div>Sin datos de pitcheo. Usa los botones "Pit." para registrar.</div></div>';
   var html='';
@@ -1532,7 +1763,7 @@ function pitHTML(gid,awT,hmT){
       +'<div class="tw"><table><thead><tr><th>Pitcher</th><th>Dec</th><th>IP</th><th>H</th><th>R</th><th>ER</th><th>BB</th><th>K</th><th>HR</th><th>ERA</th></tr></thead><tbody>'
       +te.map(function(e){
         var p=playerOf(e.pitcherId);var ip=parseFloat(e.ip)||0;
-        var era=ip>0?((parseInt(e.er)||0)*7/ip).toFixed(2):'&mdash;';
+        var era=ip>0?((parseInt(e.er)||0)*(parseInt(gm&&gm.totalInnings)||7)/ip).toFixed(2):'&mdash;';
         var dec=e.decision==='W'?'<span class="badge bg">G</span>':e.decision==='L'?'<span class="badge br">P</span>':e.decision==='S'?'<span class="badge bb">S</span>':'&mdash;';
         return'<tr><td><b>#'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+'</b></td><td>'+dec+'</td>'
           +'<td style="text-align:center;font-weight:700">'+ip.toFixed(1)+'</td>'
@@ -2503,13 +2734,13 @@ function openAdjM(){
   showM('<div class="mhd"><div class="mtl">&#9998; Ajustar Juego</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="alert aw">Solo para correcciones.</div>'
     +'<div class="fr c3"><div class="fg"><label class="fl">Entrada</label><input class="fi" id="ai" type="number" value="'+(parseInt(gm.currentInning)||1)+'" min="1"></div>'
-    +'<div class="fg"><label class="fl">Mitad</label><select class="fs" id="ah"><option value="top" '+(gm.currentHalf==='top'?'selected':'')+'>&#9650; Alta</option><option value="bottom" '+(gm.currentHalf==='bottom'?'selected':'')+'>&#9660; Baja</option></select></div>'
+    +'<div class="fg"><label class="fl">Mitad</label><select class="fs" id="ah" onchange="adjUpdateBatterSel()"><option value="top" '+(gm.currentHalf==='top'?'selected':'')+'>&#9650; Alta (Visitante batea)</option><option value="bottom" '+(gm.currentHalf==='bottom'?'selected':'')+'>&#9660; Baja (Local batea)</option></select></div>'
     +'<div class="fg"><label class="fl">Outs</label><input class="fi" id="ao" type="number" value="'+(parseInt(gm.outs)||0)+'" min="0" max="2"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Carreras Visitante</label><input class="fi" id="aaw" type="number" value="'+(parseInt(gm.awayRuns)||0)+'"></div>'
     +'<div class="fg"><label class="fl">Carreras Local</label><input class="fi" id="ahm" type="number" value="'+(parseInt(gm.homeRuns)||0)+'"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Hits Visitante</label><input class="fi" id="aawh" type="number" value="'+(parseInt(gm.awayHits)||0)+'"></div>'
     +'<div class="fg"><label class="fl">Hits Local</label><input class="fi" id="ahmh" type="number" value="'+(parseInt(gm.homeHits)||0)+'"></div></div>'
-    +(activeOrd.length?'<div class="fg"><label class="fl">Bateador al turno (turno actual del equipo al bate)</label><select class="fs" id="abat">'+batterOpts+'</select></div>':'')
+    +'<div class="fg" id="adj-batter-wrap"><label class="fl" id="adj-batter-lbl">Bateador al turno ('+(isTop?'Visitante al bate — Alta':'Local al bate — Baja')+')</label><select class="fs" id="abat">'+batterOpts+'</select></div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:10px 0 6px">CORREGIR BASES:</div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
     +'<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;cursor:pointer;font-size:13px"><input type="checkbox" id="adj-b1" '+(gm.bases&&gm.bases.first?'checked':'')+' style="accent-color:var(--acc)"> 1ra Base</label>'
@@ -2518,6 +2749,37 @@ function openAdjM(){
     +'</div>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="applyAdj()">Aplicar</button></div>');
+}
+
+// Actualiza el selector de bateador en openAdjM cuando cambia Alta/Baja
+function adjUpdateBatterSel(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  var newHalf=document.getElementById('ah')?document.getElementById('ah').value:'top';
+  var newIsTop=newHalf==='top';
+  var btId=newIsTop?gm.awayTeamId:gm.homeTeamId;
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===btId;})[0];
+  var idx=newIsTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
+  var rpIds=lu&&lu.players?lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;}):[];
+  var slots=[];if(lu&&lu.players)lu.players.forEach(function(lp){var s=lp.order||0;if(slots.indexOf(s)<0)slots.push(s);});slots.sort(function(a,b){return a-b;});
+  var activeOrd=[];
+  slots.forEach(function(slot){
+    var inSlot=lu&&lu.players?lu.players.filter(function(lp){return(lp.order||0)===slot;}):[];
+    var cur=inSlot.filter(function(lp){return rpIds.indexOf(lp.playerId)<0;});
+    var allNB=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});
+    if(cur.length===0){if(!allNB)activeOrd.push(inSlot[inSlot.length-1]);}
+    else activeOrd.push(cur[cur.length-1]);
+  });
+  if(!activeOrd.length&&lu&&lu.players)activeOrd=lu.players.slice();
+  var batterOpts=activeOrd.map(function(lp,i){
+    var p=playerOf(lp.playerId);
+    return'<option value="'+i+'" '+(i===(idx%Math.max(activeOrd.length,1))?'selected':'')+'>('+(i+1)+'&#176;) #'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+'</option>';
+  }).join('');
+  var sel=document.getElementById('abat');
+  var lbl=document.getElementById('adj-batter-lbl');
+  var wrap=document.getElementById('adj-batter-wrap');
+  if(sel) sel.innerHTML=batterOpts||(activeOrd.length?batterOpts:'<option>Sin jugadores</option>');
+  if(lbl) lbl.textContent='Bateador al turno ('+(newIsTop?'Visitante al bate — Alta':'Local al bate — Baja')+')';
+  if(wrap) wrap.style.display=activeOrd.length?'':'none';
 }
 async function applyAdj(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
@@ -2939,7 +3201,7 @@ function openPlayerStatsM(pid,role){
     var totBB=pe2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
     var totER=pe2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var totH=pe2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
-    var era=totIP>0?(totER*7)/totIP:null;
+    var era=totIP>0?(function(){var inns=spe.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(totER*avgI)/totIP;})():null;
     var whip=totIP>0?(totH+totBB)/totIP:null;
     var kPer=gps>0?(totK/gps).toFixed(1):'—';
     var bbPer=gps>0?(totBB/gps).toFixed(1):'—';
@@ -2952,7 +3214,7 @@ function openPlayerStatsM(pid,role){
       var sk=recs.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
       var sw=recs.filter(function(e){return e.decision==='W';}).length;
       var sl=recs.filter(function(e){return e.decision==='L';}).length;
-      var sera=sip>0?((ser*7)/sip).toFixed(2):'—';
+      var sera=sip>0?(function(){var tER=0,tIP=0;spe.forEach(function(e){tER+=parseInt(e.er)||0;tIP+=parseFloat(e.ip)||0;});var avgI=spe.length?Math.round(spe.map(function(e){return gameInnings(e.gameId);}).reduce(function(a,b){return a+b;},0)/spe.length):7;return tIP>0?(tER*avgI/tIP).toFixed(2):'—';})():'—';
       var swhip=sip>0?((sh+sbb)/sip).toFixed(2):'—';
       var col=accent?'color:var(--acc);font-weight:700':'';
       return'<tr style="'+(accent?'background:rgba(245,166,35,.07)':'')+'"><td style="font-size:12px;color:var(--t2)">'+label+'</td>'
@@ -3038,7 +3300,7 @@ function openPlayerStatsM(pid,role){
         var ctotBB=careerPe2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
         var ctotER=careerPe2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
         var ctotH=careerPe2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
-        var cEra=ctotIP>0?((ctotER*7)/ctotIP).toFixed(2):'—';
+        var cEra=ctotIP>0?(function(){var inns2=cspe.map(function(e){return gameInnings(e.gameId);});var avgI2=inns2.length?Math.round(inns2.reduce(function(a,b){return a+b;},0)/inns2.length):7;return(ctotER*avgI2/ctotIP).toFixed(2);})()||'—':'—';
         var cWhip=ctotIP>0?((ctotH+ctotBB)/ctotIP).toFixed(2):'—';
         var cgps=careerPe2.length;
         var ckPer=cgps>0?(ctotK/cgps).toFixed(1):'—';
@@ -3069,6 +3331,40 @@ function openPlayerStatsM(pid,role){
 }
 
 
+
+// Helper: innings de un juego (para calcular ERA correctamente)
+function gameInnings(gameId){
+  var gm=S.games.filter(function(x){return x.id===gameId;})[0];
+  return gm?parseInt(gm.totalInnings)||7:7;
+}
+// Helper: innings base del torneo (promedio de sus juegos, o valor config)
+function tourInnings(tourId){
+  var gms=S.games.filter(function(x){return x.tournamentId===tourId&&parseInt(x.totalInnings)>0;});
+  if(!gms.length)return 7;
+  var vals=gms.map(function(g){return parseInt(g.totalInnings)||7;});
+  return Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length);
+}
+// ERA por pitcher considerando innings reales de cada juego
+function calcPitcherERA(pitcherLines){
+  // pitcherLines: array de líneas de pitcheo del pitcher
+  if(!pitcherLines||!Array.isArray(pitcherLines)||!pitcherLines.length)return 99;
+  var totalER=0, totalIP=0;
+  pitcherLines.forEach(function(e){
+    var ip=parseFloat(e.ip)||0;
+    var er=parseInt(e.er)||0;
+    var inn=gameInnings(e.gameId);
+    // Normalizar: ER * 7 → ER * inn (los innings del juego)
+    // ERA = Suma(ER * inn_i / ip_i * ip_i) / totalIP * inn_promedio
+    // Forma correcta: ERA = (totalER / totalIP) * inn_promedio
+    totalER+=er;
+    totalIP+=ip;
+  });
+  if(totalIP===0)return 99;
+  // Innings base: usar el de los juegos donde lanzó
+  var inns=pitcherLines.map(function(e){return gameInnings(e.gameId);});
+  var avgInn=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;
+  return (totalER*avgInn)/totalIP;
+}
 // ════════════════════════════════════════════════════════════════
 // RACHAS — calcula rachas activas y pasadas de jugadores/equipos
 // ════════════════════════════════════════════════════════════════
@@ -3307,7 +3603,7 @@ function pgStats(tid,sBy,pSBy){
     var w=pe.filter(function(e){return e.decision==='W';}).length;
     var l=pe.filter(function(e){return e.decision==='L';}).length;
     var sv=pe.filter(function(e){return e.decision==='S';}).length;
-    var eraNum=ip>0?(er*7)/ip:99;
+    var eraNum=ip>0?calcPitcherERA(pe):99;
     var whipNum=ip>0?(h+bb)/ip:99;
     var tm=p?teamOf(p.teamId):null;
     // Home/Away splits: pitcher is HOME when their teamId === game.homeTeamId
@@ -3320,7 +3616,7 @@ function pgStats(tid,sBy,pSBy){
       var sk=spe.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
       var sw=spe.filter(function(e){return e.decision==='W';}).length;
       var sl=spe.filter(function(e){return e.decision==='L';}).length;
-      var sera=sip>0?(ser*7)/sip:null;
+      var sera=sip>0?calcPitcherERA(spe):null;
       var swhip=sip>0?(sh+sbb)/sip:null;
       return{ip:sip,h:sh,er:ser,bb:sbb,k:sk,w:sw,l:sl,era:sera,whip:swhip,gp:spe.length};
     }
@@ -3401,7 +3697,7 @@ function pgStats(tid,sBy,pSBy){
     var tPevs=pevs.filter(function(e){return e.teamId===tid;});
     var tip=tPevs.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
     var ter=tPevs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
-    var teraNum=tip>0?(ter*7)/tip:99;
+    var teraNum=tip>0?(function(){var inns=tpe.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(ter*avgI)/tip;})():99;
     var dif=rf-ra;
     return{tm:tm,gp:gp,w:w,l:l,pct:pctNum,rf:rf,ra:ra,dif:dif,rh:rh,re:re,avg:tavgNum,hr:thr,rbi:trbi,bb:tbb,k:tk,era:teraNum,tip:tip};
   }).filter(Boolean).sort(function(a,b){
@@ -3516,7 +3812,7 @@ function pgLead(tid){
   function get2B(id){return evs.filter(function(e){return e.batterId===id&&e.type==='H2';}).length;}
   function get3B(id){return evs.filter(function(e){return e.batterId===id&&e.type==='H3';}).length;}
   function getSB(id){return evs.filter(function(e){return e.batterId===id&&e.type==='SB';}).length;}
-  function getERA(id){var pe=pevs.filter(function(e){return e.pitcherId===id;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);return ip>=1?(er*7/ip):99;}
+  function getERA(id){var pe=pevs.filter(function(e){return e.pitcherId===id;});return pe.length&&pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0)>=1?calcPitcherERA(pe):99;}
   function getWins(id){return pevs.filter(function(e){return e.pitcherId===id&&e.decision==='W';}).length;}
   function getKp(id){return pevs.reduce(function(s,e){return s+(e.pitcherId===id?parseInt(e.k)||0:0);},0);}
   function getWHIP(id){var pe=pevs.filter(function(e){return e.pitcherId===id;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
@@ -3591,7 +3887,7 @@ function pgStatsLife(sBy,pSBy){
     var w=pe.filter(function(e){return e.decision==='W';}).length;
     var l=pe.filter(function(e){return e.decision==='L';}).length;
     var sv=pe.filter(function(e){return e.decision==='S';}).length;
-    var era=ip>0?(er*7)/ip:99;var whip=ip>0?(h+bb)/ip:99;
+    var era=ip>0?calcPitcherERA(pe):99;var whip=ip>0?(h+bb)/ip:99;
     return{cp:cp,ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip};
   }).filter(Boolean).sort(function(a,b){
     var col=_SL.pitSortBy;var av=a[col],bv=b[col];
@@ -3620,7 +3916,7 @@ function pgStatsLife(sBy,pSBy){
       var k2=pp2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
       var w2=pp2.filter(function(e){return e.decision==='W';}).length;
       var l2=pp2.filter(function(e){return e.decision==='L';}).length;
-      var era2=ip2>0?((er2*7)/ip2).toFixed(2):'—';var whip2=ip2>0?((h2p+bb2)/ip2).toFixed(2):'—';
+      var era2=ip2>0?calcPitcherERA(pe2).toFixed(2):'—';var whip2=ip2>0?((h2p+bb2)/ip2).toFixed(2):'—';
       return'<tr><td><span class="chip">'+(tm?tm.abbreviation||tm.name:'?')+'</span></td><td style="font-size:12px">'+(tm?tm.name:'?')+'</td>'
         +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td><td style="text-align:center">'+h2+'</td><td style="text-align:center">'+h3+'</td><td style="text-align:center">'+hr+'</td><td style="text-align:center">'+rbi+'</td><td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td><td style="text-align:center">'+obp+'</td><td style="text-align:center">'+slg+'</td>'
@@ -3695,7 +3991,7 @@ function pgLeadLife(){
   function c2B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H2';}).length;}
   function c3B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H3';}).length;}
   function cSB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='SB';}).length;}
-  function cERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);return ip>=3?(er*7/ip):99;}
+  function cERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0)>=3?calcPitcherERA(pe):99;}
   function cWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function cK(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
   function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=3?wh/ip:99;}
@@ -3707,7 +4003,7 @@ function pgLeadLife(){
       +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div><div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.cp.number||'?')+' '+x.cp.name+'</div><div style="font-size:11px;color:var(--t3)">'+x.cp.teams.slice(0,2).join(', ')+(x.cp.teams.length>2?' +'+(x.cp.teams.length-2):'')+'</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')+'</div>';
   }
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
-    +'<div><div class="stl">&#127775; Lideres de Por Vida</div><div class="ssb">Top jugadores historicos — sin filtro de torneo o año</div></div></div>'
+    +'<div><div class="stl">&#127775; Lideres de Por Vida</div><div class="ssb">Top jugadores historicos.</div></div></div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
     +lCard2('&#128200; SLG (carrera)',topLife(cSLG),function(v){return v.toFixed(3);})+lCard2('&#127952; AVG (carrera)',topLife(cAvg),function(v){return v.toFixed(3);})+lCard2('&#128165; HR (carrera)',topLife(cHR))+lCard2('&#127919; RBI (carrera)',topLife(cRBI))
@@ -4610,7 +4906,7 @@ function exportReport(gid){
     if(!pe.length)return'<p>Sin datos de pitcheo registrados.</p>';
     var rows=pe.map(function(e){
       var p=playerOf(e.pitcherId);var ip=parseFloat(e.ip)||0;
-      var era=ip>0?((parseInt(e.er)||0)*7/ip).toFixed(2):'N/A';
+      var era=ip>0?((parseInt(e.er)||0)*(parseInt(gm&&gm.totalInnings)||7)/ip).toFixed(2):'N/A';
       var dec=e.decision==='W'?'G':e.decision==='L'?'P':e.decision==='S'?'S':'';
       return'<tr><td class="pname">#'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+'</td>'
         +'<td class="num '+(dec==='G'?'hi':dec==='P'?'bad':'')+'">'+(dec||'-')+'</td>'
@@ -4684,7 +4980,7 @@ function exportReport(gid){
         +(parseInt(e.runs)>0?' | +'+e.runs+' c':'')
         +'</span><br>';
     }).join('')+'</div>':'')
-  +'<div class="footer">Generado por VitillaStats Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
+  +'<div class="footer">Generado por Vitilla Power Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   w.document.write(winHtml);
@@ -4695,6 +4991,67 @@ function exportReport(gid){
 }
 
 
+
+// ══════════════════════════════════════════════════════════════════
+// RESPONSIVE — Menú móvil (drawer)
+// ══════════════════════════════════════════════════════════════════
+var _isMobile = false;
+
+function checkBreakpoint(){
+  var w = window.innerWidth;
+  var wasMobile = _isMobile;
+  _isMobile = w <= 600;
+  var mobBtn = document.getElementById('mob-menu-btn');
+  var sbOverlay = document.getElementById('sb-overlay');
+  var sb = document.getElementById('sb');
+  var mn = document.getElementById('mn');
+
+  if(_isMobile){
+    if(mobBtn) mobBtn.style.display = 'flex';
+    // En móvil el menú empieza cerrado
+    if(!wasMobile){
+      if(sb){ sb.classList.remove('mob-open'); }
+      if(sbOverlay){ sbOverlay.classList.remove('on'); }
+    }
+  } else {
+    if(mobBtn) mobBtn.style.display = 'none';
+    if(sb){ sb.classList.remove('mob-open'); }
+    if(sbOverlay){ sbOverlay.classList.remove('on'); }
+    // Restaurar sidebar según estado guardado
+    if(_sbCollapsed){
+      sb && sb.classList.add('collapsed');
+      mn && mn.classList.add('sb-collapsed');
+    } else {
+      sb && sb.classList.remove('collapsed');
+      mn && mn.classList.remove('sb-collapsed');
+    }
+  }
+}
+
+function toggleMobMenu(){
+  var sb = document.getElementById('sb');
+  var ov = document.getElementById('sb-overlay');
+  if(!sb) return;
+  var open = sb.classList.toggle('mob-open');
+  if(ov) open ? ov.classList.add('on') : ov.classList.remove('on');
+}
+
+function closeMobMenu(){
+  var sb = document.getElementById('sb');
+  var ov = document.getElementById('sb-overlay');
+  if(sb) sb.classList.remove('mob-open');
+  if(ov) ov.classList.remove('on');
+}
+
+// Cerrar menú al navegar en móvil
+var _origGoNav = null;
+function initResponsive(){
+  checkBreakpoint();
+  window.addEventListener('resize', function(){
+    clearTimeout(window._bpTimer);
+    window._bpTimer = setTimeout(checkBreakpoint, 100);
+  });
+}
 // INIT
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&document.getElementById('lscr').style.display==='flex'){
@@ -4704,6 +5061,67 @@ document.addEventListener('keydown',function(e){
   }
 });
 
+
+// ══════════════════════════════════════════════════════════════════
+// RESPONSIVE — Menú móvil (drawer)
+// ══════════════════════════════════════════════════════════════════
+var _isMobile = false;
+
+function checkBreakpoint(){
+  var w = window.innerWidth;
+  var wasMobile = _isMobile;
+  _isMobile = w <= 600;
+  var mobBtn = document.getElementById('mob-menu-btn');
+  var sbOverlay = document.getElementById('sb-overlay');
+  var sb = document.getElementById('sb');
+  var mn = document.getElementById('mn');
+
+  if(_isMobile){
+    if(mobBtn) mobBtn.style.display = 'flex';
+    // En móvil el menú empieza cerrado
+    if(!wasMobile){
+      if(sb){ sb.classList.remove('mob-open'); }
+      if(sbOverlay){ sbOverlay.classList.remove('on'); }
+    }
+  } else {
+    if(mobBtn) mobBtn.style.display = 'none';
+    if(sb){ sb.classList.remove('mob-open'); }
+    if(sbOverlay){ sbOverlay.classList.remove('on'); }
+    // Restaurar sidebar según estado guardado
+    if(_sbCollapsed){
+      sb && sb.classList.add('collapsed');
+      mn && mn.classList.add('sb-collapsed');
+    } else {
+      sb && sb.classList.remove('collapsed');
+      mn && mn.classList.remove('sb-collapsed');
+    }
+  }
+}
+
+function toggleMobMenu(){
+  var sb = document.getElementById('sb');
+  var ov = document.getElementById('sb-overlay');
+  if(!sb) return;
+  var open = sb.classList.toggle('mob-open');
+  if(ov) open ? ov.classList.add('on') : ov.classList.remove('on');
+}
+
+function closeMobMenu(){
+  var sb = document.getElementById('sb');
+  var ov = document.getElementById('sb-overlay');
+  if(sb) sb.classList.remove('mob-open');
+  if(ov) ov.classList.remove('on');
+}
+
+// Cerrar menú al navegar en móvil
+var _origGoNav = null;
+function initResponsive(){
+  checkBreakpoint();
+  window.addEventListener('resize', function(){
+    clearTimeout(window._bpTimer);
+    window._bpTimer = setTimeout(checkBreakpoint, 100);
+  });
+}
 // INIT
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&document.getElementById('lscr').style.display==='flex'){
@@ -4715,6 +5133,7 @@ document.addEventListener('keydown',function(e){
 
 window.onload=function(){
   // Siempre mostrar login directamente (sin setup wizard)
+  initResponsive();
   document.getElementById('lscr').style.display='none';
   document.getElementById('app').style.display='none';
   if(restoreSession()){
