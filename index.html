@@ -447,6 +447,15 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
       <span class="sl-main">⚾ La APP para llevar la gestión y control de los torneos de vitilla.</span>
       <span class="sl-sub">Vitilla, más que un juego es pasión, hermandad y competitividad al límite.</span>
     </div>
+    <!-- ORIENTATION BANNER (mobile/tablet only, portrait) -->
+    <div id="orient-bar" style="display:none;background:linear-gradient(90deg,#1a1005 0%,#2d1e00 50%,#1a1005 100%);border-bottom:2px solid var(--acc);padding:10px 16px;text-align:center;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:22px">📱↔️</span>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--acc);letter-spacing:.5px;">Para obtener una mejor experiencia en su dispositivo y ver las demás opciones del menú, active el giro automático en su dispositivo y utilícelo de manera horizontal.</div>
+        </div>
+      </div>
+    </div>
     <div id="ct"></div>
     <!-- FOOTER -->
     <footer id="app-footer">
@@ -468,7 +477,7 @@ var CFG = {
   // URL del Cloudflare Worker (cambia esto al tuyo)
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
   // App Token — debe coincidir con APP_SECRET en el Worker
-  appToken: '595d18eea99dfb0af9fe415732e23d7a6ba18465554eb156844aad9f493c02ae',
+  appToken: '424d88ca77fee63aa3f9cd64810558d20bb029e80509b4520ddf310c564d2015',
 };
 
 // STATE
@@ -562,6 +571,7 @@ function guestLogin(){
     document.getElementById('app').style.display='flex';
     resetModuleState();
     renderApp();goNav('standings');
+    startPolling();
     trackVisit();
   });
 }
@@ -1680,7 +1690,7 @@ function pgGC(){
     +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
       +'</div>':'')
     +'</div>'
-    +(cs?'<div><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
+    +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
     +'<div class="pbts">'
     +'<div class="pbtn phit" data-t="H1" onclick="rPlay(this.dataset.t)">H1<br><span style="font-size:10px">SENCILLO</span></div>'
     +'<div class="pbtn phit" data-t="H2" onclick="rPlay(this.dataset.t)">H2<br><span style="font-size:10px">DOBLE</span></div>'
@@ -1778,7 +1788,10 @@ function pitHTML(gid,awT,hmT){
   return html;
 }
 function playLog(gid){
-  var evs=S.events.filter(function(e){return e.gameId===gid;}).reverse();
+  var evs=S.events.filter(function(e){return e.gameId===gid;}).slice().sort(function(a,b){
+    var ta=a.timestamp||'';var tb=b.timestamp||'';
+    return ta<tb?-1:ta>tb?1:0;
+  }).reverse();
   var gm=S.games.filter(function(x){return x.id===gid;})[0];
   var isAdmin=S.user&&S.user.role==='admin';
   var canEdit=isAdmin&&gm&&gm.status==='final';
@@ -2354,9 +2367,13 @@ async function undoLastPlay(){
   if(activePitId){
     // Prefer the open record for that specific pitcher
     ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&e.pitcherId===activePitId&&!e.pitchingClosed;})[0]||null;
+    // Also try closed record for that specific pitcher as fallback
+    if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&e.pitcherId===activePitId;}).slice(-1)[0]||null;
   }
   // Fallback: last open record for that team
   if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&!e.pitchingClosed;}).slice(-1)[0]||null;
+  // Last resort: any record for that team
+  if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId;}).slice(-1)[0]||null;
   if(ex){
     // Revert IP for outs
     var isOutP=['K','OUT','DP','SAC','OJ'].indexOf(last.type)>=0;
@@ -3697,7 +3714,7 @@ function pgStats(tid,sBy,pSBy){
     var tPevs=pevs.filter(function(e){return e.teamId===tid;});
     var tip=tPevs.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
     var ter=tPevs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
-    var teraNum=tip>0?(function(){var inns=tpe.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(ter*avgI)/tip;})():99;
+    var teraNum=tip>0?(function(){var inns=tPevs.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(ter*avgI)/tip;})():99;
     var dif=rf-ra;
     return{tm:tm,gp:gp,w:w,l:l,pct:pctNum,rf:rf,ra:ra,dif:dif,rh:rh,re:re,avg:tavgNum,hr:thr,rbi:trbi,bb:tbb,k:tk,era:teraNum,tip:tip};
   }).filter(Boolean).sort(function(a,b){
@@ -3836,7 +3853,7 @@ function pgLead(tid){
 }
 
 // STATS DE POR VIDA
-var _SL={sortBy:'avg',sortDir:-1,pitSortBy:'era',pitSortDir:1,search:''};
+var _SL={sortBy:'name',sortDir:1,pitSortBy:'era',pitSortDir:1,search:''};
 function pgStatsLife(sBy,pSBy){
   if(sBy!==undefined){if(_SL.sortBy===sBy)_SL.sortDir*=-1;else{_SL.sortBy=sBy;_SL.sortDir=-1;}}
   if(pSBy!==undefined){if(_SL.pitSortBy===pSBy)_SL.pitSortDir*=-1;else{_SL.pitSortBy=pSBy;_SL.pitSortDir=1;}}
@@ -3874,7 +3891,12 @@ function pgStatsLife(sBy,pSBy){
     var sb=pe.filter(function(e){return e.type==='SB';}).length;
     var avg=vb>0?h/vb:0;var obp=(vb+bb)>0?(h+bb)/(vb+bb):0;var slg=vb>0?(h-h2-h3-hr+h2*2+h3*3+hr*4)/vb:0;
     return{cp:cp,vb:vb,h:h,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:k,sb:sb,avg:avg,obp:obp,slg:slg};
-  }).filter(function(s){return s.vb>0;}).sort(function(a,b){return _SL.sortDir*(b[_SL.sortBy]-a[_SL.sortBy]);});
+  }).filter(function(s){return s.vb>0;}).sort(function(a,b){
+    if(_SL.sortBy==='name'){return _SL.sortDir*(a.cp.name.localeCompare(b.cp.name));}
+    var diff=_SL.sortDir*(b[_SL.sortBy]-a[_SL.sortBy]);
+    if(diff!==0)return diff;
+    return a.cp.name.localeCompare(b.cp.name);
+  });
   // Pitching career stats
   var pitData=careerPlayers.map(function(cp){
     var pe=pevs.filter(function(e){return cp.ids.indexOf(e.pitcherId)>=0;});
@@ -3954,7 +3976,8 @@ function pgStatsLife(sBy,pSBy){
     +'<input class="fi" id="sl-search" placeholder="&#128269; Buscar jugador..." value="'+(_SL.search||'')+'" oninput="_SL.search=this.value;filterStatsLifeDisplay()" style="width:200px"></div>'
     +'<div class="tabs"><div class="tab on" onclick="_SL.activeTab=\'sl-b\';showTab(this,\'sl-b\')">&#127952; Bateo</div>'
     +'<div class="tab" onclick="_SL.activeTab=\'sl-p\';showTab(this,\'sl-p\')">&#9918; Pitcheo</div></div>'
-    +'<div id="sl-b"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipos</th>'
+    +'<div id="sl-b"><div class="card"><div class="tw"><table><thead><tr>'
+    +'<th onclick="pgStatsLife(\'name\')" style="cursor:pointer;user-select:none;'+(_SL.sortBy==='name'?'color:var(--acc)':'')+'">Jugador'+(_SL.sortBy==='name'?(_SL.sortDir===1?'&#8593;':'&#8595;'):'')+'</th><th>Equipos</th>'
     +slh('vb','VB')+slh('h','H')+slh('h2','2B')+slh('h3','3B')+slh('hr','HR')+slh('rbi','RBI')+slh('bb','BB')+slh('k','K')+slh('sb','SB')+slh('avg','AVG')+slh('obp','OBP')+slh('slg','SLG')
     +'<th>Detalle</th></tr></thead><tbody>'+(batRows||'<tr><td colspan="16"><div class="empty">Sin datos</div></td></tr>')+'</tbody></table></div></div></div>'
     +'<div id="sl-p" style="display:none"><div class="card"><div class="tw"><table><thead><tr><th>Pitcher</th><th>Equipos</th>'
@@ -5043,25 +5066,6 @@ function closeMobMenu(){
   if(ov) ov.classList.remove('on');
 }
 
-// Cerrar menú al navegar en móvil
-var _origGoNav = null;
-function initResponsive(){
-  checkBreakpoint();
-  window.addEventListener('resize', function(){
-    clearTimeout(window._bpTimer);
-    window._bpTimer = setTimeout(checkBreakpoint, 100);
-  });
-}
-// INIT
-document.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&document.getElementById('lscr').style.display==='flex'){
-    var focused=document.activeElement;
-    if(focused&&focused.id==='lu')document.getElementById('lp').focus();
-    else doLogin();
-  }
-});
-
-
 // ══════════════════════════════════════════════════════════════════
 // RESPONSIVE — Menú móvil (drawer)
 // ══════════════════════════════════════════════════════════════════
@@ -5098,28 +5102,28 @@ function checkBreakpoint(){
   }
 }
 
-function toggleMobMenu(){
-  var sb = document.getElementById('sb');
-  var ov = document.getElementById('sb-overlay');
-  if(!sb) return;
-  var open = sb.classList.toggle('mob-open');
-  if(ov) open ? ov.classList.add('on') : ov.classList.remove('on');
+// Cerrar menu al navegar en movil (second / active block)
+
+function checkOrientBanner(){
+  var bar = document.getElementById('orient-bar');
+  if(!bar) return;
+  // Solo en dispositivos tactiles (movil/tablet), no en PC
+  var isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if(!isTouchDevice){ bar.style.display='none'; return; }
+  // Mostrar solo en modo portrait (ancho < alto)
+  var isPortrait = window.innerHeight > window.innerWidth;
+  bar.style.display = isPortrait ? 'block' : 'none';
 }
 
-function closeMobMenu(){
-  var sb = document.getElementById('sb');
-  var ov = document.getElementById('sb-overlay');
-  if(sb) sb.classList.remove('mob-open');
-  if(ov) ov.classList.remove('on');
-}
-
-// Cerrar menú al navegar en móvil
-var _origGoNav = null;
 function initResponsive(){
   checkBreakpoint();
+  checkOrientBanner();
   window.addEventListener('resize', function(){
     clearTimeout(window._bpTimer);
-    window._bpTimer = setTimeout(checkBreakpoint, 100);
+    window._bpTimer = setTimeout(function(){ checkBreakpoint(); checkOrientBanner(); }, 100);
+  });
+  window.addEventListener('orientationchange', function(){
+    setTimeout(function(){ checkBreakpoint(); checkOrientBanner(); }, 150);
   });
 }
 // INIT
