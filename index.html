@@ -534,20 +534,26 @@ async function pingUrl(url){
 // LOGIN
 function showLoginScreen(){document.getElementById('lscr').style.display='flex';setTimeout(function(){document.getElementById('lu').focus();},100);}
 function resetModuleState(){
-  // Reset all per-module UI state so a new session starts clean
   curP='';
   S.tourFilter='';
-  // Stats module state
+  S.parentTourFilter='';
+  // Auto-select first visible parent tournament and its most recent subtorneo
+  var pts=visibleParentTournaments();
+  if(pts.length>0){
+    S.parentTourFilter=pts[0].id;
+    S.yearFilter=defaultYearForParent(pts[0].id)||_curYear;
+    S.tourFilter=autoSubTour(pts[0].id,S.yearFilter);
+  } else {
+    S.yearFilter=_curYear;
+  }
   if(typeof _ST!=='undefined'){
     _ST.tourId='';_ST.sortBy='avg';_ST.sortDir=-1;_ST.search='';
     _ST.pitSortBy='era';_ST.pitSortDir=1;_ST.tmSortBy='w';_ST.tmSortDir=-1;
     _ST.defSortBy='e';_ST.defSortDir=-1;_ST.activeTab='st-b';
   }
-  // Stats de por vida state
   if(typeof _SL!=='undefined'){
     _SL.sortBy='name';_SL.sortDir=1;_SL.pitSortBy='era';_SL.pitSortDir=1;_SL.search='';
   }
-  // Box score tab
   if(typeof _gcTab!=='undefined') _gcTab='bs-a';
 }
 
@@ -787,14 +793,25 @@ function parentTourOpts(includeAll){
   var all=includeAll?'<option value="">Todos</option>':'';
   return all+pts.map(function(pt){return'<option value="'+pt.id+'" '+(S.parentTourFilter===pt.id?'selected':'')+'>'+pt.name+'</option>';}).join('');
 }
+function autoSubTour(parentId, year){
+  // Si el padre+año identifica un único subtorneo, lo selecciona automáticamente
+  var subs=parentId?subsByParent(parentId):(S.parentTourFilter?subsByParent(S.parentTourFilter):visibleTournaments());
+  if(year){
+    var byYear=subs.filter(function(t){return parseInt(t.year)===parseInt(year);});
+    if(byYear.length===1) return byYear[0].id;
+    if(byYear.length>0) return S.tourFilter&&byYear.filter(function(t){return t.id===S.tourFilter;}).length?S.tourFilter:byYear[0].id;
+  }
+  if(subs.length===1) return subs[0].id;
+  return S.tourFilter||'';
+}
 function yearBar(){
   var ptOpts=parentTourOpts(true);
   var yOpts=yearOpts();
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Torneo:</label>'
-    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=defaultYearForParent(this.value);S.tourFilter=\'\';initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=defaultYearForParent(this.value);S.tourFilter=autoSubTour(this.value,S.yearFilter);initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#128197; Año:</label>'
-    +'<select class="fs" style="width:110px" onchange="S.yearFilter=+this.value||0;'+( "initPGS();if(PGS[curP])PGS[curP]()")+'">'+yOpts+'</select>'
+    +'<select class="fs" style="width:110px" onchange="S.yearFilter=+this.value||0;S.tourFilter=autoSubTour(S.parentTourFilter,+this.value||0);initPGS();if(PGS[curP])PGS[curP]()">'+yOpts+'</select>'
     +'</div>';
 }
 function toursByYear(){
@@ -1707,6 +1724,33 @@ function setNoBat(side,idx,val){_LU[side][idx].noBat=val;}
 async function saveLS(gid,awT,hmT){
   if(!_LU.aw.length){toast('Agrega jugadores al lineup visitante','error');return;}
   if(!_LU.hm.length){toast('Agrega jugadores al lineup local','error');return;}
+
+  // ── Validaciones de lineup ────────────────────────────────────
+  function validateLineup(players, teamName){
+    // 1. Debe haber al menos un pitcher
+    var hasPitcher=players.some(function(lp){return (lp.position||'').toUpperCase()==='P';});
+    if(!hasPitcher) return teamName+': debe incluir al menos un jugador con posición P (Pitcher).';
+    // 2. No puede haber dos jugadores con la misma posición (excepto UT y DH que son comodines)
+    var ALLOWED_DUP=['UT','DH'];
+    var posCounts={};
+    var dupPos=null;
+    players.forEach(function(lp){
+      var pos=(lp.position||'').toUpperCase();
+      if(!pos||ALLOWED_DUP.indexOf(pos)>=0) return;
+      posCounts[pos]=(posCounts[pos]||0)+1;
+      if(posCounts[pos]>1) dupPos=pos;
+    });
+    if(dupPos) return teamName+': la posición "'+dupPos+'" está asignada a más de un jugador. Cada posición solo puede tener un titular.';
+    return null;
+  }
+
+  var awTeam=S.teams.filter(function(t){return t.id===awT;})[0];
+  var hmTeam=S.teams.filter(function(t){return t.id===hmT;})[0];
+  var errAw=validateLineup(_LU.aw, awTeam?awTeam.name:'Visitante');
+  if(errAw){toast(errAw,'error');return;}
+  var errHm=validateLineup(_LU.hm, hmTeam?hmTeam.name:'Local');
+  if(errHm){toast(errHm,'error');return;}
+
   var awL={gameId:gid,teamId:awT,players:_LU.aw.map(function(lp,i){return{playerId:lp.playerId,order:i+1,position:lp.position,noBat:lp.noBat===true};})};
   var hmL={gameId:gid,teamId:hmT,players:_LU.hm.map(function(lp,i){return{playerId:lp.playerId,order:i+1,position:lp.position,noBat:lp.noBat===true};})};
   await api('saveLineup',{lineup:awL});await api('saveLineup',{lineup:hmL});
@@ -3271,25 +3315,26 @@ async function delPitEv(gid,tid,eid){
 var _standDivFilter='';
 function pgStand(){
   var vt=toursByYear();
+  // Auto-select: if tourFilter not in current vt, pick first available
   var tid=S.tourFilter&&vt.filter(function(t){return t.id===S.tourFilter;}).length?S.tourFilter:'';
-  var tour=tid?vt.filter(function(t){return t.id===tid;})[0]:vt.filter(function(t){return t.status==='active';})[0];
+  if(!tid&&vt.length===1) tid=vt[0].id; // auto-select if only one subtorneo
+  var tour=tid?vt.filter(function(t){return t.id===tid;})[0]
+              :vt.filter(function(t){return t.status==='active';})[0]||vt[0]||null;
+  if(tour&&!tid) tid=tour.id; // keep in sync
   var allTeams=(tour?visibleTeams().filter(function(t){return t.tournamentId===tour.id;}):visibleTeams()).filter(function(t){return t.active!=='false';});
-  // Build list of divisions in current tournament
   var divisions=[];
   allTeams.forEach(function(t){var d=t.division||'';if(d&&divisions.indexOf(d)<0)divisions.push(d);});
   divisions.sort();
-  // Apply division filter
   var teams=_standDivFilter?allTeams.filter(function(t){return(t.division||'')=== _standDivFilter;}):allTeams;
   var phase=tour&&tour.phase||'regular';
-  // Filter games by phase: regular shows all, playoff/final show only those phase games
-  var fg=visibleGames().filter(function(g){
-    // Count final games AND official suspended games
+  // Use gamesByYear() to respect the parent+year filter
+  var fg=gamesByYear().filter(function(g){
     var counted=(g.status==='final')||(g.status==='suspended'&&g.official==='true');
     if(!counted) return false;
     if(tour&&g.tournamentId!==tour.id) return false;
     if(phase==='playoff') return g.phase==='playoff';
     if(phase==='final') return g.phase==='final';
-    return true; // regular shows all completed games
+    return true;
   });
   var classN=phase==='regular'?(tour&&parseInt(tour.teamsPlayoff)||4):phase==='playoff'?(tour&&parseInt(tour.teamsFinal)||2):0;
   var st=teams.map(function(tm){
