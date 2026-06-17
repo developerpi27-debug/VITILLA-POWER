@@ -815,10 +815,22 @@ function yearBar(){
     +'</div>';
 }
 function toursByYear(){
-  // Subtorneos del padre seleccionado, filtrados por año
-  var base=S.parentTourFilter?subsByParent(S.parentTourFilter):visibleTournaments();
+  var base;
+  if(S.parentTourFilter){
+    // Include subtorneos linked to this parent OR that have no parent yet (legacy/migration)
+    base=visibleTournaments().filter(function(t){
+      return t.parentTournamentId===S.parentTourFilter||
+             (S.parentTourFilter&&!t.parentTournamentId&&false); // strict: only linked ones
+    });
+    // If strict filter returns nothing, fall back to all visible (migration safety)
+    if(!base.length) base=visibleTournaments();
+  } else {
+    base=visibleTournaments();
+  }
   if(!S.yearFilter) return base;
-  return base.filter(function(t){return parseInt(t.year)===S.yearFilter||!t.year;});
+  var filtered=base.filter(function(t){return parseInt(t.year)===S.yearFilter||!t.year;});
+  // If year filter yields nothing, return unfiltered base (avoid blank screen)
+  return filtered.length?filtered:base;
 }
 function gamesByYear(){
   var tours=toursByYear().map(function(t){return t.id;});
@@ -884,11 +896,24 @@ function visibleGames(){
   });
 }
 // Returns true if the tournament's license is still valid (admin always valid)
+function parentLicValid(parentId){
+  // Check if a parent tournament's license is valid
+  if(S.user&&S.user.role==='admin') return true;
+  if(!parentId) return false; // no parent = no access (must be configured)
+  var key='licenseExpires_parent_'+parentId;
+  var lic=S.config&&S.config[key];
+  if(!lic) return false; // no license configured = blocked
+  return new Date(lic)>=new Date();
+}
 function tourLicValid(tourId){
-  if(S.user&&S.user.role==='admin')return true;
-  if(!tourId)return true; // no tournament = no license check
+  if(S.user&&S.user.role==='admin') return true;
+  if(!tourId) return true;
+  // Find parent of this subtorneo and check parent license
+  var tour=S.tournaments.filter(function(t){return t.id===tourId;})[0];
+  if(tour&&tour.parentTournamentId) return parentLicValid(tour.parentTournamentId);
+  // Legacy: fallback to per-subtorneo license
   var lic=S.tourLicenses&&S.tourLicenses[tourId];
-  if(!lic)return true; // no per-tour license = valid
+  if(!lic) return false;
   return new Date(lic)>=new Date();
 }
 // Returns status badge for a tournament's license
@@ -917,22 +942,23 @@ function renderApp(){
   var rolLbl=u.role==='admin'?'Administrador':prof?prof.name:({scorer:'Anotador',public:'Visitante'}[u.role]||u.role);
   document.getElementById('url2').textContent=rolLbl;
   document.getElementById('uav').textContent=u.name[0].toUpperCase();
-  // Show license status: check all accessible tournaments' licenses
+  // Show license status: check accessible PARENT tournaments' licenses
   var licHtml='';
   if(S.user&&S.user.role==='admin'){
     licHtml='<span style="color:var(--grn)">&#10003; Admin (sin restriccion)</span>';
   } else {
-    var accessTours=visibleTournaments();
-    if(accessTours.length>0){
+    var accessParents=visibleParentTournaments();
+    if(accessParents.length>0){
       var minDays=null;
-      accessTours.forEach(function(t){
-        var lic=S.tourLicenses&&S.tourLicenses[t.id];
+      accessParents.forEach(function(pt){
+        var key='licenseExpires_parent_'+pt.id;
+        var lic=S.config&&S.config[key];
         if(lic){var d=Math.ceil((new Date(lic)-new Date())/864e5);if(minDays===null||d<minDays)minDays=d;}
       });
       if(minDays!==null){
         licHtml=minDays<0?'<span style="color:var(--red)">&#9888; Licencia vencida</span>':minDays<=30?'<span style="color:var(--acc)">&#9888; Licencia: '+minDays+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
       } else {
-        licHtml='<span style="color:var(--t3)">Sin fecha de licencia</span>';
+        licHtml='<span style="color:var(--red)">&#9888; Sin fecha de licencia configurada</span>';
       }
     } else if(S.licenseExpires){
       var gdays=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
@@ -1087,7 +1113,7 @@ function pgTour(){
   var ptRows=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
     var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
     return'<tr><td><b>'+pt.name+'</b></td><td>'+subCount+' subtorneo(s)</td>'
-      +((isA||canDo('edit','tournaments'))?'<td><div style="display:flex;gap:5px">'
+      +(isA?'<td><div style="display:flex;gap:5px">'
         +'<button class="btn bs bsm" data-ptid="'+pt.id+'" onclick="openParentTM(this.dataset.ptid)">Editar</button>'
         +'<button class="btn bd bsm" data-ptid="'+pt.id+'" onclick="delParentT(this.dataset.ptid)">&#10005;</button>'
         +'</div></td>':'')+'</tr>';
@@ -1109,7 +1135,7 @@ function pgTour(){
   ct(yearBar()
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     +'<div><div class="stl">Torneos Padre</div><div class="ssb">Agrupadores de subtorneos por edición</div></div>'
-    +((isA||canDo('create-parent','tournaments'))?'<button class="btn bp" onclick="openParentTM(\'\')">+ Crear Torneo Padre</button>':'')+'</div>'
+    +(isA?'<button class="btn bp" onclick="openParentTM(\'\')">+ Crear Torneo Padre</button>':'')+'</div>'
     +'<div class="card" style="margin-bottom:20px"><div class="tw"><table><thead><tr><th>Nombre</th><th>Subtorneos</th>'
     +((isA||canDo('edit','tournaments'))?'<th>Acciones</th>':'')+'</tr></thead>'
     +'<tbody>'+(ptRows||'<tr><td colspan="3"><div class="empty"><div>Sin torneos padre creados</div></div></td></tr>')+'</tbody></table></div></div>'
@@ -1436,7 +1462,13 @@ async function delTeam(id){
 }
 function openPM(id,tid){
   var p=id?S.players.filter(function(x){return x.id===id;})[0]:{teamId:tid||null};if(!p)p={teamId:tid||null};
-  var tOpts=S.teams.slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  // Solo mostrar equipos del torneo filtrado actualmente (padre+año+subtorneo)
+  var filteredTeams=(function(){
+    var tids=toursByYear().map(function(t){return t.id;});
+    var base=tids.length?S.teams.filter(function(t){return tids.indexOf(t.tournamentId)>=0;}):S.teams;
+    return base.slice().sort(function(a,b){return a.name<b.name?-1:1;});
+  })();
+  var tOpts=filteredTeams.map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
   // Build deduplicated import list: one entry per career-root player, listing all teams
   var exMap={};
@@ -3858,8 +3890,7 @@ function calcStreaks(tourId, yearFilter){
   // Un hit es H1/H2/H3/HR
   // La racha se rompe en el primer VB sin hit
   // ──────────────────────────────────────────────
-  var batStreaks = {};  // playerId → {cur, bestEnded}
-  // ordenar eventos por juego (por fecha del juego) y por timestamp
+  var batStreaks = {};  // playerId → {cur, lastEnded, bestEnded}
   var orderedEvs = streakEvs.slice().sort(function(a,b){
     var ga=S.games.filter(function(g){return g.id===a.gameId;})[0];
     var gb=S.games.filter(function(g){return g.id===b.gameId;})[0];
@@ -3873,30 +3904,31 @@ function calcStreaks(tourId, yearFilter){
   orderedEvs.forEach(function(e){
     if(!e.batterId || NOTAB.indexOf(e.type)>=0) return;
     var pid=e.batterId;
-    if(!batStreaks[pid]) batStreaks[pid]={cur:0,bestEnded:0};
+    if(!batStreaks[pid]) batStreaks[pid]={cur:0,lastEnded:0,bestEnded:0};
     var s=batStreaks[pid];
     if(HITS.indexOf(e.type)>=0){
-      // Hit: continúa o inicia racha
       s.cur++;
+      if(s.cur>s.bestEnded) s.bestEnded=s.cur;
     } else {
       // Out/no-hit: la racha actual termina
-      if(s.cur>s.bestEnded) s.bestEnded=s.cur; // guardar si es la mejor terminada
-      s.cur=0; // reiniciar contador
+      if(s.cur>=1) s.lastEnded=s.cur; // guardar la última racha terminada (aunque sea de 1)
+      s.cur=0;
     }
   });
 
-  // Separar: activos = cur>=5 (racha actual sin interrupciones)
-  //          pasados = bestEnded>=5 Y cur<5 (la mejor racha terminada fue >=5 pero ahora no está en racha)
+  // activeBat: cur>=5 (en racha actualmente)
+  // pastBat: lastEnded>=5 Y cur<5 (última racha terminada fue >=5, no están activos)
   var activeBat=[], pastBat=[];
   Object.keys(batStreaks).forEach(function(pid){
     var s=batStreaks[pid];
     var p=playerOf(pid);
     var tm=p?teamOf(p.teamId):null;
     if(s.cur>=5){
+      // En racha activa — no incluir en pastBat aunque tenga lastEnded>=5
       activeBat.push({p:p,tm:tm,streak:s.cur});
-    } else if(s.bestEnded>=5){
-      // Tuvo racha de >=5 pero ya terminó (cur<5 ahora)
-      pastBat.push({p:p,tm:tm,streak:s.bestEnded});
+    } else if(s.lastEnded>=5){
+      // Su última racha terminada fue de >=5, y actualmente no está en racha activa
+      pastBat.push({p:p,tm:tm,streak:s.lastEnded});
     }
   });
   activeBat.sort(function(a,b){return b.streak-a.streak;});
@@ -3907,7 +3939,7 @@ function calcStreaks(tourId, yearFilter){
   // Agrupamos por pitcher, por orden de juego
   // Una "salida" es una línea en pitcheo. Si er>0, se rompe.
   // ──────────────────────────────────────────────
-  var pitStreaks = {};  // pitcherId → {curIp, bestEnded}
+  var pitStreaks = {};  // pitcherId → {curIp, lastEnded}
   var streakPevs = S.pitching.filter(function(e){
     return allStreakGids.indexOf(e.gameId)>=0 && e.unofficial!=='true';
   });
@@ -3921,16 +3953,14 @@ function calcStreaks(tourId, yearFilter){
   orderedPevs.forEach(function(e){
     if(!e.pitcherId) return;
     var pid=e.pitcherId;
-    if(!pitStreaks[pid]) pitStreaks[pid]={curIp:0,bestEnded:0};
+    if(!pitStreaks[pid]) pitStreaks[pid]={curIp:0,lastEnded:0};
     var s=pitStreaks[pid];
     var ip=parseFloat(e.ip)||0;
     var er=parseInt(e.er)||0;
     if(er===0 && ip>0){
-      // Sin carreras: continúa racha
       s.curIp+=ip;
     } else {
-      // Permitió carrera o salida sin lanzar: racha termina
-      if(s.curIp>s.bestEnded) s.bestEnded=s.curIp;
+      if(s.curIp>0) s.lastEnded=s.curIp;
       s.curIp=0;
     }
   });
@@ -3942,8 +3972,8 @@ function calcStreaks(tourId, yearFilter){
     var tm=p?teamOf(p.teamId):null;
     if(s.curIp>=5){
       activePit.push({p:p,tm:tm,streak:s.curIp});
-    } else if(s.bestEnded>=5){
-      pastPit.push({p:p,tm:tm,streak:s.bestEnded});
+    } else if(s.lastEnded>=5){
+      pastPit.push({p:p,tm:tm,streak:s.lastEnded});
     }
   });
   activePit.sort(function(a,b){return b.streak-a.streak;});
@@ -3952,19 +3982,17 @@ function calcStreaks(tourId, yearFilter){
   // ──────────────────────────────────────────────
   // RACHA DE EQUIPOS: victorias consecutivas
   // ──────────────────────────────────────────────
-  var tmStreaks = {};  // teamId → {cur, bestEnded}
+  var tmStreaks = {};  // teamId → {cur, lastEnded}
   finGames.forEach(function(g){
     var awT=g.awayTeamId, hmT=g.homeTeamId;
     var awR=parseInt(g.awayRuns)||0, hmR=parseInt(g.homeRuns)||0;
-    if(!awT||!hmT||awR===hmR) return; // empate no cuenta
+    if(!awT||!hmT||awR===hmR) return;
     var winner=awR>hmR?awT:hmT, loser=awR>hmR?hmT:awT;
-    if(!tmStreaks[winner]) tmStreaks[winner]={cur:0,bestEnded:0};
-    if(!tmStreaks[loser])  tmStreaks[loser]={cur:0,bestEnded:0};
-    // Ganador: continúa racha
+    if(!tmStreaks[winner]) tmStreaks[winner]={cur:0,lastEnded:0};
+    if(!tmStreaks[loser])  tmStreaks[loser]={cur:0,lastEnded:0};
     tmStreaks[winner].cur++;
-    // Perdedor: racha termina
     var ls=tmStreaks[loser];
-    if(ls.cur>ls.bestEnded) ls.bestEnded=ls.cur;
+    if(ls.cur>0) ls.lastEnded=ls.cur;
     ls.cur=0;
   });
 
@@ -3973,7 +4001,7 @@ function calcStreaks(tourId, yearFilter){
     var s=tmStreaks[tid];
     var tm=teamOf(tid);
     if(s.cur>=3) activeTm.push({tm:tm,streak:s.cur});
-    else if(s.bestEnded>=3) pastTm.push({tm:tm,streak:s.bestEnded});
+    else if(!s.cur&&s.lastEnded>=3) pastTm.push({tm:tm,streak:s.lastEnded});
   });
   activeTm.sort(function(a,b){return b.streak-a.streak;});
   pastTm.sort(function(a,b){return b.streak-a.streak;});
@@ -4867,48 +4895,46 @@ async function delProf(id){
 // LICENSE
 function pgLic(){
   var isA=S.user&&S.user.role==='admin';
-  var tours=S.tournaments.slice().sort(function(a,b){return(parseInt(b.year)||0)-(parseInt(a.year)||0)||(a.name<b.name?-1:1);});
-  // Global license card
-  var globalExp=S.licenseExpires||'';
-  var globalDays=globalExp?Math.ceil((new Date(globalExp)-new Date())/864e5):'?';
-  var globalColor=typeof globalDays==='number'?(globalDays>30?'var(--grn)':globalDays>7?'var(--acc)':'var(--red)'):'var(--t3)';
-  var tourRows=tours.map(function(t){
-    var lic=S.tourLicenses&&S.tourLicenses[t.id]||'';
+  var pts=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;});
+
+  var ptRows=pts.map(function(pt){
+    var key='licenseExpires_parent_'+pt.id;
+    var lic=S.config&&S.config[key]||'';
     var days=lic?Math.ceil((new Date(lic)-new Date())/864e5):'—';
     var color=typeof days==='number'?(days>30?'var(--grn)':days>7?'var(--acc)':'var(--red)'):'var(--t3)';
-    var badge=lic?'<span style="font-size:22px;font-weight:800;color:'+color+'">'+days+'</span><span style="font-size:11px;color:var(--t2)"> días</span>':'<span style="font-size:13px;color:var(--t3)">Sin licencia</span>';
+    var badge=lic?'<span style="font-size:22px;font-weight:800;color:'+color+'">'+days+'</span><span style="font-size:11px;color:var(--t2)"> días</span>':'<span style="font-size:13px;color:var(--t3)">Sin licencia configurada</span>';
+    var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
     return'<div class="card" style="margin-bottom:10px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
-      +'<div><div style="font-weight:700;font-size:14px">'+t.name+'</div>'
-      +'<div style="font-size:11px;color:var(--t3)">Año '+( t.year||'—')+(lic?' &middot; Vence: '+lic:' &middot; Sin fecha configurada')+'</div></div>'
+      +'<div><div style="font-weight:700;font-size:14px">'+pt.name+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+subCount+' subtorneo(s)'+(lic?' &middot; Vence: '+lic:' &middot; Sin fecha configurada')+'</div></div>'
       +'<div style="display:flex;align-items:center;gap:12px">'
       +badge
-      +(isA?'<button class="btn bs bsm" data-tid="'+t.id+'" data-tname="'+t.name+'" data-tlic="'+(lic||'')+'" onclick="openLicM(this.dataset.tid,this.dataset.tname,this.dataset.tlic)">&#9998; Editar</button>':'')
+      +(isA?'<button class="btn bs bsm" data-ptid="'+pt.id+'" data-ptname="'+pt.name+'" data-ptlic="'+(lic||'')+'" onclick="openParentLicM(this.dataset.ptid,this.dataset.ptname,this.dataset.ptlic)">&#9998; Editar</button>':'')
       +'</div></div></div>';
   }).join('');
-  ct('<div class="stl">&#128273; Licencias por Torneo</div><div class="ssb">Cada torneo tiene su propia fecha de licencia</div>'
-    +(isA?'<div class="alert ai" style="font-size:12px;margin-bottom:14px">El administrador siempre puede ingresar independientemente de las fechas. Los usuarios con acceso a un torneo cuya licencia haya vencido seran bloqueados al intentar entrar.</div>':'')
-    +(tours.length?tourRows:'<div class="card"><div class="empty">No hay torneos creados aun</div></div>')
-    +(isA&&tours.length?'':'')
-  );
+
+  ct('<div class="stl">&#128273; Licencias por Torneo Padre</div>'
+    +'<div class="ssb">Cada torneo padre tiene su propia fecha de licencia. Los usuarios con acceso a ese torneo padre serán bloqueados si vence.</div>'
+    +(isA?'<div class="alert ai" style="font-size:12px;margin-bottom:14px">El administrador siempre puede ingresar. Si un torneo padre no tiene fecha de licencia configurada, los usuarios con acceso a ese padre no podrán entrar.</div>':'')
+    +(pts.length?ptRows:'<div class="card"><div class="empty">No hay torneos padre creados</div></div>'));
 }
-function openLicM(tid,tname,currentLic){
-  showM('<div class="mhd"><div class="mtl">&#128273; Licencia: '+tname+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+function openParentLicM(ptId,ptName,currentLic){
+  showM('<div class="mhd"><div class="mtl">&#128273; Licencia: '+ptName+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
-    +'<div class="alert ai" style="font-size:12px">La licencia de este torneo controla el acceso de todos los usuarios cuyo perfil incluya acceso a <b>'+tname+'</b>.</div>'
-    +'<div class="fg"><label class="fl">Fecha de expiracion</label><input class="fi" id="lic-date" type="date" value="'+(currentLic||'')+'"></div>'
+    +'<div class="alert ai" style="font-size:12px">Controla el acceso de todos los usuarios cuyo perfil incluya el torneo padre <b>'+ptName+'</b>.</div>'
+    +'<div class="fg"><label class="fl">Fecha de expiración</label><input class="fi" id="lic-date" type="date" value="'+(currentLic||'')+'"></div>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
-    +'<button class="btn bp" data-tid="'+tid+'" onclick="saveTourLic(this.dataset.tid)">Guardar</button></div>');
+    +'<button class="btn bp" data-ptid="'+ptId+'" onclick="saveParentLic(this.dataset.ptid)">Guardar</button></div>');
 }
-async function saveTourLic(tid){
+async function saveParentLic(ptId){
   var exp=fv('lic-date');if(!exp){toast('Fecha requerida','error');return;}
   _saving=true;
-  var key='licenseExpires_'+tid;
+  var key='licenseExpires_parent_'+ptId;
   var r=await api('saveConfig',{key:key,value:exp});
   if(r&&r.ok){
-    S.tourLicenses=S.tourLicenses||{};
-    S.tourLicenses[tid]=exp;
+    S.config=S.config||{};
     S.config[key]=exp;
     cM();pgLic();toast('Licencia actualizada','success');
   }else toast(r&&r.error||'Error al guardar','error');
