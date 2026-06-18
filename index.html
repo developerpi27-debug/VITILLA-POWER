@@ -540,12 +540,18 @@ function resetModuleState(){
   // Auto-select first visible parent tournament and its most recent subtorneo
   var pts=visibleParentTournaments();
   if(pts.length>0){
-    S.parentTourFilter=pts[0].id;
-    S.yearFilter=defaultYearForParent(pts[0].id)||_curYear;
+    S.parentTourFilter=String(pts[0].id);
+    var defYear=defaultYearForParent(pts[0].id)||_curYear;
+    S.yearFilter=parseInt(defYear)||_curYear; // ensure integer
     S.tourFilter=autoSubTour(pts[0].id,S.yearFilter);
+    if(S.tourFilter)S.tourFilter=String(S.tourFilter);
   } else {
     S.yearFilter=_curYear;
+    // Still try to auto-select a subtorneo
+    var allSubs=visibleTournaments();
+    if(allSubs.length===1) S.tourFilter=allSubs[0].id;
   }
+  console.log('[resetModuleState] parentTourFilter='+S.parentTourFilter+' yearFilter='+S.yearFilter+' tourFilter='+S.tourFilter);
   if(typeof _ST!=='undefined'){
     _ST.tourId='';_ST.sortBy='avg';_ST.sortDir=-1;_ST.search='';
     _ST.pitSortBy='era';_ST.pitSortDir=1;_ST.tmSortBy='w';_ST.tmSortDir=-1;
@@ -764,7 +770,8 @@ function visibleParentTournaments(){
 function subsByParent(parentId){
   var visT=visibleTournaments();
   if(!parentId) return visT;
-  return visT.filter(function(t){return t.parentTournamentId===parentId;});
+  var pid=String(parentId);
+  return visT.filter(function(t){return String(t.parentTournamentId)===pid;});
 }
 // Subtorneo más reciente del padre (por año desc)
 function latestSubByParent(parentId){
@@ -806,30 +813,44 @@ function autoSubTour(parentId, year){
   // Si el padre+año identifica un único subtorneo, lo selecciona automáticamente
   var subs=parentId?subsByParent(parentId):(S.parentTourFilter?subsByParent(S.parentTourFilter):visibleTournaments());
   if(year){
-    var byYear=subs.filter(function(t){return parseInt(t.year)===parseInt(year);});
-    if(byYear.length===1) return byYear[0].id;
-    if(byYear.length>0) return S.tourFilter&&byYear.filter(function(t){return t.id===S.tourFilter;}).length?S.tourFilter:byYear[0].id;
+    var yInt=parseInt(year)||0;
+    var byYear=subs.filter(function(t){var ty=parseInt(t.year)||0;return ty===yInt;});
+    if(byYear.length===1) return String(byYear[0].id);
+    var sfStr=S.tourFilter?String(S.tourFilter):'';
+    if(byYear.length>0) return sfStr&&byYear.filter(function(t){return String(t.id)===sfStr;}).length?sfStr:String(byYear[0].id);
   }
-  if(subs.length===1) return subs[0].id;
-  return S.tourFilter||'';
+  if(subs.length===1) return String(subs[0].id);
+  return S.tourFilter?String(S.tourFilter):'';
 }
 function yearBar(){
   var ptOpts=parentTourOpts(true);
   var yOpts=yearOpts();
   // Build subtorneo options for current parent+year context
-  var subBase=S.parentTourFilter?visibleTournaments().filter(function(t){return t.parentTournamentId===S.parentTourFilter;}):visibleTournaments();
-  var subFiltered=S.yearFilter?subBase.filter(function(t){return parseInt(t.year)===S.yearFilter||!t.year;}):subBase;
-  var subOpts='<option value="">Todos</option>'+subFiltered.map(function(t){return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var subBase=S.parentTourFilter
+    ? visibleTournaments().filter(function(t){return String(t.parentTournamentId)===String(S.parentTourFilter);})
+    : visibleTournaments();
+  var yf=parseInt(S.yearFilter)||0;
+  var subFiltered=yf
+    ? subBase.filter(function(t){var ty=parseInt(t.year)||0;return ty===yf||!ty;})
+    : subBase;
+  // Auto-set S.tourFilter if there is exactly one subtorneo available and it's not already set
+  if(subFiltered.length===1 && S.tourFilter!==subFiltered[0].id){
+    S.tourFilter=subFiltered[0].id;
+  }
+  var subOpts='<option value="">Todos</option>'+subFiltered.map(function(t){
+    return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+t.name+'</option>';
+  }).join('');
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Torneo:</label>'
-    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=defaultYearForParent(this.value);S.tourFilter=autoSubTour(this.value,S.yearFilter);initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=parseInt(defaultYearForParent(this.value))||'+new Date().getFullYear()+';S.tourFilter=autoSubTour(this.value,S.yearFilter);initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#128197; Año:</label>'
-    +'<select class="fs" style="width:110px" onchange="S.yearFilter=+this.value||0;S.tourFilter=autoSubTour(S.parentTourFilter,+this.value||0);initPGS();if(PGS[curP])PGS[curP]()">'+yOpts+'</select>'
-    +(subFiltered.length>1?'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'+'<select class="fs" style="width:170px" onchange="onSubtourChange(this.value)">'+subOpts+'</select>':'')
+    +'<select class="fs" style="width:110px" onchange="S.yearFilter=parseInt(this.value)||0;S.tourFilter=autoSubTour(S.parentTourFilter,S.yearFilter);initPGS();if(PGS[curP])PGS[curP]()">'+yOpts+'</select>'
+    +(subFiltered.length>1?'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
+      +'<select class="fs" style="width:170px" onchange="onSubtourChange(this.value)">'+subOpts+'</select>':'')
     +'</div>';
 }
 function onSubtourChange(val){
-  S.tourFilter=val;
+  S.tourFilter=val?String(val):'';
   // If user selects "Todos" subtorneo, reset year filter to "Todos los años"
   if(!val){ S.yearFilter=0; }
   initPGS();if(PGS[curP])PGS[curP]();
@@ -837,12 +858,11 @@ function onSubtourChange(val){
 function toursByYear(){
   var base;
   if(S.parentTourFilter){
-    // Include subtorneos linked to this parent OR that have no parent yet (legacy/migration)
+    var _ptfStr=String(S.parentTourFilter);
     base=visibleTournaments().filter(function(t){
-      return t.parentTournamentId===S.parentTourFilter||
-             (S.parentTourFilter&&!t.parentTournamentId&&false); // strict: only linked ones
+      return String(t.parentTournamentId)===_ptfStr;
     });
-    // If strict filter returns nothing, fall back to all visible (migration safety)
+    // If filter returns nothing, fall back to all visible (migration safety)
     if(!base.length) base=visibleTournaments();
   } else {
     base=visibleTournaments();
@@ -853,8 +873,8 @@ function toursByYear(){
   return filtered.length?filtered:base;
 }
 function gamesByYear(){
-  var tours=toursByYear().map(function(t){return t.id;});
-  return visibleGames().filter(function(g){return !g.tournamentId||tours.indexOf(g.tournamentId)>=0;});
+  var tours=toursByYear().map(function(t){return String(t.id);});
+  return visibleGames().filter(function(g){return !g.tournamentId||tours.indexOf(String(g.tournamentId))>=0;});
 }
 function canDo(action,moduleId){
   // action: 'create','edit','delete'
@@ -884,12 +904,14 @@ function visibleTournaments(){
     var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
     if(prof&&prof.parentTournaments&&prof.parentTournaments.length){
       // Acceso basado en torneos padre: el usuario ve todos los subtorneos de sus padres
+      var ppids=prof.parentTournaments.map(function(x){return String(x);});
       tours=S.tournaments.filter(function(t){
-        return prof.parentTournaments.indexOf(t.parentTournamentId)>=0;
+        return ppids.indexOf(String(t.parentTournamentId))>=0;
       });
     } else if(prof&&prof.tournaments&&prof.tournaments.length){
       // Retrocompatibilidad: acceso directo por torneo id
-      tours=S.tournaments.filter(function(t){return prof.tournaments.indexOf(t.id)>=0;});
+      var ptids2=prof.tournaments.map(function(x){return String(x);});
+      tours=S.tournaments.filter(function(t){return ptids2.indexOf(String(t.id))>=0;});
     } else {
       tours=S.tournaments.slice();
     }
@@ -903,16 +925,20 @@ function visibleTournaments(){
 function visibleTeams(){
   var u=S.user;if(!u||u.role==='admin')return S.teams;
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-  if(prof&&prof.teams&&prof.teams.length)return S.teams.filter(function(t){return prof.teams.indexOf(t.id)>=0;});
-  var tids=visibleTournaments().map(function(t){return t.id;});
-  return S.teams.filter(function(t){return !t.tournamentId||tids.indexOf(t.tournamentId)>=0;});
+  if(prof&&prof.teams&&prof.teams.length){
+    var ptids=prof.teams.map(function(x){return String(x);});
+    return S.teams.filter(function(t){return ptids.indexOf(String(t.id))>=0;});
+  }
+  var tids=visibleTournaments().map(function(t){return String(t.id);});
+  return S.teams.filter(function(t){return !t.tournamentId||tids.indexOf(String(t.tournamentId))>=0;});
 }
 function visibleGames(){
-  var tids=visibleTournaments().map(function(t){return t.id;});
-  var tmids=visibleTeams().map(function(t){return t.id;});
+  var tids=visibleTournaments().map(function(t){return String(t.id);});
+  // Don't filter by team membership — a game is visible if its tournament is visible
+  // (team filter was causing games to disappear when teams belong to different year subtournaments)
   return S.games.filter(function(g){
-    return(!g.tournamentId||tids.indexOf(g.tournamentId)>=0)&&
-           (tids.length===S.tournaments.length||(tmids.indexOf(g.awayTeamId)>=0||tmids.indexOf(g.homeTeamId)>=0));
+    if(!g.tournamentId) return true; // no tournament = always visible
+    return tids.indexOf(String(g.tournamentId))>=0;
   });
 }
 // Returns true if the tournament's license is still valid (admin always valid)
@@ -3486,13 +3512,20 @@ async function delPitEv(gid,tid,eid){
 var _standDivFilter='';
 function pgStand(){
   var vt=toursByYear();
-  // Auto-select: if tourFilter not in current vt, pick first available
-  var tid=S.tourFilter&&vt.filter(function(t){return t.id===S.tourFilter;}).length?S.tourFilter:'';
-  if(!tid&&vt.length===1) tid=vt[0].id; // auto-select if only one subtorneo
-  var tour=tid?vt.filter(function(t){return t.id===tid;})[0]
-              :vt.filter(function(t){return t.status==='active';})[0]||vt[0]||null;
-  if(tour&&!tid) tid=tour.id; // keep in sync
-  var allTeams=(tour?visibleTeams().filter(function(t){return t.tournamentId===tour.id;}):visibleTeams()).filter(function(t){return t.active!=='false';});
+  // Auto-select: prefer S.tourFilter, then first in list (don't rely on status='active')
+  // Normalize all IDs to strings for safe comparison
+  var _sfStr=S.tourFilter?String(S.tourFilter):'';
+  var tid=_sfStr&&vt.filter(function(t){return String(t.id)===_sfStr;}).length?_sfStr:'';
+  if(!tid&&vt.length>=1) tid=String(vt[0].id);
+  // Sync S.tourFilter so gamesByYear() filters correctly
+  if(tid&&tid!==S.tourFilter) S.tourFilter=tid;
+  var tour=tid?vt.filter(function(t){return String(t.id)===tid;})[0]:null;
+  // If still no tour found, try all visible tournaments
+  if(!tour&&S.tourFilter){
+    tour=visibleTournaments().filter(function(t){return String(t.id)===String(S.tourFilter);})[0]||null;
+    if(tour){tid=String(tour.id);vt=vt.concat([tour]);}
+  }
+  var allTeams=(tour?visibleTeams().filter(function(t){return String(t.tournamentId)===String(tour.id);}):visibleTeams()).filter(function(t){return t.active!=='false';});
   var divisions=[];
   allTeams.forEach(function(t){var d=t.division||'';if(d&&divisions.indexOf(d)<0)divisions.push(d);});
   divisions.sort();
@@ -3500,12 +3533,15 @@ function pgStand(){
   var phase=tour&&tour.phase||'regular';
   // Use gamesByYear() to respect the parent+year filter
   var fg=gamesByYear().filter(function(g){
-    var counted=(g.status==='final')||(g.status==='suspended'&&g.official==='true');
+    // official can be boolean true OR string 'true' depending on the worker
+    var isOfficial=g.official===true||g.official==='true';
+    var counted=(g.status==='final')||(g.status==='suspended'&&isOfficial);
     if(!counted) return false;
-    if(tour&&g.tournamentId!==tour.id) return false;
-    if(phase==='playoff') return g.phase==='playoff';
+    if(tour&&String(g.tournamentId)!==String(tour.id)) return false;
+    // phase filter: if tour phase is regular, show ALL regular+playoff+final games for full record
+    if(phase==='playoff') return g.phase==='playoff'||!g.phase||g.phase==='regular';
     if(phase==='final') return g.phase==='final';
-    return true;
+    return true; // regular: include all games
   });
   var classN=phase==='regular'?(tour&&parseInt(tour.teamsPlayoff)||4):phase==='playoff'?(tour&&parseInt(tour.teamsFinal)||2):0;
   var st=teams.map(function(tm){
@@ -3558,8 +3594,12 @@ function pgStand(){
     // REGLA 5: DIF General descendente
     return b.dif-a.dif;
   });
+  // ── Diagnostic: log key values to help debugging ──
+  console.log('[pgStand] tid='+tid+' tour='+(tour?tour.name:'null')+' allTeams='+allTeams.length+' fg='+fg.length+' S.tourFilter='+S.tourFilter+' S.yearFilter='+S.yearFilter+' S.parentTourFilter='+S.parentTourFilter);
+  console.log('[pgStand] vt=',vt.map(function(t){return t.id+'('+t.name+'/'+t.year+')';}));
+  console.log('[pgStand] all games in gamesByYear:',gamesByYear().length,'total S.games:',S.games.length,'final:',S.games.filter(function(g){return g.status==='final';}).length);
   var isA=S.user&&S.user.role==='admin';
-  var tOpts='<option value="">Activo</option>'+vt.map(function(t){return'<option value="'+t.id+'" '+(tid===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var tOpts='<option value="">Todos</option>'+vt.map(function(t){return'<option value="'+t.id+'" '+(tid===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var phOpts=tour?'<option value="regular" '+(phase==='regular'?'selected':'')+'>Serie Regular</option><option value="playoff" '+(phase==='playoff'?'selected':'')+'>Playoffs</option><option value="final" '+(phase==='final'?'selected':'')+'>Serie Final</option>':'';
   var hasGames=fg.length>0;
   var rows=!hasGames?'':(st.map(function(s,i){
@@ -3582,13 +3622,13 @@ function pgStand(){
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Posiciones</div><div class="ssb">'+(tour?tour.name:'Selecciona un torneo')+' &mdash; '+{regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[phase]+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    +'<select class="fs" style="width:160px" onchange="S.tourFilter=this.value;_standDivFilter=\'\';pgStand()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="S.tourFilter=this.value?String(this.value):\'\';_standDivFilter=\'\';pgStand()">'+tOpts+'</select>'
     +(divisions.length?'<select class="fs" style="width:130px" onchange="_standDivFilter=this.value;pgStand()"><option value="">Todas las Divs.</option>'+divisions.map(function(d){return'<option value="'+d+'" '+(_standDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +(tour&&phOpts?'<select class="fs" style="width:130px" onchange="changePhase(\''+tour.id+'\',this.value)">'+phOpts+'</select>':'')
     +(tour&&isA?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\')">&#127919; Draft</button>':'')
     +'</div></div>'
     +'<div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Equipo</th><th style="text-align:center">JJ</th><th style="text-align:center">G</th><th style="text-align:center">P</th><th style="text-align:center">PCT</th><th style="text-align:center">DIF</th><th style="text-align:center">GB</th><th style="text-align:center">Racha</th><th style="text-align:center">Zona</th></tr></thead>'
-    +'<tbody>'+(rows||!hasGames?'<tr><td colspan="10"><div class="empty"><div style="font-size:24px">📋</div><div>Sin juegos registrados para este período</div></div></td></tr>':'<tr><td colspan="10"><div class="empty">Sin datos</div></td></tr>')+'</tbody></table></div>'
+    +'<tbody>'+(rows?rows:(hasGames?'<tr><td colspan="10"><div class="empty">Sin equipos configurados para este subtorneo</div></td></tr>':'<tr><td colspan="10"><div class="empty"><div style="font-size:24px">📋</div>'+(tour?'Sin juegos finalizados en <b>'+tour.name+'</b> — asegúrate de finalizar los juegos':'Sin juegos registrados — selecciona un subtorneo')+'</div></td></tr>'))+'</tbody></table></div>'
     +(classN>0?'<div style="font-size:11px;color:var(--t3);margin-top:8px">Desempate: 1&#176; Juegos sobre .500 (G-P) &middot; 2&#176; PCT &middot; 3&#176; Ganador Serie Particular &middot; 4&#176; Mejor DIF Serie Particular &middot; 5&#176; DIF General</div>':'')
     +'</div>');
 }
