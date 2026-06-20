@@ -5228,7 +5228,10 @@ function doExportPlayerPDF(){
         var gk=gpe.filter(function(e){return e.type==='K';}).length;
         var gavg=gvb>0?(gh/gvb).toFixed(3):'—';
         var aw=gm?teamOf(gm.awayTeamId):null;var hw=gm?teamOf(gm.homeTeamId):null;
-        var opp=gm?(gm.awayTeamId===p.teamId?(hw?hw.name:'?'):(aw?aw.name:'?')):'—';
+        // Usar el equipo de bateo real registrado en el evento de ESTE juego (no el teamId fijo del registro consolidado),
+        // ya que en informes de carrera el jugador puede haber jugado con distintos equipos en distintos torneos.
+        var gBattingTeamId=(gpe[0]&&gpe[0].battingTeamId)||p.teamId;
+        var opp=gm?(String(gm.awayTeamId)===String(gBattingTeamId)?(hw?hw.name:'?'):(aw?aw.name:'?')):'—';
         html+='<tr><td style="font-size:11px">'+opp+(gm?' ('+gm.date+')':'')+'</td>'
           +'<td>'+gvb+'</td><td style="font-weight:'+(gh>0?700:400)+';color:'+(gh>0?'#22c55e':'inherit')+'">'+gh+'</td>'
           +'<td style="color:'+(ghr>0?'#ef4444':'inherit')+'">'+ghr+'</td>'
@@ -5451,7 +5454,9 @@ function pgToVsTo(){
     var sv=pp.filter(function(e){return e.decision==='S';}).length;
     var era=ip>0?calcPitcherERA(pp):null;
     var whip=ip>0?(h+bb)/ip:null;
-    return{ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip,gp:pp.length};
+    // Bateadores enfrentados aproximados: outs (IP*3) + hits + bases por bolas
+    var bf=Math.round(ip*3)+h+bb;
+    return{ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip,gp:pp.length,bf:bf};
   }
   function teamBatStats(tid){
     var tpe=evs.filter(function(e){return e.battingTeamId===tid;});
@@ -5518,6 +5523,8 @@ function pgToVsTo(){
         +probBar('Bases Vacías (hit)',b1.nrvb>0?b1.nrh/b1.nrvb:0,b2.nrvb>0?b2.nrh/b2.nrvb:0)
         +probBar('Con 2 Outs (hit)',b1.tovb>0?b1.toh/b1.tovb:0,b2.tovb>0?b2.toh/b2.tovb:0)
         +probBar('OBP (llegar a base)',b1.obp,b2.obp)
+        +probBar('Probabilidad de Ponche (K)',b1.vb>0?b1.k/b1.vb:0,b2.vb>0?b2.k/b2.vb:0)
+        +probBar('Probabilidad de Base por Bolas (BB)',(b1.vb+b1.bb)>0?b1.bb/(b1.vb+b1.bb):0,(b2.vb+b2.bb)>0?b2.bb/(b2.vb+b2.bb):0)
         +'</div>';
       var pitHTML='<div style="padding:4px 0">'
         +statCard('ERA',pp1.era,pp2.era,function(v){return v!==null?v.toFixed(2):'—';},true)
@@ -5529,7 +5536,10 @@ function pgToVsTo(){
         +statCard('Hits perm.',pp1.h,pp2.h,undefined,true)
         +statCard('Salvados',pp1.sv,pp2.sv)
         +'</div>'
-        +'<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">📊 Comparativa Visual</div>'
+        +'<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">📊 Probabilidades como Pitcher</div>'
+        +probBar('Prob. de Ponchar al Bateador',pp1.bf>0?pp1.k/pp1.bf:0,pp2.bf>0?pp2.k/pp2.bf:0)
+        +probBar('Prob. de Permitir Hit (AVG en contra)',pp1.bf>0?pp1.h/pp1.bf:0,pp2.bf>0?pp2.h/pp2.bf:0)
+        +probBar('Prob. de Otorgar Base por Bolas',pp1.bf>0?pp1.bb/pp1.bf:0,pp2.bf>0?pp2.bb/pp2.bf:0)
         +probBar('Dominancia K vs BB (menor es mejor)',pp1.bb>0?(1/pp1.bb):0,pp2.bb>0?(1/pp2.bb):0)
         +probBar('IP (carga de trabajo)',pp1.ip,pp2.ip)
         +'</div>';
