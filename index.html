@@ -4558,7 +4558,7 @@ function pgStats(tid,sBy,pSBy){
   var _streakYear=S.yearFilter||null;
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="pgStats(this.value)">'+tOpts+'</select>'
-    +(S.user&&S.user.role!=='public'?'<button class="btn bs bsm" style="margin-left:auto" onclick="exportPlayerPDF()">&#128196; Informe PDF</button>':'')
+    +'<button class="btn bs bsm" style="margin-left:auto" onclick="exportPlayerPDF()">&#128196; Informe PDF</button>'
     +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." value="'+(_ST.search||'')+'" oninput="_ST.search=this.value;filterStatsDisplay()" style="width:180px"></div></div>'
     +streakSectionHTML(_streakTourId, _streakYear)
     +'<div class="tabs">'    +'<div class="tab'+(_ST.activeTab==='st-b'?' on':'')+'" onclick="_ST.activeTab=&quot;st-b&quot;;showTab(this,&quot;st-b&quot;)">&#127952; Bateo</div>'    +'<div class="tab'+(_ST.activeTab==='st-d'?' on':'')+'" onclick="_ST.activeTab=&quot;st-d&quot;;showTab(this,&quot;st-d&quot;)">&#129354; Defensa</div>'    +'<div class="tab'+(_ST.activeTab==='st-p'?' on':'')+'" onclick="_ST.activeTab=&quot;st-p&quot;;showTab(this,&quot;st-p&quot;)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_ST.activeTab==='st-t'?' on':'')+'" onclick="_ST.activeTab=&quot;st-t&quot;;showTab(this,&quot;st-t&quot;)">&#127970; Equipos</div>'    +'</div>'
