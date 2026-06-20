@@ -492,7 +492,7 @@ var LOGO_B64="data:image/webp;base64,UklGRihSAgBXRUJQVlA4WAoAAAAgAAAAnwUAnwUASUN
 
 // STATE
 var _curYear=new Date().getFullYear();
-var S={user:null,profile:null,game:null,tourFilter:'',parentTourFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30};
+var S={user:null,profile:null,game:null,tourFilter:'',parentTourFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5};
 
 // API — llama al Worker con el token
 async function api(action,data){
@@ -603,6 +603,7 @@ function guestLogin(){
     resetModuleState();
     renderApp();goNav('standings');
     startPolling();
+    startSessionTimer();
     trackVisit();
     setTimeout(startMarquee,500);
   });
@@ -697,6 +698,9 @@ async function loadAll(){
   // else keep existing S.licenseExpires to avoid polling overwrite
   S.sessionTimeout=parseInt(d.config&&d.config.sessionTimeout)||30;
   S.pollInterval=Math.max(10,parseInt(d.config&&d.config.pollInterval)||30);
+  S.loginMaxAttempts=parseInt(d.config&&d.config.loginMaxAttempts)||5;
+  S.loginWindowMinutes=parseInt(d.config&&d.config.loginWindowMinutes)||1;
+  S.loginLockoutMinutes=parseInt(d.config&&d.config.loginLockoutMinutes)||5;
   S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   S.games=d.games||[];S.lineups=d.lineups||[];S.events=d.events||[];
   S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];S.visits=d.visits||{};S.channels=d.channels||[];
@@ -1298,6 +1302,10 @@ function openTM(id){
     +'<div class="fr c2"><div class="fg"><label class="fl">Juegos Serie Final (mejor de)</label><input class="fi" id="tgf" type="number" value="'+(t.gamesFinal||7)+'"></div>'
     +'<div class="fg"><label class="fl">Fase actual</label><select class="fs" id="tph">'+phOpts+'</select></div></div>'
     +'<div class="alert ai" style="font-size:12px">Desempate: 1&#176; Serie particular &middot; 2&#176; Diferencial de carreras</div>'
+    +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#127942; CANDIDATOS A PREMIACIONES (umbrales mínimos)</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Veces al Bate (VB)</label><input class="fi" id="tamvb" type="number" min="1" value="'+(t.awardMinVb!==undefined&&t.awardMinVb!==null?t.awardMinVb:8)+'"></div>'
+    +'<div class="fg"><label class="fl">Mínimo de Entradas Lanzadas (IP)</label><input class="fi" id="tamip" type="number" min="1" step="0.1" value="'+(t.awardMinIp!==undefined&&t.awardMinIp!==null?t.awardMinIp:5)+'"></div></div>'
+    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan quién califica como candidato en el análisis automático del módulo de Premiaciones para este subtorneo.</div>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveT(this.dataset.tid)">Guardar</button></div>');
@@ -1309,7 +1317,8 @@ async function saveT(id){
     startDate:fv('tsd')||null,endDate:fv('ted')||null,
     gamesRegular:parseInt(fv('tgr'))||14,teamsPlayoff:parseInt(fv('tpp'))||4,
     gamesPlayoff:parseInt(fv('tgp'))||5,teamsFinal:parseInt(fv('tpf'))||2,
-    gamesFinal:parseInt(fv('tgf'))||7,phase:fv('tph')||'regular'};
+    gamesFinal:parseInt(fv('tgf'))||7,phase:fv('tph')||'regular',
+    awardMinVb:parseInt(fv('tamvb'))||8,awardMinIp:parseFloat(fv('tamip'))||5};
   if(!t.name){toast('Nombre requerido','error');return;}
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok){
@@ -4956,7 +4965,9 @@ async function saveAward(id){
 // ═══════════════════════════════════════════════════════════════════
 function awardCandidates(tourId){
   if(!tourId) return null;
-  var minVB=8, minIP=5;
+  var tourObj=S.tournaments.filter(function(t){return t.id===tourId;})[0];
+  var minVB=(tourObj&&tourObj.awardMinVb!==undefined&&tourObj.awardMinVb!==null&&tourObj.awardMinVb!=='')?Number(tourObj.awardMinVb):8;
+  var minIP=(tourObj&&tourObj.awardMinIp!==undefined&&tourObj.awardMinIp!==null&&tourObj.awardMinIp!=='')?Number(tourObj.awardMinIp):5;
   function buildPool(phase){
     var gids=S.games.filter(function(g){return g.tournamentId===tourId&&(g.phase||'regular')===phase&&(g.status==='final'||(g.status==='suspended'&&g.official==='true'));}).map(function(g){return g.id;});
     if(!gids.length) return [];
@@ -5055,12 +5066,15 @@ function pgAwardCandidates(tourId){
   var cand=awardCandidates(tourId);
   if(!cand) return '<div class="card"><div class="empty"><div style="font-size:30px">&#127942;</div><div>Selecciona un subtorneo para ver los candidatos automáticos</div></div></div>';
   if(!cand.hasRegular) return '<div class="card"><div class="empty"><div style="font-size:30px">&#128202;</div><div>Sin juegos oficiales de Serie Regular en este subtorneo todavía</div></div></div>';
-  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en los números registrados (Serie Regular). Mínimo '+8+' VB ó '+5+' IP para calificar. Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
+  var tourObj=S.tournaments.filter(function(t){return t.id===tourId;})[0];
+  var minVB=(tourObj&&tourObj.awardMinVb!==undefined&&tourObj.awardMinVb!==null&&tourObj.awardMinVb!=='')?Number(tourObj.awardMinVb):8;
+  var minIP=(tourObj&&tourObj.awardMinIp!==undefined&&tourObj.awardMinIp!==null&&tourObj.awardMinIp!=='')?Number(tourObj.awardMinIp):5;
+  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en los números registrados (Serie Regular). Mínimo '+minVB+' VB ó '+minIP+' IP para calificar (configurable en este subtorneo). Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
   html+='<div class="g2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   html+=candList('Candidatos a MVP (bateo y/o pitcheo)','&#127942;',cand.mvp,function(x){
     var parts=[];
-    if(x.vb>=8)parts.push(x.ops.toFixed(3)+' OPS');
-    if(x.ip>=5)parts.push(x.era.toFixed(2)+' ERA');
+    if(x.vb>=minVB)parts.push(x.ops.toFixed(3)+' OPS');
+    if(x.ip>=minIP)parts.push(x.era.toFixed(2)+' ERA');
     return parts.join(' · ')||'—';
   });
   html+=candList('Candidatos a Cy Young (pitcher)','&#9918;',cand.cyYoung,function(x){return x.era.toFixed(2)+' ERA · '+x.w+'-'+x.l+' · '+(x.whip!==null?x.whip.toFixed(2):'—')+' WHIP';});
@@ -5068,8 +5082,8 @@ function pgAwardCandidates(tourId){
   html+=candList('Candidatos a Bate de Oro (Top 5 AVG)','&#127942;',cand.oro,function(x){return x.avg.toFixed(3)+' AVG · '+x.h+'H';});
   html+=candList('Candidatos a Novato del Año','&#127881;',cand.novato,function(x){
     var parts=[];
-    if(x.vb>=8)parts.push(x.avg.toFixed(3)+' AVG');
-    if(x.ip>=5)parts.push(x.era.toFixed(2)+' ERA');
+    if(x.vb>=minVB)parts.push(x.avg.toFixed(3)+' AVG');
+    if(x.ip>=minIP)parts.push(x.era.toFixed(2)+' ERA');
     return parts.join(' · ')||'—';
   },'Sin jugadores marcados como Novato con números suficientes. Marca el checkbox "Novato" al editar el jugador.');
   html+='</div>';
@@ -5987,8 +6001,15 @@ async function delChannel(id){
 }
 
 // PROFILES
-function pgProfiles(){
-  var cards=(S.profiles||[]).map(function(p){
+var _pfSearch='';
+function pgProfiles(q){
+  if(q!==undefined)_pfSearch=q;
+  var list=(S.profiles||[]).slice().sort(function(a,b){return(a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
+  if(_pfSearch&&_pfSearch.trim()){
+    var qn=_pfSearch.trim().toLowerCase();
+    list=list.filter(function(p){return(p.name||'').toLowerCase().indexOf(qn)>=0;});
+  }
+  var cards=list.map(function(p){
     var uc=S.users.filter(function(u){return u.profileId===p.id;}).length;
     var modNames=(p.modules||[]).map(function(mid){var m=ALL_MOD.filter(function(x){return x.id===mid;})[0];return m?m.lbl:'?';});
     return'<div class="card"><div class="chd"><div class="ctl">'+p.name+'</div><span class="badge bgr">'+uc+' usuario(s)</span></div>'
@@ -5998,10 +6019,11 @@ function pgProfiles(){
       +'<button class="btn bd bsm" data-pid="'+p.id+'" onclick="delProf(this.dataset.pid)">Eliminar</button>'
       +'</div></div>';
   }).join('');
-  ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+  ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Perfiles de Acceso</div><div class="ssb">Define que modulos, torneos y equipos puede ver cada perfil</div></div>'
     +'<button class="btn bp" onclick="openProfM(\'\')">+ Nuevo Perfil</button></div>'
-    +'<div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128274;</div><div>Sin perfiles creados</div></div>')+'</div>');
+    +'<div class="card" style="margin-bottom:14px"><input class="fi" type="text" placeholder="&#128269; Buscar perfil por nombre..." value="'+(_pfSearch||'')+'" oninput="pgProfiles(this.value)"></div>'
+    +'<div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128274;</div><div>Sin perfiles'+(_pfSearch?' que coincidan con la busqueda':' creados')+'</div></div>')+'</div>');
 }
 function openProfM(id){
   var p=id?(S.profiles||[]).filter(function(x){return x.id===id;})[0]:{};if(!p)p={};
@@ -6522,6 +6544,13 @@ function pgSet(){
       +'</div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; La actualización automática refresca todos los módulos de datos (posiciones, estadísticas, calendario, etc.) sin interrumpir al usuario. Mínimo 10 segundos. Los visitantes y otros usuarios verán los cambios en el próximo ciclo automáticamente.</div>'
       +'<button class="btn bp" onclick="saveSessParams()">Guardar Parametros</button>'
+      +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128274; Seguridad de Inicio de Sesion</div></div>'
+      +'<div class="fr c3"><div class="fg"><label class="fl">Intentos maximos permitidos</label><input class="fi" id="lgmax" type="number" min="1" max="50" value="'+(S.loginMaxAttempts||5)+'"></div>'
+      +'<div class="fg"><label class="fl">Ventana de tiempo (minutos)</label><input class="fi" id="lgwin" type="number" min="1" max="60" value="'+(S.loginWindowMinutes||1)+'"></div>'
+      +'<div class="fg"><label class="fl">Bloqueo al exceder (minutos)</label><input class="fi" id="lglock" type="number" min="1" max="1440" value="'+(S.loginLockoutMinutes||5)+'"></div></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9888; Protege contra ataques de fuerza bruta / DDoS al login. Si una IP supera el numero de intentos maximos dentro de la ventana de tiempo, se bloqueara temporalmente por el tiempo de bloqueo indicado.</div>'
+      +'<button class="btn bp" onclick="saveLoginSecurityParams()">Guardar Seguridad de Login</button>'
       +'</div>':'')
     +'<div class="card"><div class="chd"><div class="ctl">&#128202; Datos del sistema</div></div>'
     +'<div class="g4">'
@@ -6557,6 +6586,22 @@ async function saveSessParams(){
     startSessionTimer(); startPolling();
     toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s','success');
   } else toast('Error al guardar parametros','error');
+}
+async function saveLoginSecurityParams(){
+  var mx=parseInt(fv('lgmax'))||5;
+  var wn=parseInt(fv('lgwin'))||1;
+  var lk=parseInt(fv('lglock'))||5;
+  if(mx<1||mx>50){toast('Intentos maximos debe ser entre 1 y 50','error');return;}
+  if(wn<1||wn>60){toast('Ventana debe ser entre 1 y 60 minutos','error');return;}
+  if(lk<1||lk>1440){toast('Bloqueo debe ser entre 1 y 1440 minutos','error');return;}
+  _saving=true;
+  S.loginMaxAttempts=mx;S.loginWindowMinutes=wn;S.loginLockoutMinutes=lk;
+  var r1=await api('saveConfig',{key:'loginMaxAttempts',value:String(mx)});
+  var r2=await api('saveConfig',{key:'loginWindowMinutes',value:String(wn)});
+  var r3=await api('saveConfig',{key:'loginLockoutMinutes',value:String(lk)});
+  _saving=false;
+  if(r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok){toast('Seguridad de login guardada: '+mx+' intentos / '+wn+'min / bloqueo '+lk+'min','success');}
+  else toast('Error al guardar parametros de seguridad','error');
 }
 
 // MY PROFILE
