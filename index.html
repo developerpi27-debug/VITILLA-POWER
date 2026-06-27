@@ -501,7 +501,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+  
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
@@ -1774,27 +1774,43 @@ function openImportTeamM(){
   // Solo se pueden importar equipos cuyo torneo padre sea del MISMO deporte al que tiene
   // acceso el usuario (un usuario de Baseball no debe ver equipos de Vitilla o Softball, y viceversa)
   var importSport=effectiveLifeSport();
-  // Calcula la lista de equipos disponibles para importar, dado un subtorneo destino especifico.
+  // Calcula la lista de equipos disponibles para importar, dado un subtorneo destino especifico
+  // y, opcionalmente, un subtorneo ORIGEN especifico (para filtrar de donde se quiere importar).
   // Se excluye UNICAMENTE el subtorneo destino exacto (sus equipos ya estan ahi, no tiene sentido
   // "importarlos a si mismo"). Equipos de OTROS subtorneos del MISMO torneo padre si deben listarse,
   // ya que importar entre subtorneos hermanos (ej. Serie Regular -> Playoffs) es un caso valido.
-  function buildTeamRows(curDestTourId){
+  function buildTeamRows(curDestTourId,curSrcTourId){
     var srcTeams=S.teams.filter(function(t){
       if(t.active==='false')return false;
       if(curDestTourId&&t.tournamentId===curDestTourId)return false;
+      if(curSrcTourId&&t.tournamentId!==curSrcTourId)return false;
       if(importSport&&teamSportType(t)&&teamSportType(t)!==importSport)return false;
       return true;
     }).slice().sort(function(a,b){return a.name.localeCompare(b.name);});
     return srcTeams.map(function(t){var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];var pls=S.players.filter(function(p){return p.teamId===t.id;}).length;return'<label style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;cursor:pointer"><input type="checkbox" class="imp-team-chk" data-tid="'+t.id+'" style="accent-color:var(--acc);width:14px;height:14px"><div style="width:30px;height:30px;border-radius:6px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:800;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+t.name+'</div><div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+' &middot; '+pls+' jugadores</div></div></label>';}).join('');
   }
-  var teamRows=buildTeamRows(destTourId);
+  // Opciones del dropdown "Subtorneo origen": todos los subtorneos visibles EXCEPTO el destino actual.
+  function buildSrcTourOpts(curDestTourId){
+    return '<option value="">Todos los subtorneos</option>'+visibleTournaments().filter(function(t){return t.id!==curDestTourId;}).map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+  }
+  var teamRows=buildTeamRows(destTourId,'');
   var destTourOpts='<option value="">Sin torneo destino</option>'+visibleTournaments().map(function(t){return'<option value="'+t.id+'" '+(destTourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  showM('<div class="mhd"><div class="mtl">&#128228; Importar Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div class="alert ai" style="font-size:12px">El equipo se copiara al torneo destino con un nuevo ID. Puedes optar por importar tambien sus jugadores.</div><div class="fg"><label class="fl">Torneo destino</label><select class="fs" id="imp-dest-tour" onchange="document.getElementById(\'imp-team-list\').innerHTML=window._impBuildRows(this.value)">'+destTourOpts+'</select></div><label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;cursor:pointer;margin-bottom:12px"><input type="checkbox" id="imp-with-players" checked style="accent-color:var(--acc);width:14px;height:14px"><span style="font-size:13px">Importar tambien los jugadores del equipo</span></label><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">SELECCIONA EQUIPOS A IMPORTAR:</div><div id="imp-team-list">'+(teamRows||'<div style="font-size:13px;color:var(--t3);padding:10px">No hay equipos disponibles para importar</div>')+'</div></div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="doImportTeams()">Importar Seleccionados</button></div>');
-  // Expuesta en window para que el onchange inline del select pueda recalcular la lista
-  // cuando el usuario cambie el torneo destino, sin tener que cerrar y reabrir el modal.
-  window._impBuildRows=function(curDestTourId){
-    var rows=buildTeamRows(curDestTourId||'');
+  var srcTourOpts=buildSrcTourOpts(destTourId);
+  showM('<div class="mhd"><div class="mtl">&#128228; Importar Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div class="alert ai" style="font-size:12px">El equipo se copiara al torneo destino con un nuevo ID. Puedes optar por importar tambien sus jugadores.</div><div class="fr c2"><div class="fg"><label class="fl">Torneo destino</label><select class="fs" id="imp-dest-tour" onchange="window._impOnDestChange(this.value)">'+destTourOpts+'</select></div><div class="fg"><label class="fl">Subtorneo origen (filtrar)</label><select class="fs" id="imp-src-tour" onchange="document.getElementById(\'imp-team-list\').innerHTML=window._impBuildRows(document.getElementById(\'imp-dest-tour\').value,this.value)">'+srcTourOpts+'</select></div></div><label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;cursor:pointer;margin-bottom:12px"><input type="checkbox" id="imp-with-players" checked style="accent-color:var(--acc);width:14px;height:14px"><span style="font-size:13px">Importar tambien los jugadores del equipo</span></label><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">SELECCIONA EQUIPOS A IMPORTAR:</div><div id="imp-team-list">'+(teamRows||'<div style="font-size:13px;color:var(--t3);padding:10px">No hay equipos disponibles para importar</div>')+'</div></div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="doImportTeams()">Importar Seleccionados</button></div>');
+  // Expuestas en window para que los onchange inline de los selects puedan recalcular la lista
+  // y las opciones del filtro de origen, sin tener que cerrar y reabrir el modal.
+  window._impBuildRows=function(curDestTourId,curSrcTourId){
+    var rows=buildTeamRows(curDestTourId||'',curSrcTourId||'');
     return rows||'<div style="font-size:13px;color:var(--t3);padding:10px">No hay equipos disponibles para importar</div>';
+  };
+  window._impOnDestChange=function(newDestTourId){
+    // Si el subtorneo origen filtrado coincide con el nuevo destino, se resetea a "Todos"
+    // (no tiene sentido filtrar por el mismo subtorneo al que se va a importar).
+    var srcSel=document.getElementById('imp-src-tour');
+    document.getElementById('imp-src-tour').innerHTML=buildSrcTourOpts(newDestTourId);
+    if(srcSel&&srcSel.value===newDestTourId)srcSel.value='';
+    var curSrcTourId=srcSel?srcSel.value:'';
+    document.getElementById('imp-team-list').innerHTML=window._impBuildRows(newDestTourId,curSrcTourId);
   };
 }
 async function doImportTeams(){
