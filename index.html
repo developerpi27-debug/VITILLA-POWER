@@ -1699,7 +1699,10 @@ function pgTeams(){
 }
 function openEM(id){
   var t=id?S.teams.filter(function(x){return x.id===id;})[0]:{};if(!t)t={};
-  var tOpts=visibleTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(x){return'<option value="'+x.id+'" '+(t.tournamentId===x.id?'selected':'')+'>'+x.name+'</option>';}).join('');
+  // Al crear un equipo NUEVO (sin id), se precarga el torneo con el subtorneo actualmente
+  // filtrado en pantalla (S.tourFilter), para no tener que volver a seleccionarlo manualmente.
+  var preselTourId=t.tournamentId||(!id?(S.tourFilter||''):'');
+  var tOpts=visibleTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(x){return'<option value="'+x.id+'" '+(preselTourId===x.id?'selected':'')+'>'+x.name+'</option>';}).join('');
   var logoPreviewStyle='display:'+(t.logoUrl?'flex':'none')+';width:60px;height:60px;border-radius:10px;background:'+(t.color||'#f5a623')+';overflow:hidden;align-items:center;justify-content:center;margin-bottom:8px;';
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
@@ -1857,7 +1860,7 @@ async function doImportTeams(){
 
 function viewTeamPlayers(tid){
   var team=S.teams.filter(function(t){return t.id===tid;})[0];
-  var pls=S.players.filter(function(p){return p.teamId===tid;}).sort(function(a,b){return (parseInt(a.number)||99)-(parseInt(b.number)||99);});
+  var pls=S.players.filter(function(p){return p.teamId===tid;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
   showM('<div class="mhd"><div class="mtl">&#128101; '+(team?team.name:'Equipo')+' - Roster ('+pls.length+')</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="tw"><table><thead><tr><th>#</th><th>Nombre</th><th>Pos</th><th>Batea</th><th>Lanza</th><th>Estado</th></tr></thead><tbody>'
     +(pls.length?pls.map(function(p){
