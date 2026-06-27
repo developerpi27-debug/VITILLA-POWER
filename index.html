@@ -498,10 +498,10 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 <script>
 // ═══════════════════════════════════════════════════════════
-
+// CONFIG — Supabase via Cloudflare Worker
 // ═══════════════════════════════════════════════════════════
 var CFG = {
- 
+  
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
@@ -2312,7 +2312,7 @@ function lineupSetup(gid,gm){
 function renderLU(side,teamId){
   var all=S.players.filter(function(p){return p.teamId===teamId&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
   var inIds=_LU[side].map(function(lp){return lp.playerId;});
-  var avail=all.filter(function(p){return inIds.indexOf(p.id)<0;});
+  var avail=all.filter(function(p){return inIds.indexOf(p.id)<0;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
   var px=side==='aw'?'a':'h';
   var re=document.getElementById('r'+px),le=document.getElementById('l'+px),ce=document.getElementById('c'+px);
   if(ce)ce.textContent=_LU[side].length;
@@ -2775,7 +2775,7 @@ function playLog(gid){
     return'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);flex-wrap:wrap">'
       +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
       +'<span class="badge '+(isH?'bg':isO?'br':'bgr')+'">'+e.type+'</span>'
-      +'<span style="font-size:13px;font-weight:500">'+(e.type==='OJ'?'Out en Jugada':(p?p.name:'?'))+'</span>'
+      +'<span style="font-size:13px;font-weight:500">'+(e.type==='OJ'?'Out en Jugada — '+(p?p.name:'?'):(p?p.name:'?'))+'</span>'
       +(parseInt(e.rbi)>0?'<span class="badge bo">'+e.rbi+' RBI</span>':'')
       +(parseInt(e.runs)>0?'<span style="font-size:12px;color:var(--grn)">+'+e.runs+' carrera(s)'+(scorerNames.length?' ('+scorerNames.join(', ')+')':'')+'</span>':'')
       +'<span style="font-size:11px;color:var(--t3);margin-left:auto">'+(tm?tm.name:'')+'</span>'
@@ -2793,9 +2793,14 @@ function openEditEventM(eid,gid){
   var lu=S.lineups.filter(function(l){return l.gameId===gid;})[0];
   var allPls=lu&&lu.players?lu.players.map(function(lp){return playerOf(lp.playerId);}).filter(Boolean):[];
   var typeOpts=EVENT_TYPES.map(function(t){return'<option value="'+t+'" '+(e.type===t?'selected':'')+'>'+t+'</option>';}).join('');
-  var playerOpts=S.players.filter(function(p2){return p2;}).sort(function(a,b){return a.name<b.name?-1:1;}).map(function(p2){return'<option value="'+p2.id+'" '+(e.batterId===p2.id?'selected':'')+'>'+p2.name+'</option>';}).join('');
+  // Solo jugadores de los DOS equipos que disputan este juego especifico (torneo padre + subtorneo
+  // ya quedan acotados por pertenecer al mismo gm.awayTeamId/homeTeamId), evitando que aparezcan
+  // jugadores homonimos de otros subtorneos/torneos.
+  var gameTeamIds=gm?[gm.awayTeamId,gm.homeTeamId]:[];
+  var gamePlayers=S.players.filter(function(p2){return p2&&gameTeamIds.indexOf(p2.teamId)>=0;}).sort(function(a,b){return a.name<b.name?-1:1;});
+  var playerOpts=gamePlayers.map(function(p2){return'<option value="'+p2.id+'" '+(e.batterId===p2.id?'selected':'')+'>'+p2.name+'</option>';}).join('');
   var curScorers=e.scorerIds||[];
-  var scorerOpts=S.players.filter(function(p2){return p2;}).sort(function(a,b){return a.name<b.name?-1:1;}).map(function(p2){return'<option value="'+p2.id+'" '+(curScorers.indexOf(p2.id)>=0?'selected':'')+'>'+p2.name+'</option>';}).join('');
+  var scorerOpts=gamePlayers.map(function(p2){return'<option value="'+p2.id+'" '+(curScorers.indexOf(p2.id)>=0?'selected':'')+'>'+p2.name+'</option>';}).join('');
   showM('<div class="mhd"><div class="mtl">&#9998; Editar Jugada</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="alert aw" style="font-size:12px">Los cambios en RBI y carreras actualizaran el marcador final automaticamente.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Bateador</label><select class="fs" id="ee-batter">'+playerOpts+'</select></div>'
@@ -2945,11 +2950,13 @@ async function _doOutEnJugada(forcedBase){
     // Remove ONE runner from the bases. Si el anotador especifico la base (forcedBase),
     // se elimina exactamente esa; sino, se usa la prioridad por defecto (3ra > 2da > 1ra).
     var b2=gm.bases||{first:null,second:null,third:null};
+    var ojRunnerId=null; // el corredor que realmente fue puesto out en la jugada
     if(forcedBase&&b2[forcedBase]){
+      ojRunnerId=b2[forcedBase];
       gm.bases=Object.assign({},b2,(function(){var o={};o[forcedBase]=null;return o;})());
-    } else if(b2.third)gm.bases=Object.assign({},b2,{third:null});
-    else if(b2.second)gm.bases=Object.assign({},b2,{second:null});
-    else if(b2.first)gm.bases=Object.assign({},b2,{first:null});
+    } else if(b2.third){ojRunnerId=b2.third;gm.bases=Object.assign({},b2,{third:null});}
+    else if(b2.second){ojRunnerId=b2.second;gm.bases=Object.assign({},b2,{second:null});}
+    else if(b2.first){ojRunnerId=b2.first;gm.bases=Object.assign({},b2,{first:null});}
     else gm.bases=b2; // no runners — OJ still counts the out
     gm.balls=0;gm.strikes=0;
     if(parseInt(gm.outs)>=3){
@@ -2958,9 +2965,13 @@ async function _doOutEnJugada(forcedBase){
       else{gm.currentHalf='top';gm.currentInning=(parseInt(gm.currentInning)||1)+1;}
       toast('3 outs - cambio de turno','info');
     }
-    // Get current batter for the event record
+    // El "Out en Jugada" se le marca al corredor que estaba en base (el bateador de un turno
+    // anterior que ya estaba embasado), NO al bateador que esta actualmente en turno. Si por
+    // alguna razon no habia corredores en base (caso limite), se usa el bateador en turno
+    // como ultimo recurso para no perder el registro del evento.
+    var ojBatterId=ojRunnerId;
+    if(!ojBatterId){
     var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===btId;})[0];
-    var ojBatterId=null;
     if(lu&&lu.players){
       var rpIds2=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;});
       var slots3=[];lu.players.forEach(function(lp){var s=lp.order||0;if(slots3.indexOf(s)<0)slots3.push(s);});slots3.sort(function(a,b){return a-b;});
@@ -2971,6 +2982,7 @@ async function _doOutEnJugada(forcedBase){
       var origIdx=(isTop?parseInt(gmRef.awayBatterIdx)||0:parseInt(gmRef.homeBatterIdx)||0);
       var curLP=ao2[origIdx%Math.max(ao2.length,1)];
       if(curLP)ojBatterId=curLP.playerId;
+    }
     }
     var ojId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
@@ -3242,6 +3254,9 @@ async function rPlay(type){
     var nb=parseInt(gm.numBases)||2;
     var b=gm.bases||{first:null,second:null,third:null};
     var batter=bi?bi.playerId:('batter_'+Date.now());
+    // Si un corredor ya fue contado en scorerIds (anoto carrera en esta jugada), no debe
+    // quedar "fantasma" ocupando la siguiente base: anoto, asi que sale de las bases.
+    function scored(pid){ return pid&&scorerIds.indexOf(pid)>=0; }
 
     if(type==='HR'){
       gm.bases={first:null,second:null,third:null};
@@ -3266,28 +3281,27 @@ async function rPlay(type){
         }
         gm.bases.third=null;
       }
+      // Si el corredor que quedo en 2da o 3ra ya fue contado como anotador, sacarlo de bases.
+      if(scored(gm.bases.third))gm.bases.third=null;
+      if(scored(gm.bases.second))gm.bases.second=null;
     } else if(type==='H1'||type==='E'){
-      // Batter goes to 1st. Push runners ahead 1 base.
+      // Batter goes to 1st. Push runners ahead 1 base — PERO si un corredor ya anoto
+      // (esta en scorerIds, calculado segun "runs" indicado por el anotador), ese corredor
+      // sale de las bases en vez de quedar ocupando la base destino.
       if(nb>=3){
         // 3-base game: 3rd→scores, 2nd→3rd, 1st→2nd, batter→1st
-        var sc1=0;
-        if(b.third)sc1++;        // runner on 3rd scores
-        gm.bases={first:batter,second:b.first||null,third:b.second||null};
+        gm.bases={first:batter,second:scored(b.first)?null:(b.first||null),third:scored(b.second)?null:(b.second||null)};
+        // El de 3ra siempre sale (anoto o fue forzado a salir por el avance); ya esta excluido arriba.
       } else {
-        // 2-base game: 2nd→scores, 1st→2nd, batter→1st
-        var sc1=0;
-        if(b.second)sc1++;       // runner on 2nd scores
-        if(b.first)sc1++;        // runner on 1st → 2nd is already 2nd... wait:
-        // Actually in 2-base: bases are 1st and 2nd (home plate = 2nd)
-        // Sencillo: runner on 2nd scores, runner on 1st→2nd, batter→1st
-        gm.bases={first:batter,second:b.first||null};
+        // 2-base game: bases son 1ra y 2da (home = 2da). Sencillo: 2da anota, 1ra->2da, bateador->1ra
+        gm.bases={first:batter,second:scored(b.first)?null:(b.first||null)};
         gm.bases.third=null;
       }
     } else if(type==='H2'){
-      // Batter goes to 2nd. Push runners ahead 2 bases.
+      // Batter goes to 2nd. Push runners ahead 2 bases — igual, respetando quien ya anoto.
       if(nb>=3){
         // 3rd→scores, 2nd→scores, 1st→3rd, batter→2nd
-        gm.bases={first:null,second:batter,third:b.first||null};
+        gm.bases={first:null,second:batter,third:scored(b.first)?null:(b.first||null)};
       } else {
         // 2-base game: 2nd→scores, 1st→scores, batter→2nd (home)
         gm.bases={first:null,second:batter,third:null};
@@ -3323,12 +3337,12 @@ async function rPlay(type){
       // especifique a CUAL corredor exacto le hicieron el out, y se recalculan las bases.
       if(b.first){
         // Caso clasico: el de 1ra es forzado, los demas avanzan como en sencillo
-        if(nb>=3){ gm.bases={first:batter,second:null,third:b.second||null}; }
+        if(nb>=3){ gm.bases={first:batter,second:null,third:scored(b.second)?null:(b.second||null)}; }
         else { gm.bases={first:batter,second:null,third:null}; }
       } else if(b.second){
         // No hay nadie en 1ra: el out forzado clasico no aplica, pero se permite marcar FO
         // igual (ej. corrigiendo despues); por defecto se asume que es al de 2da.
-        if(nb>=3){ gm.bases={first:batter,second:null,third:b.third||null}; }
+        if(nb>=3){ gm.bases={first:batter,second:null,third:scored(b.third)?null:(b.third||null)}; }
         else { gm.bases={first:batter,second:null,third:null}; }
       } else if(b.third){
         gm.bases={first:batter,second:null,third:null};
@@ -3555,6 +3569,16 @@ async function undoLastPlay(){
     var isOut=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
     var outsAdded=last.type==='DP'?2:isOut?1:0;
     if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
+    // Al deshacer un Out en Jugada, el corredor eliminado (last.batterId, que en OJ
+    // identifica al corredor puesto out, no al bateador en turno) debe volver a ocupar
+    // una base. No se guarda de cual base exacta salio, asi que se restituye a la base
+    // vacia mas cercana a home (3ra > 2da > 1ra), que es el caso mas comun.
+    if(last.type==='OJ'&&last.batterId){
+      gm.bases=gm.bases||{first:null,second:null,third:null};
+      if(!gm.bases.third)gm.bases.third=last.batterId;
+      else if(!gm.bases.second)gm.bases.second=last.batterId;
+      else if(!gm.bases.first)gm.bases.first=last.batterId;
+    }
   }
   // Revert batter index — OJ has no batter so don't decrement batter idx
   if(last.type!=='OJ'){
@@ -5946,9 +5970,18 @@ function pgStatsLife(sBy,pSBy){
   // open per-team pitching breakdown modal
   window.openCareerPitByTeam=function(rootId){
     var cp=careerPlayers.filter(function(c){return c.rootId===rootId;})[0];if(!cp)return;
-    var rows=cp.ids.map(function(pid){
+    // Agrupar por equipo (teamId) para evitar filas duplicadas cuando el mismo jugador
+    // tiene mas de un registro (playerId) dentro del mismo equipo.
+    var byTeam={};var teamOrder=[];
+    cp.ids.forEach(function(pid){
       var p=playerOf(pid);var tm=p?teamOf(p.teamId):null;
+      var key=tm?tm.id:('?'+pid);
+      if(!byTeam[key]){byTeam[key]={tm:tm,pp:[]};teamOrder.push(key);}
       var pp2=pevs.filter(function(e){return e.pitcherId===pid;});
+      byTeam[key].pp=byTeam[key].pp.concat(pp2);
+    });
+    var rows=teamOrder.map(function(key){
+      var grp=byTeam[key];var tm=grp.tm;var pp2=grp.pp;
       if(!pp2.length)return'';
       var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
       var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -5973,9 +6006,18 @@ function pgStatsLife(sBy,pSBy){
   // open per-team breakdown modal
   window.openCareerByTeam=function(rootId){
     var cp=careerPlayers.filter(function(c){return c.rootId===rootId;})[0];if(!cp)return;
-    var rows=cp.ids.map(function(pid){
+    // Agrupar por equipo (teamId) para evitar filas duplicadas cuando el mismo jugador
+    // tiene mas de un registro (playerId) dentro del mismo equipo.
+    var byTeam={};var teamOrder=[];
+    cp.ids.forEach(function(pid){
       var p=playerOf(pid);var tm=p?teamOf(p.teamId):null;
-      var pe=evs.filter(function(e){return e.batterId===pid;});
+      var key=tm?tm.id:('?'+pid);
+      if(!byTeam[key]){byTeam[key]={tm:tm,pids:[]};teamOrder.push(key);}
+      byTeam[key].pids.push(pid);
+    });
+    var rows=teamOrder.map(function(key){
+      var grp=byTeam[key];var tm=grp.tm;var pids=grp.pids;
+      var pe=evs.filter(function(e){return pids.indexOf(e.batterId)>=0;});
       var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -5984,7 +6026,7 @@ function pgStatsLife(sBy,pSBy){
       var bb=pe.filter(function(e){return e.type==='BB'||e.type==='HBP';}).length;
       var k=pe.filter(function(e){return e.type==='K';}).length;
       var avg=vb>0?(h/vb).toFixed(3):'—';var obp=(vb+bb)>0?((h+bb)/(vb+bb)).toFixed(3):'—';var slg=vb>0?((h-h2-h3-hr+h2*2+h3*3+hr*4)/vb).toFixed(3):'—';
-      var pp2=S.pitching.filter(function(e){return e.pitcherId===pid&&officialGids.indexOf(e.gameId)>=0;});
+      var pp2=S.pitching.filter(function(e){return pids.indexOf(e.pitcherId)>=0&&officialGids.indexOf(e.gameId)>=0;});
       var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
       var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var bb2=pp2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
