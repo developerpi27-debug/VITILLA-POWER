@@ -501,7 +501,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-  
+ 
   workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
@@ -1020,14 +1020,27 @@ function setPhaseFilter(val){
 function autoSubTour(parentId, year){
   // Si el padre+año identifica un único subtorneo, lo selecciona automáticamente
   var subs=parentId?subsByParent(parentId):(S.parentTourFilter?subsByParent(S.parentTourFilter):visibleTournaments());
+  // Cuando hay VARIOS subtorneos candidatos y no hay una seleccion previa valida que respetar,
+  // se elige el ULTIMO REGISTRADO (el creado mas recientemente), no simplemente "el primero
+  // del array" (que dependia del orden en que vino del backend, sin criterio definido).
+  // El id generado por el backend embebe el timestamp de creacion al inicio (base36), por lo
+  // que ordenar por id de forma descendente equivale a ordenar por fecha de registro descendente.
+  function mostRecentlyRegistered(arr){
+    return arr.slice().sort(function(a,b){return String(b.id).localeCompare(String(a.id));})[0];
+  }
   if(year){
     var yInt=parseInt(year)||0;
     var byYear=subs.filter(function(t){var ty=parseInt(t.year)||0;return ty===yInt;});
     if(byYear.length===1) return String(byYear[0].id);
     var sfStr=S.tourFilter?String(S.tourFilter):'';
-    if(byYear.length>0) return sfStr&&byYear.filter(function(t){return String(t.id)===sfStr;}).length?sfStr:String(byYear[0].id);
+    if(byYear.length>0) return sfStr&&byYear.filter(function(t){return String(t.id)===sfStr;}).length?sfStr:String(mostRecentlyRegistered(byYear).id);
   }
   if(subs.length===1) return String(subs[0].id);
+  if(subs.length>1){
+    var sfStr2=S.tourFilter?String(S.tourFilter):'';
+    if(sfStr2&&subs.filter(function(t){return String(t.id)===sfStr2;}).length)return sfStr2;
+    return String(mostRecentlyRegistered(subs).id);
+  }
   return S.tourFilter?String(S.tourFilter):'';
 }
 function setYearFilter(val){
@@ -1937,6 +1950,12 @@ function openPM(id,tid){
   // Build deduplicated import list: one entry per career-root player, listing all teams
   // Solo se muestran jugadores de equipos cuyo torneo padre sea del MISMO deporte
   var importSportPM=effectiveLifeSport();
+  // Subtorneo (torneo) al que pertenece el equipo destino (tid). Los jugadores que YA
+  // pertenecen a un equipo de ESE MISMO subtorneo no deben aparecer en "Importar Existente":
+  // ya estan en ese subtorneo, no tiene sentido "importarlos" dentro de el (y ademas
+  // causaba nombres duplicados en la lista al verse junto a sus propios compañeros de torneo).
+  var destTm=tid?teamOf(tid):null;
+  var destTourIdPM=destTm?destTm.tournamentId:null;
   var exMap={};
   S.players.filter(function(pl){
     if(pl.id===id) return false;
@@ -1944,6 +1963,10 @@ function openPM(id,tid){
       var plTm=teamOf(pl.teamId);
       var spType=plTm?teamSportType(plTm):'';
       if(spType&&spType!==importSportPM) return false;
+    }
+    if(destTourIdPM){
+      var plTm2=teamOf(pl.teamId);
+      if(plTm2&&plTm2.tournamentId===destTourIdPM) return false;
     }
     return true;
   }).forEach(function(pl){
@@ -4300,6 +4323,27 @@ function openSubM(type,runnerSubMode){
   var actIds=lu&&lu.players?lu.players.map(function(p){return p.playerId;}):[]; 
   var replacedIds=lu&&lu.players?lu.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;}):[]; 
   var active=S.players.filter(function(p){return actIds.indexOf(p.id)>=0&&replacedIds.indexOf(p.id)<0;});
+  // Determina el playerId del bateador actualmente en turno para el equipo que esta al bate
+  // (mismo calculo usado en pgGC y en otros puntos de control de juego).
+  function currentBatterIdFor(teamId){
+    var gcLu2=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===teamId;})[0];
+    var idx2=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
+    var gcRpIds2=(gcLu2&&gcLu2.players?gcLu2.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;}):[]);
+    var gcSlots2=[];
+    if(gcLu2&&gcLu2.players)gcLu2.players.forEach(function(lp){var s=lp.order||0;if(gcSlots2.indexOf(s)<0)gcSlots2.push(s);});
+    gcSlots2.sort(function(a,b){return a-b;});
+    var gcOrdered2=[];
+    gcSlots2.forEach(function(slot){
+      var inSlot=(gcLu2&&gcLu2.players?gcLu2.players.filter(function(lp){return(lp.order||0)===slot;}):[]);
+      var cur=inSlot.filter(function(lp){return gcRpIds2.indexOf(lp.playerId)<0;});
+      if(cur.length===0){var allNoBat2=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});if(!allNoBat2)gcOrdered2.push(inSlot[inSlot.length-1]);}
+      else gcOrdered2.push(cur[cur.length-1]);
+    });
+    if(!gcOrdered2.length&&gcLu2&&gcLu2.players)gcOrdered2=gcLu2.players.slice();
+    var gcLen2=gcOrdered2.length;if(gcLen2<1)gcLen2=1;
+    var bi2=gcOrdered2[idx2%gcLen2];
+    return bi2?bi2.playerId:null;
+  }
   // ── EMERGENTE POR CORREDOR (pinch runner) ──────────────────────────────────
   // Solo aplica cuando type==='emergente' y hay corredores en base del equipo al bate.
   // runnerSubMode: 'first'|'second'|'third' indica con cual base se esta trabajando.
@@ -4323,7 +4367,23 @@ function openSubM(type,runnerSubMode){
   if(type==='emergente'&&(runnerSubMode==='first'||runnerSubMode==='second'||runnerSubMode==='third')){
     var runnerOutId=bases[runnerSubMode];
     var runnerOutP=playerOf(runnerOutId);
-    var benchR=S.players.filter(function(p){return p.teamId===tid&&actIds.indexOf(p.id)<0&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
+    // En Vitilla las reglas de sustitucion suelen ser mas flexibles: cualquier jugador activo
+    // del roster puede entrar como corredor emergente (incluyendo quienes ya estan jugando en
+    // el lineup), excepto quienes ya ocupan otra base y el bateador que esta actualmente en turno.
+    // En otros deportes (Baseball/Softball formal) se mantiene la regla tradicional de "solo banco"
+    // (jugadores que no estan actualmente en el lineup activo).
+    var isVitillaGame=teamSportType(teamOf(tid))==='vitilla';
+    var occupiedBaseIds=['first','second','third'].map(function(b){return bases[b];}).filter(Boolean);
+    var curBatterIdForRunner=currentBatterIdFor(tid);
+    var benchR;
+    if(isVitillaGame){
+      benchR=S.players.filter(function(p){
+        return p.teamId===tid&&p.active!=='false'&&p.active!==false&&p.active!=='0'
+          &&occupiedBaseIds.indexOf(p.id)<0&&p.id!==curBatterIdForRunner;
+      }).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+    } else {
+      benchR=S.players.filter(function(p){return p.teamId===tid&&actIds.indexOf(p.id)<0&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
+    }
     var baseLbl={first:'1ra Base',second:'2da Base',third:'3ra Base'}[runnerSubMode];
     showM('<div class="mhd"><div class="mtl">&#127939; Corredor Emergente — '+baseLbl+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
       +'<div class="mbd"><div class="alert ai" style="font-size:12px">Sale de la base: <b>#'+(runnerOutP&&runnerOutP.number||'?')+' '+(runnerOutP?runnerOutP.name:'?')+'</b> ('+baseLbl+')</div>'
@@ -4377,24 +4437,7 @@ function openSubM(type,runnerSubMode){
   // Para emergente: preseleccionar el bateador actual en turno
   var currentBatterId=null;
   if(type==='emergente'){
-    // Determinar el bateador actual en turno (mismo cálculo que pgGC)
-    var gcLu2=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
-    var idx2=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
-    var gcRpIds2=(gcLu2&&gcLu2.players?gcLu2.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;}):[]);
-    var gcSlots2=[];
-    if(gcLu2&&gcLu2.players)gcLu2.players.forEach(function(lp){var s=lp.order||0;if(gcSlots2.indexOf(s)<0)gcSlots2.push(s);});
-    gcSlots2.sort(function(a,b){return a-b;});
-    var gcOrdered2=[];
-    gcSlots2.forEach(function(slot){
-      var inSlot=(gcLu2&&gcLu2.players?gcLu2.players.filter(function(lp){return(lp.order||0)===slot;}):[]);
-      var cur=inSlot.filter(function(lp){return gcRpIds2.indexOf(lp.playerId)<0;});
-      if(cur.length===0){var allNoBat2=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});if(!allNoBat2)gcOrdered2.push(inSlot[inSlot.length-1]);}
-      else gcOrdered2.push(cur[cur.length-1]);
-    });
-    if(!gcOrdered2.length&&gcLu2&&gcLu2.players)gcOrdered2=gcLu2.players.slice();
-    var gcLen2=gcOrdered2.length;if(gcLen2<1)gcLen2=1;
-    var bi2=gcOrdered2[idx2%gcLen2];
-    currentBatterId=bi2?bi2.playerId:null;
+    currentBatterId=currentBatterIdFor(tid);
   }
   var saleOpts;
   if(type==='pitcher'){
@@ -5926,6 +5969,7 @@ function pgStats(tid,sBy,pSBy){
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="pgStats(this.value)">'+tOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select>'
     +'<button class="btn bs bsm" style="margin-left:auto" onclick="exportPlayerPDF()">&#128196; Informe PDF</button>'
+    +'<button class="btn bs bsm" onclick="doExportTeamStatsPDF()">&#128202; Generar Estadisticas</button>'
     +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." value="'+(_ST.search||'')+'" oninput="_ST.search=this.value;filterStatsDisplay()" style="width:180px"></div></div>'
     +streakSectionHTML(_streakTourId, _streakYear)
     +'<div class="tabs">'    +'<div class="tab'+(_ST.activeTab==='st-b'?' on':'')+'" onclick="_ST.activeTab=&quot;st-b&quot;;showTab(this,&quot;st-b&quot;)">&#127952; Bateo</div>'    +'<div class="tab'+(_ST.activeTab==='st-d'?' on':'')+'" onclick="_ST.activeTab=&quot;st-d&quot;;showTab(this,&quot;st-d&quot;)">&#129354; Defensa</div>'    +'<div class="tab'+(_ST.activeTab==='st-p'?' on':'')+'" onclick="_ST.activeTab=&quot;st-p&quot;;showTab(this,&quot;st-p&quot;)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_ST.activeTab==='st-t'?' on':'')+'" onclick="_ST.activeTab=&quot;st-t&quot;;showTab(this,&quot;st-t&quot;)">&#127970; Equipos</div>'    +'</div>'
@@ -6873,6 +6917,119 @@ function doExportSchedulePDF(){
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORT TEAM-BY-TEAM STATS PDF (Stats module — "Generar Estadisticas")
+// Reporte del subtorneo filtrado: todos los jugadores separados por equipo,
+// ordenados ascendentemente por nombre, con bateadores y pitchers en tablas
+// separadas para cada equipo.
+// ═══════════════════════════════════════════════════════════════════
+function doExportTeamStatsPDF(){
+  var tourIdEx=_ST.tourId||S.tourFilter||'';
+  var officialGids=S.games.filter(function(g){
+    if(tourIdEx&&String(g.tournamentId)!==String(tourIdEx))return false;
+    if(!tourIdEx&&!gameMatchesPhase(g))return false;
+    if(g.status==='final')return true;
+    if(g.status==='suspended'&&g.official==='true')return true;
+    return false;
+  }).map(function(g){return g.id;});
+  var evsEx=S.events.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';});
+  var pevsEx=S.pitching.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
+  var teamsEx=(tourIdEx?visibleTeams().filter(function(t){return String(t.tournamentId)===String(tourIdEx);}):visibleTeams())
+    .slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+  if(!teamsEx.length){toast('No hay equipos en el subtorneo filtrado','error');return;}
+  var tourEx=tourIdEx?S.tournaments.filter(function(t){return String(t.id)===String(tourIdEx);})[0]:null;
+  var ptEx=S.parentTourFilter?S.parentTournaments.filter(function(t){return t.id===S.parentTourFilter;})[0]:null;
+  var titleStr=(ptEx?ptEx.name+' — ':'')+(tourEx?tourEx.name:'Todos los subtorneos')+(S.yearFilter?' '+S.yearFilter:'');
+  var now=new Date();var nowStr=now.toLocaleDateString('es-DO',{year:'numeric',month:'long',day:'numeric'});
+
+  function battingRowsFor(teamId){
+    var pls=S.players.filter(function(p){return p.teamId===teamId;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+    return pls.map(function(p){
+      var pe=evsEx.filter(function(e){return e.batterId===p.id;});
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
+      var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+      var h2=pe.filter(function(e){return e.type==='H2';}).length;
+      var h3=pe.filter(function(e){return e.type==='H3';}).length;
+      var hr=pe.filter(function(e){return e.type==='HR';}).length;
+      var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
+      var r=countRunsScored(evsEx,[p.id]);
+      var bb=pe.filter(function(e){return e.type==='BB'||e.type==='HBP';}).length;
+      var k=pe.filter(function(e){return e.type==='K';}).length;
+      var sb=pe.filter(function(e){return e.type==='SB';}).length;
+      var avg=vb>0?h/vb:0;
+      if(vb<=0&&!pe.length)return''; // jugador sin ninguna aparicion en el subtorneo: se omite de bateo
+      return'<tr><td><b>#'+(p.number||'?')+' '+p.name+'</b></td>'
+        +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td>'
+        +'<td style="text-align:center">'+h2+'</td><td style="text-align:center">'+h3+'</td>'
+        +'<td style="text-align:center;color:'+(hr>0?'#ef4444':'inherit')+'">'+hr+'</td>'
+        +'<td style="text-align:center;color:'+(r>0?'#f5a623':'inherit')+'">'+r+'</td>'
+        +'<td style="text-align:center;color:'+(rbi>0?'#22c55e':'inherit')+'">'+rbi+'</td>'
+        +'<td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td><td style="text-align:center">'+sb+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#f5a623">'+avg.toFixed(3)+'</td></tr>';
+    }).filter(Boolean).join('');
+  }
+  function pitchingRowsFor(teamId){
+    var pls=S.players.filter(function(p){return p.teamId===teamId;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+    return pls.map(function(p){
+      var pe=pevsEx.filter(function(e){return e.pitcherId===p.id;});
+      if(!pe.length)return''; // jugador que no lanzo en el subtorneo: se omite de pitcheo
+      var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var h=pe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
+      var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
+      var bb=pe.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+      var k=pe.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+      var hr=pe.reduce(function(s,e){return s+(parseInt(e.hr)||0);},0);
+      var w=pe.filter(function(e){return e.decision==='W';}).length;
+      var l=pe.filter(function(e){return e.decision==='L';}).length;
+      var sv=pe.filter(function(e){return e.decision==='S';}).length;
+      var era=ip>0?calcPitcherERA(pe):null;
+      var whip=ip>0?(h+bb)/ip:null;
+      return'<tr><td><b>#'+(p.number||'?')+' '+p.name+'</b></td>'
+        +'<td style="text-align:center;color:#22c55e">'+w+'</td><td style="text-align:center;color:'+(l>0?'#ef4444':'inherit')+'">'+l+'</td>'
+        +'<td style="text-align:center">'+sv+'</td><td style="text-align:center;font-weight:700">'+ip.toFixed(1)+'</td>'
+        +'<td style="text-align:center">'+h+'</td><td style="text-align:center;color:'+(er>0?'#ef4444':'inherit')+'">'+er+'</td>'
+        +'<td style="text-align:center">'+bb+'</td><td style="text-align:center;color:'+(k>0?'#22c55e':'inherit')+'">'+k+'</td>'
+        +'<td style="text-align:center">'+hr+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#f5a623">'+(era!==null?era.toFixed(2):'—')+'</td>'
+        +'<td style="text-align:center">'+(whip!==null?whip.toFixed(2):'—')+'</td></tr>';
+    }).filter(Boolean).join('');
+  }
+
+  var bodyHtml='';
+  teamsEx.forEach(function(tm){
+    var bRows=battingRowsFor(tm.id);
+    var pRows=pitchingRowsFor(tm.id);
+    bodyHtml+='<div class="section-title">&#127944; '+tm.name+'</div>';
+    bodyHtml+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:4px">&#127952; BATEO</div>'
+      +'<table><thead><tr><th>Jugador</th><th style="text-align:center">VB</th><th style="text-align:center">H</th>'
+      +'<th style="text-align:center">2B</th><th style="text-align:center">3B</th><th style="text-align:center">HR</th>'
+      +'<th style="text-align:center">R</th><th style="text-align:center">RBI</th><th style="text-align:center">BB</th>'
+      +'<th style="text-align:center">K</th><th style="text-align:center">SB</th><th style="text-align:center">AVG</th></tr></thead><tbody>'
+      +(bRows||'<tr><td colspan="11" style="text-align:center;color:#64748b">Sin apariciones al bate registradas</td></tr>')
+      +'</tbody></table>';
+    bodyHtml+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:4px">&#9918; PITCHEO</div>'
+      +'<table><thead><tr><th>Jugador</th><th style="text-align:center">G</th><th style="text-align:center">P</th>'
+      +'<th style="text-align:center">SV</th><th style="text-align:center">IP</th><th style="text-align:center">H</th>'
+      +'<th style="text-align:center">ER</th><th style="text-align:center">BB</th><th style="text-align:center">K</th>'
+      +'<th style="text-align:center">HR</th><th style="text-align:center">ERA</th><th style="text-align:center">WHIP</th></tr></thead><tbody>'
+      +(pRows||'<tr><td colspan="11" style="text-align:center;color:#64748b">Sin entradas lanzadas registradas</td></tr>')
+      +'</tbody></table>';
+  });
+
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estadisticas — '+titleStr+'</title>'
+    +'<style>'+VP_PDF_STYLE+'</style></head><body>'
+    +'<div class="page-header"><img class="logo" src="'+VP_LOGO+'" alt="Vitilla Power">'
+    +'<div class="title-block"><h1>&#128202; Estadisticas por Equipo</h1>'
+    +'<div class="sub">'+titleStr+'</div>'
+    +'<div class="sub2">Generado: '+nowStr+' &middot; '+teamsEx.length+' equipo(s)</div></div>'
+    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">&#9889; Vitilla Power</div><div style="font-size:10px;color:#94a3b8">Informe Estadistico por Equipo</div></div></div>'
+    +bodyHtml
+    +'<div class="footer">&#9889; Vitilla Power &nbsp;&middot;&nbsp; Estadisticas por equipo &nbsp;&middot;&nbsp; '+nowStr+'</div>'
+    +'</body></html>';
+  var w=window.open('','_blank','width=1000,height=750');
+  if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},500);}
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // EXPORT PLAYER/PITCHER PDF REPORT (Stats module)
@@ -8378,7 +8535,14 @@ function exportReport(gid){
   var gm=S.games.filter(function(x){return x.id===gid;})[0];if(!gm)return;
   var hw=teamOf(gm.homeTeamId),aw=teamOf(gm.awayTeamId);
   if(!hw||!aw)return;
-  var gEvs2=S.events.filter(function(e){return e.gameId===gid;});
+  // Ordenar cronologicamente por timestamp (mismo campo que usa el frontend en playLog).
+  // Sin esto, el orden dependia de como vinieran almacenados los eventos en la base de datos
+  // (orden de insercion), lo cual podia mezclar entradas, equipos y jugadas de "UNDO" fuera
+  // de su secuencia real — el reporte debe leerse de forma cronologica natural (Ent.1 arriba).
+  var gEvs2=S.events.filter(function(e){return e.gameId===gid;}).slice().sort(function(a,b){
+    var ta=a.timestamp||'';var tb=b.timestamp||'';
+    return ta<tb?-1:ta>tb?1:0;
+  });
   var tour=S.tournaments.filter(function(t){return t.id===gm.tournamentId;})[0];
   var inn=parseInt(gm.totalInnings)||7;var maxInn=inn;
   if(gm.inningScores)Object.keys(gm.inningScores).forEach(function(k){var n=parseInt(k);if(!isNaN(n)&&n>maxInn)maxInn=n;});
