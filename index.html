@@ -6211,18 +6211,21 @@ function pgStatsLife(sBy,pSBy){
   // open per-team pitching breakdown modal
   window.openCareerPitByTeam=function(rootId){
     var cp=careerPlayers.filter(function(c){return c.rootId===rootId;})[0];if(!cp)return;
-    // Agrupar por equipo (teamId) para evitar filas duplicadas cuando el mismo jugador
-    // tiene mas de un registro (playerId) dentro del mismo equipo.
+    // Agrupar por NOMBRE de equipo (no por teamId exacto): el mismo equipo real (ej. "Halcones LM")
+    // suele tener un registro de equipo distinto por cada subtorneo/temporada en la base de datos.
+    // Si agrupasemos por teamId, ese mismo equipo apareceria una fila por cada subtorneo en el que
+    // participo, en vez de una sola fila consolidada (igual criterio que ya usa cp.teams, por nombre).
     var byTeam={};var teamOrder=[];
     cp.ids.forEach(function(pid){
       var p=playerOf(pid);var tm=p?teamOf(p.teamId):null;
-      var key=tm?tm.id:('?'+pid);
+      var key=tm?tm.name:('?'+pid);
       if(!byTeam[key]){byTeam[key]={tm:tm,pp:[]};teamOrder.push(key);}
       var pp2=pevs.filter(function(e){return e.pitcherId===pid;});
       byTeam[key].pp=byTeam[key].pp.concat(pp2);
     });
     var rows=teamOrder.map(function(key){
       var grp=byTeam[key];var tm=grp.tm;var pp2=grp.pp;
+      var teamLabel=tm?tm.name:key;
       if(!pp2.length)return'';
       var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
       var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -6233,7 +6236,7 @@ function pgStatsLife(sBy,pSBy){
       var l2=pp2.filter(function(e){return e.decision==='L';}).length;
       var sv2=pp2.filter(function(e){return e.decision==='S';}).length;
       var era2=ip2>0?calcPitcherERA(pp2).toFixed(2):'—';var whip2=ip2>0?((h2p+bb2)/ip2).toFixed(2):'—';
-      return'<tr><td><span class="chip">'+(tm?tm.name:'?')+'</span></td><td style="font-size:12px">'+(tm?tm.name:'?')+'</td>'
+      return'<tr><td><span class="chip">'+teamLabel+'</span></td><td style="font-size:12px">'+teamLabel+'</td>'
         +'<td style="text-align:center">'+w2+'</td><td style="text-align:center">'+l2+'</td><td style="text-align:center">'+sv2+'</td>'
         +'<td style="text-align:center">'+ip2.toFixed(1)+'</td><td style="text-align:center">'+h2p+'</td>'
         +'<td style="text-align:center;color:'+(er2>0?'var(--red)':'inherit')+'">'+er2+'</td><td style="text-align:center">'+bb2+'</td><td style="text-align:center">'+k2+'</td>'
@@ -6247,17 +6250,21 @@ function pgStatsLife(sBy,pSBy){
   // open per-team breakdown modal
   window.openCareerByTeam=function(rootId){
     var cp=careerPlayers.filter(function(c){return c.rootId===rootId;})[0];if(!cp)return;
-    // Agrupar por equipo (teamId) para evitar filas duplicadas cuando el mismo jugador
-    // tiene mas de un registro (playerId) dentro del mismo equipo.
+    // Agrupar por NOMBRE de equipo (no por teamId exacto): el mismo equipo real (ej. "Halcones LM")
+    // suele tener un registro de equipo distinto por cada subtorneo/temporada en la base de datos.
+    // Si agrupasemos por teamId, ese mismo equipo apareceria una fila por cada subtorneo en el que
+    // participo, en vez de una sola fila consolidada — que es justamente lo que este modulo de
+    // "estadisticas de por vida" busca mostrar (igual criterio que ya usa cp.teams, por nombre).
     var byTeam={};var teamOrder=[];
     cp.ids.forEach(function(pid){
       var p=playerOf(pid);var tm=p?teamOf(p.teamId):null;
-      var key=tm?tm.id:('?'+pid);
+      var key=tm?tm.name:('?'+pid);
       if(!byTeam[key]){byTeam[key]={tm:tm,pids:[]};teamOrder.push(key);}
       byTeam[key].pids.push(pid);
     });
     var rows=teamOrder.map(function(key){
       var grp=byTeam[key];var tm=grp.tm;var pids=grp.pids;
+      var teamLabel=tm?tm.name:key;
       var pe=evs.filter(function(e){return pids.indexOf(e.batterId)>=0;});
       var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
@@ -6276,7 +6283,7 @@ function pgStatsLife(sBy,pSBy){
       var w2=pp2.filter(function(e){return e.decision==='W';}).length;
       var l2=pp2.filter(function(e){return e.decision==='L';}).length;
       var era2=ip2>0?calcPitcherERA(pp2).toFixed(2):'—';var whip2=ip2>0?((h2p+bb2)/ip2).toFixed(2):'—';
-      return'<tr><td><span class="chip">'+(tm?tm.name:'?')+'</span></td><td style="font-size:12px">'+(tm?tm.name:'?')+'</td>'
+      return'<tr><td><span class="chip">'+teamLabel+'</span></td><td style="font-size:12px">'+teamLabel+'</td>'
         +'<td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td><td style="text-align:center">'+h2+'</td><td style="text-align:center">'+h3+'</td><td style="text-align:center">'+hr+'</td><td style="text-align:center">'+rbi+'</td><td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td><td style="text-align:center">'+obp+'</td><td style="text-align:center">'+slg+'</td>'
         +(ip2>0?'<td style="text-align:center">'+w2+'-'+l2+'</td><td style="text-align:center">'+ip2.toFixed(1)+'</td><td style="text-align:center;font-weight:700;color:var(--acc)">'+era2+'</td><td style="text-align:center">'+whip2+'</td>':'<td colspan="4" style="text-align:center;color:var(--t3)">Sin pitcheo</td>')
