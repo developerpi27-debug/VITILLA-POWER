@@ -1954,8 +1954,11 @@ function openPM(id,tid){
   // pertenecen a un equipo de ESE MISMO subtorneo no deben aparecer en "Importar Existente":
   // ya estan en ese subtorneo, no tiene sentido "importarlos" dentro de el (y ademas
   // causaba nombres duplicados en la lista al verse junto a sus propios compañeros de torneo).
+  // Si el formulario se abrio SIN un equipo especifico (boton general "+ Jugador", donde el
+  // usuario eligira el equipo destino mas abajo en el propio formulario), se usa el subtorneo
+  // actualmente filtrado en pantalla (S.tourFilter) como referencia del subtorneo destino.
   var destTm=tid?teamOf(tid):null;
-  var destTourIdPM=destTm?destTm.tournamentId:null;
+  var destTourIdPM=destTm?destTm.tournamentId:(S.tourFilter||null);
   var exMap={};
   S.players.filter(function(pl){
     if(pl.id===id) return false;
@@ -3136,6 +3139,9 @@ async function rPlay(type){
   // Work on a deep copy to prevent mutation during async operations
   var gm=JSON.parse(JSON.stringify(gmRef));
   gm.inningScores=gm.inningScores||{};gm.bases=gm.bases||{first:null,second:null,third:null};
+  // Outs ANTES de procesar esta jugada (situacion en la que el bateador entro a batear).
+  // Se guarda en el evento para poder calcular despues estadisticas como "AVG con 2 outs".
+  var outsBeforePlay=parseInt(gm.outs)||0;
   var isTop=gm.currentHalf==='top';
   var btId=isTop?gm.awayTeamId:gm.homeTeamId;
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===btId;})[0];
@@ -3494,7 +3500,7 @@ async function rPlay(type){
     var biPlayerId=bi?bi.playerId:null;
     var ev={id:evId,gameId:gm.id,batterId:biPlayerId,battingTeamId:btId,
       type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
-      scorerIds:scorerIds,
+      scorerIds:scorerIds,outs:outsBeforePlay,
       timestamp:new Date().toISOString()};
     // Push event IMMEDIATELY so box score reflects it before save
     S.events.push(Object.assign({},ev));
@@ -4104,10 +4110,28 @@ function openSendToBaseM(){
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===btId;})[0];
   if(!lu||!lu.players||!lu.players.length){toast('Sin lineup configurado','error');return;}
   // Get PREVIOUS batter (idx - 1)
+  // IMPORTANTE: el array "ordered" debe contener UNICAMENTE los slots que realmente batean
+  // (mismo criterio usado para avanzar awayBatterIdx/homeBatterIdx). Si un slot es exclusivamente
+  // un pitcher marcado "no bate" (sin sustituto que si bate), ese slot debe OMITIRSE por completo
+  // del array — de lo contrario el indice quedaria desincronizado y "el bateador anterior" no
+  // correspondería al ultimo que realmente estuvo al turno, sino al slot anterior en el lineup
+  // (que podria ser justamente el pitcher que nunca bateo).
   var rpIds=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;});
   var slots=[];lu.players.forEach(function(lp){var s=lp.order||0;if(slots.indexOf(s)<0)slots.push(s);});
   slots.sort(function(a,b){return a-b;});
-  var ordered=[];slots.forEach(function(slot){var inSlot=lu.players.filter(function(lp){return(lp.order||0)===slot;});var cur=inSlot.filter(function(lp){return rpIds.indexOf(lp.playerId)<0;});ordered.push(cur.length?cur[cur.length-1]:inSlot[inSlot.length-1]);});
+  var ordered=[];
+  slots.forEach(function(slot){
+    var inSlot=lu.players.filter(function(lp){return(lp.order||0)===slot;});
+    var cur=inSlot.filter(function(lp){return rpIds.indexOf(lp.playerId)<0;});
+    if(cur.length===0){
+      var allNoBat=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});
+      if(!allNoBat)ordered.push(inSlot[inSlot.length-1]);
+      // si allNoBat es true, el slot se omite por completo (no se agrega nada a ordered)
+    } else {
+      ordered.push(cur[cur.length-1]);
+    }
+  });
+  if(!ordered.length)ordered=lu.players.slice();
   var idx=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
   var len=ordered.length||1;
   var prevIdx=(idx-1+len)%len;
