@@ -501,8 +501,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
-  workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
+    workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
   
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
 };
@@ -6116,6 +6115,14 @@ function pgStats(tid,sBy,pSBy){
   var tids=tidsFilteredST.map(function(t){return t.id;});
   var statsQ=(_ST.search||'').toLowerCase();
   var rawPlayersST=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&(!statsQ||p.name.toLowerCase().indexOf(statsQ)>=0);});
+  // ── Rachas activas para badge en la tabla (declarados antes que pitRows/tmRows/batRows) ──
+  var _activeBatIds={},_activePitIds={},_activeTmIds={};
+  try{
+    var _skST=calcStreaks(_ST.tourId||null,S.yearFilter||null);
+    if(_skST&&_skST.activeBat)_skST.activeBat.forEach(function(x){if(x.p)_activeBatIds[x.p.id]=x.streak;});
+    if(_skST&&_skST.activePit)_skST.activePit.forEach(function(x){if(x.p)_activePitIds[x.p.id]=x.streak;});
+    if(_skST&&_skST.activeTm) _skST.activeTm.forEach(function(x){if(x.tm)_activeTmIds[x.tm.id]=x.streak;});
+  }catch(_e){}
   // Consolidar por nombre cuando el subtorneo es "Todos" (vista de torneo padre completo)
   var playerGroupsST=[];
   if(!_ST.tourId){
@@ -7208,14 +7215,17 @@ function pgAwardCandidates(tourId){
   if(!cand) return '<div class="card"><div class="empty"><div style="font-size:30px">&#127942;</div><div>Selecciona un subtorneo para ver los candidatos automáticos</div></div></div>';
   if(!cand.hasRegular) return '<div class="card"><div class="empty"><div style="font-size:30px">&#128202;</div><div>Sin juegos oficiales de Serie Regular en este subtorneo todavía</div></div></div>';
   var minVB=cand.minVB;var minIP=cand.minIP;var minGG=cand.minGG;
-  // Funcion para mostrar puntos de un candidato
+  // ptsHtml para MVP — respeta flags mvpIncludeBat/Pit del torneo
+  var _t2=S.tournaments.filter(function(t){return t.id===tourId;})[0];
+  var _rBat=(_t2&&_t2.mvpIncludeBat===false)?false:true;
+  var _rPit=(_t2&&_t2.mvpIncludePit===false)?false:true;
   function ptsHtml(x){
-    var bat=x.battingPts!==undefined?x.battingPts:0;
-    var pit=x.pitchingPts!==undefined?x.pitchingPts:0;
-    var total=bat+(x.ip>0?pit:0);
+    var bat=_rBat?(x.battingPts!==undefined?x.battingPts:0):0;
+    var pit=(_rPit&&x.ip>0)?(x.pitchingPts!==undefined?x.pitchingPts:0):0;
+    var total=bat+pit;
     var detail=[];
-    if(x.vb>0)detail.push('<span style="font-size:10px;color:var(--t3)">Bat: '+bat.toFixed(1)+'</span>');
-    if(x.ip>0)detail.push('<span style="font-size:10px;color:var(--t3)">Pit: '+pit.toFixed(1)+'</span>');
+    if(_rBat&&x.vb>0)detail.push('<span style="font-size:10px;color:var(--t3)">Bat: '+bat.toFixed(1)+'</span>');
+    if(_rPit&&x.ip>0)detail.push('<span style="font-size:10px;color:var(--t3)">Pit: '+pit.toFixed(1)+'</span>');
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+total.toFixed(1)+'</span><div style="font-size:9px;color:var(--t3)">pts</div>'+(detail.length?'<div style="font-size:9px;color:var(--t3)">'+detail.join(' ')+'</div>':'');
   }
   var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en el sistema de puntos configurado (Serie Regular). Bate de Oro y Bate de Plata requieren mín. '+minVB+' VB; Cy Young requiere mín. '+minIP+' IP; MVP y Novato del Año no tienen mínimo de VB/IP. Mín. '+minGG+' juego(s) en posición para Guante de Oro. Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
@@ -7226,14 +7236,14 @@ function pgAwardCandidates(tourId){
   html+=candList('Candidatos a Cy Young (pitcher)','&#9918;',cand.cyYoung,function(x){
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.pitchingPts.toFixed(1)+'</span><div style="font-size:9px;color:var(--t3)">pts pit · '+x.ip.toFixed(1)+' IP</div>';
   });
-  // ── Bate de Plata: posiciones 6-10 por AVG (min VB) ──
-  html+=candList('Candidatos a Bate de Plata (Top AVG, pos. 6-10)','&#129351;',cand.plata,function(x){
-    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.vb+' VB · '+x.h+'H</div>';
-  },'Sin candidatos suficientes (mín. '+minVB+' VB). Estas son las posiciones 6-10 del ranking de AVG.');
   // ── Bate de Oro: top 5 AVG (min VB) ──
   html+=candList('Candidatos a Bate de Oro (Top 5 AVG)','&#127942;',cand.oro,function(x){
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.vb+' VB · '+x.h+'H</div>';
   },'Sin candidatos suficientes (mín. '+minVB+' VB).');
+  // ── Bate de Plata: posiciones 6-10 por AVG (min VB) ──
+  html+=candList('Candidatos a Bate de Plata (Top AVG, pos. 6-10)','&#129351;',cand.plata,function(x){
+    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.vb+' VB · '+x.h+'H</div>';
+  },'Sin candidatos suficientes (mín. '+minVB+' VB). Estas son las posiciones 6-10 del ranking de AVG.');
   // ── Novato del Año: puntos combinados entre novatos ──
   html+=candList('Candidatos a Novato del Año','&#127881;',cand.novato,function(x){return ptsHtml(x);},'Sin jugadores marcados como Novato con números suficientes. Marca el checkbox "Novato" al editar el jugador.');
   html+='</div>';
