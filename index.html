@@ -501,8 +501,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-  
-  workerUrl: 'https://api.powerrdapp.com',
+
+  workerUrl: 'https://vitillapower.carlosjose132727.workers.dev',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
 };
@@ -3019,16 +3019,12 @@ function playLog(gid){
     var p=playerOf(e.batterId);var tm=teamOf(e.battingTeamId);
     var isH=['H1','H2','H3','HR'].indexOf(e.type)>=0;var isO=['K','OUT','FO','DP','OJ'].indexOf(e.type)>=0;
     var scorerNames=(e.scorerIds||[]).map(function(sid){var sp=playerOf(sid);return sp?sp.name:null;}).filter(Boolean);
-    // Label especial para error en tiro luego de hit
-    var _isThrow=(e.type==='E'&&e.errorSubtype==='throw');
-    var _throwCorr=e.throwCorrId?playerOf(e.throwCorrId):null;
-    var _dispName=_isThrow?(parseInt(e.runs)>0?'E anota corredor — '+(_throwCorr?_throwCorr.name:'?'):'E avanza corredor — '+(_throwCorr?_throwCorr.name:'?')):(e.type==='OJ'?'Out en Jugada — '+(p?p.name:'?'):(p?p.name:'?'));
     return'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);flex-wrap:wrap">'
       +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
       +'<span class="badge '+(isH?'bg':isO?'br':'bgr')+'">'+e.type+'</span>'
-      +'<span style="font-size:13px;font-weight:500">'+_dispName+'</span>'
+      +'<span style="font-size:13px;font-weight:500">'+(e.type==='OJ'?'Out en Jugada — '+(p?p.name:'?'):(p?p.name:'?'))+'</span>'
       +(parseInt(e.rbi)>0?'<span class="badge bo">'+e.rbi+' RBI</span>':'')
-      +(!_isThrow&&parseInt(e.runs)>0?'<span style="font-size:12px;color:var(--grn)">+'+e.runs+' carrera(s)'+(scorerNames.length?' ('+scorerNames.join(', ')+')':'')+'</span>':'')
+      +(parseInt(e.runs)>0?'<span style="font-size:12px;color:var(--grn)">+'+e.runs+' carrera(s)'+(scorerNames.length?' ('+scorerNames.join(', ')+')':'')+'</span>':'')
       +'<span style="font-size:11px;color:var(--t3);margin-left:auto">'+(tm?tm.name:'')+'</span>'
       +(canEdit?'<button class="btn bs bsm" data-eid="'+e.id+'" data-gid="'+gid+'" onclick="openEditEventM(this.dataset.eid,this.dataset.gid)" style="padding:2px 7px;font-size:11px">&#9998;</button>':'')
       +(canEdit?'<button class="btn bd bsm" data-eid="'+e.id+'" data-gid="'+gid+'" onclick="delEvent(this.dataset.eid,this.dataset.gid)" style="padding:2px 7px;font-size:11px">&#10005;</button>':'')
@@ -3806,42 +3802,16 @@ async function rPlay(type){
     // FIX 5: Use the captured idx from before the increment to ensure correct batter
     var evId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     var errorFielderId=(type==='E'&&gm._errorFielderId)||null;
-    // Registrar en gm.errorBases los jugadores que llegaron a base por error (sus carreras serán sucias)
-    if(type==='E'&&batter){
-      gm.errorBases=gm.errorBases||[];
-      // El bateador llego a base por error (si no anoto ya en esta misma jugada)
-      if(scorerIds.indexOf(batter)<0) gm.errorBases.push(batter);
-    }
     if(gm._errorFielderId)delete gm._errorFielderId;
-    // Guardar antes de limpiar (para el event record)
-    gm._savedErrorType=gm._errorType||null;
     // Limpiar flags temporales del error vitilla
     if(gm._errorType)delete gm._errorType;
     if(gm._errorBatterBase!==undefined)delete gm._errorBatterBase;
     if(gm._errorIsEarned!==undefined)delete gm._errorIsEarned;
-    if(gm._savedErrorType!==undefined)delete gm._savedErrorType;
     // bi was captured before prompts; re-verify it matches the idx we started with
-    // Error en tiro: NO es turno al bate del bateador en curso — batterId queda null para este evento
-    var biPlayerId=(type==='E'&&gm._savedErrorType==='throw')?null:(bi?bi.playerId:null);
-    // Store errorSubtype and throwCorrId for display in play log
-    var _errSubtype=null,_throwCorrId=null;
-    if(type==='E'){
-      if(gm._savedErrorType==='throw'){
-        _errSubtype='throw';
-        // The scorer (if any) is the runner who was already on base and scored/advanced
-        _throwCorrId=scorerIds[0]||null;
-        // If no one scored, the corredor who advanced is the one who was nearest to home before
-        if(!_throwCorrId){
-          var _pb=bases||{first:null,second:null,third:null};
-          _throwCorrId=_pb.second||_pb.first||null;
-        }
-      }
-    }
+    var biPlayerId=bi?bi.playerId:null;
     var ev={id:evId,gameId:gm.id,batterId:biPlayerId,battingTeamId:btId,
       type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
       scorerIds:scorerIds,outs:outsBeforePlay,
-      errorSubtype:_errSubtype||undefined,throwCorrId:_throwCorrId||undefined,
-      priorBases:{first:bases?bases.first:null,second:bases?bases.second:null,third:bases?bases.third:null},
       timestamp:new Date().toISOString()};
     // Push event IMMEDIATELY so box score reflects it before save
     S.events.push(Object.assign({},ev));
@@ -3850,21 +3820,7 @@ async function rPlay(type){
     // Se guarda el pitcherId que realmente enfrento esta jugada DENTRO del evento, para que
     // si mas adelante se edita o elimina esta jugada (juego ya finalizado), el sistema sepa
     // exactamente a cual pitcher corregirle las estadisticas (y no solo al "pitcher actual").
-    // Determinar si la carrera es sucia (earned=false) basado en:
-    // 1. La jugada misma es un error (type==='E')
-    // 2. Alguno de los que anotaron (scorerIds) llegó a base por error anteriormente (gm.errorBases)
-    var _errBaseIds=gm.errorBases||[];
-    var _anyUnearnedScorer=scorerIds.some(function(sid){return _errBaseIds.indexOf(sid)>=0;});
-    // Para runs mixtos (ej: el de 1ra llego sin error y el de 2da llego por error),
-    // calcular cuantas carreras son sucias vs limpias
-    var _unearnedRuns=scorerIds.filter(function(sid){return _errBaseIds.indexOf(sid)>=0;}).length;
-    var _earnedRuns=runs-_unearnedRuns;
-    var _isErrorPlay=(type==='E')||_anyUnearnedScorer;
-    // Remover de errorBases los jugadores que ya anotaron (ya no están en base)
-    if(_errBaseIds.length>0&&scorerIds.length>0){
-      gm.errorBases=_errBaseIds.filter(function(sid){return scorerIds.indexOf(sid)<0;});
-    }
-    var facedPitcherId=await autoUpdatePitcher(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns);
+    var facedPitcherId=await autoUpdatePitcher(gm,type,runs,evHalf,type==='E');
     ev.pitcherId=facedPitcherId||null;
     S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null}):x;});
     if(gameOver) S.game=null;
@@ -4045,7 +4001,7 @@ async function adjustCurrentPitcher(gm,ftId,erDelta,outsDelta){
   S.pitching=S.pitching.map(function(p){return(p.gameId===ex.gameId&&p.teamId===ex.teamId&&p.pitcherId===ex.pitcherId&&!p.pitchingClosed)?ex:p;});
   var r=await api('savePitching',{event:ex});if(r&&r.ok&&r.item&&!ex.id)ex.id=r.item.id;
 }
-async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns){
+async function autoUpdatePitcher(gm,type,runs,half,isError){
   // Use passed half (captured BEFORE potential inning flip) not gm.currentHalf
   var h=half||gm.currentHalf;
   var isTop=h==='top';
@@ -4059,9 +4015,8 @@ async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns){
   if(['BB','HBP'].indexOf(type)>=0)ex.bb=(parseInt(ex.bb)||0)+1;
   if(runs>0){
     ex.r=(parseInt(ex.r)||0)+runs;
-    // earnedRuns: número exacto de carreras limpias (puede ser menos que runs si hubo error mixto)
-    var er=isError?0:(earnedRuns!==undefined?earnedRuns:runs);
-    if(er>0) ex.er=(parseInt(ex.er)||0)+er;
+    // Carreras producidas por error NO son carreras limpias (no afectan ER ni ERA)
+    if(!isError)ex.er=(parseInt(ex.er)||0)+runs;
   }
   var outsAdded=type==='DP'?2:(['K','OUT','FO','SAC','OJ'].indexOf(type)>=0?1:0);
   if(outsAdded>0){var ip=parseFloat(ex.ip)||0;var parts=String(ip).split('.');var full=parseInt(parts[0])||0;var part=parseInt(parts[1])||0;var thirds=full*3+part+outsAdded;ex.ip=parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));}
@@ -4122,38 +4077,26 @@ async function undoLastPlay(){
     var outsAdded2=last.type==='DP'?2:isOut2?1:0;
     // After inning flip outs were reset to 0; restore to pre-out value minus what we're undoing
     gm.outs=Math.max(0,3-outsAdded2);
-    // Restaurar bases desde priorBases si disponible, sino limpiar
-    if(last.priorBases){
-      gm.bases={first:last.priorBases.first||null,second:last.priorBases.second||null,third:last.priorBases.third||null};
-    } else {
-      gm.bases={first:null,second:null,third:null};
-    }
+    // Also restore bases to cleared state before outs; we don't know exact bases so clear
+    gm.bases=gm.bases||{first:null,second:null,third:null};
   } else {
     // No inning change: just revert outs normally
     var isOut=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
     var outsAdded=last.type==='DP'?2:isOut?1:0;
     if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
-    // Restaurar bases desde priorBases guardado en el evento (preciso para DP, FO, K, OUT, E...)
-    if(last.priorBases){
-      gm.bases={
-        first:last.priorBases.first||null,
-        second:last.priorBases.second||null,
-        third:last.priorBases.third||null
-      };
-    } else if(last.type==='OJ'&&last.batterId){
-      // Fallback para eventos sin priorBases: restituir a la base vacia mas cercana
+    // Al deshacer un Out en Jugada, el corredor eliminado (last.batterId, que en OJ
+    // identifica al corredor puesto out, no al bateador en turno) debe volver a ocupar
+    // una base. No se guarda de cual base exacta salio, asi que se restituye a la base
+    // vacia mas cercana a home (3ra > 2da > 1ra), que es el caso mas comun.
+    if(last.type==='OJ'&&last.batterId){
       gm.bases=gm.bases||{first:null,second:null,third:null};
       if(!gm.bases.third)gm.bases.third=last.batterId;
       else if(!gm.bases.second)gm.bases.second=last.batterId;
       else if(!gm.bases.first)gm.bases.first=last.batterId;
     }
-    // Restaurar errorBases si el evento deshecho era un error
-    if(last.type==='E'&&gm.errorBases&&last.batterId){
-      gm.errorBases=gm.errorBases.filter(function(id){return id!==last.batterId;});
-    }
   }
-  // OJ no consume turno, error en tiro tampoco (el bateador sigue)
-  if(last.type!=='OJ'&&!(last.type==='E'&&last.errorSubtype==='throw')){
+  // Revert batter index — OJ has no batter so don't decrement batter idx
+  if(last.type!=='OJ'){
     if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
     else gm.homeBatterIdx=Math.max(0,(parseInt(gm.homeBatterIdx)||0)-1);
   }
@@ -4512,8 +4455,7 @@ function openSendToBaseM(){
   // Obtener los últimos out (para opción "Todas las bases")
   // Buscar en eventos del juego los últimos outs en orden inverso
   var gmEvs=S.events.filter(function(e){
-    // Solo outs del equipo al bate (no del equipo contrario)
-    return e.gameId===gm.id&&e.battingTeamId===btId&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
+    return e.gameId===gm.id&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
   }).sort(function(a,b){return(a.timestamp||'').localeCompare(b.timestamp||'');});
   // El más reciente es el "último que se hizo out"
   var lastOuts=[];
@@ -4554,10 +4496,8 @@ async function applySendToBase(){
   var nb=parseInt(gm.numBases)||2;
   gm.bases=gm.bases||{first:null,second:null,third:null};
   // Re-fetch lastOuts
-  var _btId2=gm.currentHalf==='top'?gm.awayTeamId:gm.homeTeamId;
   var gmEvs2=S.events.filter(function(e){
-    // Solo outs del equipo al bate (no del contrario)
-    return e.gameId===gm.id&&e.battingTeamId===_btId2&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
+    return e.gameId===gm.id&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
   }).sort(function(a,b){return(a.timestamp||'').localeCompare(b.timestamp||'');});
   var lastOuts2=[];
   gmEvs2.slice().reverse().forEach(function(e){if(e.batterId&&lastOuts2.indexOf(e.batterId)<0)lastOuts2.push(e.batterId);});
@@ -7640,11 +7580,7 @@ function doExportSchedulePDF(){
   var tour=S.tourFilter?S.tournaments.filter(function(t){return t.id===S.tourFilter;})[0]:null;
   var fg0=S.tourFilter?vg.filter(function(g){return String(g.tournamentId)===String(S.tourFilter);}):vg;
   var fg=_schedPhaseFilter?fg0.filter(function(g){return g.phase===_schedPhaseFilter;}):fg0;
-  var sc=fg.filter(function(g){return g.status==='scheduled';}).sort(function(a,b){
-    var da=(a.date||'2099')+'T'+(a.time&&a.time.indexOf('1899')<0?a.time.substring(0,5):'99:99');
-    var db=(b.date||'2099')+'T'+(b.time&&b.time.indexOf('1899')<0?b.time.substring(0,5):'99:99');
-    return da.localeCompare(db);
-  });
+  var sc=fg.filter(function(g){return g.status==='scheduled';}).sort(function(a,b){return new Date(a.date||'2099')-new Date(b.date||'2099');});
   var fn=fg.filter(function(g){return g.status==='final'||g.status==='suspended';}).sort(function(a,b){return new Date(b.date||'2099')-new Date(a.date||'2099');});
   var pt=S.parentTourFilter?S.parentTournaments.filter(function(t){return t.id===S.parentTourFilter;})[0]:null;
   var titleStr=(pt?pt.name+' — ':'')+(tour?tour.name:'Todos los torneos')+(S.yearFilter?' '+S.yearFilter:'');
