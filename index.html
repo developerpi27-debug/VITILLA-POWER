@@ -501,7 +501,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+  
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
@@ -3283,6 +3283,7 @@ async function _doOutEnJugada(forcedBase){
     S.events.push(Object.assign({},ojEv));
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     pgGC();
+    _lastEvTs=Date.now();
     await api('saveGame',{game:gm});
     await api('saveEvent',{event:ojEv});
     toast('Out en jugada registrado','success');
@@ -4622,6 +4623,12 @@ async function applySendToBase(){
     else if(base===3) gm.bases.third=pid;
     toast('Jugador enviado a '+(base===1?'1ra':base===2?'2da':'3ra')+' base','success');
   }
+  // Marcar de inmediato que hay un cambio local pendiente para que el poll no lo pise
+  // mientras el servidor todavia no ha replicado esta escritura (misma proteccion que
+  // usan el resto de las jugadas de gamecontrol).
+  _lastEvTs=Date.now();
+  _saving=true;
+  try{
   // Registrar carreras sucias si indicaron
   if(extraRuns>0){
     var inn_key=String(gm.currentInning)+'_'+(gm.currentHalf==='top'?'top':'bottom');
@@ -4645,6 +4652,7 @@ async function applySendToBase(){
   await api('saveGame',{game:gm});
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
   cM();pgGC();
+  } finally { _saving=false; }
 }
 
 function openSuspendLiveM(){
@@ -6029,6 +6037,7 @@ function openPlayerStatsM(pid,role){
     function pitLine(recs,label,accent){
       var sip=recs.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
       var sh=recs.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
+      var sr=recs.reduce(function(s,e){return s+(parseInt(e.r)||0);},0);
       var ser=recs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var sbb=recs.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
       var sk=recs.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
@@ -6040,11 +6049,12 @@ function openPlayerStatsM(pid,role){
       return'<tr style="'+(accent?'background:rgba(245,166,35,.07)':'')+'"><td style="font-size:12px;color:var(--t2)">'+label+'</td>'
         +'<td style="text-align:center">'+sw+'</td><td style="text-align:center">'+sl+'</td>'
         +'<td style="text-align:center">'+sip.toFixed(1)+'</td><td style="text-align:center">'+sh+'</td>'
+        +'<td style="text-align:center">'+sr+'</td><td style="text-align:center">'+ser+'</td>'
         +'<td style="text-align:center">'+sbb+'</td><td style="text-align:center">'+sk+'</td>'
         +'<td style="text-align:center;font-weight:700;color:var(--acc)">'+sera+'</td>'
         +'<td style="text-align:center">'+swhip+'</td></tr>';
     }
-    var pitHdr='<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th style="text-align:left">Situacion</th><th>G</th><th>P</th><th>IP</th><th>H</th><th>BB</th><th>K</th><th style="color:var(--acc)">ERA</th><th>WHIP</th></tr></thead><tbody>';
+    var pitHdr='<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr><th style="text-align:left">Situacion</th><th>G</th><th>P</th><th>IP</th><th>H</th><th title="Carreras sucias (totales)">R</th><th title="Carreras limpias">ER</th><th>BB</th><th>K</th><th style="color:var(--acc)">ERA</th><th>WHIP</th></tr></thead><tbody>';
 
     // vs each batting team — sorted ascending
     var batTeams=[];
