@@ -732,6 +732,23 @@ async function loadAll(){
   }
 }
 
+// Poll liviano para cuando el anotador esta activo en UN juego especifico: solo trae/actualiza
+// los datos de ESE juego (fila del juego, sus eventos, pitcheo y lineups), sin recargar todos
+// los torneos/juegos de la app. Es seguro con varios juegos en vivo simultaneos en distintos
+// dispositivos: cada uno pide solo el gameId que tiene abierto, y no toca los datos de los
+// demas juegos que puedan estar anotandose en paralelo.
+async function loadGameSliceOnly(gameId){
+  var res=await api('getGameSlice',{gameId:gameId});
+  if(!res||!res.ok||!res.data)return false;
+  var d=res.data;
+  S.games=S.games.map(function(x){return x.id===d.game.id?d.game:x;});
+  if(!S.games.some(function(x){return x.id===d.game.id;})) S.games.push(d.game);
+  S.events=S.events.filter(function(e){return e.gameId!==gameId;}).concat(d.events||[]);
+  S.pitching=S.pitching.filter(function(p){return p.gameId!==gameId;}).concat(d.pitching||[]);
+  S.lineups=S.lineups.filter(function(l){return l.gameId!==gameId;}).concat(d.lineups||[]);
+  return true;
+}
+
 // POLLING
 var _poll=null;
 var _saving=false;
@@ -745,7 +762,7 @@ async function _doPoll(){
   if(!S.user||document.hidden||_saving)return;
   var prevPoll=S.pollInterval||30;
   try{
-    // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de loadAll,
+    // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de recargar,
     // para protegerlo de que el poll lo "revierta" si el servidor todavia tiene lag de
     // escritura (eventual consistency) justo despues de guardar una jugada. Sin esto, el
     // out/score/bases podian regresar a un estado anterior y la siguiente jugada se le
@@ -761,7 +778,16 @@ async function _doPoll(){
       }
     }
 
-    await loadAll();
+    // Si el anotador esta activo registrando jugadas en un juego especifico (hay botones de
+    // anotacion en pantalla), usar el poll liviano de ESE juego en vez de recargar TODA la
+    // app en cada ciclo. Cualquier otro caso (listado de juegos, visitante, otros modulos)
+    // sigue usando loadAll() como antes.
+    var _isActiveScorer=(curP==='gamecontrol'&&S.game&&!!document.getElementById('gc-rplay-area'));
+    if(_isActiveScorer){
+      await loadGameSliceOnly(S.game);
+    } else {
+      await loadAll();
+    }
 
     // Si hubo una jugada local reciente (ultimos 12s) en el juego activo, el servidor
     // puede no haberla replicado todavia: nos quedamos con la version LOCAL completa de
@@ -780,21 +806,23 @@ async function _doPoll(){
       });
     }
 
-    // Actualizar badge de licencia (solo si no es visitante)
-    if(S.licenseExpires&&S.user&&S.user.role!=='public'){
+    // Actualizar badge de licencia (solo si no es visitante) — se salta durante el poll
+    // liviano del anotador activo, ya que ese poll no trae config/licencia; se refresca
+    // igual la proxima vez que haya un loadAll() completo (al cambiar de modulo, etc.)
+    if(!_isActiveScorer&&S.licenseExpires&&S.user&&S.user.role!=='public'){
       var days=Math.ceil((new Date(S.licenseExpires)-new Date())/864e5);
       var lici=document.getElementById('lici');
       if(lici)lici.innerHTML=days<30?'<span style="color:var(--acc)">&#9888; Licencia: '+days+'d</span>':'<span style="color:var(--grn)">&#10003; Licencia activa</span>';
     }
     saveSession();
-    // Refrescar marquee con datos actualizados (silencioso)
-    try{ refreshMarquee(); } catch(e2){}
+    // Refrescar marquee con datos actualizados (silencioso) — solo aplica cuando hubo loadAll()
+    if(!_isActiveScorer){ try{ refreshMarquee(); } catch(e2){} }
 
     // ── Auto-refresh del módulo activo (silencioso) ──────────────
     // 'gamecontrol' se maneja aparte mas abajo (no aqui) porque necesita logica especial
     // para no pisar el estado del anotador activo mientras esta registrando jugadas.
     var refreshableMods=['standings','stats','leaders','leaderslife','statslife','schedule','dashboard','channels'];
-    if(curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
+    if(!_isActiveScorer&&curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
       try{
         if(curP==='stats'&&(_ST.search||'')){
           initPGS();PGS[curP]();filterStatsDisplay();
