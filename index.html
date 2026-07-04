@@ -501,7 +501,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-  
+
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '60cd2e13000294e149a35ada733f0a886db1d359f0d18035c8e7090414eb8f30',
@@ -7375,10 +7375,15 @@ function awardCandidates(tourId,divFilter){
   var final_=buildPool('final',_divFAw);
 
   // ── MVP: puntos combinados bateo+pitcheo, sin minimo de VB/IP ──
+  // Respeta los flags mvpIncludeBat/mvpIncludePit configurados en el torneo: si alguno esta
+  // desactivado, ese componente NO debe contar ni para el orden ni para el total mostrado
+  // (antes solo se excluia visualmente en ptsHtml, pero el orden seguia usando ambos siempre).
+  var _mvpRBat=(tourObj&&tourObj.mvpIncludeBat===false)?false:true;
+  var _mvpRPit=(tourObj&&tourObj.mvpIncludePit===false)?false:true;
   function mvpScore(x){
     var s=0;
-    s+=x.battingPts; // siempre se suman los puntos de bateo (aunque vb=0, seran 0 o negativos)
-    if(x.ip>0) s+=x.pitchingPts; // solo sumar pitcheo si realmente lanzo
+    if(_mvpRBat) s+=x.battingPts; // siempre se suman los puntos de bateo (aunque vb=0, seran 0 o negativos)
+    if(_mvpRPit&&x.ip>0) s+=x.pitchingPts; // solo sumar pitcheo si realmente lanzo
     return s;
   }
   // ── Cy Young: puntos de pitcheo, minimo IP configurado ──
@@ -7449,7 +7454,9 @@ function allStarCandidates(tourId,divFilter){
   if(!gids.length) return{hasGames:false,byPos:{},frozen:!!cutoffDate};
   var evs=S.events.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';});
   var pevs=S.pitching.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
-  var tids=S.teams.filter(function(t){return t.tournamentId===tourId;}).map(function(t){return t.id;});
+  var _asAllTeams=S.teams.filter(function(t){return t.tournamentId===tourId;});
+  var _asFiltTeams=divFilter?_asAllTeams.filter(function(t){return(t.division||'')===divFilter;}):_asAllTeams;
+  var tids=_asFiltTeams.map(function(t){return t.id;});
   var pool=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&p.active!=='false';});
   var seen={};var uniq=[];
   pool.forEach(function(p){var k=(p.name||'').trim().toLowerCase();if(seen[k])return;seen[k]=true;uniq.push(p);});
@@ -7546,7 +7553,7 @@ function quickRegisterAllStar(playerId,tourId,posLabel,ptsStr){
 }
 function pgAllStarCandidates(tourId,divFilter){
   if(!tourId) return '<div class="card"><div class="empty"><div style="font-size:30px">&#11088;</div><div>Selecciona un subtorneo para ver los candidatos al Juego de Estrellas</div></div></div>';
-  var cand=allStarCandidates(tourId);
+  var cand=allStarCandidates(tourId,divFilter||'');
   if(!cand||!cand.hasGames) return '<div class="card"><div class="empty"><div style="font-size:30px">&#128202;</div><div>Sin juegos oficiales de Serie Regular en este subtorneo todavía</div></div></div>';
   var posKeys=Object.keys(cand.byPos);
   if(!posKeys.length) return '<div class="card"><div class="empty"><div style="font-size:30px">&#11088;</div><div>Sin datos suficientes por posición todavía</div></div></div>';
