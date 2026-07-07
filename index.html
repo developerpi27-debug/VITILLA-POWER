@@ -417,9 +417,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 @media (max-width:900px){
   #sb{
     position:fixed; top:0; left:0; right:0; width:100% !important; height:56px;
-    transform:none !important; flex-direction:row; align-items:stretch;
+    max-width:100vw; transform:none !important; flex-direction:row; align-items:stretch;
     box-shadow:0 2px 12px rgba(0,0,0,.35); z-index:150; border-right:none;
-    border-bottom:1px solid var(--bdr);
+    border-bottom:1px solid var(--bdr); overflow:hidden;
   }
   #sb.collapsed{width:100% !important;}
   #sb .sbl{flex-shrink:0; border-bottom:none; border-right:1px solid var(--bdr); padding:0 10px;}
@@ -427,7 +427,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   #sb .sbl-title{display:block;}
   #sb-toggle{display:none;} /* colapsar no aplica en modo barra horizontal */
   #snav{
-    flex:1; display:flex; flex-direction:row; align-items:stretch;
+    flex:1; min-width:0; display:flex; flex-direction:row; align-items:stretch;
     overflow-x:auto; overflow-y:hidden; padding:0; -webkit-overflow-scrolling:touch;
   }
   #sb.collapsed #snav{overflow-x:auto;}
@@ -5848,7 +5848,7 @@ function pgStand(){
     if(phase==='final') return g.phase==='final';
     return g.phase==='regular'||!g.phase;
   });
-  var classN=(!consolidated&&phase==='regular')?(tour&&parseInt(tour.teamsPlayoff)||4):(!consolidated&&phase==='playoff'?(tour&&parseInt(tour.teamsFinal)||2):0);
+  var classN=(!consolidated&&(!phase||phase==='regular'))?(tour&&parseInt(tour.teamsPlayoff)||4):(!consolidated&&phase==='playoff'?(tour&&parseInt(tour.teamsFinal)||2):0);
   var st=teamGroups.map(function(tg){
     var ids=tg.ids;
     var hg=fg.filter(function(g){return ids.indexOf(g.homeTeamId)>=0;});
@@ -5863,7 +5863,7 @@ function pgStand(){
     var ra=hg.filter(function(g){return!g.forfeit;}).reduce(function(s,g){return s+(parseInt(g.awayRuns)||0);},0)+ag.filter(function(g){return!g.forfeit;}).reduce(function(s,g){return s+(parseInt(g.homeRuns)||0);},0);
     var allG=hg.concat(ag).sort(function(a,b){return new Date(a.date)-new Date(b.date);});
     var sc=0,lr='';
-    for(var gi=allG.length-1;gi>=0&&sc<5;gi--){
+    for(var gi=allG.length-1;gi>=0;gi--){
       var gg=allG[gi];
       var isHomeG=ids.indexOf(gg.homeTeamId)>=0;
       var won=ffIsWin(gg,isHomeG);
