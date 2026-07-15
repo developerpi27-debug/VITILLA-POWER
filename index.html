@@ -4060,6 +4060,8 @@ async function rPlay(type){
     // calcular cuantas carreras son sucias vs limpias
     var _unearnedRuns=scorerIds.filter(function(sid){return _errBaseIds.indexOf(sid)>=0;}).length;
     var _earnedRuns=runs-_unearnedRuns;
+    if(_isErrorPlay) _earnedRuns=0; // toda la jugada es de error: ninguna de sus carreras es limpia
+    ev.earnedRuns=_earnedRuns;
     var _isErrorPlay=(type==='E')||_anyUnearnedScorer;
     // Remover de errorBases los jugadores que ya anotaron (ya no están en base)
     if(_errBaseIds.length>0&&scorerIds.length>0){
@@ -4067,7 +4069,7 @@ async function rPlay(type){
     }
     var facedPitcherId=await autoUpdatePitcher(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_errBaseIds);
     ev.pitcherId=facedPitcherId||null;
-    S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null}):x;});
+    S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null,earnedRuns:_earnedRuns}):x;});
     // ── Registrar quien "embasó" a este corredor (para corredores heredados) ──
     // Si el bateador de esta jugada llegó a base, queda tirado con el pitcher que lo enfrentó
     // — asi, si mas adelante entra un relevista y este corredor anota, la carrera se le sigue
@@ -6686,7 +6688,11 @@ function calcStreaks(tourId, yearFilter, allowedTourIds){
     var pid=e.pitcherId;
     if(!pitStreaks[pid]) pitStreaks[pid]={curIp:0,lastEnded:0};
     var s=pitStreaks[pid];
-    var runs=parseInt(e.runs)||0;
+    // Usar carreras LIMPIAS, no el total: una carrera sucia (por error, "Enviar a Base", etc.)
+    // no debe romper la racha de "IP sin carreras" del pitcher, igual que ya no cuenta para su
+    // ERA. Para jugadas antiguas guardadas antes de este campo (earnedRuns=null), se usa el
+    // total de carreras como respaldo razonable.
+    var runs=(e.earnedRuns!==null&&e.earnedRuns!==undefined)?parseInt(e.earnedRuns)||0:(parseInt(e.runs)||0);
     var outs=_STREAK_OUTS[e.type]||0;
     if(runs>0){
       // Se rompe la racha exactamente en esta jugada (los outs de esta misma jugada, si los
