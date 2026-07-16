@@ -1,0 +1,71 @@
+# ════════════════════════════════════════════════════════════════════════
+# Backup automatico de la base de datos de Supabase (Vitilla Power) hacia
+# Cloudflare R2, usando pg_dump. No requiere servidor propio: corre en la
+# infraestructura de GitHub Actions bajo el schedule definido abajo.
+#
+# INSTALACION:
+#   1. Guarda este archivo tal cual en:  .github/workflows/backup.yml
+#   2. Asegurate de tener creados los 5 secrets del repo (ver guia):
+#        SUPABASE_DB_URL, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#        R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME
+#   3. Listo — corre solo segun el horario, y tambien lo puedes disparar
+#      manualmente desde la pestaña "Actions" del repo ("Run workflow").
+# ════════════════════════════════════════════════════════════════════════
+
+name: Backup Supabase a Cloudflare R2
+
+on:
+  schedule:
+    # Corre 2 veces al dia (18:00 y 04:00 UTC). Ajusta si quieres otra
+    # frecuencia — cron usa hora UTC, no hora de Rep. Dominicana (UTC-4).
+    - cron: '0 18,4 * * *'
+  workflow_dispatch: {}   # permite correrlo manualmente desde GitHub
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar cliente de Postgres 17 (misma version que Supabase)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Generar el respaldo (pg_dump comprimido)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -e
+          STAMP=$(date -u +"%Y-%m-%d_%H-%M")
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # Formato "custom" (-Fc): comprimido y permite restaurar tablas
+          # individuales con pg_restore, no solo la base completa.
+          pg_dump "$SUPABASE_DB_URL" -Fc -f "backup_${STAMP}.dump"
+          ls -lh "backup_${STAMP}.dump"
+
+      - name: Subir el respaldo a Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -e
+          sudo apt-get install -y awscli
+          aws s3 cp "backup_${STAMP}.dump" \
+            "s3://${{ secrets.R2_BUCKET_NAME }}/backup_${STAMP}.dump" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+
+      - name: Verificar que quedo en R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws s3 ls "s3://${{ secrets.R2_BUCKET_NAME }}/" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            | tail -5
+
+      # No es necesario borrar backups viejos aqui: configura una regla de
+      # "Object lifecycle" en el bucket de R2 (Settings del bucket en el
+      # dashboard de Cloudflare) para que se borren solos despues de N dias.
