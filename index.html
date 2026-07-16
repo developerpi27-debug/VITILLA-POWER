@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+ 
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -3429,11 +3429,13 @@ async function _doOutEnJugada(forcedBase){
     }
     }
     var ojId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    // Update pitcher IP BEFORE rendering — capturar el pitcherId para que este out cuente
+    // correctamente en calculos que dependen de "quien enfrento esta jugada" (ej. rachas de
+    // IP sin carreras, que antes perdian estos outs por completo al no tener pitcherId).
+    var ojFacedPitcherId=await autoUpdatePitcher(gm,'OJ',0,evHalf);
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
-      type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,
+      type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,pitcherId:ojFacedPitcherId||null,
       timestamp:new Date().toISOString()};
-    // Update pitcher IP BEFORE rendering
-    await autoUpdatePitcher(gm,'OJ',0,evHalf);
     S.events.push(Object.assign({},ojEv));
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     pgGC();
@@ -4060,6 +4062,8 @@ async function rPlay(type){
     // calcular cuantas carreras son sucias vs limpias
     var _unearnedRuns=scorerIds.filter(function(sid){return _errBaseIds.indexOf(sid)>=0;}).length;
     var _earnedRuns=runs-_unearnedRuns;
+    if(_isErrorPlay) _earnedRuns=0; // toda la jugada es de error: ninguna de sus carreras es limpia
+    ev.earnedRuns=_earnedRuns;
     var _isErrorPlay=(type==='E')||_anyUnearnedScorer;
     // Remover de errorBases los jugadores que ya anotaron (ya no están en base)
     if(_errBaseIds.length>0&&scorerIds.length>0){
@@ -4067,7 +4071,7 @@ async function rPlay(type){
     }
     var facedPitcherId=await autoUpdatePitcher(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_errBaseIds);
     ev.pitcherId=facedPitcherId||null;
-    S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null}):x;});
+    S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null,earnedRuns:_earnedRuns}):x;});
     // ── Registrar quien "embasó" a este corredor (para corredores heredados) ──
     // Si el bateador de esta jugada llegó a base, queda tirado con el pitcher que lo enfrentó
     // — asi, si mas adelante entra un relevista y este corredor anota, la carrera se le sigue
@@ -4590,6 +4594,7 @@ async function restartGame(gid){
   gm.inningScores={};
   gm.awayBatterIdx=0;gm.homeBatterIdx=0;
   gm.errorBases=[];
+  gm.runnerPitcher={};
   gm.paused=false;
   gm.lastScorerId='';gm.lastScorerName='';
   gm.lockedBy=(S.user?S.user.id:'');gm.lockedByName=(S.user?S.user.name:'');gm.lockedAt=new Date().toISOString();
@@ -6657,46 +6662,53 @@ function calcStreaks(tourId, yearFilter, allowedTourIds){
   pastBat.sort(function(a,b){return b.streak-a.streak;});
 
   // ──────────────────────────────────────────────
-  // RACHA DE PITCHERS: IP consecutivas SIN carreras limpias
-  // Agrupamos por pitcher, por orden de juego
-  // Una "salida" es una línea en pitcheo. Si er>0, se rompe.
+  // RACHA DE PITCHERS: IP consecutivas SIN carreras (limpias o no — "sin carreras" es literal)
+  // Se calcula JUGADA POR JUGADA (no por salida/stint completa), para que las entradas limpias
+  // lanzadas ANTES de una carrera dentro del mismo juego SÍ se sumen a la racha, en vez de
+  // descartarse por completo junto con el resto de esa salida. Ej: 8.0 IP sin carreras, y en el
+  // siguiente juego lanza 2.0 entradas limpias y permite 1 carrera en la 3ra — la racha debe
+  // quedar en 10.0 IP (8+2), no en 8.0.
   // ──────────────────────────────────────────────
   var pitStreaks = {};  // pitcherId → {curIp, lastEnded}
-  var streakPevs = S.pitching.filter(function(e){
-    return allStreakGids.indexOf(e.gameId)>=0 && e.unofficial!=='true';
-  });
-  var orderedPevs = streakPevs.slice().sort(function(a,b){
-    var ga=S.games.filter(function(g){return g.id===a.gameId;})[0];
-    var gb=S.games.filter(function(g){return g.id===b.gameId;})[0];
-    var da=ga?new Date((ga.date||'2000-01-01')+'T'+(ga.time||'00:00')):new Date(0);
-    var db=gb?new Date((gb.date||'2000-01-01')+'T'+(gb.time||'00:00')):new Date(0);
+  var _gameOrderIdx={};
+  S.games.slice().sort(function(a,b){
+    var da=new Date((a.date||'2000-01-01')+'T'+(a.time||'00:00'));
+    var db=new Date((b.date||'2000-01-01')+'T'+(b.time||'00:00'));
     return da-db;
+  }).forEach(function(g,idx){_gameOrderIdx[g.id]=idx;});
+  var streakEvs = S.events.filter(function(e){
+    return e.pitcherId && allStreakGids.indexOf(e.gameId)>=0 && e.unofficial!=='true' && e.type!=='UNDO';
   });
-  orderedPevs.forEach(function(e){
-    if(!e.pitcherId) return;
+  var orderedStreakEvs = streakEvs.slice().sort(function(a,b){
+    var oa=_gameOrderIdx[a.gameId]!==undefined?_gameOrderIdx[a.gameId]:999999;
+    var ob=_gameOrderIdx[b.gameId]!==undefined?_gameOrderIdx[b.gameId]:999999;
+    if(oa!==ob) return oa-ob;
+    return (a.timestamp||'').localeCompare(b.timestamp||'');
+  });
+  var _STREAK_OUTS={K:1,OUT:1,FO:1,SAC:1,OJ:1,DP:2};
+  orderedStreakEvs.forEach(function(e){
     var pid=e.pitcherId;
     if(!pitStreaks[pid]) pitStreaks[pid]={curIp:0,lastEnded:0};
     var s=pitStreaks[pid];
-    var ip=parseFloat(e.ip)||0;
-    var er=parseInt(e.er)||0;
-    if(ip>0){
-      if(er===0){
-        s.curIp+=ip;
-      } else {
-        if(s.curIp>0) s.lastEnded=s.curIp;
-        s.curIp=0;
-      }
-    } else if(er>0){
-      // Sin IP registradas pero SI se le cargaron carreras (ej. corredores heredados que
-      // anotaron sin que el pitcher retirara a nadie): esto rompe la racha igual.
+    // Usar carreras LIMPIAS, no el total: una carrera sucia (por error, "Enviar a Base", etc.)
+    // no debe romper la racha de "IP sin carreras" del pitcher, igual que ya no cuenta para su
+    // ERA. Para jugadas antiguas guardadas antes de este campo (earnedRuns=null), se usa el
+    // total de carreras como respaldo razonable.
+    var runs=(e.earnedRuns!==null&&e.earnedRuns!==undefined)?parseInt(e.earnedRuns)||0:(parseInt(e.runs)||0);
+    var outs=_STREAK_OUTS[e.type]||0;
+    if(runs>0){
+      // Se rompe la racha exactamente en esta jugada (los outs de esta misma jugada, si los
+      // hay, no cuentan como limpios ya que ocurrieron junto con la carrera permitida).
       if(s.curIp>0) s.lastEnded=s.curIp;
       s.curIp=0;
+    } else if(outs>0){
+      var whole=Math.floor(s.curIp);
+      var third=Math.round((s.curIp-whole)*10); // curIp se guarda como N.0/N.1/N.2
+      third+=outs;
+      whole+=Math.floor(third/3);
+      third=third%3;
+      s.curIp=parseFloat(whole+'.'+third);
     }
-    // ip===0 && er===0: registro de pitcheo vacio/sin actividad real (ej. un stint que quedo
-    // en 0 por una sustitucion o correccion posterior) — no cuenta ni para extender ni para
-    // romper la racha. Antes esto rompia la racha incorrectamente (el "else" de abajo se
-    // ejecutaba con ip=0 aunque er tambien fuera 0), mostrando a pitchers con ERA perfecto
-    // (0 carreras permitidas en toda la temporada) como si su racha ya hubiera terminado.
   });
 
   var activePit=[], pastPit=[];
