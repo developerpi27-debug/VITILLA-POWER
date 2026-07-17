@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
- 
+
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -6355,7 +6355,7 @@ function openPlayerStatsM(pid,role){
     var careerPe2=S.pitching.filter(function(e){return careerPitPids.indexOf(e.pitcherId)>=0&&officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
     var isPitMulti=careerPitPids.length>1;
     var gps=pe2.length;
-    var totIP=pe2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var totIP=sumIP(pe2);
     var totK=pe2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
     var totBB=pe2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
     var totER=pe2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -6366,7 +6366,7 @@ function openPlayerStatsM(pid,role){
     var bbPer=gps>0?(totBB/gps).toFixed(1):'—';
 
     function pitLine(recs,label,accent){
-      var sip=recs.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var sip=sumIP(recs);
       var sh=recs.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
       var sr=recs.reduce(function(s,e){return s+(parseInt(e.r)||0);},0);
       var ser=recs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -6374,7 +6374,7 @@ function openPlayerStatsM(pid,role){
       var sk=recs.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
       var sw=recs.filter(function(e){return e.decision==='W';}).length;
       var sl=recs.filter(function(e){return e.decision==='L';}).length;
-      var sera=sip>0?(function(){var tER=0,tIP=0;recs.forEach(function(e){tER+=parseInt(e.er)||0;tIP+=parseFloat(e.ip)||0;});var avgI=recs.length?Math.round(recs.map(function(e){return gameInnings(e.gameId);}).reduce(function(a,b){return a+b;},0)/recs.length):7;return tIP>0?(tER*avgI/tIP).toFixed(2):'—';})():'—';
+      var sera=sip>0?(function(){var tER=0;recs.forEach(function(e){tER+=parseInt(e.er)||0;});var tIP=sip;var avgI=recs.length?Math.round(recs.map(function(e){return gameInnings(e.gameId);}).reduce(function(a,b){return a+b;},0)/recs.length):7;return tIP>0?(tER*avgI/tIP).toFixed(2):'—';})():'—';
       var swhip=sip>0?((sh+sbb)/sip).toFixed(2):'—';
       var col=accent?'color:var(--acc);font-weight:700':'';
       return'<tr style="'+(accent?'background:rgba(245,166,35,.07)':'')+'"><td style="font-size:12px;color:var(--t2)">'+label+'</td>'
@@ -6460,7 +6460,7 @@ function openPlayerStatsM(pid,role){
       +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TOTALES Y SPLITS'+(isPitMulti?' <span style=&quot;font-size:10px;color:var(--acc)&quot;>(este equipo/torneo)</span>':'')+'</div>'
       +'<div class="tw">'+pitHdr+pitLine(pe2,'Total',true)+'</tbody></table></div>'
       +(isPitMulti?(function(){
-        var ctotIP=careerPe2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+        var ctotIP=sumIP(careerPe2);
         var ctotK=careerPe2.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
         var ctotBB=careerPe2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
         var ctotER=careerPe2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -6498,6 +6498,27 @@ function openPlayerStatsM(pid,role){
 
 
 // Helper: innings de un juego (para calcular ERA correctamente)
+// ── Aritmetica correcta de entradas lanzadas (IP) en notacion de beisbol ──────────────────
+// "7.2" significa 7 entradas completas + 2 outs (dos tercios), NUNCA 7.2 como decimal real.
+// Sumar varios valores asi con + normal desborda la fraccion mas alla de .2 (ej. 7.2+6.2=13.4,
+// un valor invalido en esta notacion — el resultado correcto es 14.1). Estas funciones
+// convierten a tercios (outs totales), suman ahi, y regresan a la notacion N.T correctamente.
+function ipToThirds(ip){
+  var v=parseFloat(ip)||0;
+  var whole=Math.floor(v+1e-9);
+  var frac=Math.round((v-whole)*10); // 0,1,2 esperado
+  if(frac<0||frac>2)frac=0; // dato invalido/legado — no arrastrar basura
+  return whole*3+frac;
+}
+function thirdsToIP(thirds){
+  thirds=Math.max(0,Math.round(thirds));
+  return parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));
+}
+function sumIP(records,field){
+  field=field||'ip';
+  var totalThirds=(records||[]).reduce(function(s,e){return s+ipToThirds(e[field]);},0);
+  return thirdsToIP(totalThirds);
+}
 function gameInnings(gameId){
   var gm=S.games.filter(function(x){return x.id===gameId;})[0];
   return gm?parseInt(gm.totalInnings)||7:7;
@@ -6513,17 +6534,12 @@ function tourInnings(tourId){
 function calcPitcherERA(pitcherLines){
   // pitcherLines: array de líneas de pitcheo del pitcher
   if(!pitcherLines||!Array.isArray(pitcherLines)||!pitcherLines.length)return 99;
-  var totalER=0, totalIP=0;
+  var totalER=0;
   pitcherLines.forEach(function(e){
-    var ip=parseFloat(e.ip)||0;
     var er=parseInt(e.er)||0;
-    var inn=gameInnings(e.gameId);
-    // Normalizar: ER * 7 → ER * inn (los innings del juego)
-    // ERA = Suma(ER * inn_i / ip_i * ip_i) / totalIP * inn_promedio
-    // Forma correcta: ERA = (totalER / totalIP) * inn_promedio
     totalER+=er;
-    totalIP+=ip;
   });
+  var totalIP=sumIP(pitcherLines);
   if(totalIP===0)return 99;
   // Innings base: usar el de los juegos donde lanzó
   var inns=pitcherLines.map(function(e){return gameInnings(e.gameId);});
@@ -6699,7 +6715,11 @@ function calcStreaks(tourId, yearFilter, allowedTourIds){
     if(runs>0){
       // Se rompe la racha exactamente en esta jugada (los outs de esta misma jugada, si los
       // hay, no cuentan como limpios ya que ocurrieron junto con la carrera permitida).
-      if(s.curIp>0) s.lastEnded=s.curIp;
+      // IMPORTANTE: solo se actualiza lastEnded si esta racha que termina es MAYOR que la
+      // que ya teniamos guardada — igual que en bateadores. Sin este chequeo, una salida
+      // corta posterior (ej. 1.0 IP antes de otra carrera) borraba una racha mucho mas
+      // notable de antes (ej. 10.1 IP), haciendo que el pitcher desapareciera de la lista.
+      if(s.curIp>s.lastEnded) s.lastEnded=s.curIp;
       s.curIp=0;
     } else if(outs>0){
       var whole=Math.floor(s.curIp);
@@ -6738,7 +6758,7 @@ function calcStreaks(tourId, yearFilter, allowedTourIds){
     if(!tmStreaks[loser])  tmStreaks[loser]={cur:0,lastEnded:0};
     tmStreaks[winner].cur++;
     var ls=tmStreaks[loser];
-    if(ls.cur>0) ls.lastEnded=ls.cur;
+    if(ls.cur>ls.lastEnded) ls.lastEnded=ls.cur;
     ls.cur=0;
   });
 
@@ -6891,7 +6911,7 @@ function pgStats(tid,sBy,pSBy){
   }
   var pitData=pitGroupsST.map(function(pg){
     var p=pg.rep,ids=pg.ids;var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});
-    var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var ip=sumIP(pe);
     var h=pe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
     var r=pe.reduce(function(s,e){return s+(parseInt(e.r)||0);},0);
     var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
@@ -6907,7 +6927,7 @@ function pgStats(tid,sBy,pSBy){
     // Home/Away splits: pitcher is HOME when their teamId === game.homeTeamId
     function pitSplit(isHome){
       var spe=pe.filter(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&(isHome?gm2.homeTeamId===e.teamId:gm2.awayTeamId===e.teamId);});
-      var sip=spe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var sip=sumIP(spe);
       var sh=spe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
       var ser=spe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var sbb=spe.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -6999,7 +7019,7 @@ function pgStats(tid,sBy,pSBy){
     var tk=tEvs.filter(function(e){return e.type==='K';}).length;
     var tavgNum=tvb>0?th2/tvb:0;
     var tPevs=pevs.filter(function(e){return e.teamId===tid;});
-    var tip=tPevs.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var tip=sumIP(tPevs);
     var ter=tPevs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var teraNum=tip>0?(function(){var inns=tPevs.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(ter*avgI)/tip;})():99;
     var dif=rf-ra;
@@ -7182,7 +7202,7 @@ function pgLead(tid){
   var _ldTh=leadersThresholdsFor(scopeTourIds,_LD.tourId);
   var minLeadVB=_ldTh.vb,minLeadIP=_ldTh.ip;
   function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;}
-  function getIP(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}).reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);}
+  function getIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
   function topN(fn,n){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
   function fullN(fn){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;});}
   var _leadCardSeq=0;
@@ -7215,10 +7235,10 @@ function pgLead(tid){
   function get2B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H2';}).length;}
   function get3B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H3';}).length;}
   function getSB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='SB';}).length;}
-  function getERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0)>=1?calcPitcherERA(pe):99;}
+  function getERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&sumIP(pe)>=1?calcPitcherERA(pe):99;}
   function getWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function getKp(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
-  function getWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
+  function getWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Lideres</div><div class="ssb">Top jugadores por categoria</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
@@ -7327,7 +7347,7 @@ function pgStatsLife(sBy,pSBy){
   var pitData=careerPlayers.map(function(cp){
     var pe=pevs.filter(function(e){return cp.ids.indexOf(e.pitcherId)>=0;});
     if(!pe.length)return null;
-    var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var ip=sumIP(pe);
     var h=pe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
     var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var bb=pe.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -7362,7 +7382,7 @@ function pgStatsLife(sBy,pSBy){
       var grp=byTeam[key];var tm=grp.tm;var pp2=grp.pp;
       var teamLabel=tm?tm.name:key;
       if(!pp2.length)return'';
-      var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var ip2=sumIP(pp2);
       var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var bb2=pp2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
       var h2p=pp2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
@@ -7410,7 +7430,7 @@ function pgStatsLife(sBy,pSBy){
       var k=pe.filter(function(e){return e.type==='K';}).length;
       var avg=vb>0?(h/vb).toFixed(3):'—';var obp=(vb+bb)>0?((h+bb)/(vb+bb)).toFixed(3):'—';var slg=vb>0?((h-h2-h3-hr+h2*2+h3*3+hr*4)/vb).toFixed(3):'—';
       var pp2=S.pitching.filter(function(e){return pids.indexOf(e.pitcherId)>=0&&officialGids.indexOf(e.gameId)>=0;});
-      var ip2=pp2.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var ip2=sumIP(pp2);
       var er2=pp2.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var bb2=pp2.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
       var h2p=pp2.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
@@ -7517,11 +7537,11 @@ function pgLeadLife(){
   function c2B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H2';}).length;}
   function c3B(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='H3';}).length;}
   function cSB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='SB';}).length;}
-  function cERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0)>=1?calcPitcherERA(pe):99;}
+  function cERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&sumIP(pe)>=1?calcPitcherERA(pe):99;}
   function cWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function cK(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
-  function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
-  function cIP(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}).reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);}
+  function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
+  function cIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
   function pitLifeCard(ttl,fn,fmt,asc,skipExtra){
     fmt=fmt||function(v){return v;};
     var allItems=careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
@@ -7625,7 +7645,7 @@ function pgFeaturedByDate(){
     }
     var pp=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});
     if(pp.length){
-      var ip=pp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var ip=sumIP(pp);
       var pOuts=pp.reduce(function(s,e){var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;return s+full*3+third;},0);
       var er=pp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var pbb=pp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -7814,7 +7834,7 @@ function awardCandidates(tourId,divFilter){
       var slg=vb>0?(h1+h2*2+h3*3+hr*4)/vb:0;
       var ops=obp+slg;
       var pp=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});
-      var ip=pp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var ip=sumIP(pp);
       var pOuts=pp.reduce(function(s,e){
         var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');
         var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;
@@ -8356,7 +8376,7 @@ function doExportTeamStatsPDF(){
     return pls.map(function(p){
       var pe=pevsEx.filter(function(e){return e.pitcherId===p.id;});
       if(!pe.length)return''; // jugador que no lanzo en el subtorneo: se omite de pitcheo
-      var ip=pe.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+      var ip=sumIP(pe);
       var h=pe.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
       var er=pe.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
       var bb=pe.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -8577,7 +8597,7 @@ function doExportPlayerPDF(){
     }
   } else {
     // PITCHING REPORT
-    var ip=pp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var ip=sumIP(pp);
     var ph=pp.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
     var per=pp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var pbb=pp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -8607,7 +8627,7 @@ function doExportPlayerPDF(){
     // Home vs Away splits
     var homePP=pp.filter(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&gm2.homeTeamId===e.teamId;});
     var awayPP=pp.filter(function(e){var gm2=S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&gm2.awayTeamId===e.teamId;});
-    function splitStats(sp){var si=sp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);var sk=sp.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);var sbb=sp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);var sh=sp.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);var ser=sp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);var sera=si>0?(ser*avgInns/si).toFixed(2):'—';var swhip=si>0?((sh+sbb)/si).toFixed(2):'—';return{ip:si.toFixed(1),k:sk,bb:sbb,era:sera,whip:swhip,gp:sp.length};}
+    function splitStats(sp){var si=sumIP(sp);var sk=sp.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);var sbb=sp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);var sh=sp.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);var ser=sp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);var sera=si>0?(ser*avgInns/si).toFixed(2):'—';var swhip=si>0?((sh+sbb)/si).toFixed(2):'—';return{ip:si.toFixed(1),k:sk,bb:sbb,era:sera,whip:swhip,gp:sp.length};}
     var hs=splitStats(homePP),as=splitStats(awayPP);
     html+='<div class="section-title">🏠 Splits Local / Ruta</div>'
       +'<div class="two-col">'
@@ -8661,7 +8681,7 @@ function doExportPlayerPDF(){
     var bk=bpe.filter(function(e){return e.type==='K';}).length;
     var bavg=bvb>0?(bh/bvb).toFixed(3):'—';
     var bgp=[...new Set(bpe.map(function(e){return e.gameId;}))].length;
-    var bip=bpp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var bip=sumIP(bpp);
     var ber=bpp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var bpk=bpp.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
     var bpbb=bpp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
@@ -8788,7 +8808,7 @@ function pgToVsTo(){
   function playerPitStats(pid){
     var ids=namePlayerIds(pid);
     var pp=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});
-    var ip=pp.reduce(function(s,e){return s+(parseFloat(e.ip)||0);},0);
+    var ip=sumIP(pp);
     var h=pp.reduce(function(s,e){return s+(parseInt(e.h)||0);},0);
     var er=pp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var bb=pp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
