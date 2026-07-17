@@ -64,7 +64,7 @@ jobs:
           # 2. Subir el archivo generado a Cloudflare R2
           aws s3 cp "backup_${STAMP}.dump" \
             "s3://${{ secrets.R2_BUCKET_NAME }}/backup_${STAMP}.dump" \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+            --endpoint-url "${{ secrets.R2_ACCOUNT_ID }}"
 
       - name: Verificar que quedo en R2
         env:
