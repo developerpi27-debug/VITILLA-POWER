@@ -55,7 +55,13 @@ jobs:
           AWS_DEFAULT_REGION: auto
         run: |
           set -e
-          sudo apt-get install -y awscli
+          
+          # 1. Descargar e instalar la versión oficial de AWS CLI v2
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+          
+          # 2. Subir el archivo generado a Cloudflare R2
           aws s3 cp "backup_${STAMP}.dump" \
             "s3://${{ secrets.R2_BUCKET_NAME }}/backup_${STAMP}.dump" \
             --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
