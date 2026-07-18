@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+  
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -3673,9 +3673,8 @@ async function rPlay(type){
       gm._errorFielderId=(eidx>=0&&eidx<fldPlayers.length)?fldPlayers[eidx].id:null;
       return true;
     }
-    var sport=(gm.sport||'vitilla').toLowerCase();
-    if(sport==='vitilla'&&enBase>0){
-      // ── VITILLA con corredores en base ──
+    if(enBase>0){
+      // ── Con corredores en base ── (antes exclusivo de Vitilla; ahora aplica a todos los deportes)
       var errTipo=await numPromptAsync('ERROR - '+bName
         +'\nCorredores en base: '+enBase
         +'\n\nTipo de error:\n1. Error en tiro luego de hit (corredor en base anota; bateador NO avanza turno)'
@@ -3740,8 +3739,8 @@ async function rPlay(type){
         }
         var ok2=await pickFielder(); if(!ok2){_rPlayBusy=false;return;}
       }
-    } else if(sport==='vitilla'&&enBase===0){
-      // ── VITILLA sin corredores: preguntar a qué base llegó o si anotó ──
+    } else if(enBase===0){
+      // ── Sin corredores: preguntar a qué base llegó o si anotó ── (antes exclusivo de Vitilla)
       var noRunnerOpt=await numPromptAsync('ERROR - '+bName
         +'\nNo hay corredores en base.'
         +'\n\n¿Qué pasó?\n1. El bateador llegó a 1ra base\n2. El bateador llegó a 2da base\n3. El bateador anotó (carrera sucia)\n\nIngresa (1, 2 o 3):','1');
@@ -3751,14 +3750,6 @@ async function rPlay(type){
       else { runs=0; rbi=0; gm._errorBatterBase=nro===2?2:1; }
       gm._errorType='batter_play';
       var ok0=await pickFielder(); if(!ok0){_rPlayBusy=false;return;}
-    } else {
-      // ── Otro deporte: flujo original ──
-      var rb6=await numPromptAsync('ERROR - '+bName
-        +'\nCorredores en base: '+enBase
-        +'\n\nCarreras anotadas por el error?','0');
-      if(rb6===null){_rPlayBusy=false;return;}
-      rbi=Math.max(0,parseInt(rb6)||0); runs=rbi;
-      var ok3=await pickFielder(); if(!ok3){_rPlayBusy=false;return;}
     }
   }
 
