@@ -6330,6 +6330,40 @@ function openPlayerStatsM(pid,role){
     // Store data in global scope so onchange handlers can access them
     window._msAllPe=allPe;window._msTeamsVs=teamsVs;window._msPitchersVs=pitchersVs;
     window._msStatLine=statLine;window._msStatHdr=statHdr;
+    window._msFilterPitchersByTeam=function(tid){
+      if(!tid) return window._msPitchersVs;
+      var gids=window._msAllPe.filter(function(e){
+        var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];
+        return gm2&&(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)===tid;
+      }).map(function(e){return e.gameId;});
+      var pids=[];
+      window.S.pitching.filter(function(pt){return gids.indexOf(pt.gameId)>=0&&pt.teamId===tid;}).forEach(function(pt){if(pids.indexOf(pt.pitcherId)<0)pids.push(pt.pitcherId);});
+      pids.sort(function(a,b){var pa=window.playerOf(a),pb=window.playerOf(b);return(pa?pa.name:'').localeCompare(pb?pb.name:'');});
+      return pids;
+    };
+    window._msRenderPitOptions=function(pids){
+      return '<option value="">Todos los pitchers</option>'+pids.map(function(ppid){var pp=window.playerOf(ppid);return'<option value="'+ppid+'">'+(pp?'#'+(pp.number||'?')+' '+pp.name:ppid)+'</option>';}).join('');
+    };
+    window._msOnBatTeamChange=function(sel){
+      var tid=sel.value;
+      var ids=tid?[tid]:window._msTeamsVs;
+      document.getElementById('bat-vst-body').innerHTML=ids.map(function(tid2){
+        var t=window.teamOf(tid2);
+        var te=window._msAllPe.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)===tid2;});
+        return window._msStatLine(te,'vs '+(t?t.name:tid2));
+      }).join('');
+      var pids=window._msFilterPitchersByTeam(tid);
+      var pitSel=document.getElementById('bat-vsp-sel');
+      if(pitSel){
+        pitSel.innerHTML=window._msRenderPitOptions(pids);
+        pitSel.value='';
+        document.getElementById('bat-vsp-body').innerHTML=pids.map(function(ppid){
+          var pp=window.playerOf(ppid);
+          var te=window._msAllPe.filter(function(e){return window.S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.pitcherId===ppid&&pt.teamId!==e.battingTeamId;}).length>0;});
+          return window._msStatLine(te,'vs '+(pp?pp.name:ppid));
+        }).join('');
+      }
+    };
 
     showM('<div class="mhd"><div class="mtl">&#127952; '+p.name+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
       +'<div class="mbd">'
@@ -6354,7 +6388,7 @@ function openPlayerStatsM(pid,role){
         :'')
       +(teamsVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
         +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS EQUIPO</div>'
-        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="bat-vst-sel" onchange="var ids=this.value?[this.value]:window._msTeamsVs;document.getElementById(&quot;bat-vst-body&quot;).innerHTML=ids.map(function(tid2){var t=window.teamOf(tid2);var te=window._msAllPe.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&amp;&amp;(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)===tid2;});return window._msStatLine(te,&apos;vs &apos;+(t?t.name:tid2));}).join(&apos;&apos;)">'+teamOptsBat+'</select>'
+        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="bat-vst-sel" onchange="window._msOnBatTeamChange(this)">'+teamOptsBat+'</select>'
         +'</div><div class="tw">'+statHdr+'<tbody id="bat-vst-body">'+vsTeamRows.join('')+'</tbody></table></div>':'')
       +(pitchersVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
         +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS PITCHER</div>'
@@ -6432,6 +6466,41 @@ function openPlayerStatsM(pid,role){
     window._msPe2=pe2;window._msBatTeams=batTeams;window._msBattersVs=battersVs;
     window._msPitLine=pitLine;window._msPitHdr=pitHdr;window._msBatVsHdr=batVsHdr;
     window._msEvs=evs;
+    window._msFilterBattersByTeam=function(tid){
+      if(!tid) return window._msBattersVs;
+      var pids=[];
+      window._msEvs.filter(function(e){return e.type!=='UNDO'&&e.battingTeamId===tid&&window._msPe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;}).forEach(function(e){if(e.batterId&&pids.indexOf(e.batterId)<0)pids.push(e.batterId);});
+      pids.sort(function(a,b){var pa=window.playerOf(a),pb=window.playerOf(b);return(pa?pa.name:'').localeCompare(pb?pb.name:'');});
+      return pids;
+    };
+    window._msRenderBatOptions=function(bids){
+      return '<option value="">Todos los bateadores</option>'+bids.map(function(bid){var bp=window.playerOf(bid);return'<option value="'+bid+'">'+(bp?'#'+(bp.number||'?')+' '+bp.name:bid)+'</option>';}).join('');
+    };
+    window._msOnPitTeamChange=function(sel){
+      var tid=sel.value;
+      var ids=tid?[tid]:window._msBatTeams;
+      document.getElementById('pit-vst-body').innerHTML=ids.map(function(tid2){
+        var t=window.teamOf(tid2);
+        var te=window._msPe2.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&&(gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId)===tid2;});
+        return window._msPitLine(te,'vs '+(t?t.name:tid2));
+      }).join('');
+      var bids=window._msFilterBattersByTeam(tid);
+      var batSel=document.getElementById('pit-vsb-sel');
+      if(batSel){
+        batSel.innerHTML=window._msRenderBatOptions(bids);
+        batSel.value='';
+        document.getElementById('pit-vsb-body').innerHTML=bids.map(function(bid){
+          var bp=window.playerOf(bid);
+          var be=window._msEvs.filter(function(e){return e.batterId===bid&&e.type!=='UNDO'&&window._msPe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;});
+          var vb=be.filter(function(e){return['BB','HBP','SAC','OJ'].indexOf(e.type)<0;}).length;
+          var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+          var bb=be.filter(function(e){return e.type==='BB';}).length;
+          var k=be.filter(function(e){return e.type==='K';}).length;
+          var avg=vb>0?(h/vb).toFixed(3):'—';
+          return '<tr><td style="font-size:12px;color:var(--t2)">'+(bp?'#'+(bp.number||'?')+' '+bp.name:bid)+'</td><td style="text-align:center">'+vb+'</td><td style="text-align:center">'+h+'</td><td style="text-align:center">'+bb+'</td><td style="text-align:center">'+k+'</td><td style="text-align:center;font-weight:700;color:var(--acc)">'+avg+'</td></tr>';
+        }).join('');
+      }
+    };
 
     function pitModalVsTeamRows(filterTid){
       var ids=filterTid?[filterTid]:batTeams;
@@ -6503,7 +6572,7 @@ function openPlayerStatsM(pid,role){
       })():'')
       +(batTeams.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
         +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS EQUIPO</div>'
-        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="pit-vst-sel" onchange="var ids=this.value?[this.value]:window._msBatTeams;document.getElementById(&quot;pit-vst-body&quot;).innerHTML=ids.map(function(tid2){var t=window.teamOf(tid2);var te=window._msPe2.filter(function(e){var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];return gm2&amp;&amp;(gm2.homeTeamId===e.teamId?gm2.awayTeamId:gm2.homeTeamId)===tid2;});return window._msPitLine(te,&apos;vs &apos;+(t?t.name:tid2));}).join(&apos;&apos;)">'+teamOptsPit+'</select>'
+        +'<select class="fs" style="width:160px;padding:4px 8px;font-size:12px" id="pit-vst-sel" onchange="window._msOnPitTeamChange(this)">'+teamOptsPit+'</select>'
         +'</div>'
         +'<div class="tw">'+pitHdr+'<tbody id="pit-vst-body">'+pitModalVsTeamRows('')+'</tbody></table></div>':'')
       +(battersVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
