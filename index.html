@@ -851,7 +851,7 @@ function startPolling(){
   _poll=setInterval(_doPoll, _curPollMs);
 }
 async function _doPoll(){
-  if(!S.user||document.hidden||_saving)return;
+  if(!S.user||document.hidden||_saving||_rPlayBusy)return;
   var prevPoll=S.pollInterval||30;
   try{
     // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de recargar,
@@ -968,7 +968,19 @@ async function _doPoll(){
   }catch(e){console.warn('Poll error:',e);}
 }
 function stopPolling(){if(_poll){clearInterval(_poll);_poll=null;}}
-document.addEventListener('visibilitychange',function(){document.hidden?stopPolling():startPolling();});
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){stopPolling();}
+  else{
+    // La pestana estuvo en segundo plano un tiempo indeterminado: el estado local
+    // (indice de bateador, bases, outs) puede estar desactualizado. Reiniciar solo el
+    // temporizador no alcanza porque el primer _doPoll real tardaria hasta pollInterval
+    // completo en ejecutarse — tiempo de sobra para marcar una jugada contra un bateador
+    // que, segun el servidor, ya completo su turno (causa raiz del bug de "jugada
+    // duplicada al mismo bateador" al volver de segundo plano/otra pestana).
+    startPolling();
+    _doPoll();
+  }
+});
 
 // MODULES & NAV
 var ALL_MOD=[
