@@ -4030,7 +4030,12 @@ async function rPlay(type){
     var evId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     var errorFielderId=(type==='E'&&gm._errorFielderId)||null;
     // Registrar en gm.errorBases los jugadores que llegaron a base por error (sus carreras serán sucias)
-    if(type==='E'&&batter){
+    // IMPORTANTE: en un error de tipo 'throw' el bateador en turno NO completa su turno con esta
+    // jugada (sigue bateando, ver "Advance batter index" mas abajo) — el unico afectado por el
+    // error es el corredor que ya estaba en base y avanzo/anoto (scorerIds/_throwCorrId). Marcar
+    // aqui al bateador como "embasado por error" era incorrecto: contaminaba como sucia una
+    // carrera que el mismo anotaria despues con una jugada limpia propia (ej. un doble).
+    if(type==='E'&&batter&&gm._errorType!=='throw'){
       gm.errorBases=gm.errorBases||[];
       // El bateador llego a base por error (si no anoto ya en esta misma jugada)
       if(scorerIds.indexOf(batter)<0) gm.errorBases.push(batter);
@@ -4083,9 +4088,9 @@ async function rPlay(type){
     // calcular cuantas carreras son sucias vs limpias
     var _unearnedRuns=scorerIds.filter(function(sid){return _errBaseIds.indexOf(sid)>=0;}).length;
     var _earnedRuns=runs-_unearnedRuns;
+    var _isErrorPlay=(type==='E')||_anyUnearnedScorer;
     if(_isErrorPlay) _earnedRuns=0; // toda la jugada es de error: ninguna de sus carreras es limpia
     ev.earnedRuns=_earnedRuns;
-    var _isErrorPlay=(type==='E')||_anyUnearnedScorer;
     // Remover de errorBases los jugadores que ya anotaron (ya no están en base)
     if(_errBaseIds.length>0&&scorerIds.length>0){
       gm.errorBases=_errBaseIds.filter(function(sid){return scorerIds.indexOf(sid)<0;});
