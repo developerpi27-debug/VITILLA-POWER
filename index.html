@@ -4796,6 +4796,18 @@ async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,
   var ftId=isTop?gm.homeTeamId:gm.awayTeamId;
   var ex=findCurrentPitcherRecord(gm,ftId);
   if(!ex)return null;
+  // IMPORTANTE: asignar el id AQUI, antes de la primera actualizacion/guardado. Si el
+  // registro no tiene id todavia (pitcher recien entrado, sin guardar aun), cada llamada a
+  // api('savePitching',...) para ESTE MISMO pitcher debe reutilizar exactamente el mismo id
+  // para que el servidor haga upsert sobre la misma fila. Sin esto, mientras se esta offline
+  // (o si la primera respuesta del servidor tarda), cada jugada quedaba con un id distinto (o
+  // ninguno) en la cola de sincronizacion, y el servidor terminaba creando una fila nueva por
+  // cada jugada en vez de actualizar siempre la misma — las estadisticas del pitcher sumaban
+  // entonces todas esas filas duplicadas (H, R, ER, BB, K, IP inflados por igual).
+  if(!ex.id){
+    ex.id=nid();
+    S.pitching=S.pitching.map(function(p){return(p.gameId===ex.gameId&&p.teamId===ex.teamId&&p.pitcherId===ex.pitcherId&&!p.id)?ex:p;});
+  }
   if(['H1','H2','H3','HR'].indexOf(type)>=0)ex.h=(parseInt(ex.h)||0)+1;
   if(type==='HR')ex.hr=(parseInt(ex.hr)||0)+1;
   if(type==='K')ex.k=(parseInt(ex.k)||0)+1;
@@ -5483,6 +5495,10 @@ async function applySendToBase(){
     var ftId2=isTopNow?gm.homeTeamId:gm.awayTeamId;
     var exPit=findCurrentPitcherRecord(gm,ftId2);
     if(exPit){
+      if(!exPit.id){
+        exPit.id=nid();
+        S.pitching=S.pitching.map(function(p){return(p.gameId===exPit.gameId&&p.teamId===exPit.teamId&&p.pitcherId===exPit.pitcherId&&!p.id)?exPit:p;});
+      }
       exPit.r=(parseInt(exPit.r)||0)+extraRuns;
       S.pitching=S.pitching.map(function(p){return(p.gameId===exPit.gameId&&p.teamId===exPit.teamId&&p.pitcherId===exPit.pitcherId&&!p.pitchingClosed)?exPit:p;});
       var rPit=await api('savePitching',{event:exPit});
