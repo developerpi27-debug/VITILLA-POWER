@@ -761,6 +761,7 @@ async function syncOutbox(){
   if(_syncBusy)return; // dos disparadores (evento online + timer) no corren en paralelo
   _syncBusy=true;
   var startedWithPending=0;
+  var rejectedCount=0;
   try{
     startedWithPending=await pendingOutboxCount();
     if(startedWithPending===0)return;
@@ -775,6 +776,16 @@ async function syncOutbox(){
           // hasta que el usuario vuelva a iniciar sesion (ver api()/doLogout).
           break;
         }
+        if(!res||!res.ok){
+          // El servidor SI respondio (no fue un problema de red) pero rechazo
+          // la escritura por algun otro motivo (validacion, permisos, etc).
+          // Antes esto se borraba igual del outbox como si hubiera tenido
+          // exito, perdiendo el cambio en silencio. Ahora se deja pendiente
+          // y se avisa al usuario, en vez de descartarlo.
+          console.warn('Sync rechazado por el servidor:',it.action,it.key,res&&res.error);
+          rejectedCount++;
+          continue; // probar el resto de la cola; este se reintenta en el proximo ciclo
+        }
         // Solo se borra tras confirmacion del servidor — si la app se cierra
         // a mitad de este bucle, lo que no llego aqui sigue pendiente.
         await idbDelete('outbox',it.key);
@@ -787,7 +798,9 @@ async function syncOutbox(){
     _syncBusy=false;
     var remaining=await pendingOutboxCount();
     await updatePendingBadge();
-    if(startedWithPending>0&&remaining===0){
+    if(rejectedCount>0){
+      toast(rejectedCount+' cambio(s) no se pudieron sincronizar y siguen pendientes — revisa la consola.','error');
+    } else if(startedWithPending>0&&remaining===0){
       toast('Todo se sincronizó correctamente ✅','success');
     }
   }
@@ -1210,6 +1223,21 @@ document.addEventListener('scroll',resetActivity,{passive:true,capture:true});
 document.addEventListener('pointerdown',resetActivity,{passive:true});
 
 // LOAD ALL
+// Devuelve el set de gameIds que tienen un 'saveGame' todavia sin confirmar
+// en el outbox — mientras exista, ningun poll/carga debe reemplazar el juego
+// local con la version del servidor (todavia desactualizada), o se pierden
+// visualmente carreras/outs recien anotados offline hasta que ese guardado
+// pendiente termine de sincronizar.
+async function outboxPendingGameIds(){
+  try{
+    var all=await idbGetAll('outbox');
+    var ids={};
+    all.forEach(function(it){
+      if(it.action==='saveGame'&&it.data&&it.data.game&&it.data.game.id) ids[it.data.game.id]=true;
+    });
+    return ids;
+  }catch(e){ return {}; }
+}
 async function loadAll(){
   var res=await api('getAll');if(!res||!res.ok)return false;
   var d=res.data;
@@ -1225,7 +1253,15 @@ async function loadAll(){
   S.loginWindowMinutes=parseInt(d.config&&d.config.loginWindowMinutes)||1;
   S.loginLockoutMinutes=parseInt(d.config&&d.config.loginLockoutMinutes)||5;
   S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
-  S.games=d.games||[];S.lineups=d.lineups||[];S.events=d.events||[];
+  var pendingGameIds=await outboxPendingGameIds();
+  if(Object.keys(pendingGameIds).length>0){
+    var prevGamesById={};
+    S.games.forEach(function(g){prevGamesById[g.id]=g;});
+    S.games=(d.games||[]).map(function(g){return pendingGameIds[g.id]&&prevGamesById[g.id]?prevGamesById[g.id]:g;});
+  } else {
+    S.games=d.games||[];
+  }
+  S.lineups=d.lineups||[];S.events=d.events||[];
   S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];S.visits=d.visits||{};S.channels=d.channels||[];
   // Si el usuario tiene perfil restringido a un solo deporte, fijarlo automáticamente
   // (admin y visitante pueden elegir entre los 3; un usuario normal no puede ver otros deportes)
@@ -1246,8 +1282,17 @@ async function loadGameSliceOnly(gameId){
   var res=await api('getGameSlice',{gameId:gameId});
   if(!res||!res.ok||!res.data)return false;
   var d=res.data;
-  S.games=S.games.map(function(x){return x.id===d.game.id?d.game:x;});
-  if(!S.games.some(function(x){return x.id===d.game.id;})) S.games.push(d.game);
+  var pendingGameIds=await outboxPendingGameIds();
+  if(pendingGameIds[d.game.id]){
+    // Hay un guardado de ESTE juego (marcador/estado) todavia sin confirmar en
+    // el servidor (ej. jugadas anotadas offline recien reconectadas) — no
+    // pisar el juego local con la version del servidor, que todavia no
+    // refleja esas carreras/outs, o se veria "revertir" el marcador hasta
+    // que ese guardado pendiente termine de sincronizar.
+  } else {
+    S.games=S.games.map(function(x){return x.id===d.game.id?d.game:x;});
+    if(!S.games.some(function(x){return x.id===d.game.id;})) S.games.push(d.game);
+  }
   // Preservar jugadas LOCALES de este juego que todavia no se confirmaron guardadas en el
   // servidor (e._saved!==true) — por ejemplo porque el guardado fallo por una caida temporal
   // de conexion/Supabase. Sin esto, el siguiente poll las reemplazaria silenciosamente con la
