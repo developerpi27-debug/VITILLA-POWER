@@ -4527,7 +4527,18 @@ async function undoLastPlay(){
   _lastEvTs=Date.now();
   _saving=true;
   try{
-    await api('deleteRow',{sheet:'Eventos',id:last.id});
+    // NOTA: 'deleteEvent' (scoped a la tabla eventos, permiso gamecontrol/delete)
+    // en vez de 'deleteRow' generico (ADMIN_ONLY_ACTIONS) — este ultimo rechazaba
+    // la peticion para cualquier anotador no-admin, dejando la jugada "viva" en la
+    // base de datos aunque localmente pareciera deshecha.
+    var delRes=await api('deleteEvent',{id:last.id});
+    if(!delRes||!delRes.ok){
+      S.events=S.events.filter(function(e){return e.id!==undoLogId;});
+      S.events.push(last);
+      toast('No se pudo deshacer la jugada: '+((delRes&&delRes.error)||'error desconocido')+'. Intenta de nuevo o contacta al administrador.','error');
+      pgGC();
+      return;
+    }
     await api('saveGame',{game:gm});
     if(ex) await api('savePitching',{event:ex});
     await api('saveEvent',{event:undoLogEv});
