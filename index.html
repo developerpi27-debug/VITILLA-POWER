@@ -7718,7 +7718,7 @@ function pgStats(tid,sBy,pSBy){
   if(sBy!==undefined){if(_ST.sortBy===sBy)_ST.sortDir*=-1;else{_ST.sortBy=sBy;_ST.sortDir=-1;}}
   if(pSBy!==undefined){if(_ST.pitSortBy===pSBy)_ST.pitSortDir*=-1;else{_ST.pitSortBy=pSBy;_ST.pitSortDir=1;}}
   var tSBy=arguments[3];
-  if(tSBy!==undefined){if(_ST.tmSortBy===tSBy)_ST.tmSortDir*=-1;else{_ST.tmSortBy=tSBy;_ST.tmSortDir=(tSBy==='pct'||tSBy==='w'||tSBy==='rf'||tSBy==='dif'||tSBy==='gp')?-1:1;}}
+  if(tSBy!==undefined){if(_ST.tmSortBy===tSBy)_ST.tmSortDir*=-1;else{_ST.tmSortBy=tSBy;_ST.tmSortDir=(tSBy==='pct'||tSBy==='w'||tSBy==='rf'||tSBy==='dif'||tSBy==='gp'||tSBy==='pts')?-1:1;}}
   var dSBy=arguments[4];
   if(dSBy!==undefined){if(_ST.defSortBy===dSBy)_ST.defSortDir*=-1;else{_ST.defSortBy=dSBy;_ST.defSortDir=-1;}}
   // Only include official final games AND official suspended games (official='true')
@@ -7886,6 +7886,23 @@ function pgStats(tid,sBy,pSBy){
     return false;
   });
   function tth(col,lbl){var a=_ST.tmSortBy===col;return'<th onclick="pgStats(undefined,undefined,undefined,\''+col+'\')" style="cursor:pointer;user-select:none;text-align:center;'+(a?'color:var(--acc)':'')+'">'+(lbl+(_ST.tmSortDir===-1?'&darr;':'&uarr;'))+'</th>';}
+  // Config de puntos (mismo sistema configurable de Juego de Estrellas/Candidatos)
+  // usada para la columna PTS: puntos consolidados de bateo + pitcheo de los
+  // jugadores de cada equipo, ya con las restas correspondientes aplicadas
+  // (outs de bateador, ponches de bateador, ER, BB de pitcher, derrotas).
+  // Se toma del subtorneo actualmente filtrado (o el primero visible si esta
+  // en "Todos"), igual que en Premiaciones > Jugadores Destacados en Fecha.
+  var ptsTourId=_ST.tourId||scopeTourIdsST[0];
+  var tourObjPts=S.tournaments.filter(function(t){return t.id===ptsTourId;})[0];
+  function ptsVal(field,def){return(tourObjPts&&tourObjPts[field]!==undefined&&tourObjPts[field]!==null&&tourObjPts[field]!=='')?Number(tourObjPts[field]):def;}
+  var PP={
+    h1:ptsVal('asPtsH1',1),h2:ptsVal('asPtsH2',2),h3:ptsVal('asPtsH3',3),hr:ptsVal('asPtsHr',4),
+    bb:ptsVal('asPtsBb',1),rbi:ptsVal('asPtsRbi',1),r:ptsVal('asPtsR',1),
+    outBat:ptsVal('asPtsOutBat',1),kBat:ptsVal('asPtsKBat',1),
+    kPit:ptsVal('asPtsKPit',1),outPit:ptsVal('asPtsOutPit',0.5),ipThird:ptsVal('asPtsIpThird',1),
+    wPit:ptsVal('asPtsWPit',2),svPit:ptsVal('asPtsSvPit',2),
+    erPit:ptsVal('asPtsErPit',1),bbPit:ptsVal('asPtsBbPit',1),lPit:ptsVal('asPtsLPit',2)
+  };
   var tmData=tmIds.map(function(tid){
     var tm=teamOf(tid);if(!tm)return null;
     var hg=finGames.filter(function(g){return g.homeTeamId===tid;});
@@ -7911,7 +7928,23 @@ function pgStats(tid,sBy,pSBy){
     var ter=tPevs.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
     var teraNum=tip>0?(function(){var inns=tPevs.map(function(e){return gameInnings(e.gameId);});var avgI=inns.length?Math.round(inns.reduce(function(a,b){return a+b;},0)/inns.length):7;return(ter*avgI)/tip;})():99;
     var dif=rf-ra;
-    return{tm:tm,gp:gp,w:w,l:l,pct:pctNum,rf:rf,ra:ra,dif:dif,rh:rh,re:re,avg:tavgNum,hr:thr,rbi:trbi,bb:tbb,k:tk,era:teraNum,tip:tip};
+    // === PTS: consolidado de bateo + pitcheo de los jugadores del equipo (ya con las restas aplicadas) ===
+    var th1=tEvs.filter(function(e){return e.type==='H1';}).length;
+    var thh2=tEvs.filter(function(e){return e.type==='H2';}).length;
+    var thh3=tEvs.filter(function(e){return e.type==='H3';}).length;
+    var tBBOnly=tEvs.filter(function(e){return e.type==='BB';}).length;
+    var tR=tEvs.reduce(function(s,e){return s+((e.scorerIds||[]).length);},0);
+    var tOutBat=tEvs.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+    var battingPtsTm=th1*PP.h1+thh2*PP.h2+thh3*PP.h3+thr*PP.hr+tBBOnly*PP.bb+trbi*PP.rbi+tR*PP.r-tOutBat*PP.outBat-tk*PP.kBat;
+    var tPOuts=tPevs.reduce(function(s,e){var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;return s+full*3+third;},0);
+    var tPk=tPevs.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+    var tPbb=tPevs.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+    var tPw=tPevs.filter(function(e){return e.decision==='W';}).length;
+    var tPsv=tPevs.filter(function(e){return e.decision==='S';}).length;
+    var tPl=tPevs.filter(function(e){return e.decision==='L';}).length;
+    var pitchingPtsTm=tPk*PP.kPit+tPOuts*PP.outPit+tPOuts*PP.ipThird+tPw*PP.wPit+tPsv*PP.svPit-ter*PP.erPit-tPbb*PP.bbPit-tPl*PP.lPit;
+    var totalPts=battingPtsTm+pitchingPtsTm;
+    return{tm:tm,gp:gp,w:w,l:l,pct:pctNum,rf:rf,ra:ra,dif:dif,rh:rh,re:re,avg:tavgNum,hr:thr,rbi:trbi,bb:tbb,k:tk,era:teraNum,tip:tip,pts:totalPts};
   }).filter(Boolean).sort(function(a,b){
     var col=_ST.tmSortBy;
     var av=a[col],bv=b[col];
@@ -7940,6 +7973,7 @@ function pgStats(tid,sBy,pSBy){
       +'<td style="text-align:center;color:'+(_ST.tmSortBy==='bb'?'var(--acc)':'inherit')+'">'+s.bb+'</td>'
       +'<td style="text-align:center;color:'+(_ST.tmSortBy==='k'?'var(--acc)':'inherit')+'">'+s.k+'</td>'
       +'<td style="text-align:center;font-weight:700;color:'+(s.tip>0?(s.era<3?(_ST.tmSortBy==='era'?'var(--acc)':'var(--grn)'):s.era>5?'var(--red)':'var(--acc)'):'var(--t3)')+'">'+eraStr+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:'+(_ST.tmSortBy==='pts'?'var(--acc)':'inherit')+'">'+s.pts.toFixed(2)+'</td>'
       +'</tr>';
   }).join('');
 
@@ -7996,11 +8030,11 @@ function pgStats(tid,sBy,pSBy){
     +(pitRows||'<tr><td colspan="14"><div class="empty">Sin estadisticas de pitcheo</div></td></tr>')
     +'</tbody></table></div></div></div>'
     +'<div id="st-t" style="'+(_ST.activeTab==='st-t'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'
-    +'<th>Equipo</th>'+tth('gp','JJ')+tth('w','G')+tth('l','P')+tth('pct','PCT')+tth('rf','RF')+tth('ra','RC')+tth('dif','DIF')+tth('rh','H')+tth('re','E')+tth('avg','AVG')+tth('hr','HR')+tth('rbi','RBI')+tth('bb','BB')+tth('k','K')+tth('era','ERA')
+    +'<th>Equipo</th>'+tth('gp','JJ')+tth('w','G')+tth('l','P')+tth('pct','PCT')+tth('rf','RF')+tth('ra','RC')+tth('dif','DIF')+tth('rh','H')+tth('re','E')+tth('avg','AVG')+tth('hr','HR')+tth('rbi','RBI')+tth('bb','BB')+tth('k','K')+tth('era','ERA')+tth('pts','PTS')
     +'</tr></thead><tbody>'
-    +(tmRows||'<tr><td colspan="16"><div class="empty">Sin datos de equipos</div></td></tr>')
+    +(tmRows||'<tr><td colspan="17"><div class="empty">Sin datos de equipos</div></td></tr>')
     +'</tbody></table></div></div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">RF=Carreras a favor &middot; RC=Carreras en contra &middot; DIF=Diferencial &middot; ERA=Efectividad del equipo</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">RF=Carreras a favor &middot; RC=Carreras en contra &middot; DIF=Diferencial &middot; ERA=Efectividad del equipo &middot; PTS=Puntos consolidados de bateo+pitcheo de los jugadores del equipo (sistema de puntos del subtorneo, ya con las restas aplicadas)</div>'
     +'</div>'
     +'<div id="st-d" style="'+(_ST.activeTab==='st-d'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipo</th><th onclick="pgStats(undefined,undefined,undefined,undefined,\'e\')" style="text-align:center;cursor:pointer;user-select:none;'+(_ST.defSortBy==='e'?'color:var(--acc)':'')+'">'+'E'+(_ST.defSortDir===-1?'&darr;':'&uarr;')+'</th><th style="text-align:center">POS</th></tr></thead><tbody>'
     +(defRows||'<tr><td colspan="4"><div class="empty">Sin datos de defensa</div></td></tr>')
