@@ -682,6 +682,9 @@ function guestLogin(){
   // Si vino de vitilla.powerrdapp.com, baseball.powerrdapp.com o softball.powerrdapp.com,
   // preseleccionar ese deporte (availableSports() ya lo deja bloqueado a ese unico deporte).
   if(_SUBDOMAIN_SPORT) S.sportFilter=_SUBDOMAIN_SPORT;
+  // Persistir la sesion de visitante igual que la de usuario/clave, para que un refresh de
+  // pagina lo mantenga como visitante (y con su deporte bloqueado) en vez de volver al login.
+  saveSession();
   loadAll().catch(function(){}).finally(function(){
     document.getElementById('lscr').style.display='none';
     document.getElementById('app').style.display='flex';
@@ -1044,6 +1047,13 @@ var _SUBDOMAIN_SPORT=null; // se fija una vez al arrancar la app (ver window.onl
 // origen detectado — aplica siempre (visitante o usuario con clave), en todo lugar donde la
 // app dice "Vitilla" como nombre. Por defecto (sin subdominio detectado) se mantiene "Vitilla"
 // tal como es hoy.
+// Nombre de marca completo ("Vitilla Power" / "Baseball Power" / "Softball Power") segun el
+// subdominio de origen — para usar en PDFs generados (headers/footers), no solo en el HTML vivo.
+function brandName(){
+  var sp=_SUBDOMAIN_SPORT||'vitilla';
+  var mixLbl={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[sp]||'Vitilla';
+  return mixLbl+' Power';
+}
 function applyBrandFromSubdomain(){
   var sp=_SUBDOMAIN_SPORT||'vitilla';
   var upperLbl={vitilla:'VITILLA',baseball:'BASEBALL',softball:'SOFTBALL'}[sp]||'VITILLA';
@@ -1953,7 +1963,7 @@ function exportRosterPDF(teamId){
     +'<thead><tr><th style="text-align:center;width:50px">#</th><th>Nombre</th><th style="text-align:center;width:60px">Pos</th><th style="text-align:center;width:40px">B</th><th style="text-align:center;width:40px">L</th><th style="width:100px">F. Nac.</th></tr></thead>'
     +'<tbody>'+(rows||'<tr><td colspan="6" style="text-align:center;color:#64748b;padding:20px">Sin jugadores registrados</td></tr>')+'</tbody>'
     +'</table>'
-    +'<div class="footer">⚡ Vitilla Power &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
+    +'<div class="footer">⚡ '+brandName()+' &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=820,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
@@ -2020,7 +2030,7 @@ function exportAllRostersPDF(){
     +'<div class="sub2">'+tf.length+' equipos &nbsp;·&nbsp; Generado: '+nowStr+'</div></div>'
     +'</div>'
     +sections
-    +'<div class="footer">⚡ Vitilla Power &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
+    +'<div class="footer">⚡ '+brandName()+' &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=820,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
@@ -9005,13 +9015,13 @@ function doExportSchedulePDF(){
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+(mode==='calendario'?'Calendario':'Resultados')+' — '+titleStr+'</title>'
     +'<style>'+VP_PDF_STYLE+'</style></head><body>'
     +'<div class="page-header">'
-    +'<img class="logo" src="'+VP_LOGO+'" alt="Vitilla Power">'
+    +'<img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
     +'<div class="title-block"><h1>'+(mode==='calendario'?'📅 CALENDARIO':'🏆 RESULTADOS')+'</h1>'
     +'<div class="sub">'+titleStr+'</div>'
     +'<div class="sub2">'+phLabel+' &nbsp;·&nbsp; Generado: '+nowStr+'</div></div>'
     +'</div>'
     +bodyContent
-    +'<div class="footer">⚡ Vitilla Power &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
+    +'<div class="footer">⚡ '+brandName()+' &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
@@ -9121,13 +9131,13 @@ function doExportTeamStatsPDF(){
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Estadisticas — '+titleStr+'</title>'
     +'<style>'+VP_PDF_STYLE+'</style></head><body>'
-    +'<div class="page-header"><img class="logo" src="'+VP_LOGO+'" alt="Vitilla Power">'
+    +'<div class="page-header"><img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
     +'<div class="title-block"><h1>&#128202; Estadisticas por Equipo</h1>'
     +'<div class="sub">'+titleStr+'</div>'
     +'<div class="sub2">Generado: '+nowStr+' &middot; '+teamsEx.length+' equipo(s)</div></div>'
-    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">&#9889; Vitilla Power</div><div style="font-size:10px;color:#94a3b8">Informe Estadistico por Equipo</div></div></div>'
+    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">&#9889; '+brandName()+'</div><div style="font-size:10px;color:#94a3b8">Informe Estadistico por Equipo</div></div></div>'
     +bodyHtml
-    +'<div class="footer">&#9889; Vitilla Power &nbsp;&middot;&nbsp; Estadisticas por equipo &nbsp;&middot;&nbsp; '+nowStr+'</div>'
+    +'<div class="footer">&#9889; '+brandName()+' &nbsp;&middot;&nbsp; Estadisticas por equipo &nbsp;&middot;&nbsp; '+nowStr+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=1000,height=750');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},500);}
@@ -9191,12 +9201,12 @@ function doExportPlayerPDF(){
   var careerTeamNames=[...new Set(careerPids.map(function(cpid){var cp2=playerOf(cpid);var ct=cp2?teamOf(cp2.teamId):null;return ct?ct.name:null;}).filter(Boolean))];
   var teamSubtitle=careerTeamNames.length>1?(careerTeamNames.length+' equipos: '+careerTeamNames.join(', ')):(careerTeamNames[0]||'Sin equipo');
   html+='<div class="page-header">'
-    +'<img class="logo" src="'+VP_LOGO+'" alt="Vitilla Power">'
+    +'<img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
     +'<div class="num-badge">#'+(p.number||'?')+'</div>'
     +'<div class="title-block"><div class="player-name">'+p.name+'</div>'
     +'<div class="player-sub">'+teamSubtitle+' &nbsp;·&nbsp; '+(p.position||'OF')+' &nbsp;·&nbsp; '+(isPitcher?'⚾ Pitcher':'🏏 Bateador')+'</div>'
     +'<div class="sub2">Informe generado: '+nowStr+(careerPids.length>1?' &middot; Estadísticas consolidadas de carrera':'')+'</div></div>'
-    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">⚡ Vitilla Power</div><div style="font-size:10px;color:#94a3b8">Informe Estadístico Profesional</div></div></div>';
+    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">⚡ '+brandName()+'</div><div style="font-size:10px;color:#94a3b8">Informe Estadístico Profesional</div></div></div>';
   // Premiaciones (carrera + detalle por torneo/equipo)
   var pdfAwards=S.awards.filter(function(a){return careerPids.indexOf(a.playerId)>=0;});
   if(pdfAwards.length){
@@ -9412,7 +9422,7 @@ function doExportPlayerPDF(){
       html+='</tbody></table>';
     }
   }
-  html+='<div class="footer">⚡ Vitilla Power &nbsp;·&nbsp; Informe estadístico profesional &nbsp;·&nbsp; '+nowStr+'</div></body></html>';
+  html+='<div class="footer">⚡ '+brandName()+' &nbsp;·&nbsp; Informe estadístico profesional &nbsp;·&nbsp; '+nowStr+'</div></body></html>';
   cM();
   var w=window.open('','_blank','width=900,height=750');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},500);}
@@ -9802,13 +9812,13 @@ function exportToVsToPDF(){
     '.tvt-wrap div[style*="background:var(--bg3)"]{background:#0a1628!important;border-radius:8px;}'+
     '</style></head><body>'
     +'<div class="page-header">'
-    +'<img class="logo" src="'+VP_LOGO+'" alt="Vitilla Power">'
+    +'<img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
     +'<div class="title-block"><h1>⚔️ '+l1+' VS '+l2+'</h1>'
     +'<div class="sub" style="color:#f5a623;font-weight:600">📊 '+criteriaStr+'</div>'
     +'<div class="sub2">Comparativa estadística &middot; '+nowStr+'</div></div>'
     +'</div>'
     +'<div class="tvt-wrap">'+innerHtml+'</div>'
-    +'<div class="footer">⚡ Vitilla Power &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
+    +'<div class="footer">⚡ '+brandName()+' &nbsp;·&nbsp; Generado automáticamente &nbsp;·&nbsp; '+nowStr+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},500);}
@@ -10822,7 +10832,7 @@ function exportReport(gid){
         +(parseInt(e.runs)>0?' | +'+e.runs+' c':'')
         +'</span><br>';
     }).join('')+'</div>':'')
-  +'<div class="footer">Generado por Vitilla Power Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
+  +'<div class="footer">Generado por '+brandName()+' Pro &mdash; '+new Date().toLocaleDateString('es-DO')+'</div>'
     +'</body></html>';
   var w=window.open('','_blank','width=900,height=700');
   w.document.write(winHtml);
@@ -11108,6 +11118,13 @@ window.onload=function(){
   document.getElementById('lscr').style.display='none';
   document.getElementById('app').style.display='none';
   if(restoreSession()){
+    // Si la sesion restaurada es de un VISITANTE (no afecta a usuarios con clave, que siguen
+    // igual que hoy segun su perfil), reforzar el deporte segun el subdominio actual — cubre
+    // el caso de refrescar la pagina y tambien el de cambiar de subdominio en la misma pestaña.
+    if(S.user&&S.user.role==='public'&&_SUBDOMAIN_SPORT){
+      S.sportFilter=_SUBDOMAIN_SPORT;
+      S.parentTourFilter='';S.tourFilter='';S.yearFilter=_curYear;
+    }
     loadAll().then(function(){
       document.getElementById('lscr').style.display='none';
       document.getElementById('app').style.display='flex';
