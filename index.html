@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+  
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -1605,6 +1605,7 @@ function setSportFilter(val){
     if(typeof _awDivFilter!=='undefined')_awDivFilter='';
   }
   initPGS();if(PGS[curP])PGS[curP]();
+  if(typeof startMarquee==='function')startMarquee(); // reflejar el nuevo deporte de inmediato, sin esperar al ciclo pendiente
 }
 // ── Torneo padre visible para el usuario actual ──────────────────
 function visibleParentTournaments(){
@@ -11333,8 +11334,14 @@ var _mqAnim=null, _mqItems=[], _mqIdx=0, _mqX=0, _mqPx=0, _mqLast=null, _mqPendi
 
 function buildMqItems(){
   var items=[];
-  // ── Rachas de bateadores activos (todos los torneos)
-  var batStr=calcStreaks(null,null);
+  // Alcance por deporte: si hay un filtro de deporte activo (bloqueado para
+  // visitantes segun el subdominio, o elegido manualmente por un admin), el
+  // marquee SOLO debe mostrar informacion de torneos de ESE deporte. Sin
+  // filtro (ej. admin en "Todos los Deportes"), se mantiene el comportamiento
+  // de siempre (todo mezclado).
+  var mqTourIds=S.tournaments.filter(tourMatchesSport).map(function(t){return t.id;});
+  // ── Rachas de bateadores activos (todos los torneos del deporte en alcance)
+  var batStr=calcStreaks(null,null,mqTourIds);
   if(batStr){
     (batStr.activeBat||[]).forEach(function(e){
       if(!e.p) return;
@@ -11354,7 +11361,7 @@ function buildMqItems(){
     });
   }
   // ── Juegos en vivo (primero, con marcador) agrupados por torneo
-  var liveGames=S.games.filter(function(g){return g.status==='live';});
+  var liveGames=S.games.filter(function(g){return g.status==='live'&&mqTourIds.indexOf(g.tournamentId)>=0;});
   if(liveGames.length){
     var byTourLive={};
     liveGames.forEach(function(g){
@@ -11376,9 +11383,10 @@ function buildMqItems(){
       });
     });
   }
-  // ── Próximos juegos por torneo (solo los no iniciados)
+  // ── Próximos juegos por torneo (solo los no iniciados, del deporte en alcance)
   var now=new Date();
   var upcoming=S.games.filter(function(g){
+    if(mqTourIds.indexOf(g.tournamentId)<0) return false;
     if(g.status==='final'||g.status==='suspended'||g.status==='live') return false;
     if(!g.date) return true;
     var d=new Date((g.date||'')+'T'+(g.time||'00:00'));
