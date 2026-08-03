@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-  
+
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -4559,7 +4559,10 @@ async function rPlay(type){
       var fldTeamId=isTop?gm.homeTeamId:gm.awayTeamId;
       var fldLU=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===fldTeamId;})[0];
       var fldPlayers=fldLU&&fldLU.players?fldLU.players.filter(function(lp){
-        return!lp.replacedBy&&!(lp.noBat===true||lp.noBat==='true');
+        // "noBat" (ej. pitcher cuando hay DH) solo significa que no batea — sigue
+        // jugando defensa y puede cometer el error igual, asi que NO se excluye de
+        // esta lista. Solo se excluyen los jugadores ya sustituidos (replacedBy).
+        return!lp.replacedBy;
       }).map(function(lp){
         var p=playerOf(lp.playerId);
         return{id:lp.playerId,label:'#'+(p?p.number||'?':'?')+' '+(p?p.name:'?')+' ('+lp.position+')'};
