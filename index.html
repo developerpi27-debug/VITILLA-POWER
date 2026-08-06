@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-
+  
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -1023,6 +1023,7 @@ function resetModuleState(){
   if(typeof _ST!=='undefined'){_ST.search='';_ST.tourId='';_ST.activeTab='st-b';}
   if(typeof _SL!=='undefined'){_SL.search='';_SL.activeTab='sl-b';}
   if(typeof _LD!=='undefined'){_LD.tourId='';_LD.divFilter='';}
+  if(typeof _RK!=='undefined'){_RK.tourId='';_RK.divFilter='';}
   if(typeof _awTour!=='undefined'){try{_awTour='';}catch(e){}}
   if(typeof _TVT!=='undefined'){_TVT.p1='';_TVT.p2='';_TVT.t1='';_TVT.t2='';_TVT.tourId='';_TVT.year=0;_TVT.tab='bat';}
   if(typeof _schedPhaseFilter!=='undefined'){_schedPhaseFilter='';}
@@ -1602,7 +1603,8 @@ function setSportFilter(val){
     // El torneo padre cambio: limpiar el filtro de division de Posiciones, Estadisticas y Lideres (vuelve a "Todas las divisiones")
     if(typeof _standDivFilter!=='undefined')_standDivFilter='';
     if(typeof _ST!=='undefined')_ST.divFilter='';
-    if(typeof _LD!=='undefined')_LD.divFilter='';;
+    if(typeof _LD!=='undefined')_LD.divFilter='';
+    if(typeof _RK!=='undefined')_RK.divFilter='';
     if(typeof _awDivFilter!=='undefined')_awDivFilter='';
   }
   initPGS();if(PGS[curP])PGS[curP]();
@@ -1776,7 +1778,7 @@ function yearBar(){
     +'<label style="font-size:12px;color:var(--t2)">&#127947; Deporte:</label>'
     +'<select class="fs" style="width:140px" onchange="setSportFilter(this.value)">'+sportOpts(true)+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Torneo:</label>'
-    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=parseInt(defaultYearForParent(this.value))||'+new Date().getFullYear()+';S.tourFilter=autoSubTour(this.value,S.yearFilter);if(typeof _standDivFilter!==&quot;undefined&quot;)_standDivFilter=&quot;&quot;;if(typeof _ST!==&quot;undefined&quot;)_ST.divFilter=&quot;&quot;;if(typeof _LD!==&quot;undefined&quot;)_LD.divFilter=&quot;&quot;;initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;S.yearFilter=parseInt(defaultYearForParent(this.value))||'+new Date().getFullYear()+';S.tourFilter=autoSubTour(this.value,S.yearFilter);if(typeof _standDivFilter!==&quot;undefined&quot;)_standDivFilter=&quot;&quot;;if(typeof _ST!==&quot;undefined&quot;)_ST.divFilter=&quot;&quot;;if(typeof _LD!==&quot;undefined&quot;)_LD.divFilter=&quot;&quot;;if(typeof _RK!==&quot;undefined&quot;){_RK.tourId=&quot;&quot;;_RK.divFilter=&quot;&quot;;}initPGS();if(PGS[curP])PGS[curP]()">'+ptOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#128197; Año:</label>'
     +'<select class="fs" style="width:110px" onchange="setYearFilter(this.value)">'+yOpts+'</select>'
     +'</div>';
@@ -8650,7 +8652,7 @@ function pgLeadLife(){
     +'</div>');
 }
 var _awTour='';
-var _RK={tourId:'',search:'',modalIsPit:false};
+var _RK={tourId:'',search:'',modalIsPit:false,divFilter:''};
 var _awDivFilter='';
 var _awPhase='';
 var _awDateFrom='';
@@ -8788,6 +8790,7 @@ function buildRankingLists(){
     return false;
   }).map(function(g){return g.id;});
   var teamScope=S.teams.filter(function(t){return scopeTids.indexOf(t.tournamentId)>=0;});
+  if(_RK.divFilter) teamScope=teamScope.filter(function(t){return(t.division||'')===_RK.divFilter;});
   var tids=teamScope.map(function(t){return t.id;});
   var evs=gids.length?S.events.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';}):[];
   var pevs=gids.length?S.pitching.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true';}):[];
@@ -8851,11 +8854,16 @@ function pgRankings(tid){
     _RK.tourId=resyncTourId('rankings',_RK.tourId);
   }
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_RK.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var scopeTidsRK=_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;});
+  var divisionsRK=[];
+  S.teams.filter(function(t){return scopeTidsRK.indexOf(t.tournamentId)>=0;}).forEach(function(t){var d=t.division||'';if(d&&divisionsRK.indexOf(d)<0)divisionsRK.push(d);});
+  divisionsRK.sort();
   var lists=buildRankingLists();
   var top10Bat=lists.batList.slice(0,10),top10Pit=lists.pitList.slice(0,10);
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div class="stl">&#127942; Rankings</div><div class="ssb">Top 10 por puntos acumulados, según los filtros seleccionados</div></div></div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
-    +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:200px" onchange="pgRankings(this.value)">'+tOpts+'</select>'
+    +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:200px" onchange="_RK.divFilter=\'\';pgRankings(this.value)">'+tOpts+'</select>'
+    +(divisionsRK.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_RK.divFilter=this.value;pgRankings(_RK.tourId)"><option value="">Todas las Divs.</option>'+divisionsRK.map(function(d){return'<option value="'+d+'" '+(_RK.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select>'
     +'<button class="btn bs bsm" style="margin-left:auto" onclick="openRankingPDFChoiceM()">&#128196; PDF</button>'
     +'</div>'
