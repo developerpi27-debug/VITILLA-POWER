@@ -553,7 +553,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 
 // ═══════════════════════════════════════════════════════════
 var CFG = {
-  
+ 
   workerUrl: 'https://api.powerrdapp.com',
 
   appToken: '68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548',
@@ -8768,10 +8768,10 @@ function pgFeaturedByDate(){
 // exportacion a PDF.
 // ═══════════════════════════════════════════════════════════════════
 function buildRankingLists(){
-  var scopeTids=_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;});
+  var scopeTids=(_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;})).map(String);
   if(!scopeTids.length) return {batList:[],pitList:[]};
   var ptsTourId=_RK.tourId||scopeTids[0];
-  var tourObj=S.tournaments.filter(function(t){return t.id===ptsTourId;})[0];
+  var tourObj=S.tournaments.filter(function(t){return String(t.id)===String(ptsTourId);})[0];
   function pts(field,def){return(tourObj&&tourObj[field]!==undefined&&tourObj[field]!==null&&tourObj[field]!=='')?Number(tourObj[field]):def;}
   var P={
     h1:pts('asPtsH1',1),h2:pts('asPtsH2',2),h3:pts('asPtsH3',3),hr:pts('asPtsHr',4),
@@ -8782,14 +8782,14 @@ function buildRankingLists(){
     erPit:pts('asPtsErPit',1),bbPit:pts('asPtsBbPit',1),lPit:pts('asPtsLPit',2)
   };
   var gids=S.games.filter(function(g){
-    if(scopeTids.indexOf(g.tournamentId)<0)return false;
+    if(scopeTids.indexOf(String(g.tournamentId))<0)return false;
     if(!gameMatchesPhase(g))return false;
     if(!statCountsGame(g))return false;
     if(g.status==='final')return true;
     if(g.status==='suspended'&&g.official==='true')return true;
     return false;
   }).map(function(g){return g.id;});
-  var teamScope=S.teams.filter(function(t){return scopeTids.indexOf(t.tournamentId)>=0;});
+  var teamScope=S.teams.filter(function(t){return scopeTids.indexOf(String(t.tournamentId))>=0;});
   if(_RK.divFilter) teamScope=teamScope.filter(function(t){return(t.division||'')===_RK.divFilter;});
   var tids=teamScope.map(function(t){return t.id;});
   var evs=gids.length?S.events.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true'&&e.type!=='UNDO';}):[];
@@ -8854,9 +8854,9 @@ function pgRankings(tid){
     _RK.tourId=resyncTourId('rankings',_RK.tourId);
   }
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_RK.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  var scopeTidsRK=_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;});
+  var scopeTidsRK=(_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;})).map(String);
   var divisionsRK=[];
-  S.teams.filter(function(t){return scopeTidsRK.indexOf(t.tournamentId)>=0;}).forEach(function(t){var d=t.division||'';if(d&&divisionsRK.indexOf(d)<0)divisionsRK.push(d);});
+  S.teams.filter(function(t){return scopeTidsRK.indexOf(String(t.tournamentId))>=0;}).forEach(function(t){var d=t.division||'';if(d&&divisionsRK.indexOf(d)<0)divisionsRK.push(d);});
   divisionsRK.sort();
   var lists=buildRankingLists();
   var top10Bat=lists.batList.slice(0,10),top10Pit=lists.pitList.slice(0,10);
