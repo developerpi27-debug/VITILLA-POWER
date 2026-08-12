@@ -4032,6 +4032,11 @@ async function saveEditEvent(eid,gid){
   gm.awayErrors=awayE; gm.homeErrors=homeE;
   S.events=allEvs;
   S.games=S.games.map(function(x){return x.id===gid?gm:x;});
+  // Red de seguridad: recalcular H/HR/BB/K/IP de TODOS los pitchers del juego desde el
+  // registro real de jugadas, por si el ajuste incremental de arriba (aplicado solo al
+  // pitcher que se penso que correspondia) hubiera quedado desalineado por cualquier motivo.
+  var editCountsChanged=recomputePitchingCountsForGame(gid);
+  for(var eci=0;eci<editCountsChanged.length;eci++){ await api('savePitching',{event:editCountsChanged[eci]}); }
   await api('saveEvent',{event:e});
   await api('saveGame',{game:gm});
   cM(); pgGC(); toast('Jugada actualizada — marcador y estadisticas de pitcheo recalculados','success');
@@ -4063,6 +4068,11 @@ async function delEvent(eid,gid){
   gm.inningScores=newScores;gm.awayRuns=awayR;gm.homeRuns=homeR;
   gm.awayHits=awayH;gm.homeHits=homeH;gm.awayErrors=awayE;gm.homeErrors=homeE;
   S.games=S.games.map(function(x){return x.id===gid?gm:x;});
+  // Red de seguridad: recalcular H/HR/BB/K/IP de TODOS los pitchers del juego desde el
+  // registro real de jugadas, por si el ajuste incremental de arriba hubiera quedado
+  // desalineado por cualquier motivo.
+  var delCountsChanged=recomputePitchingCountsForGame(gid);
+  for(var dci=0;dci<delCountsChanged.length;dci++){ await api('savePitching',{event:delCountsChanged[dci]}); }
   await api('deleteEvent',{id:eid});
   await api('saveGame',{game:gm});
   pgGC(); toast('Jugada eliminada — marcador y estadisticas de pitcheo recalculados','success');
@@ -4635,15 +4645,34 @@ async function rPlay(type){
     if(rbi<minF){
       toast('Con las bases ocupadas, esta jugada fuerza minimo '+minF+' carrera(s). Se ajusto automaticamente.','info');
     }
-    // FIX: en juegos de 3 bases, si el UNICO corredor en base es el de 1ra y no anoto en
-    // esta jugada, la ubicacion final (2da o 3ra) es ambigua -- preguntar al anotador.
-    if(type==='H1'&&nbForce>=3&&bases.first&&!bases.second&&!bases.third&&rbi===0){
+    // FIX: en juegos de 3 bases, si el corredor de 1ra NO anota en esta jugada y 2da esta
+    // vacia, su ubicacion final (2da o 3ra) es ambigua -- preguntar al anotador.
+    // - Si 3ra estaba vacia: ambiguo cuando rbi=0 (nadie anoto, el de 1ra pudo quedarse en
+    //   2da o llegar hasta 3ra).
+    // - Si 3ra estaba ocupada: SOLO es ambiguo cuando rbi=1 exacto (el de 3ra anota primero
+    //   por prioridad y deja 3ra libre, entonces no sabemos si el de 1ra se quedo en 2da o
+    //   avanzo hasta 3ra). Con rbi=0 el de 3ra no anoto y sigue ocupando 3ra, asi que el de
+    //   1ra forzosamente se quedo en 2da (no hay ambiguedad, no hace falta preguntar). Con
+    //   rbi=2 ambos anotaron y no queda nadie que ubicar.
+    var _h1Ambiguous=bases.third?(rbi===1):(rbi===0);
+    if(type==='H1'&&nbForce>=3&&bases.first&&!bases.second&&_h1Ambiguous){
       var h1AdvSel=await numPromptAsync('SENCILLO - '+bName
-        +'\nCorredor en 1ra base. ¿Hasta donde llego?'
+        +'\nCorredor en 1ra base'+(bases.third?' (el de 3ra ya anoto)':'')+'. ¿Hasta donde llego?'
         +'\n1. 2da base\n2. 3ra base'
         +'\n\nIngresa (1 o 2):','1');
       if(h1AdvSel===null){_rPlayBusy=false;return;}
       gm._h1FirstAdv=(parseInt(h1AdvSel)===2)?'third':'second';
+    }
+    // FIX: en juegos de 3 bases, si el UNICO corredor en base es el de 2da (1ra y 3ra vacias)
+    // y no anoto en esta jugada, tambien es ambiguo si se quedo en 2da o avanzo a 3ra --
+    // preguntar al anotador (nadie lo fuerza a moverse, ya que 1ra vacia no lo empuja).
+    if(type==='H1'&&nbForce>=3&&!bases.first&&bases.second&&!bases.third&&rbi===0){
+      var h1AdvSel2=await numPromptAsync('SENCILLO - '+bName
+        +'\nCorredor en 2da base. ¿Avanzo a 3ra?'
+        +'\n1. No, se quedo en 2da\n2. Si, avanzo a 3ra'
+        +'\n\nIngresa (1 o 2):','1');
+      if(h1AdvSel2===null){_rPlayBusy=false;return;}
+      gm._h1SecondAdv=(parseInt(h1AdvSel2)===2)?'third':'second';
     }
   } else if(type==='OUT'){
     var rb3=await numPromptAsync('OUT DE CAMPO - '+bName
@@ -4975,9 +5004,15 @@ async function rPlay(type){
           // (solo con bases llenas, ya contemplado en minForcedRuns) -- se queda en 3ra salvo
           // que el anotador haya indicado que anoto. El corredor de 1ra (si hay) es forzado a
           // salir de 1ra; por defecto avanza a 2da, salvo que el anotador haya indicado que
-          // llego a 3ra (gm._h1FirstAdv, preguntado antes cuando 1ra era el unico ocupado).
+          // llego a 3ra (gm._h1FirstAdv, preguntado antes cuando su destino final era
+          // ambiguo: 1ra era el unico corredor sin anotar, o 1ra+3ra estaban ocupadas y solo
+          // el de 3ra anoto -- ver el calculo de _h1Ambiguous mas arriba). Igual, si el UNICO
+          // corredor en base era el de 2da (1ra y 3ra vacias) y no anoto, tambien se pregunto
+          // si avanzo a 3ra (gm._h1SecondAdv).
           var h1Adv=gm._h1FirstAdv;
           if(gm._h1FirstAdv!==undefined)delete gm._h1FirstAdv;
+          var h1Adv2=gm._h1SecondAdv;
+          if(gm._h1SecondAdv!==undefined)delete gm._h1SecondAdv;
           if(b.first&&b.second){
             // Cadena forzada real: 1ra->2da, 2da->3ra (o anota)
             gm.bases={first:batter,second:scored(b.first)?null:b.first,third:scored(b.second)?null:b.second};
@@ -4988,6 +5023,10 @@ async function rPlay(type){
             } else {
               gm.bases={first:batter,second:scored(b.first)?null:b.first,third:scored(b.third)?null:(b.third||null)};
             }
+          } else if(b.second&&!b.third&&h1Adv2==='third'){
+            // Solo corredor en 2da (1ra y 3ra vacias): el anotador indico que avanzo hasta
+            // 3ra (no es forzado, es una decision propia del corredor/jugada).
+            gm.bases={first:batter,second:null,third:scored(b.second)?null:b.second};
           } else {
             // 1ra vacia: nadie es forzado por el bateador; 2da y 3ra se mantienen igual
             // salvo que el anotador haya indicado que anotaron.
@@ -5589,7 +5628,7 @@ async function undoLastPlay(){
   // Revert pitcher stats — usar el pitcherId EXACTO que enfrento esta jugada (guardado en
   // el evento al anotarla — last.pitcherId —, o resuelto por timestamp para jugadas
   // historicas sin pitcherId guardado), NO el pitcher actualmente activo en el lineup.
-  // BUG CORREGIDO: antes se buscaba el pitcher activo AHORA en el lineup para revertirle
+  // BUG CORREGIDO #1: antes se buscaba el pitcher activo AHORA en el lineup para revertirle
   // los numeros; si hubo un cambio de pitcheo entre que se anoto la jugada y que se deshace
   // (o se deshacen varias jugadas seguidas cruzando ese cambio), los tercios/hits/carreras se
   // revertian del pitcher equivocado, desincronizando sus numeros contra la pizarra.
@@ -5602,34 +5641,15 @@ async function undoLastPlay(){
   // reversion por completo.
   if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&!e.pitchingClosed;}).slice(-1)[0]||null;
   if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId;}).slice(-1)[0]||null;
-  if(ex){
-    // Revert IP for outs
-    var isOutP=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
-    var outsAddedP=last.type==='DP'?2:isOutP?1:0;
-    if(outsAddedP>0){
-      var ip=parseFloat(ex.ip)||0;
-      var parts=String(ip).split('.');
-      var full=parseInt(parts[0])||0;
-      var part=parseInt(parts[1])||0;
-      var thirds=full*3+part-outsAddedP;
-      if(thirds<0)thirds=0;
-      ex.ip=parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));
-    }
-    // Revert hits
-    if(isHit) ex.h=Math.max(0,(parseInt(ex.h)||0)-1);
-    // Revert K
-    if(last.type==='K') ex.k=Math.max(0,(parseInt(ex.k)||0)-1);
-    // Revert HR
-    if(last.type==='HR') ex.hr=Math.max(0,(parseInt(ex.hr)||0)-1);
-    // Revert runs/ER
-    if(runs>0){
-      ex.r=Math.max(0,(parseInt(ex.r)||0)-runs);
-      // Carreras por error no fueron contadas como ER, así que no se revierten de ER
-      if(last.type!=='E')ex.er=Math.max(0,(parseInt(ex.er)||0)-runs);
-    }
-    // Revert BB/HBP
-    if(last.type==='BB'||last.type==='HBP') ex.bb=Math.max(0,(parseInt(ex.bb)||0)-1);
-    S.pitching=S.pitching.map(function(x){return x.id===ex.id?ex:x;});
+  if(ex&&runs>0){
+    // Revertir carreras/ER del pitcher responsable de esta jugada especifica. (H, HR, BB, K
+    // e IP ya NO se revierten aqui de forma incremental — ver recomputePitchingCountsForGame
+    // mas abajo, que los recalcula desde cero para TODOS los pitchers del juego y asi
+    // garantiza que jamas se desincronicen de la pizarra sin importar cuantas jugadas
+    // seguidas se deshagan.)
+    ex.r=Math.max(0,(parseInt(ex.r)||0)-runs);
+    // Carreras por error no fueron contadas como ER, así que no se revierten de ER
+    if(last.type!=='E')ex.er=Math.max(0,(parseInt(ex.er)||0)-runs);
   }
   // Remove event locally BEFORE rendering so UI is immediate
   // Create an informational log entry for the undone play (not a stat, just for the play log)
@@ -5640,6 +5660,17 @@ async function undoLastPlay(){
     timestamp:new Date().toISOString(),unofficial:'true'};
   S.events=S.events.filter(function(e){return e.id!==last.id;});
   S.events.push(undoLogEv);
+  // BUG CORREGIDO #2: H, HR, BB, K e IP de TODOS los pitchers del juego se recalculan aqui
+  // desde cero, directamente contra el registro real de jugadas (ya sin la que se acaba de
+  // deshacer), en vez de solo restarle 1 hit/out/etc al registro que se penso que correspondia.
+  // Esto es lo que garantiza que, aunque se deshagan muchas jugadas seguidas (incluso saltando
+  // a otro inning), el IP y los hits del pitcher SIEMPRE terminen coincidiendo exactamente con
+  // lo que muestra la pizarra — ya no dependen de una cadena de sumas/restas que se pueda
+  // desincronizar.
+  var countsChanged=recomputePitchingCountsForGame(gm.id);
+  var pitRecsToSave=[];
+  if(ex)pitRecsToSave.push(ex);
+  countsChanged.forEach(function(r){if(pitRecsToSave.indexOf(r)<0)pitRecsToSave.push(r);});
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
   pgGC();
   toast('Ultima jugada deshecha','success');
@@ -5648,10 +5679,52 @@ async function undoLastPlay(){
   try{
     await api('deleteEvent',{id:last.id});
     await api('saveGame',{game:gm});
-    if(ex) await api('savePitching',{event:ex});
+    for(var pri=0;pri<pitRecsToSave.length;pri++){ await api('savePitching',{event:pitRecsToSave[pri]}); }
     await api('saveEvent',{event:undoLogEv});
   }finally{_saving=false;}
   }finally{_undoBusy=false;}
+}
+// Recalcula EXCLUSIVAMENTE los conteos de H/HR/BB/K e IP (outs) de TODOS los pitchers de un
+// juego, directamente desde el registro real de jugadas (S.events) -- en vez de ir sumando o
+// restando deltas jugada por jugada. Esto GARANTIZA que estos numeros del pitcher coincidan
+// siempre exactamente con la pizarra sin importar cuantas jugadas se hayan deshecho seguidas
+// (incluso si "saltan" a un inning anterior), porque no dependen de un historial de deltas
+// que se pueda desincronizar -- se recalculan desde cero cada vez a partir de la fuente de
+// verdad (los eventos guardados), usando resolvePitcherForEvent/findPitchingRecordFor para
+// atribuirle cada jugada al pitcher EXACTO que la enfrento.
+// NOTA: NO toca R/ER (carreras): esas pueden repartirse entre MAS DE UN pitcher cuando hay
+// corredores heredados (gm.runnerPitcher), y ese estado no queda 100% reconstruible solo con
+// los eventos guardados (existe una herramienta manual de "colocar corredor en base" que no
+// genera un evento persistido). R/ER se siguen ajustando de forma incremental sobre el pitcher
+// que realmente enfrento la jugada que se deshace (ver undoLastPlay).
+function recomputePitchingCountsForGame(gid){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0];
+  var recs=S.pitching.filter(function(p){return p.gameId===gid;});
+  if(!gm||!recs.length)return[];
+  var totals={};
+  recs.forEach(function(r){totals[r.id]={h:0,hr:0,bb:0,k:0,outs:0};});
+  var evs=S.events.filter(function(e){return e.gameId===gid&&e.type!=='UNDO'&&e.unofficial!=='true';});
+  evs.forEach(function(ev){
+    var pid=resolvePitcherForEvent(gm,ev);
+    if(!pid)return;
+    var ftId=fieldingTeamIdForEvent(gm,ev);
+    var rec=findPitchingRecordFor(gid,ftId,pid,ev.timestamp);
+    if(!rec||!totals[rec.id])return;
+    var d=pitchDeltaForEvent(ev);
+    var t=totals[rec.id];
+    t.h+=d.h;t.hr+=d.hr;t.bb+=d.bb;t.k+=d.k;t.outs+=d.outs;
+  });
+  var changed=[];
+  recs.forEach(function(r){
+    var t=totals[r.id];
+    var newIp=parseFloat(Math.floor(t.outs/3)+'.'+(t.outs%3));
+    var oldIp=parseFloat(r.ip)||0;
+    if((parseInt(r.h)||0)!==t.h||(parseInt(r.hr)||0)!==t.hr||(parseInt(r.bb)||0)!==t.bb||(parseInt(r.k)||0)!==t.k||oldIp!==newIp){
+      r.h=t.h;r.hr=t.hr;r.bb=t.bb;r.k=t.k;r.ip=newIp;
+      changed.push(r);
+    }
+  });
+  return changed;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -7201,7 +7274,7 @@ function pgStand(){
     +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value?String(this.value):\'\';_standDivFilter=\'\';pgStand()">'+tOpts+'</select>'
     +(divisions.length?'<select class="fs" style="width:130px" onchange="_standDivFilter=this.value;pgStand()"><option value="">Todas las Divs.</option>'+divisions.map(function(d){return'<option value="'+d+'" '+(_standDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<select class="fs" style="width:140px" onchange="S.phaseFilter=this.value;pgStand()">'+phOpts+'</select>'
-    +(tour&&(isA||isPub)?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\')">&#127919; Draft</button>':'')
+    +(tour&&(isA||isPub)?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\',_standDivFilter)">&#127919; Draft</button>':'')
     +'</div></div>'
     +(consolidated?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128202; Vista consolidada: se suman los juegos de todos los subtorneos visibles del torneo padre y año filtrados.</div>':'')
     +'<div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Equipo</th><th style="text-align:center">JJ</th><th style="text-align:center">G</th><th style="text-align:center">P</th><th style="text-align:center">PCT</th><th style="text-align:center">DIF</th><th style="text-align:center">GB</th><th style="text-align:center">Racha</th><th style="text-align:center">Zona</th></tr></thead>'
@@ -7314,13 +7387,21 @@ function regularStandingsForDraft(tourId){
   }
   return{qualified:qualified,missed:missed};
 }
-function missedPlayoffsTeamIds(tourId){
-  return regularStandingsForDraft(tourId).missed.map(function(t){return t.id;});
+// divFilter (opcional): si se pasa, restringe el resultado solo a los equipos de esa
+// division -- usado cuando el Draft se abre con una division especifica filtrada en
+// Posiciones, para no mezclar equipos eliminados de otras divisiones.
+function missedPlayoffsTeamIds(tourId,divFilter){
+  var r=regularStandingsForDraft(tourId).missed;
+  if(divFilter) r=r.filter(function(t){return(t.division||'')===divFilter;});
+  return r.map(function(t){return t.id;});
 }
-function qualifiedForPlayoffsTeamIds(tourId){
-  return regularStandingsForDraft(tourId).qualified.map(function(t){return t.id;});
+function qualifiedForPlayoffsTeamIds(tourId,divFilter){
+  var r=regularStandingsForDraft(tourId).qualified;
+  if(divFilter) r=r.filter(function(t){return(t.division||'')===divFilter;});
+  return r.map(function(t){return t.id;});
 }
 var _draftSearchQ='';
+var _draftDivFilter='';
 // Linea compacta de stats de Serie Regular (de ESTE subtorneo) para un jugador candidato
 // al Draft, en el mismo formato que usa Premiaciones > Jugadores Destacados en Fecha.
 // Usa sameSeasonInstances para no perder numeros si el jugador fue transferido entre
@@ -7367,10 +7448,10 @@ function draftRegularStatLine(p,tourId){
 }
 // Exporta en PDF el listado del Draft (disponibles + ya draftados) de un subtorneo.
 // Visible tanto para admin como para visitantes (solo lectura).
-function exportDraftPDF(tourId){
+function exportDraftPDF(tourId,divFilter){
   var tour=S.tournaments.filter(function(t){return t.id===tourId;})[0];
   if(!tour){toast('Torneo no encontrado','error');return;}
-  var missedTids=missedPlayoffsTeamIds(tourId);
+  var missedTids=missedPlayoffsTeamIds(tourId,divFilter);
   var qualTids=qualifiedForPlayoffsTeamIds(tourId);
   var draftedClones=S.players.filter(function(p){
     if(p.isReinforcement!=='true'||qualTids.indexOf(p.teamId)<0) return false;
@@ -7413,7 +7494,7 @@ function exportDraftPDF(tourId){
     +'<div class="page-header">'
     +'<img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
     +'<div class="title-block"><h1>&#127919; DRAFT DE PLAYOFFS</h1>'
-    +'<div class="sub">'+tour.name+'</div>'
+    +'<div class="sub">'+tour.name+(divFilter?' &middot; Div. '+divFilter:'')+'</div>'
     +'<div class="sub2">Generado: '+nowStr+'</div></div>'
     +'</div>'
     +'<div class="section-title">JUGADORES DISPONIBLES ('+avail.length+')</div>'
@@ -7427,12 +7508,14 @@ function exportDraftPDF(tourId){
   var w=window.open('','_blank','width=900,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
 }
-function openDraftM(tourId){
+function openDraftM(tourId,divFilter){
+  if(divFilter!==undefined) _draftDivFilter=divFilter||'';
   var isPubD=S.user&&S.user.role==='public';
-  var missedTids=missedPlayoffsTeamIds(tourId);
+  var missedTids=missedPlayoffsTeamIds(tourId,_draftDivFilter);
   var qualTids=qualifiedForPlayoffsTeamIds(tourId);
-  // Ya draftados para este subtorneo: clones de refuerzo cuyo original pertenece a un
-  // equipo eliminado y cuyo equipo destino es un clasificado de ESTE subtorneo.
+  // Ya draftados para este subtorneo (y division filtrada, si aplica): clones de refuerzo
+  // cuyo original pertenece a un equipo eliminado y cuyo equipo destino es un clasificado de
+  // ESTE subtorneo.
   var draftedClones=S.players.filter(function(p){
     if(p.isReinforcement!=='true'||qualTids.indexOf(p.teamId)<0) return false;
     var orig=S.players.filter(function(o){return o.id===p.importedFrom;})[0];
@@ -7440,10 +7523,11 @@ function openDraftM(tourId){
   });
   var draftedOrigIds=draftedClones.map(function(p){return p.importedFrom;});
   var q=(_draftSearchQ||'').trim().toLowerCase();
-  // Jugadores elegibles: activos, de un equipo eliminado de ESTE subtorneo, que no sean
-  // ellos mismos un clon de refuerzo, y que no esten ya draftados. Usar solo el registro
-  // ACTIVO evita duplicados cuando el jugador fue transferido de un equipo a otro dentro
-  // del mismo subtorneo (el registro inactivo del equipo anterior queda fuera).
+  // Jugadores elegibles: activos, de un equipo eliminado de ESTE subtorneo (y de la division
+  // filtrada, si hay una seleccionada), que no sean ellos mismos un clon de refuerzo, y que
+  // no esten ya draftados. Usar solo el registro ACTIVO evita duplicados cuando el jugador
+  // fue transferido de un equipo a otro dentro del mismo subtorneo (el registro inactivo del
+  // equipo anterior queda fuera).
   var avail=S.players.filter(function(p){
     if(missedTids.indexOf(p.teamId)<0) return false;
     if(!(p.active!=='false'&&p.active!==false&&p.active!=='0'&&p.active!==undefined)) return false;
@@ -7458,6 +7542,10 @@ function openDraftM(tourId){
   var divisionsInTour=[];
   S.teams.filter(function(t){return t.tournamentId===tourId;}).forEach(function(t){var d=t.division||'';if(d&&divisionsInTour.indexOf(d)<0)divisionsInTour.push(d);});
   divisionsInTour.sort();
+  // El destino (equipo que drafteo) se mantiene SIN restringir por division -- un equipo
+  // clasificado puede reforzarse con un jugador eliminado de cualquier division del mismo
+  // subtorneo, salvo que la vista este filtrada por division solo para elegir DE DONDE salen
+  // los jugadores disponibles (ver missedTids arriba).
   var tOpts=divisionsInTour.length
     ? divisionsInTour.map(function(d){
         var opts=S.teams.filter(function(t){return qualTids.indexOf(t.id)>=0&&(t.division||'')===d;})
@@ -7469,12 +7557,14 @@ function openDraftM(tourId){
     : S.teams.filter(function(t){return qualTids.indexOf(t.id)>=0;})
         .slice().sort(function(a,b){return(a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});})
         .map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
-  showM('<div class="mhd"><div class="mtl">&#127919; Draft de Playoffs</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="alert ai" style="font-size:12px">Solo se listan jugadores activos de equipos ELIMINADOS en Serie Regular de este subtorneo. Sus stats de Serie Regular quedan bajo su equipo original; sus jugadas en Playoffs/Serie Final quedan bajo el equipo que lo draftee (refuerzo).</div>'
+  var divFiltOpts='<option value="">Todas las divisiones</option>'+divisionsInTour.map(function(d){return'<option value="'+d+'" '+(_draftDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('');
+  showM('<div class="mhd"><div class="mtl">&#127919; Draft de Playoffs'+(_draftDivFilter?' &mdash; Div. '+_draftDivFilter:'')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px">Solo se listan jugadores activos de equipos ELIMINADOS en Serie Regular de este subtorneo'+(_draftDivFilter?' (division '+_draftDivFilter+')':'')+'. Sus stats de Serie Regular quedan bajo su equipo original; sus jugadas en Playoffs/Serie Final quedan bajo el equipo que lo draftee (refuerzo).</div>'
     +(!qualTids.length?'<div class="alert ae" style="font-size:12px;margin-bottom:10px">No hay equipos clasificados definidos para este subtorneo (revisa "Equipos a Playoffs" en la configuracion del subtorneo).</div>':'')
-    +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">'
-    +'<input class="fi" type="text" style="flex:1" placeholder="&#128269; Buscar por nombre de jugador o equipo..." value="'+(_draftSearchQ||'').replace(/"/g,'&quot;')+'" onchange="_draftSearchQ=this.value;openDraftM(\''+tourId+'\')">'
-    +'<button class="btn bs bsm" data-tid="'+tourId+'" onclick="exportDraftPDF(this.dataset.tid)" title="Exportar listado en PDF">&#128196; PDF</button>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'
+    +'<input class="fi" type="text" style="flex:1;min-width:180px" placeholder="&#128269; Buscar por nombre de jugador o equipo..." value="'+(_draftSearchQ||'').replace(/"/g,'&quot;')+'" onchange="_draftSearchQ=this.value;openDraftM(\''+tourId+'\')">'
+    +(divisionsInTour.length?'<select class="fs" style="width:150px" onchange="openDraftM(\''+tourId+'\',this.value)">'+divFiltOpts+'</select>':'')
+    +'<button class="btn bs bsm" data-tid="'+tourId+'" onclick="exportDraftPDF(this.dataset.tid,_draftDivFilter)" title="Exportar listado en PDF">&#128196; PDF</button>'
     +'</div>'
     +(draftedClones.length?'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">YA DRAFTADOS ('+draftedClones.length+')</div><div style="margin-bottom:14px">'+draftedClones.map(function(p){
         var orig=S.players.filter(function(o){return o.id===p.importedFrom;})[0];
