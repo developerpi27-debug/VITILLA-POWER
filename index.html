@@ -2320,9 +2320,26 @@ function openTM(id){
     +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Juegos en Posición (Guante de Oro)</label><input class="fi" id="tamgg" type="number" min="1" value="'+(t.awardMinGg!==undefined&&t.awardMinGg!==null?t.awardMinGg:2)+'"></div></div>'
     +'<div class="fr c2" style="margin-top:8px">'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvpbat" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludeBat===false?'':'checked')+'>'+'<span>Incluir puntos de <b>bateo</b> en el MVP</span></label></div>'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvppit" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludePit===false?'':'checked')+'>'+'<span>Incluir puntos de <b>pitcheo</b> en el MVP</span></label></div>'+'</div>'+'<div class="alert ai" style="font-size:12px">Estos umbrales determinan quién califica como candidato en el análisis automático del módulo de Premiaciones para este subtorneo.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#129351; LIDERES (umbrales mínimos)</div>'
-    +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Veces al Bate (VB)</label><input class="fi" id="tlmvb" type="number" min="0" value="'+(t.leadersMinVb!==undefined&&t.leadersMinVb!==null?t.leadersMinVb:0)+'"></div>'
-    +'<div class="fg"><label class="fl">Mínimo de Entradas Lanzadas (IP)</label><input class="fi" id="tlmip" type="number" min="0" step="0.1" value="'+(t.leadersMinIp!==undefined&&t.leadersMinIp!==null?t.leadersMinIp:0)+'"></div></div>'
-    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan qué jugadores aparecen en los renglones de bateo/pitcheo de los módulos de Lideres y Lideres de Por Vida (0 = sin mínimo). Por ejemplo, evita que un jugador con muy pocos turnos al bate encabece el AVG.</div>'
+    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan qué jugadores aparecen en las tarjetas de <b>SLG y AVG</b> (bateo) y <b>ERA y WHIP</b> (pitcheo) de los módulos de Lideres y Lideres de Por Vida — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) nunca aplican mínimo. Se configuran por separado para Serie Regular, Playoffs y Serie Final (0 = sin mínimo).</div>'
+    +'<div class="fg" style="margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
+      +'<input type="checkbox" id="tlvbauto" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\'tlvbmanual\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\'tlvbmanual\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(t.leadersVbAuto===true?'checked':'')+'>'
+      +'<span>Usar <b>media automática</b> de VB (en vez de las cantidades manuales) para el mínimo de bateo</span></label></div>'
+    +'<div id="tlvbmanual" style="'+(t.leadersVbAuto===true?'opacity:.4;pointer-events:none':'')+'">'
+    +'<div class="fr c3" style="margin-top:6px">'
+    +'<div class="fg"><label class="fl">VB mín. — Serie Regular</label><input class="fi" id="tlmvbreg" type="number" min="0" value="'+(t.leadersMinVbRegular!==undefined&&t.leadersMinVbRegular!==null?t.leadersMinVbRegular:(t.leadersMinVb!==undefined&&t.leadersMinVb!==null?t.leadersMinVb:0))+'"></div>'
+    +'<div class="fg"><label class="fl">VB mín. — Playoffs</label><input class="fi" id="tlmvbpo" type="number" min="0" value="'+(t.leadersMinVbPlayoff!==undefined&&t.leadersMinVbPlayoff!==null?t.leadersMinVbPlayoff:0)+'"></div>'
+    +'<div class="fg"><label class="fl">VB mín. — Serie Final</label><input class="fi" id="tlmvbfin" type="number" min="0" value="'+(t.leadersMinVbFinal!==undefined&&t.leadersMinVbFinal!==null?t.leadersMinVbFinal:0)+'"></div>'
+    +'</div></div>'
+    +'<div class="fg" style="margin-top:14px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
+      +'<input type="checkbox" id="tlipauto" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\'tlipmanual\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\'tlipmanual\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(t.leadersIpAuto===true?'checked':'')+'>'
+      +'<span>Usar <b>media automática</b> de IP (en vez de las cantidades manuales) para el mínimo de pitcheo</span></label></div>'
+    +'<div id="tlipmanual" style="'+(t.leadersIpAuto===true?'opacity:.4;pointer-events:none':'')+'">'
+    +'<div class="fr c3" style="margin-top:6px">'
+    +'<div class="fg"><label class="fl">IP mín. — Serie Regular</label><input class="fi" id="tlmipreg" type="number" min="0" step="0.1" value="'+(t.leadersMinIpRegular!==undefined&&t.leadersMinIpRegular!==null?t.leadersMinIpRegular:(t.leadersMinIp!==undefined&&t.leadersMinIp!==null?t.leadersMinIp:0))+'"></div>'
+    +'<div class="fg"><label class="fl">IP mín. — Playoffs</label><input class="fi" id="tlmippo" type="number" min="0" step="0.1" value="'+(t.leadersMinIpPlayoff!==undefined&&t.leadersMinIpPlayoff!==null?t.leadersMinIpPlayoff:0)+'"></div>'
+    +'<div class="fg"><label class="fl">IP mín. — Serie Final</label><input class="fi" id="tlmipfin" type="number" min="0" step="0.1" value="'+(t.leadersMinIpFinal!==undefined&&t.leadersMinIpFinal!==null?t.leadersMinIpFinal:0)+'"></div>'
+    +'</div></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:8px">Cuando la vista de Lideres esté en "Todas las Fases", se usa el valor de <b>Serie Regular</b> (manual o media, según el modo elegido) como referencia.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#11088; SISTEMA DE PUNTOS (Premiaciones y Juego de Estrellas)</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">&#127939; Bateo (positivos)</div>'
     +'<div class="fr c3"><div class="fg"><label class="fl">H1 (sencillo)</label><input class="fi" id="taph1" type="number" step="0.5" value="'+(t.asPtsH1!==undefined&&t.asPtsH1!==null?t.asPtsH1:1)+'"></div>'
@@ -2360,7 +2377,15 @@ async function saveT(id){
     gamesFinal:parseInt(fv('tgf'))||7,phase:fv('tph')||'regular',
     awardMinVb:parseInt(fv('tamvb'))||8,awardMinIp:parseFloat(fv('tamip'))||5,mvpIncludeBat:document.getElementById('tamvpbat')?document.getElementById('tamvpbat').checked:true,mvpIncludePit:document.getElementById('tamvppit')?document.getElementById('tamvppit').checked:true,
     awardMinGg:parseInt(fv('tamgg'))||2,
-    leadersMinVb:(fv('tlmvb')!==''&&fv('tlmvb')!==null&&fv('tlmvb')!==undefined)?parseInt(fv('tlmvb')):0,leadersMinIp:(fv('tlmip')!==''&&fv('tlmip')!==null&&fv('tlmip')!==undefined)?parseFloat(fv('tlmip')):0,
+    leadersMinVb:(fv('tlmvbreg')!==''&&fv('tlmvbreg')!==null&&fv('tlmvbreg')!==undefined)?parseInt(fv('tlmvbreg')):0,leadersMinIp:(fv('tlmipreg')!==''&&fv('tlmipreg')!==null&&fv('tlmipreg')!==undefined)?parseFloat(fv('tlmipreg')):0,
+    leadersMinVbRegular:(fv('tlmvbreg')!==''&&fv('tlmvbreg')!==null&&fv('tlmvbreg')!==undefined)?parseInt(fv('tlmvbreg')):0,
+    leadersMinVbPlayoff:(fv('tlmvbpo')!==''&&fv('tlmvbpo')!==null&&fv('tlmvbpo')!==undefined)?parseInt(fv('tlmvbpo')):0,
+    leadersMinVbFinal:(fv('tlmvbfin')!==''&&fv('tlmvbfin')!==null&&fv('tlmvbfin')!==undefined)?parseInt(fv('tlmvbfin')):0,
+    leadersMinIpRegular:(fv('tlmipreg')!==''&&fv('tlmipreg')!==null&&fv('tlmipreg')!==undefined)?parseFloat(fv('tlmipreg')):0,
+    leadersMinIpPlayoff:(fv('tlmippo')!==''&&fv('tlmippo')!==null&&fv('tlmippo')!==undefined)?parseFloat(fv('tlmippo')):0,
+    leadersMinIpFinal:(fv('tlmipfin')!==''&&fv('tlmipfin')!==null&&fv('tlmipfin')!==undefined)?parseFloat(fv('tlmipfin')):0,
+    leadersVbAuto:document.getElementById('tlvbauto')?document.getElementById('tlvbauto').checked:false,
+    leadersIpAuto:document.getElementById('tlipauto')?document.getElementById('tlipauto').checked:false,
     asPtsH1:parseFloat(fv('taph1')),asPtsH2:parseFloat(fv('taph2')),asPtsH3:parseFloat(fv('taph3')),
     asPtsHr:parseFloat(fv('taphr')),asPtsBb:parseFloat(fv('tapbb')),asPtsRbi:parseFloat(fv('taprbi')),
     asPtsR:parseFloat(fv('tapr')),
@@ -4680,6 +4705,45 @@ async function rPlay(type){
       +'\n\nCarreras anotadas (sacrifice fly)? (0 si ninguna)','0');
     if(rb3===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rb3)||0); runs=rbi;
+    // FIX: si quedan corredores en 2da y/o 1ra sin anotar y hay menos de 2 outs, preguntar
+    // si avanzaron una base extra (tag up / avance por cuenta propia), en vez de asumir
+    // siempre que se quedan quietos. El de 3ra (si no anoto) nunca se pregunta: no tiene a
+    // donde avanzar sin anotar, asi que estructuralmente se queda en 3ra.
+    if(nbForce>=3&&outsBeforePlay<2){
+      var _scoredOrderO=[bases.third,bases.second,bases.first].filter(Boolean).slice(0,rbi);
+      var _thirdOccAfterO=!!(bases.third&&_scoredOrderO.indexOf(bases.third)<0); // 3ra sigue ocupada tras la jugada
+      var _secondOccAfterO=!!(bases.second&&_scoredOrderO.indexOf(bases.second)<0); // 2da sigue ocupada
+      var _firstOccAfterO=!!(bases.first&&_scoredOrderO.indexOf(bases.first)<0); // 1ra sigue ocupada
+      // El de 2da solo puede avanzar a 3ra si esta quedara libre. El de 1ra solo puede
+      // avanzar a 2da si esta queda libre (porque no habia nadie, o porque el de 2da tambien
+      // avanza en la misma jugada).
+      var _secondCanAskO=_secondOccAfterO&&!_thirdOccAfterO;
+      var _firstAloneCanAskO=_firstOccAfterO&&!_secondOccAfterO;
+      var _bothCanAskO=_secondOccAfterO&&_firstOccAfterO&&!_thirdOccAfterO;
+      if(_bothCanAskO){
+        var outAdv2=await numPromptAsync('OUT DE CAMPO - '+bName
+          +'\n¿Los corredores avanzaron una base?'
+          +'\n1. Ninguno\n2. Solo el de 2da (a 3ra)\n3. Ambos'
+          +'\n\nIngresa (1, 2 o 3):','1');
+        if(outAdv2===null){_rPlayBusy=false;return;}
+        var _selO2=parseInt(outAdv2)||1;
+        gm._outAdv=_selO2===3?'both':(_selO2===2?'second':'none');
+      } else if(_secondCanAskO){
+        var outAdvS=await numPromptAsync('OUT DE CAMPO - '+bName
+          +'\n¿El corredor en 2da avanzo a 3ra?'
+          +'\n1. No\n2. Si'
+          +'\n\nIngresa (1 o 2):','1');
+        if(outAdvS===null){_rPlayBusy=false;return;}
+        gm._outAdv=(parseInt(outAdvS)===2)?'second':'none';
+      } else if(_firstAloneCanAskO){
+        var outAdvF=await numPromptAsync('OUT DE CAMPO - '+bName
+          +'\n¿El corredor en 1ra avanzo a 2da?'
+          +'\n1. No\n2. Si'
+          +'\n\nIngresa (1 o 2):','1');
+        if(outAdvF===null){_rPlayBusy=false;return;}
+        gm._outAdv=(parseInt(outAdvF)===2)?'first':'none';
+      }
+    }
   } else if(type==='DP'){
     if((parseInt(gm.outs)||0)>=2){_rPlayBusy=false;toast('No se puede marcar doble play con 2 outs','error');return;}
     var rb4=await numPromptAsync('DOBLE PLAY - '+bName
@@ -4844,16 +4908,16 @@ async function rPlay(type){
         var wa=parseInt(whoAnno)||3;
         if(wa===1){
           runs=1; rbi=0; gm._errorIsEarned=false;
-          var bBase1=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base\n\nIngresa (1 o 2):','1');
+          var bBase1=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base'+(nbForce>=3?'\n3. 3ra Base':'')+'\n\nIngresa (1'+(nbForce>=3?', 2 o 3':' o 2')+'):','1');
           if(bBase1===null){_rPlayBusy=false;return;}
-          gm._errorBatterBase=parseInt(bBase1)===2?2:1;
+          gm._errorBatterBase=(nbForce>=3&&parseInt(bBase1)===3)?3:(parseInt(bBase1)===2?2:1);
         } else if(wa===2){
           runs=2; rbi=0; gm._errorIsEarned=false; gm._errorBatterBase=0;
         } else {
           runs=0; rbi=0;
-          var bBase3=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base\n\nIngresa (1 o 2):','1');
+          var bBase3=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base'+(nbForce>=3?'\n3. 3ra Base':'')+'\n\nIngresa (1'+(nbForce>=3?', 2 o 3':' o 2')+'):','1');
           if(bBase3===null){_rPlayBusy=false;return;}
-          gm._errorBatterBase=parseInt(bBase3)===2?2:1;
+          gm._errorBatterBase=(nbForce>=3&&parseInt(bBase3)===3)?3:(parseInt(bBase3)===2?2:1);
         }
         var ok2=await pickFielder(); if(!ok2){_rPlayBusy=false;return;}
       }
@@ -4861,11 +4925,12 @@ async function rPlay(type){
       // ── Sin corredores: preguntar a qué base llegó o si anotó ── (antes exclusivo de Vitilla)
       var noRunnerOpt=await numPromptAsync('ERROR - '+bName
         +'\nNo hay corredores en base.'
-        +'\n\n¿Qué pasó?\n1. El bateador llegó a 1ra base\n2. El bateador llegó a 2da base\n3. El bateador anotó (carrera sucia)\n\nIngresa (1, 2 o 3):','1');
+        +'\n\n¿Qué pasó?\n1. El bateador llegó a 1ra base\n2. El bateador llegó a 2da base'+(nbForce>=3?'\n3. El bateador llegó a 3ra base\n4. El bateador anotó (carrera sucia)':'\n3. El bateador anotó (carrera sucia)')+'\n\nIngresa ('+(nbForce>=3?'1, 2, 3 o 4':'1, 2 o 3')+'):','1');
       if(noRunnerOpt===null){_rPlayBusy=false;return;}
       var nro=parseInt(noRunnerOpt)||1;
-      if(nro===3){ runs=1; rbi=0; gm._errorIsEarned=false; gm._errorBatterBase=0; }
-      else { runs=0; rbi=0; gm._errorBatterBase=nro===2?2:1; }
+      var _dirtyRunOpt=nbForce>=3?4:3;
+      if(nro===_dirtyRunOpt){ runs=1; rbi=0; gm._errorIsEarned=false; gm._errorBatterBase=0; }
+      else { runs=0; rbi=0; gm._errorBatterBase=(nbForce>=3&&nro===3)?3:(nro===2?2:1); }
       gm._errorType='batter_play';
       var ok0=await pickFielder(); if(!ok0){_rPlayBusy=false;return;}
     }
@@ -4991,6 +5056,12 @@ async function rPlay(type){
           // Bateador a 2da — mismo efecto que doble pero como error (sucia)
           if(nb>=3){gm.bases={first:null,second:batter,third:scored(b.first)?null:(b.first||null)};}
           else{gm.bases={first:null,second:batter,third:null};}
+        } else if(ebb===3){
+          // Bateador a 3ra (solo aplica en juegos de 3 bases) — mismo efecto que un triple
+          // pero como error (sucia). El bateador ocupa 3ra; no queda base intermedia donde
+          // dejar a un corredor previo, asi que cualquier corredor que hubiera en 1ra o 2da
+          // sin anotar ya tambien anota en esta jugada (no hay a donde colocarlo).
+          gm.bases={first:null,second:null,third:batter};
         } else {
           // Bateador a 1ra — sencillo normal
           if(nb>=3){gm.bases={first:batter,second:scored(b.first)?null:(b.first||null),third:scored(b.second)?null:(b.second||null)};}
@@ -5075,11 +5146,19 @@ async function rPlay(type){
     } else if(type==='OUT'||type==='K'){
       // Outs: las bases se mantienen igual, EXCEPTO los corredores que ya anotaron
       // (sacrifice fly u otra carrera marcada en este OUT) — esos deben salir de las bases.
-      gm.bases={
-        first:(b.first&&scorerIds.indexOf(b.first)>=0)?null:(b.first||null),
-        second:(b.second&&scorerIds.indexOf(b.second)>=0)?null:(b.second||null),
-        third:(b.third&&scorerIds.indexOf(b.third)>=0)?null:(b.third||null)
-      };
+      // Para type==='OUT' (no K), si el anotador indico que algun corredor avanzo una base
+      // extra por su cuenta (gm._outAdv, preguntado arriba cuando habia ambiguedad con menos
+      // de 2 outs), se aplica ese avance encadenado desde 2da hacia 1ra.
+      var outAdvSel=gm._outAdv;
+      if(gm._outAdv!==undefined)delete gm._outAdv;
+      var oFirst=(b.first&&scorerIds.indexOf(b.first)>=0)?null:(b.first||null);
+      var oSecond=(b.second&&scorerIds.indexOf(b.second)>=0)?null:(b.second||null);
+      var oThird=(b.third&&scorerIds.indexOf(b.third)>=0)?null:(b.third||null);
+      if(type==='OUT'&&nb>=3){
+        if((outAdvSel==='both'||outAdvSel==='second')&&oSecond&&!oThird){oThird=oSecond;oSecond=null;}
+        if((outAdvSel==='both'||outAdvSel==='first')&&oFirst&&!oSecond){oSecond=oFirst;oFirst=null;}
+      }
+      gm.bases={first:oFirst,second:oSecond,third:oThird};
     } else if(type==='SAC'){
       // Sacrificio: los corredores que anotaron salen de las bases. Los que no anotaron
       // avanzan una base cada uno (encadenado desde 3ra hacia 1ra) SOLO si el anotador indico
@@ -8828,10 +8907,15 @@ function openLeaderFullListM(cardKey){
     +'<div class="mbd"><div class="tw"><table><thead><tr><th style="text-align:center">#</th><th>Jugador</th><th>Equipo</th>'+(hasExtra?'<th style="text-align:center">'+(data.extraLabel||'')+'</th>':'')+'<th style="text-align:center">Valor</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
-// Resuelve los umbrales mínimos de VB/IP configurados para Lideres. Si se indica un subtorneo
-// puntual se usa el suyo; si la vista es "Todos" (varios subtorneos a la vez, ej. lifetime),
-// se usa el del subtorneo activo mas reciente dentro del scope como representativo.
-function leadersThresholdsFor(scopeTourIds,singleTourId){
+// Resuelve la configuracion de umbrales minimos de VB/IP para Lideres, segun la FASE
+// actualmente filtrada (phase: ''/'regular'/'playoff'/'final' — "todas" usa Regular como
+// referencia). Si se indica un subtorneo puntual se usa el suyo; si la vista es "Todos"
+// (varios subtorneos a la vez, ej. lifetime), se usa el del subtorneo activo mas reciente
+// dentro del scope como representativo.
+// Devuelve el valor MANUAL configurado para esa fase (vb/ip) y si el modo automatico
+// (media) esta activo (vbAuto/ipAuto) — el calculo real de la media (que depende del
+// dataset de jugadores en pantalla) lo hace quien llama, via resolveMinVB/resolveMinIP.
+function leadersThresholdsFor(scopeTourIds,singleTourId,phase){
   var rep=null;
   if(singleTourId){
     rep=S.tournaments.filter(function(x){return x.id===singleTourId;})[0];
@@ -8840,13 +8924,36 @@ function leadersThresholdsFor(scopeTourIds,singleTourId){
     var active=cands.filter(function(x){return x.status==='active';}).sort(function(a,b){return (parseInt(b.year)||0)-(parseInt(a.year)||0);});
     rep=active[0]||cands.sort(function(a,b){return (parseInt(b.year)||0)-(parseInt(a.year)||0);})[0];
   }
-  // leadersMinVb/leadersMinIp: null/undefined = no configurado (usar default), 0 = sin mínimo (explícito)
-  var vbRaw=(rep&&rep.leadersMinVb!==null&&rep.leadersMinVb!==undefined)?Number(rep.leadersMinVb):null;
-  var ipRaw=(rep&&rep.leadersMinIp!==null&&rep.leadersMinIp!==undefined)?Number(rep.leadersMinIp):null;
+  var ph=phase||'regular'; // "todas" (phase vacio) usa Regular como referencia
+  var vbField='leadersMinVb'+(ph==='playoff'?'Playoff':ph==='final'?'Final':'Regular');
+  var ipField='leadersMinIp'+(ph==='playoff'?'Playoff':ph==='final'?'Final':'Regular');
+  var vbRaw=(rep&&rep[vbField]!==null&&rep[vbField]!==undefined)?Number(rep[vbField]):null;
+  var ipRaw=(rep&&rep[ipField]!==null&&rep[ipField]!==undefined)?Number(rep[ipField]):null;
+  // Fallback al campo legacy sin fase (torneo creado antes de existir el desglose por fase)
+  if(vbRaw===null&&rep&&rep.leadersMinVb!==null&&rep.leadersMinVb!==undefined) vbRaw=Number(rep.leadersMinVb);
+  if(ipRaw===null&&rep&&rep.leadersMinIp!==null&&rep.leadersMinIp!==undefined) ipRaw=Number(rep.leadersMinIp);
   return{
-    vb: vbRaw!==null ? vbRaw : 0,
-    ip: ipRaw!==null ? ipRaw : 0
+    vb: vbRaw!==null?vbRaw:0,
+    ip: ipRaw!==null?ipRaw:0,
+    vbAuto: !!(rep&&rep.leadersVbAuto===true),
+    ipAuto: !!(rep&&rep.leadersIpAuto===true)
   };
+}
+// Umbral final de VB a aplicar: si vbAuto esta activo, es la MEDIA de VB entre los
+// bateadores con al menos 1 VB (redondeada al entero mas cercano) del dataset en pantalla;
+// si no, es el valor manual configurado para la fase.
+function resolveMinVB(th,playersList,getVBFn){
+  if(!th.vbAuto) return th.vb;
+  var withVB=playersList.map(function(p){return getVBFn(p.ids);}).filter(function(v){return v>0;});
+  if(!withVB.length) return 0;
+  return Math.round(withVB.reduce(function(a,b){return a+b;},0)/withVB.length);
+}
+// Igual pero para IP (usa precision de tercios de entrada para promediar correctamente).
+function resolveMinIP(th,playersList,getIPFn){
+  if(!th.ipAuto) return th.ip;
+  var thirdsList=playersList.map(function(p){return ipToThirds(getIPFn(p.ids));}).filter(function(v){return v>0;});
+  if(!thirdsList.length) return 0;
+  return thirdsToIP(Math.round(thirdsList.reduce(function(a,b){return a+b;},0)/thirdsList.length));
 }
 function pgLead(tid){
   if(tid!==undefined){
@@ -8898,12 +9005,15 @@ function pgLead(tid){
     players.push({id:rep.id,ids:relatedIds,name:rep.name,number:rep.number,teamId:rep.teamId,teamNames:teamNames});
   });
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_LD.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  var _ldTh=leadersThresholdsFor(scopeTourIds,_LD.tourId);
-  var minLeadVB=_ldTh.vb,minLeadIP=_ldTh.ip;
+  var _ldTh=leadersThresholdsFor(scopeTourIds,_LD.tourId,S.phaseFilter);
   function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;}
   function getIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
-  function topN(fn,n){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullN(fn){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;});}
+  var minLeadVB=resolveMinVB(_ldTh,players,getVB),minLeadIP=resolveMinIP(_ldTh,players,getIP);
+  // applyMin: SOLO las tarjetas de SLG/AVG (bateo) y ERA/WHIP (pitcheo) aplican el minimo de
+  // VB/IP configurado — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) muestran
+  // a todos los jugadores con actividad, sin mínimo.
+  function topN(fn,n,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullN(fn,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;});}
   var _leadCardSeq=0;
   function lCard(ttl,items,fmt,fullFn){
     fmt=fmt||function(v){return v;};
@@ -8914,9 +9024,9 @@ function pgLead(tid){
       +(fullFn&&items.length?'<div style="padding:10px 14px"><button class="btn bs bsm" style="width:100%" onclick="openLeaderFullListM(\''+cardKey+'\')">Ver más &#8595;</button></div>':'')
       +'</div>';
   }
-  function pitCard(ttl,fn,fmt,asc,skipExtra){
+  function pitCard(ttl,fn,fmt,asc,skipExtra,applyMin){
     fmt=fmt||function(v){return v;};
-    var allItems=players.map(function(p){var ip=getIP(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!minLeadIP||x.ip>=minLeadIP);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
+    var allItems=players.map(function(p){var ip=getIP(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minLeadIP||x.ip>=minLeadIP);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
     var items=allItems.slice(0,10);
     var cardKey='lead_'+(_leadCardSeq++);
     window._leaderFullData[cardKey]={ttl:ttl,items:allItems,fmt:fmt,nameOf:function(x){return'#'+(x.p.number||'?')+' '+x.p.name;},teamOf:function(x){return(x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;');},extraOf:skipExtra?null:function(x){return x.ip.toFixed(1)+' IP';},extraLabel:skipExtra?null:'IP'};
@@ -8953,18 +9063,18 @@ function pgLead(tid){
     +((_LD.dateFrom||_LD.dateTo)?'<button class="btn bs bsm" onclick="_LD.dateFrom=\'\';_LD.dateTo=\'\';pgLead()">&#10005; Limpiar fechas</button>':'')
     +'</div></div>'
     +((_LD.dateFrom||_LD.dateTo)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128202; Mostrando lideres SOLO de los juegos jugados '+(_LD.dateFrom&&_LD.dateTo?'entre el '+_LD.dateFrom+' y el '+_LD.dateTo:_LD.dateFrom?'desde el '+_LD.dateFrom:'hasta el '+_LD.dateTo)+'.</div>':'')
-    +((minLeadVB||minLeadIP)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimos configurados para este subtorneo: '+(minLeadVB?minLeadVB+' VB (bateo)':'sin mínimo de VB')+' &middot; '+(minLeadIP?minLeadIP+' IP (pitcheo)':'sin mínimo de IP')+'.</div>':'')
+    +((minLeadVB||minLeadIP||_ldTh.vbAuto||_ldTh.ipAuto)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo) &mdash; fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Serie Regular (referencia de "Todas")')+': '+(_ldTh.vbAuto?'<b>'+minLeadVB+' VB</b> (media automática de bateadores con actividad)':(minLeadVB?minLeadVB+' VB (manual)':'sin mínimo de VB'))+' &middot; '+(_ldTh.ipAuto?'<b>'+minLeadIP.toFixed(1)+' IP</b> (media automática de pitchers con actividad)':(minLeadIP?minLeadIP+' IP (manual)':'sin mínimo de IP'))+'.</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
-    +lCard('&#128200; SLG',topN(getSLG),function(v){return v.toFixed(3);},function(){return fullN(getSLG);})+lCard('&#127952; AVG',topN(getAvg),function(v){return v.toFixed(3);},function(){return fullN(getAvg);})+lCard('&#128165; HR',topN(getHR),null,function(){return fullN(getHR);})+lCard('&#127919; RBI',topN(getRBI),null,function(){return fullN(getRBI);})
+    +lCard('&#128200; SLG',topN(getSLG,10,true),function(v){return v.toFixed(3);},function(){return fullN(getSLG,true);})+lCard('&#127952; AVG',topN(getAvg,10,true),function(v){return v.toFixed(3);},function(){return fullN(getAvg,true);})+lCard('&#128165; HR',topN(getHR),null,function(){return fullN(getHR);})+lCard('&#127919; RBI',topN(getRBI),null,function(){return fullN(getRBI);})
     +lCard('&#127939; Hits',topN(getH),null,function(){return fullN(getH);})+lCard('&#9889; 2B',topN(get2B),null,function(){return fullN(get2B);})+lCard('&#128293; 3B',topN(get3B),null,function(){return fullN(get3B);})+lCard('&#128168; SB',topN(getSB),null,function(){return fullN(getSB);})+lCard('&#127937; Carreras Anotadas',topN(getR),null,function(){return fullN(getR);})
     +'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
     +'<div class="g3">'
-    +pitCard('&#128201; ERA',getERA,function(v){return v.toFixed(2);},true)
+    +pitCard('&#128201; ERA',getERA,function(v){return v.toFixed(2);},true,false,true)
     +pitCard('&#127942; Victorias',getWins)
     +pitCard('&#127744; Ponches K',getKp)
-    +pitCard('&#128202; WHIP',getWHIP,function(v){return v.toFixed(2);},true)
+    +pitCard('&#128202; WHIP',getWHIP,function(v){return v.toFixed(2);},true,false,true)
     +pitCard('&#9203; IP',getIP,function(v){return v.toFixed(1);},false,true)
     +'</div>');
 }
@@ -9208,9 +9318,9 @@ function pgLeadLife(){
     if(p.number&&!seenRoots2[root].number)seenRoots2[root].number=p.number;
   });
   var _leadLifeCardSeq=0;
-  var _ldTh2=leadersThresholdsFor(lifeTourIds2,null);
-  var minLeadVB2=_ldTh2.vb,minLeadIP2=_ldTh2.ip;
+  var _ldTh2=leadersThresholdsFor(lifeTourIds2,null,S.phaseFilter);
   function getVBLife(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;}
+  var minLeadVB2=resolveMinVB(_ldTh2,careerPlayers2,getVBLife),minLeadIP2=resolveMinIP(_ldTh2,careerPlayers2,function(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));});
   function lCard2(ttl,items,fmt,fullFn,extraKey){
     fmt=fmt||function(v){return v;};
     var cardKey='leadlife_'+(_leadLifeCardSeq++);
@@ -9223,10 +9333,12 @@ function pgLeadLife(){
   }
   function topLife(fn,n){return careerPlayers2.map(function(cp){return{cp:cp,val:fn(cp.ids)};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
   function fullLife(fn){return careerPlayers2.map(function(cp){return{cp:cp,val:fn(cp.ids)};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
-  function topLifeBat(fn,n){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullLifeBat(fn){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;});}
-  function topLifePit(fn,n){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0&&(!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullLifePit(fn){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0&&(!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return b.val-a.val;});}
+  // applyMin: SOLO SLG/AVG (bateo) y ERA/WHIP (pitcheo) aplican el minimo — el resto de las
+  // tarjetas (HR, RBI, Hits, K, Victorias, etc.) muestran a todos, sin mínimo.
+  function topLifeBat(fn,n,applyMin){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullLifeBat(fn,applyMin){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;});}
+  function topLifePit(fn,n){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullLifePit(fn){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
   function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
   function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
   function cHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
@@ -9241,9 +9353,9 @@ function pgLeadLife(){
   function cK(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
   function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
   function cIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
-  function pitLifeCard(ttl,fn,fmt,asc,skipExtra){
+  function pitLifeCard(ttl,fn,fmt,asc,skipExtra,applyMin){
     fmt=fmt||function(v){return v;};
-    var allItems=careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
+    var allItems=careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
     var items=allItems.slice(0,10);
     var cardKey='leadlife_'+(_leadLifeCardSeq++);
     window._leaderFullData[cardKey]={ttl:ttl,items:allItems,fmt:fmt,nameOf:function(x){return'#'+(x.cp.number||'?')+' '+x.cp.name;},teamOf:function(x){return x.cp.teams.join(', ');},extraOf:skipExtra?null:function(x){return x.ip.toFixed(1)+' IP';},extraLabel:skipExtra?null:'IP'};
@@ -9256,18 +9368,18 @@ function pgLeadLife(){
     +'<div><div class="stl">&#127775; Lideres de Por Vida</div><div class="ssb">Top jugadores historicos &mdash; '+{vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[effectiveLifeSport()||'vitilla']+'</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="font-size:12px;color:var(--t2)">&#127947; Deporte:</label><select class="fs" style="width:140px" onchange="setSportFilter(this.value)">'+sportOpts(true)+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select></div></div>'
-    +((minLeadVB2||minLeadIP2)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimos aplicados (según subtorneo vigente/más reciente): '+(minLeadVB2?minLeadVB2+' VB (bateo)':'sin mínimo de VB')+' &middot; '+(minLeadIP2?minLeadIP2+' IP (pitcheo)':'sin mínimo de IP')+'.</div>':'')
+    +((minLeadVB2||minLeadIP2||_ldTh2.vbAuto||_ldTh2.ipAuto)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo) &mdash; según subtorneo vigente/más reciente, fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Serie Regular (referencia de "Todas")')+': '+(_ldTh2.vbAuto?'<b>'+minLeadVB2+' VB</b> (media automática)':(minLeadVB2?minLeadVB2+' VB (manual)':'sin mínimo de VB'))+' &middot; '+(_ldTh2.ipAuto?'<b>'+minLeadIP2.toFixed(1)+' IP</b> (media automática)':(minLeadIP2?minLeadIP2+' IP (manual)':'sin mínimo de IP'))+'.</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
-    +lCard2('&#128200; SLG (carrera)',topLifeBat(cSLG),function(v){return v.toFixed(3);},function(){return fullLifeBat(cSLG);},'vb')+lCard2('&#127952; AVG (carrera)',topLifeBat(cAvg),function(v){return v.toFixed(3);},function(){return fullLifeBat(cAvg);},'vb')+lCard2('&#128165; HR (carrera)',topLifeBat(cHR),null,function(){return fullLifeBat(cHR);},'vb')+lCard2('&#127919; RBI (carrera)',topLifeBat(cRBI),null,function(){return fullLifeBat(cRBI);},'vb')
+    +lCard2('&#128200; SLG (carrera)',topLifeBat(cSLG,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cSLG,true);},'vb')+lCard2('&#127952; AVG (carrera)',topLifeBat(cAvg,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cAvg,true);},'vb')+lCard2('&#128165; HR (carrera)',topLifeBat(cHR),null,function(){return fullLifeBat(cHR);},'vb')+lCard2('&#127919; RBI (carrera)',topLifeBat(cRBI),null,function(){return fullLifeBat(cRBI);},'vb')
     +lCard2('&#127939; Hits (carrera)',topLifeBat(cH),null,function(){return fullLifeBat(cH);},'vb')+lCard2('&#9889; 2B (carrera)',topLifeBat(c2B),null,function(){return fullLifeBat(c2B);},'vb')+lCard2('&#128293; 3B (carrera)',topLifeBat(c3B),null,function(){return fullLifeBat(c3B);},'vb')+lCard2('&#128168; SB (carrera)',topLifeBat(cSB),null,function(){return fullLifeBat(cSB);},'vb')+lCard2('&#127937; Carreras Anotadas (carrera)',topLifeBat(cR),null,function(){return fullLifeBat(cR);},'vb')
     +'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
     +'<div class="g3">'
-    +pitLifeCard('&#128201; ERA (carrera)',cERA,function(v){return v.toFixed(2);},true)
+    +pitLifeCard('&#128201; ERA (carrera)',cERA,function(v){return v.toFixed(2);},true,false,true)
     +lCard2('&#127942; Victorias (carrera)',topLifePit(cWins),null,function(){return fullLifePit(cWins);},'ip')
     +lCard2('&#127744; Ponches K (carrera)',topLifePit(cK),null,function(){return fullLifePit(cK);},'ip')
-    +pitLifeCard('&#128202; WHIP (carrera)',cWHIP,function(v){return v.toFixed(2);},true)
+    +pitLifeCard('&#128202; WHIP (carrera)',cWHIP,function(v){return v.toFixed(2);},true,false,true)
     +lCard2('&#9203; IP (carrera)',topLifePit(cIP),function(v){return v.toFixed(1);},function(){return fullLifePit(cIP);})
     +'</div>');
 }
@@ -9321,8 +9433,6 @@ function pgFeaturedByDate(){
   var pevs=gids.length?S.pitching.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true';}):[];
   var poolAllFD=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
   var activePoolFD=poolAllFD.filter(function(p){return p.active!=='false';});
-  var seenFD={};var uniq=[];
-  activePoolFD.forEach(function(p){if(seenFD[p.id])return;seenFD[p.id]=true;uniq.push(p);});
   // IMPORTANTE: usa careerInstances (mismo mecanismo de "de por vida"/transferencias), NO el
   // pool filtrado por activos — si se usara solo el pool activo, un jugador transferido de un
   // equipo a otro DENTRO del mismo subtorneo perderia silenciosamente los numeros logrados en
@@ -9331,6 +9441,18 @@ function pgFeaturedByDate(){
     var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
     return related.length?related:[p.id];
   }
+  // BUG CORREGIDO: el dedup se hacia por p.id ANTES de resolver la cadena de careerInstances,
+  // asi que un jugador transferido de un equipo a otro DENTRO del mismo subtorneo (dos
+  // registros ACTIVOS simultaneos, ej. por Draft de refuerzo) pasaba el dedup dos veces —
+  // una por cada registro — y cada entrada mostraba el MISMO total consolidado, duplicando la
+  // fila en Destacados en Fecha. Ahora se marcan TODOS los ids relacionados como "vistos" en
+  // cuanto se procesa el primero, para que la segunda aparicion se salte por completo.
+  var seenFD={};var uniq=[];
+  activePoolFD.forEach(function(p){
+    if(seenFD[p.id])return;
+    idsForName(p).forEach(function(id){seenFD[id]=true;});
+    uniq.push(p);
+  });
   var batList=[],pitList=[];
   uniq.forEach(function(p){
     var ids=idsForName(p);
@@ -9425,14 +9547,21 @@ function buildRankingLists(){
   var pevs=gids.length?S.pitching.filter(function(e){return gids.indexOf(e.gameId)>=0&&e.unofficial!=='true';}):[];
   var poolAllRK=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
   var activePoolRK=poolAllRK.filter(function(p){return p.active!=='false';});
-  var seenRK={};var uniq=[];
-  activePoolRK.forEach(function(p){if(seenRK[p.id])return;seenRK[p.id]=true;uniq.push(p);});
   // Igual que en Destacados en Fecha: careerInstances incluye el registro inactivo del equipo
   // anterior tras una transferencia, para no perder esos numeros del consolidado.
   function idsForName(p){
     var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
     return related.length?related:[p.id];
   }
+  // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
+  // mas de un registro ACTIVO simultaneo dentro del mismo subtorneo (transferencia o Draft de
+  // refuerzo) — ver detalle en el mismo fix de Destacados en Fecha, arriba.
+  var seenRK={};var uniq=[];
+  activePoolRK.forEach(function(p){
+    if(seenRK[p.id])return;
+    idsForName(p).forEach(function(id){seenRK[id]=true;});
+    uniq.push(p);
+  });
   var batList=[],pitList=[];
   uniq.forEach(function(p){
     var ids=idsForName(p);
@@ -9645,8 +9774,17 @@ function awardPlayerOpts(tourId,selectedPid){
   // este mismo subtorneo aparezca dos veces (una por cada equipo). Se muestran todos sus
   // equipos entre parentesis para que quede claro que jugo en mas de uno.
   var activePls=allPls.filter(function(p){return p.active!=='false';});
+  // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
+  // mas de un registro ACTIVO simultaneo dentro del mismo subtorneo (transferencia o Draft de
+  // refuerzo) — misma correccion aplicada en Destacados en Fecha, Rankings, Candidatos a
+  // Premiaciones y Candidatos al Juego de Estrellas.
   var seenAw={};var uniq=[];
-  activePls.forEach(function(p){if(seenAw[p.id])return;seenAw[p.id]=true;uniq.push(p);});
+  activePls.forEach(function(p){
+    if(seenAw[p.id])return;
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    (related.length?related:[p.id]).forEach(function(id){seenAw[id]=true;});
+    uniq.push(p);
+  });
   uniq.sort(function(a,b){return(a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
   if(!uniq.length) return '<option value="">Sin jugadores en este torneo</option>';
   return uniq.map(function(p){
@@ -9721,14 +9859,21 @@ function awardCandidates(tourId,divFilter){
   }):tids;
   var poolAllCand=S.players.filter(function(p){return _asDivTids.indexOf(p.teamId)>=0;});
   var activePoolCand=poolAllCand.filter(function(p){return p.active!=='false';});
-  var seen={};var uniq=[];
-  activePoolCand.forEach(function(p){if(seen[p.id])return;seen[p.id]=true;uniq.push(p);});
   // Igual que en Destacados en Fecha/Rankings: careerInstances incluye el registro inactivo
   // del equipo anterior tras una transferencia, para no perder esos numeros del consolidado.
   function idsForName(p){
     var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&_asDivTids.indexOf(rp.teamId)>=0;});
     return related.length?related:[p.id];
   }
+  // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
+  // mas de un registro ACTIVO simultaneo dentro del mismo subtorneo (transferencia o Draft de
+  // refuerzo) — misma correccion aplicada en Destacados en Fecha y Rankings.
+  var seen={};var uniq=[];
+  activePoolCand.forEach(function(p){
+    if(seen[p.id])return;
+    idsForName(p).forEach(function(id){seen[id]=true;});
+    uniq.push(p);
+  });
     return uniq.map(function(p){
       var ids=idsForName(p);
       var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});
@@ -9882,12 +10027,20 @@ function allStarCandidates(tourId,divFilter){
   var tids=_asFiltTeams.map(function(t){return t.id;});
   var poolAllGG=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
   var activePoolGG=poolAllGG.filter(function(p){return p.active!=='false';});
-  var seen={};var uniq=[];
-  activePoolGG.forEach(function(p){if(seen[p.id])return;seen[p.id]=true;uniq.push(p);});
   function idsForName(p){
     var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
     return related.length?related:[p.id];
   }
+  // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
+  // mas de un registro ACTIVO simultaneo dentro del mismo subtorneo (transferencia o Draft de
+  // refuerzo) — esta es la lista de Candidatos al Juego de Estrellas por posición; misma
+  // correccion aplicada en Destacados en Fecha, Rankings y Candidatos a Premiaciones.
+  var seen={};var uniq=[];
+  activePoolGG.forEach(function(p){
+    if(seen[p.id])return;
+    idsForName(p).forEach(function(id){seen[id]=true;});
+    uniq.push(p);
+  });
   var all=uniq.map(function(p){
     var ids=idsForName(p);
     var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});
