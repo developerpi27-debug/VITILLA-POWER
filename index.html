@@ -563,22 +563,22 @@ var CFG = {
 // origen. baseball.powerrdapp.com y softball.powerrdapp.com redirigen (regla
 // de Cloudflare) a powerrdapp.com/?sport=baseball (o softball), y
 // vitilla.powerrdapp.com a powerrdapp.com/?sport=vitilla. Se lee ese
-// parametro UNA vez, se guarda en localStorage (dato puramente cosmetico,
-// no sensible, para que sobreviva a un refresco de pagina aunque el
-// parametro ya no este en la URL) y se limpia la URL. Si no viene el
-// parametro (ej. entraste directo a powerrdapp.com sin pasar por una
-// redireccion), se usa lo ultimo guardado, o 'vitilla' por defecto.
+// parametro y se guarda en localStorage (dato puramente cosmetico, no
+// sensible, para que sobreviva a un refresco de pagina si en algun momento
+// se navega dentro del sitio sin el parametro en la URL). El parametro
+// se DEJA visible en la barra de direcciones a proposito (no se limpia con
+// history.replaceState), para que el usuario vea claramente
+// powerrdapp.com/?sport=baseball / ?sport=softball / ?sport=vitilla segun
+// por cual subdominio entro, en vez de que los 3 queden identicos como
+// solo "powerrdapp.com". Si no viene el parametro (ej. entraste directo a
+// powerrdapp.com sin pasar por una redireccion), se usa lo ultimo
+// guardado, o 'vitilla' por defecto.
 var BRAND=(function(){
   var valid=['vitilla','baseball','softball'];
   var qp=null;
   try{ qp=new URLSearchParams(location.search).get('sport'); }catch(e){}
   if(qp&&valid.indexOf(qp)>=0){
     try{ localStorage.setItem('vp_brand',qp); }catch(e){}
-    try{
-      var u=new URL(location.href);
-      u.searchParams.delete('sport');
-      history.replaceState({},'',u.pathname+(u.search?u.search:'')+u.hash);
-    }catch(e){}
     return qp;
   }
   try{ var stored=localStorage.getItem('vp_brand'); if(stored&&valid.indexOf(stored)>=0) return stored; }catch(e){}
@@ -1130,11 +1130,11 @@ function warnIfLicenseNearExpiry(){
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
   // El visitante entra siempre con el deporte del subdominio de origen (BRAND),
-  // bloqueado — no puede cambiarlo, y no ve torneos de otros deportes. Como el
-  // acceso de visitante no persiste sesion (cada refresco vuelve a llamar
-  // guestLogin), esto se re-aplica correctamente en cada entrada/refresco.
+  // bloqueado — no puede cambiarlo, y no ve torneos de otros deportes.
   S.sportFilter=BRAND;
   S._sportLocked=true;
+  resetActivity();
+  saveGuestSession();
   loadAll().catch(function(){}).finally(function(){
     document.getElementById('lscr').style.display='none';
     document.getElementById('app').style.display='flex';
@@ -1145,6 +1145,15 @@ function guestLogin(){
     trackVisit();
     setTimeout(startMarquee,500);
   });
+}
+// Persiste una sesion de visitante minima (sin JWT — el acceso de visitante no requiere
+// autenticacion contra el servidor) en el mismo almacen de sesion que las cuentas normales,
+// para que un refresco de pagina (o volver de otra app/pestana en movil) NO obligue al
+// visitante a pulsar "Acceder como visitante" de nuevo. Solo se le pedira entrar de nuevo si
+// supera el tiempo de inactividad configurado (S.sessionTimeout, igual que cualquier otra
+// cuenta) o si usa el boton "Salir" (doLogout ya limpia esta sesion igual que cualquier otra).
+async function saveGuestSession(){
+  try{ await idbPut('session',{key:'current',user:S.user,profile:null,isGuest:true,ts:_lastAct}); }catch(e){}
 }
 function doLogout(){
   stopPolling();stopSessionTimer();clearSession();
@@ -1193,7 +1202,20 @@ function clearSession(){ return idbDelete('session','current').catch(function(){
 async function restoreSession(){
   try{
     var rec=await idbGet('session','current');
-    if(!rec||!rec.user||!rec.token) return false;
+    if(!rec||!rec.user) return false;
+    if(rec.isGuest){
+      // Sesion de visitante: sin JWT, no necesita verificarse contra el servidor. Se
+      // respeta el mismo limite de inactividad que cualquier cuenta normal (S.sessionTimeout,
+      // refrescado periodicamente en startSessionTimer mientras el visitante esta activo) —
+      // si ya lo supero, se descarta y volvera a pedirsele entrar como visitante.
+      var maxMs=(S.sessionTimeout||30)*60000;
+      if(!rec.ts||(Date.now()-rec.ts)>maxMs){ await clearSession(); return false; }
+      S.user=rec.user;S.profile=null;
+      S.sportFilter=BRAND;S._sportLocked=true;
+      resetActivity();
+      return {mode:'resumeGuest'};
+    }
+    if(!rec.token) return false;
     var payload=await verifyJwtLocally(rec.token);
     if(!payload){ await clearSession(); return false; } // firma invalida/payload alterado
     var nowSec=Math.floor(Date.now()/1000);
@@ -1283,7 +1305,11 @@ function startSessionTimer(){
   stopSessionTimer();
   _sessTimer=setInterval(function(){
     if(!S.user)return;
-    if(Date.now()-_lastAct>(S.sessionTimeout||30)*60000){doLogout();alert('Sesion cerrada por inactividad.');}
+    if(Date.now()-_lastAct>(S.sessionTimeout||30)*60000){doLogout();alert('Sesion cerrada por inactividad.');return;}
+    // Mantener fresca la marca de actividad de la sesion de visitante persistida, para que
+    // un refresco de pagina (o volver de otra app) no la de por vencida mientras el
+    // visitante sigue activo dentro de la ventana de inactividad configurada.
+    if(S.user.role==='public') saveGuestSession();
   },30000);
 }
 function stopSessionTimer(){if(_sessTimer){clearInterval(_sessTimer);_sessTimer=null;}}
@@ -1533,6 +1559,31 @@ document.addEventListener('visibilitychange',function(){
     // completo en ejecutarse — tiempo de sobra para marcar una jugada contra un bateador
     // que, segun el servidor, ya completo su turno (causa raiz del bug de "jugada
     // duplicada al mismo bateador" al volver de segundo plano/otra pestana).
+    startPolling();
+    _doPoll();
+    checkRealConnectivity();
+  }
+});
+// Respaldo de 'visibilitychange' para moviles: al salir de la app/navegador (a otra app,
+// al home, etc.) y volver, algunos navegadores moviles (sobre todo iOS Safari) no disparan
+// 'visibilitychange' de forma confiable — la pagina puede quedar restaurada desde el
+// bfcache (back-forward cache) o simplemente el timer de polling queda detenido sin que
+// nada lo reactive, dejando la actualizacion automatica "congelada" hasta que el usuario
+// refresca manualmente. 'pageshow' (con event.persisted=true en restauraciones de bfcache)
+// y 'focus' cubren esos casos. Reutilizan la MISMA logica protegida (startPolling+_doPoll):
+// _doPoll ya respeta _saving/_rPlayBusy y detecta si hay un anotador activo (botones de
+// jugada en pantalla) para NO tocar su estado, solo refrescando el marcador en silencio —
+// asi que agregar estos disparadores adicionales no puede interferir con quien esta
+// anotando jugadas en vivo.
+window.addEventListener('pageshow',function(){
+  if(!document.hidden){
+    startPolling();
+    _doPoll();
+    checkRealConnectivity();
+  }
+});
+window.addEventListener('focus',function(){
+  if(!document.hidden){
     startPolling();
     _doPoll();
     checkRealConnectivity();
@@ -12627,6 +12678,19 @@ window.onload=function(){
   document.getElementById('lscr').style.display='none';
   document.getElementById('app').style.display='none';
   restoreSession().then(function(rs){
+    if(rs&&rs.mode==='resumeGuest'){
+      loadAll().catch(function(){}).finally(function(){
+        document.getElementById('lscr').style.display='none';
+        document.getElementById('app').style.display='flex';
+        resetModuleState();
+        renderApp();goNav('standings');
+        startPolling();
+        startSessionTimer();
+        trackVisit();
+        setTimeout(startMarquee,500);
+      });
+      return;
+    }
     if(rs&&rs.mode==='resume'){
       loadAll().then(function(gotFresh){
         if(!gotFresh){
