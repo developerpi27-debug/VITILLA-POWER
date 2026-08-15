@@ -5607,6 +5607,33 @@ function rBSO(type){
   api('saveGame',{game:gm}); // fire-and-forget
 }
 var _undoBusy=false;
+// Recalcula desde CERO (sumando TODOS los eventos reales del juego) el marcador: carreras,
+// hits, errores por entrada e inningScores — exactamente el mismo criterio que ya usan
+// "Corregir/Eliminar jugada". Se extrajo a una funcion compartida para que "Deshacer ultima
+// jugada" tambien lo use, en vez de ir sumando/restando deltas incrementales (que es lo que
+// permitia que el marcador de Posiciones -basado en gm.awayRuns/homeRuns- se desincronizara
+// de las "Carreras Permitidas" de los pitchers -basadas en la suma de sus registros- tras
+// varios deshacer seguidos).
+function recomputeGameTotalsFromEvents(gid,gm){
+  var allEvs=S.events.filter(function(ev){return ev.gameId===gid&&ev.type!=='UNDO'&&ev.unofficial!=='true';});
+  var newScores={};
+  var awayR=0,homeR=0,awayH=0,homeH=0,awayE=0,homeE=0;
+  allEvs.forEach(function(ev){
+    var isAway=ev.battingTeamId===gm.awayTeamId;
+    var r=parseInt(ev.runs)||0;
+    if(r>0){
+      var k=String(ev.inning)+'_'+ev.half;
+      newScores[k]=(parseInt(newScores[k])||0)+r;
+      if(isAway)awayR+=r; else homeR+=r;
+    }
+    if(['H1','H2','H3','HR'].indexOf(ev.type)>=0){if(isAway)awayH++;else homeH++;}
+    if(ev.type==='E'){if(isAway)homeE++;else awayE++;}
+  });
+  gm.inningScores=newScores;
+  gm.awayRuns=awayR;gm.homeRuns=homeR;
+  gm.awayHits=awayH;gm.homeHits=homeH;
+  gm.awayErrors=awayE;gm.homeErrors=homeE;
+}
 async function undoLastPlay(){
   if(_undoBusy){toast('Procesando deshacer anterior...','info');return;}
   var gmCheck=S.games.filter(function(x){return x.id===S.game;})[0];
@@ -5684,72 +5711,33 @@ async function undoLastPlay(){
     if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
     else gm.homeBatterIdx=Math.max(0,(parseInt(gm.homeBatterIdx)||0)-1);
   }
-  // Revert runs if any
   var runs=parseInt(last.runs)||0;
-  if(runs>0){
-    var k=String(last.inning)+'_'+last.half;
-    if(gm.inningScores&&gm.inningScores[k]){
-      gm.inningScores[k]=Math.max(0,(parseInt(gm.inningScores[k])||0)-runs);
-    }
-    if(wasTop)gm.awayRuns=Math.max(0,(parseInt(gm.awayRuns)||0)-runs);
-    else gm.homeRuns=Math.max(0,(parseInt(gm.homeRuns)||0)-runs);
-  }
-  // Revert hits/errors
-  var isHit=['H1','H2','H3','HR'].indexOf(last.type)>=0;
-  if(isHit){
-    if(wasTop)gm.awayHits=Math.max(0,(parseInt(gm.awayHits)||0)-1);
-    else gm.homeHits=Math.max(0,(parseInt(gm.homeHits)||0)-1);
-  }
-  if(last.type==='E'){
-    if(wasTop)gm.homeErrors=Math.max(0,(parseInt(gm.homeErrors)||0)-1);
-    else gm.awayErrors=Math.max(0,(parseInt(gm.awayErrors)||0)-1);
-  }
-  // Revert pitcher stats — usar el pitcherId EXACTO que enfrento esta jugada (guardado en
-  // el evento al anotarla — last.pitcherId —, o resuelto por timestamp para jugadas
-  // historicas sin pitcherId guardado), NO el pitcher actualmente activo en el lineup.
-  // BUG CORREGIDO #1: antes se buscaba el pitcher activo AHORA en el lineup para revertirle
-  // los numeros; si hubo un cambio de pitcheo entre que se anoto la jugada y que se deshace
-  // (o se deshacen varias jugadas seguidas cruzando ese cambio), los tercios/hits/carreras se
-  // revertian del pitcher equivocado, desincronizando sus numeros contra la pizarra.
-  var btId2=wasTop?gm.awayTeamId:gm.homeTeamId;
-  var pitTeamId=wasTop?gm.homeTeamId:gm.awayTeamId;
-  var lastPitcherId=resolvePitcherForEvent(gm,last);
-  var ex=findPitchingRecordFor(gm.id,pitTeamId,lastPitcherId,last.timestamp);
-  // Fallback (no deberia ocurrir con eventos bien formados): si no se pudo resolver el
-  // pitcher exacto, usar el registro abierto mas reciente de ese equipo para no perder la
-  // reversion por completo.
-  if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId&&!e.pitchingClosed;}).slice(-1)[0]||null;
-  if(!ex) ex=S.pitching.filter(function(e){return e.gameId===gm.id&&e.teamId===pitTeamId;}).slice(-1)[0]||null;
-  if(ex&&runs>0){
-    // Revertir carreras/ER del pitcher responsable de esta jugada especifica. (H, HR, BB, K
-    // e IP ya NO se revierten aqui de forma incremental — ver recomputePitchingCountsForGame
-    // mas abajo, que los recalcula desde cero para TODOS los pitchers del juego y asi
-    // garantiza que jamas se desincronicen de la pizarra sin importar cuantas jugadas
-    // seguidas se deshagan.)
-    ex.r=Math.max(0,(parseInt(ex.r)||0)-runs);
-    // Carreras por error no fueron contadas como ER, así que no se revierten de ER
-    if(last.type!=='E')ex.er=Math.max(0,(parseInt(ex.er)||0)-runs);
-  }
-  // Remove event locally BEFORE rendering so UI is immediate
-  // Create an informational log entry for the undone play (not a stat, just for the play log)
+  // Remove event locally BEFORE recalcular el marcador y las estadisticas de pitcheo, para
+  // que ambos recalculos ya no incluyan la jugada que se esta deshaciendo.
+  S.events=S.events.filter(function(e){return e.id!==last.id;});
+  // BUG CORREGIDO #2: el marcador (carreras/hits/errores/inningScores) ya NO se revierte
+  // restando deltas de forma incremental — se recalcula desde CERO sumando todos los eventos
+  // reales restantes (mismo criterio que "Corregir/Eliminar jugada"). Esto es lo que garantiza
+  // que el DIF de carreras en Posiciones (basado en gm.awayRuns/homeRuns) jamas se desincronice
+  // de las "Carreras Permitidas" que muestran los pitchers (basadas en la suma de sus propios
+  // registros, recalculada mas abajo con el mismo criterio) — ambos numeros salen ahora de la
+  // MISMA fuente (el registro real de jugadas), sin importar cuantas jugadas seguidas se
+  // deshagan ni en que orden.
+  recomputeGameTotalsFromEvents(gm.id,gm);
   var undoLogId='undo'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   var undoLogEv={id:undoLogId,gameId:gm.id,batterId:last.batterId,battingTeamId:last.battingTeamId,
     type:'UNDO',inning:last.inning,half:last.half,rbi:0,runs:0,
     undoneType:last.type,undoneTs:last.timestamp,undoneEventId:last.id,
     timestamp:new Date().toISOString(),unofficial:'true'};
-  S.events=S.events.filter(function(e){return e.id!==last.id;});
   S.events.push(undoLogEv);
-  // BUG CORREGIDO #2: H, HR, BB, K e IP de TODOS los pitchers del juego se recalculan aqui
-  // desde cero, directamente contra el registro real de jugadas (ya sin la que se acaba de
-  // deshacer), en vez de solo restarle 1 hit/out/etc al registro que se penso que correspondia.
-  // Esto es lo que garantiza que, aunque se deshagan muchas jugadas seguidas (incluso saltando
-  // a otro inning), el IP y los hits del pitcher SIEMPRE terminen coincidiendo exactamente con
-  // lo que muestra la pizarra — ya no dependen de una cadena de sumas/restas que se pueda
-  // desincronizar.
+  // BUG CORREGIDO #3: H, HR, BB, K, IP (outs) Y AHORA TAMBIEN R/ER de TODOS los pitchers del
+  // juego se recalculan aqui desde cero, directamente contra el registro real de jugadas (ya
+  // sin la que se acaba de deshacer) — ver recomputePitchingCountsForGame mas abajo. Antes R/ER
+  // se revertian de forma incremental sobre un unico pitcher "responsable"; con eso, la suma de
+  // "Carreras Permitidas" de los pitchers de un equipo podia terminar sin cuadrar contra el
+  // marcador real del juego tras varios deshacer seguidos, que es exactamente lo que hacia que
+  // el DIF de Posiciones y las "Carreras Permitidas" de To vs To/Stats no coincidieran.
   var countsChanged=recomputePitchingCountsForGame(gm.id);
-  var pitRecsToSave=[];
-  if(ex)pitRecsToSave.push(ex);
-  countsChanged.forEach(function(r){if(pitRecsToSave.indexOf(r)<0)pitRecsToSave.push(r);});
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
   pgGC();
   toast('Ultima jugada deshecha','success');
@@ -5758,30 +5746,36 @@ async function undoLastPlay(){
   try{
     await api('deleteEvent',{id:last.id});
     await api('saveGame',{game:gm});
-    for(var pri=0;pri<pitRecsToSave.length;pri++){ await api('savePitching',{event:pitRecsToSave[pri]}); }
+    for(var pri=0;pri<countsChanged.length;pri++){ await api('savePitching',{event:countsChanged[pri]}); }
     await api('saveEvent',{event:undoLogEv});
   }finally{_saving=false;}
   }finally{_undoBusy=false;}
 }
-// Recalcula EXCLUSIVAMENTE los conteos de H/HR/BB/K e IP (outs) de TODOS los pitchers de un
-// juego, directamente desde el registro real de jugadas (S.events) -- en vez de ir sumando o
+// Recalcula EXCLUSIVAMENTE los conteos de H/HR/BB/K, IP (outs) y R/ER de TODOS los pitchers de
+// un juego, directamente desde el registro real de jugadas (S.events) -- en vez de ir sumando o
 // restando deltas jugada por jugada. Esto GARANTIZA que estos numeros del pitcher coincidan
 // siempre exactamente con la pizarra sin importar cuantas jugadas se hayan deshecho seguidas
 // (incluso si "saltan" a un inning anterior), porque no dependen de un historial de deltas
 // que se pueda desincronizar -- se recalculan desde cero cada vez a partir de la fuente de
 // verdad (los eventos guardados), usando resolvePitcherForEvent/findPitchingRecordFor para
 // atribuirle cada jugada al pitcher EXACTO que la enfrento.
-// NOTA: NO toca R/ER (carreras): esas pueden repartirse entre MAS DE UN pitcher cuando hay
-// corredores heredados (gm.runnerPitcher), y ese estado no queda 100% reconstruible solo con
-// los eventos guardados (existe una herramienta manual de "colocar corredor en base" que no
-// genera un evento persistido). R/ER se siguen ajustando de forma incremental sobre el pitcher
-// que realmente enfrento la jugada que se deshace (ver undoLastPlay).
+// R (carreras permitidas) se atribuye SIEMPRE al pitcher que enfrento la jugada en la que la
+// carrera se conto (no al pitcher "original" que puso al corredor en base si fue heredado de
+// un relevo anterior). Esto es una simplificacion respecto al beisbol real (donde una carrera
+// de un corredor heredado se le carga al pitcher que lo puso en base), pero GARANTIZA la
+// propiedad mas importante: la suma de "Carreras Permitidas" de los pitchers de un equipo en
+// un juego SIEMPRE cuadra exactamente con las carreras anotadas por el equipo rival en ese
+// juego (gm.awayRuns/homeRuns, recalculado con el mismo criterio en recomputeGameTotalsFromEvents)
+// -- que es precisamente lo que hace que el DIF de Posiciones y las "Carreras Permitidas" de
+// Stats/To vs To dejen de poder desincronizarse entre si.
+// ER usa el campo earnedRuns persistido en el evento cuando existe; si no (jugadas tipo
+// SB/WP/BK que no lo persisten), se asume carrera limpia salvo que la jugada sea un Error.
 function recomputePitchingCountsForGame(gid){
   var gm=S.games.filter(function(x){return x.id===gid;})[0];
   var recs=S.pitching.filter(function(p){return p.gameId===gid;});
   if(!gm||!recs.length)return[];
   var totals={};
-  recs.forEach(function(r){totals[r.id]={h:0,hr:0,bb:0,k:0,outs:0};});
+  recs.forEach(function(r){totals[r.id]={h:0,hr:0,bb:0,k:0,outs:0,r:0,er:0};});
   var evs=S.events.filter(function(e){return e.gameId===gid&&e.type!=='UNDO'&&e.unofficial!=='true';});
   evs.forEach(function(ev){
     var pid=resolvePitcherForEvent(gm,ev);
@@ -5792,14 +5786,19 @@ function recomputePitchingCountsForGame(gid){
     var d=pitchDeltaForEvent(ev);
     var t=totals[rec.id];
     t.h+=d.h;t.hr+=d.hr;t.bb+=d.bb;t.k+=d.k;t.outs+=d.outs;
+    if(d.runs>0){
+      t.r+=d.runs;
+      var earned=(ev.earnedRuns!==undefined&&ev.earnedRuns!==null&&ev.earnedRuns!=='')?(parseInt(ev.earnedRuns)||0):(ev.type==='E'?0:d.runs);
+      t.er+=Math.min(earned,d.runs);
+    }
   });
   var changed=[];
   recs.forEach(function(r){
     var t=totals[r.id];
     var newIp=parseFloat(Math.floor(t.outs/3)+'.'+(t.outs%3));
     var oldIp=parseFloat(r.ip)||0;
-    if((parseInt(r.h)||0)!==t.h||(parseInt(r.hr)||0)!==t.hr||(parseInt(r.bb)||0)!==t.bb||(parseInt(r.k)||0)!==t.k||oldIp!==newIp){
-      r.h=t.h;r.hr=t.hr;r.bb=t.bb;r.k=t.k;r.ip=newIp;
+    if((parseInt(r.h)||0)!==t.h||(parseInt(r.hr)||0)!==t.hr||(parseInt(r.bb)||0)!==t.bb||(parseInt(r.k)||0)!==t.k||oldIp!==newIp||(parseInt(r.r)||0)!==t.r||(parseInt(r.er)||0)!==t.er){
+      r.h=t.h;r.hr=t.hr;r.bb=t.bb;r.k=t.k;r.ip=newIp;r.r=t.r;r.er=t.er;
       changed.push(r);
     }
   });
