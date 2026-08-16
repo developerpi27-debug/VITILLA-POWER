@@ -1437,16 +1437,14 @@ async function _doPoll(){
   try{
     // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de recargar,
     // para protegerlo de que el poll lo "revierta" si el servidor todavia tiene lag de
-    // escritura (eventual consistency) justo despues de guardar una jugada. Sin esto, el
-    // out/score/bases podian regresar a un estado anterior y la siguiente jugada se le
-    // duplicaba al mismo bateador.
-    var savedAwayIdx=null,savedHomeIdx=null,savedGameId=null,savedLocalGame=null;
+    // escritura (eventual consistency) justo despues de guardar una jugada O de deshacer una
+    // (el indice de bateador puede moverse hacia adelante en una jugada normal, o hacia atras
+    // al deshacer — ambos son movimientos legitimos que esta proteccion debe respetar).
+    var savedGameId=null,savedLocalGame=null;
     if(S.game){
       var liveGm=S.games.filter(function(x){return x.id===S.game&&x.status==='live';})[0];
       if(liveGm){
         savedGameId=liveGm.id;
-        savedAwayIdx=parseInt(liveGm.awayBatterIdx)||0;
-        savedHomeIdx=parseInt(liveGm.homeBatterIdx)||0;
         savedLocalGame=Object.assign({},liveGm);
       }
     }
@@ -1467,21 +1465,21 @@ async function _doPoll(){
       await loadAll();
     }
 
-    // Si hubo una jugada local reciente (ultimos 12s) en el juego activo, el servidor
-    // puede no haberla replicado todavia: nos quedamos con la version LOCAL completa de
-    // ese juego (bases, outs, score, indices, etc.) en vez de la que llego del servidor.
-    if(savedGameId&&savedLocalGame&&_lastEvTs&&(Date.now()-_lastEvTs)<12000){
+    // Si hubo una jugada O UN DESHACER local reciente en el juego activo, el servidor puede
+    // no haber replicado todavia ese cambio (eventual consistency): nos quedamos con la
+    // version LOCAL completa de ese juego (bases, outs, score, indices, etc.) en vez de la que
+    // llego del servidor, hasta que pase la ventana de proteccion.
+    // BUG CORREGIDO: antes, pasada esta ventana, se forzaba "el indice de bateador nunca
+    // retrocede" (Math.max contra el valor local previo) — una salvaguarda pensada solo para
+    // el caso de una jugada normal (el indice avanza) que rompia el boton "Deshacer" (que
+    // mueve el indice hacia atras a proposito): si el deshacer tardaba mas de la ventana de
+    // proteccion en replicarse en el servidor, el poll forzaba el indice de vuelta al valor
+    // ANTERIOR al deshacer, y la siguiente jugada se le cargaba al bateador equivocado (el que
+    // le tocaba antes de deshacer, no el que la pantalla mostraba). Ahora, pasada la ventana de
+    // proteccion, se confia por completo en el servidor (sin forzar ninguna direccion) — ya sea
+    // que el indice haya avanzado (jugada) o retrocedido (deshacer), es igual de legitimo.
+    if(savedGameId&&savedLocalGame&&_lastEvTs&&(Date.now()-_lastEvTs)<60000){
       S.games=S.games.map(function(x){return x.id===savedGameId?savedLocalGame:x;});
-    } else if(savedGameId&&savedAwayIdx!==null){
-      // Fuera de la ventana de proteccion: al menos nunca dejar que el indice de
-      // bateador retroceda (ultima linea de defensa).
-      S.games=S.games.map(function(x){
-        if(x.id!==savedGameId) return x;
-        return Object.assign({},x,{
-          awayBatterIdx: Math.max(parseInt(x.awayBatterIdx)||0, savedAwayIdx),
-          homeBatterIdx: Math.max(parseInt(x.homeBatterIdx)||0, savedHomeIdx),
-        });
-      });
     }
 
     // Actualizar badge de licencia (solo si no es visitante) — se salta durante el poll
