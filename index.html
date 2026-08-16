@@ -2818,6 +2818,11 @@ async function grantTeamAccessToProfile(profileId,teamId){
     }
   }
 }
+function tourSportType(tour){
+  if(!tour) return '';
+  var pt=S.parentTournaments.filter(function(p){return p.id===tour.parentTournamentId;})[0];
+  return pt?(pt.type||'vitilla'):'';
+}
 function teamSportType(t){
   if(!t||!t.tournamentId) return '';
   var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];
@@ -2843,11 +2848,19 @@ function openImportTeamM(){
       if(importSport&&teamSportType(t)&&teamSportType(t)!==importSport)return false;
       return true;
     }).slice().sort(function(a,b){return a.name.localeCompare(b.name);});
-    return srcTeams.map(function(t){var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];var pls=S.players.filter(function(p){return p.teamId===t.id;}).length;return'<label style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;cursor:pointer"><input type="checkbox" class="imp-team-chk" data-tid="'+t.id+'" style="accent-color:var(--acc);width:14px;height:14px"><div style="width:30px;height:30px;border-radius:6px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:800;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+t.name+'</div><div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+' &middot; '+pls+' jugadores</div></div></label>';}).join('');
+    return srcTeams.map(function(t){var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];var pt=tour?S.parentTournaments.filter(function(p){return p.id===tour.parentTournamentId;})[0]:null;var pls=S.players.filter(function(p){return p.teamId===t.id;}).length;return'<label style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;cursor:pointer"><input type="checkbox" class="imp-team-chk" data-tid="'+t.id+'" style="accent-color:var(--acc);width:14px;height:14px"><div style="width:30px;height:30px;border-radius:6px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:800;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div><div style="flex:1"><div style="font-size:13px;font-weight:600">'+t.name+'</div><div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+(pt?' ('+pt.name+')':'')+' &middot; '+pls+' jugadores</div></div></label>';}).join('');
   }
-  // Opciones del dropdown "Subtorneo origen": todos los subtorneos visibles EXCEPTO el destino actual.
+  // Opciones del dropdown "Subtorneo origen": TODOS los subtorneos del MISMO deporte al que se
+  // esta importando (sin restringir por el perfil de acceso del usuario logueado — el origen de
+  // donde se copian equipos no deberia limitarse a los subtorneos que el perfil tiene asignados,
+  // ya que es una operacion administrativa de copiado, no de navegacion normal), EXCEPTO el
+  // subtorneo destino actual.
   function buildSrcTourOpts(curDestTourId){
-    return '<option value="">Todos los subtorneos</option>'+visibleTournaments().filter(function(t){return t.id!==curDestTourId;}).map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+    return '<option value="">Todos los subtorneos</option>'+S.tournaments.filter(function(t){
+      if(t.id===curDestTourId)return false;
+      if(importSport&&tourSportType(t)&&tourSportType(t)!==importSport)return false;
+      return true;
+    }).slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(t){return'<option value="'+t.id+'">'+t.name+'</option>';}).join('');
   }
   var teamRows=buildTeamRows(destTourId,'');
   var destTourOpts='<option value="">Sin torneo destino</option>'+visibleTournaments().map(function(t){return'<option value="'+t.id+'" '+(destTourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
@@ -3056,9 +3069,10 @@ function openPM(id,tid){
     +(!id?'<div class="alert ai" style="font-size:11px;margin-top:10px">&#128161; Antes de crear desde cero el jugador, valide si el jugador ya existe en otro equipo e importelo de la pestaña de la derecha &quot;Importar Existente&quot;.</div>':'')
     +'</div>'
     +(!id&&exOpts?'<div id="pm-exist" style="display:none"><div class="alert ai" style="font-size:12px">Sus stats anteriores se mantienen separadas bajo el equipo original.</div>'
-      +'<div class="fg"><label class="fl">Jugador existente *</label><select class="fs" id="pexist" size="8" multiple style="height:180px"><option value="">-- Seleccionar --</option>'+exOpts+'</select></div>'
+      +'<div class="fg"><label class="fl">Jugador existente *</label><select class="fs" id="pexist" size="8" multiple style="height:180px" onchange="pmExistSelChange()"><option value="">-- Seleccionar --</option>'+exOpts+'</select></div>'
       +'<div class="fr c2"><div class="fg"><label class="fl">Nuevo # Dorsal</label><input class="fi" id="pexnum" type="number" placeholder="Ej: 22"></div>'
       +'<div class="fg"><label class="fl">Posicion</label><select class="fs" id="pexpos">'+pOpts+'</select></div></div>'
+      +'<div id="pexnote" style="font-size:11px;color:var(--t3);margin:-4px 0 8px;display:none">Con varios jugadores seleccionados, cada uno conserva su # y posicion originales.</div>'
       +'<button class="btn bp wf" data-dtid="'+(tid||'')+'" onclick="importPlayer(this.dataset.dtid)">Importar Jugador</button></div>':'')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
@@ -3143,12 +3157,32 @@ async function saveP(id){
   }
   else toast(r&&r.error||'Error','error');
 }
+// Si se selecciona mas de un jugador en "Importar Existente", bloquea los campos de #
+// Dorsal/Posicion (no tendria sentido aplicarle el mismo numero a varios jugadores
+// distintos) — cada uno conserva su numero/posicion original. Con exactamente UNO
+// seleccionado, esos campos quedan habilitados y su valor se le asignara al importarlo.
+function pmExistSelChange(){
+  var sel=document.getElementById('pexist');
+  var numEl=document.getElementById('pexnum');
+  var posEl=document.getElementById('pexpos');
+  var note=document.getElementById('pexnote');
+  if(!sel||!numEl||!posEl)return;
+  var cnt=Array.from(sel.selectedOptions).filter(function(o){return o.value;}).length;
+  var lock=cnt>1;
+  numEl.disabled=lock;posEl.disabled=lock;
+  numEl.style.opacity=lock?'.4':'1';posEl.style.opacity=lock?'.4':'1';
+  if(note)note.style.display=lock?'block':'none';
+}
 async function importPlayer(destTeamId){
   var sel=document.getElementById('pexist');
   if(!sel){toast('Error: campo no encontrado','error');return;}
   var selectedIds=Array.from(sel.selectedOptions).map(function(o){return o.value;}).filter(function(v){return v;});
   if(!selectedIds.length){toast('Selecciona al menos un jugador','error');return;}
-  var pos=fv('pexpos');
+  // El # Dorsal/Posicion personalizados SOLO se aplican cuando se importa UN solo jugador —
+  // con varios seleccionados, cada uno conserva su numero/posicion original (ver pmExistSelChange).
+  var singleMode=selectedIds.length===1;
+  var customNum=singleMode?fv('pexnum'):'';
+  var customPos=singleMode?fv('pexpos'):'';
   var errors=[]; var imported=0;
   for(var i=0;i<selectedIds.length;i++){
     var src=S.players.filter(function(p){return p.id===selectedIds[i];})[0];
@@ -3156,7 +3190,10 @@ async function importPlayer(destTeamId){
     // Check not already in this team
     var already=S.players.filter(function(p){return p.importedFrom===src.id&&p.teamId===destTeamId;});
     if(already.length){errors.push(src.name+' ya esta en este equipo');continue;}
-    var clone={id:null,name:src.name,number:src.number,position:src.position,bats:src.bats,throws:src.throws,teamId:destTeamId||null,dob:src.dob||null,importedFrom:src.id};
+    var clone={id:null,name:src.name,
+      number:(customNum!==''&&customNum!==null&&customNum!==undefined)?customNum:src.number,
+      position:customPos||src.position,
+      bats:src.bats,throws:src.throws,teamId:destTeamId||null,dob:src.dob||null,importedFrom:src.id};
     var r=await api('savePlayer',{player:clone});
     if(r&&r.ok){S.players.push(r.item);imported++;}
     else errors.push(src.name+': '+(r&&r.error||'Error'));
@@ -3979,6 +4016,15 @@ function playLog(gid){
         +'<span style="font-size:14px">&#8630;</span>'
         +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
         +'<span><b>Jugada deshecha —</b> '+uLbl+'</span>'
+        +'</div>';
+    }
+    // ── Cambio de jugador (pitcher/emergente/defensa) ─────────────────────────
+    if(e.type==='SUB'){
+      var sdLbl=(e.subData&&e.subData.label)||'Cambio de jugador';
+      return'<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.18);margin-bottom:3px;font-size:12px">'
+        +'<span style="font-size:14px">&#128100;</span>'
+        +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
+        +'<span>'+sdLbl+'</span>'
         +'</div>';
     }
     // ── Normal play entry ─────────────────────────────────────────────────────
@@ -5658,6 +5704,36 @@ function rBSO(type){
   api('saveGame',{game:gm}); // fire-and-forget
 }
 var _undoBusy=false;
+// Captura un snapshot PROFUNDO del lineup y pitcheo del/los equipo(s) afectado(s) ANTES de
+// aplicar un cambio de jugador (pitcher, emergente, defensa) — se guarda dentro del evento
+// 'SUB' correspondiente para que "Deshacer" pueda restaurarlo exactamente, sin importar
+// cuantas jugadas se hayan registrado despues del cambio (el boton camina hacia atras en
+// orden cronologico real: primero deshace esas jugadas y, al llegar al cambio, restaura este
+// snapshot completo).
+function snapshotForUndo(gid,teamIds){
+  return{
+    lineups:S.lineups.filter(function(l){return l.gameId===gid&&teamIds.indexOf(l.teamId)>=0;}).map(function(l){return JSON.parse(JSON.stringify(l));}),
+    pitching:S.pitching.filter(function(p){return p.gameId===gid&&teamIds.indexOf(p.teamId)>=0;}).map(function(p){return JSON.parse(JSON.stringify(p));})
+  };
+}
+// Registra un cambio de jugador (pitcher/emergente/defensa) como un evento tipo 'SUB' mas en
+// S.events, siguiendo el MISMO patron cronologico que las jugadas normales — asi el boton
+// "Deshacer" simplemente busca la accion mas reciente (jugada O cambio) sin necesitar dos
+// mecanismos separados. 'unofficial:true' para que jamas se cuente como jugada de bateo/
+// pitcheo en ningun modulo de estadisticas (los filtros existentes ya excluyen unofficial).
+async function logSubAction(gid,teamIds,subKind,label,before){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0];
+  var ev={
+    id:'sub'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    gameId:gid,type:'SUB',battingTeamId:teamIds[0]||'',
+    inning:gm?gm.currentInning:null,half:gm?gm.currentHalf:null,
+    rbi:0,runs:0,unofficial:'true',timestamp:new Date().toISOString(),
+    subData:{subKind:subKind,label:label,teamIds:teamIds,before:before}
+  };
+  S.events.push(ev);
+  await api('saveEvent',{event:ev});
+  return ev;
+}
 // Recalcula desde CERO (sumando TODOS los eventos reales del juego) el marcador: carreras,
 // hits, errores por entrada e inningScores — exactamente el mismo criterio que ya usan
 // "Corregir/Eliminar jugada". Se extrajo a una funcion compartida para que "Deshacer ultima
@@ -5685,11 +5761,88 @@ function recomputeGameTotalsFromEvents(gid,gm){
   gm.awayHits=awayH;gm.homeHits=homeH;
   gm.awayErrors=awayE;gm.homeErrors=homeE;
 }
+// Deshace un cambio de jugador (evento tipo 'SUB') restaurando el snapshot COMPLETO del
+// lineup/pitcheo del equipo afectado, tal como estaba justo antes de aplicarlo — incluyendo
+// eliminar cualquier registro de pitcheo que se haya creado a partir de ese cambio (ej. el
+// stint del pitcher entrante) y, si era un corredor emergente, la base que ocupaba.
+async function undoSubAction(gm,last){
+  _saving=true;
+  try{
+    var sd=last.subData||{};
+    var before=sd.before||{lineups:[],pitching:[]};
+    var teamIds=sd.teamIds||[];
+    // Restaurar lineups exactamente como estaban antes del cambio
+    for(var li=0;li<before.lineups.length;li++){
+      var luBefore=before.lineups[li];
+      S.lineups=S.lineups.map(function(l){return(l.gameId===luBefore.gameId&&l.teamId===luBefore.teamId)?luBefore:l;});
+      await api('saveLineup',{lineup:luBefore});
+    }
+    // Restaurar pitcheo: sobreescribir los registros que ya existian a sus valores previos, y
+    // ELIMINAR los que se crearon DESPUES del snapshot (ej. el registro nuevo del pitcher
+    // entrante) — "antes" del cambio ese registro no existia.
+    var beforeIds={};
+    before.pitching.forEach(function(p){beforeIds[p.id]=true;});
+    for(var pi=0;pi<before.pitching.length;pi++){
+      var pBefore=before.pitching[pi];
+      S.pitching=S.pitching.map(function(p){return p.id===pBefore.id?pBefore:p;});
+      await api('savePitching',{event:pBefore});
+    }
+    var currentForTeams=S.pitching.filter(function(p){return p.gameId===gm.id&&teamIds.indexOf(p.teamId)>=0;});
+    for(var ci=0;ci<currentForTeams.length;ci++){
+      var cp=currentForTeams[ci];
+      if(!beforeIds[cp.id]){
+        S.pitching=S.pitching.filter(function(p){return p.id!==cp.id;});
+        await api('deletePitching',{id:cp.id});
+      }
+    }
+    // Si el cambio tambien modifico una base (corredor emergente), restaurarla.
+    if(sd.basesBefore){
+      gm.bases=sd.basesBefore;
+      S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+      await api('saveGame',{game:gm});
+    }
+    // Quitar el evento SUB y dejar una marca de "deshecho" en el registro de jugadas (igual
+    // patron que las jugadas normales), para que quede rastro de que hubo un cambio deshecho
+    // sin que aparezca en el informe PDF del juego (ver exportReport, que ya excluye type==='UNDO').
+    var undoLogEv={
+      id:'undo'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      gameId:gm.id,type:'UNDO',
+      inning:last.inning,half:last.half,rbi:0,runs:0,
+      undoneType:(sd.label||'Cambio de jugador'),undoneTs:last.timestamp,undoneEventId:last.id,
+      timestamp:new Date().toISOString(),unofficial:'true'
+    };
+    S.events=S.events.filter(function(e){return e.id!==last.id;});
+    S.events.push(undoLogEv);
+    await api('deleteEvent',{id:last.id});
+    await api('saveEvent',{event:undoLogEv});
+    pgGC();
+    toast('Cambio deshecho — el jugador anterior vuelve al juego','success');
+  } finally { _saving=false; }
+}
 async function undoLastPlay(){
   if(_undoBusy){toast('Procesando deshacer anterior...','info');return;}
   var gmCheck=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmCheck||!canScoreNow(gmCheck)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
-  if(!confirm('Deshacer la ultima jugada? El bateador volvera al turno.'))return;
+  // Encontrar la accion mas reciente SIN CONFIRMAR (jugada de bateo O cambio de jugador — ver
+  // logSubAction) para poder mostrar un mensaje de confirmacion acorde a lo que realmente se
+  // va a deshacer, antes de pedir confirmacion.
+  var gEvsPeek=S.events.filter(function(e){return e.gameId===gmCheck.id;}).slice().sort(function(a,b){
+    return (a.timestamp||'').localeCompare(b.timestamp||'');
+  });
+  var alreadyUndoneIdsPeek={};
+  gEvsPeek.forEach(function(e){if(e.type==='UNDO'&&e.undoneEventId)alreadyUndoneIdsPeek[e.undoneEventId]=true;});
+  var lastPeek=null;
+  for(var ip=gEvsPeek.length-1;ip>=0;ip--){
+    var ePeek=gEvsPeek[ip];
+    if(ePeek.type==='UNDO') continue;
+    if(alreadyUndoneIdsPeek[ePeek.id]) continue;
+    lastPeek=ePeek;break;
+  }
+  if(!lastPeek){toast('No hay jugadas ni cambios para deshacer','info');return;}
+  var confirmMsg=(lastPeek.type==='SUB')
+    ?('¿Deshacer este cambio: '+(lastPeek.subData&&lastPeek.subData.label||'cambio de jugador')+'? El jugador que salio volvera al juego tal como estaba.')
+    :'Deshacer la ultima jugada? El bateador volvera al turno.';
+  if(!confirm(confirmMsg))return;
   _undoBusy=true;
   try{
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm){_undoBusy=false;return;}
@@ -5697,7 +5850,7 @@ async function undoLastPlay(){
     return (a.timestamp||'').localeCompare(b.timestamp||'');
   });
   if(!gEvs.length){toast('No hay jugadas para deshacer','info');_undoBusy=false;return;}
-  // Skip ALL UNDO log entries — find the last REAL play that hasn't been undone
+  // Skip ALL UNDO log entries — find the last REAL play/change that hasn't been undone
   // Build set of already-undone event IDs from UNDO log entries
   var alreadyUndoneIds={};
   gEvs.forEach(function(e){if(e.type==='UNDO'&&e.undoneEventId)alreadyUndoneIds[e.undoneEventId]=true;});
@@ -5710,6 +5863,14 @@ async function undoLastPlay(){
     last=e;break;
   }
   if(!last){toast('No hay jugadas reales para deshacer','info');_undoBusy=false;return;}
+  // ── Deshacer un CAMBIO DE JUGADOR (pitcher/emergente/defensa) — rama totalmente separada de
+  // las jugadas de bateo: no toca bases/outs/entrada/marcador (un cambio no los modifica),
+  // solo restaura el lineup y pitcheo del equipo afectado tal cual estaban antes del cambio.
+  if(last.type==='SUB'){
+    await undoSubAction(gm,last);
+    _undoBusy=false;
+    return;
+  }
   var wasTop=last.half==='top';
   var wasInning=parseInt(last.inning)||1;
   // Detect if this play caused an inning change:
@@ -6721,10 +6882,13 @@ async function applyRunnerSub(gid,tid,base){
   if(!lu||!lu.players){toast('Lineup no encontrado','error');return;}
   var alreadySub=lu.players.filter(function(lp){return lp.playerId===inId&&lp.replacedBy;});
   if(alreadySub.length){toast('Ese jugador ya fue sustituido y no puede volver a jugar','error');return;}
+  var basesBefore=Object.assign({},bases);
+  var before=snapshotForUndo(gid,[tid]);
   var radBat=document.querySelector('input[name="cr-bat"]:checked');
   var crBats=radBat?radBat.value==='si':true;
   var outLp=lu.players.filter(function(lp){return lp.playerId===outId;})[0];
   var np=playerOf(inId);
+  var outNm=playerOf(outId);
   if(crBats){
     // El corredor entrante TOMA EL LUGAR en el orden al bate del corredor que sale.
     for(var i=0;i<lu.players.length;i++){
@@ -6753,6 +6917,8 @@ async function applyRunnerSub(gid,tid,base){
   S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
   await api('saveGame',{game:gm});
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+  before.basesBefore=basesBefore;
+  await logSubAction(gid,[tid],'pinch_run','Corredor emergente — #'+(outNm&&outNm.number||'?')+' '+(outNm?outNm.name:'?')+' sale, entra #'+(np&&np.number||'?')+' '+(np?np.name:'?'),before);
   cM();pgGC();toast('Corredor emergente aplicado','success');
 }
 async function applySub(gid,tid,type){
@@ -6762,6 +6928,8 @@ async function applySub(gid,tid,type){
   var lu=S.lineups.filter(function(l){return l.gameId===gid&&l.teamId===tid;})[0];
   var alreadySub=lu.players.filter(function(lp){return lp.playerId===inId&&lp.replacedBy;});
   if(alreadySub.length){toast('Ese jugador ya fue sustituido y no puede volver a jugar','error');return;}
+  var _subBefore=snapshotForUndo(gid,[tid]);
+  var _subOutP=playerOf(outId),_subInP=playerOf(inId);
   var outPos='OF';
   var isPitcherChange=type==='pitcher';
   var pitMantiene=false;
@@ -6909,6 +7077,8 @@ async function applySub(gid,tid,type){
   }
   await api('saveLineup',{lineup:lu});
   S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
+  var _subLabel=(isPitcherChange?'Cambio de pitcher':'Cambio de jugador')+': #'+(_subOutP&&_subOutP.number||'?')+' '+(_subOutP?_subOutP.name:'?')+' sale, entra #'+(_subInP&&_subInP.number||'?')+' '+(_subInP?_subInP.name:'?');
+  await logSubAction(gid,[tid],isPitcherChange?'pitcher':'pinch_hit',_subLabel,_subBefore);
   cM();pgGC();toast('Sustitución aplicada','success');
 }
 
@@ -6995,11 +7165,14 @@ async function applyDefenseChange(gid,tid){
       if(lp.playerId===p2&&!lp.replacedBy){lp2=lp;idx2=i;}
     });
     if(!lp1||!lp2){toast('No se encontraron los jugadores en el lineup activo','error');return;}
+    var _dcBefore=snapshotForUndo(gid,[tid]);
+    var _dcP1=playerOf(p1),_dcP2=playerOf(p2);
     var pos1=lp1.position,pos2=lp2.position;
     lu.players[idx1]=Object.assign({},lp1,{position:pos2});
     lu.players[idx2]=Object.assign({},lp2,{position:pos1});
     await api('saveLineup',{lineup:lu});
     S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
+    await logSubAction(gid,[tid],'defense_swap','Cambio de posición: #'+(_dcP1&&_dcP1.number||'?')+' '+(_dcP1?_dcP1.name:'?')+' ('+pos1+'&#8594;'+pos2+') &#8646; #'+(_dcP2&&_dcP2.number||'?')+' '+(_dcP2?_dcP2.name:'?')+' ('+pos2+'&#8594;'+pos1+')',_dcBefore);
     cM();pgGC();toast('Posiciones intercambiadas','success');
   } else {
     var outId=fv('dc-out'),inId=fv('dc-in'),newPos=fv('dc-pos')||'OF';
@@ -7010,6 +7183,8 @@ async function applyDefenseChange(gid,tid){
     var outLp=null,outIdx=-1;
     lu.players.forEach(function(lp,i){if(lp.playerId===outId&&!lp.replacedBy){outLp=lp;outIdx=i;}});
     if(!outLp){toast('No se encontro el jugador que sale en el lineup activo','error');return;}
+    var _dcSubBefore=snapshotForUndo(gid,[tid]);
+    var _dcOutP=playerOf(outId),_dcInP=playerOf(inId);
     var wasPitcher=(outLp.position||'').toUpperCase()==='P';
     lu.players[outIdx]=Object.assign({},outLp,{replacedBy:inId});
     lu.players.push({
@@ -7033,6 +7208,7 @@ async function applyDefenseChange(gid,tid){
     }
     await api('saveLineup',{lineup:lu});
     S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
+    await logSubAction(gid,[tid],'defense_sub','Sustitución defensiva: #'+(_dcOutP&&_dcOutP.number||'?')+' '+(_dcOutP?_dcOutP.name:'?')+' sale, entra #'+(_dcInP&&_dcInP.number||'?')+' '+(_dcInP?_dcInP.name:'?')+' ('+newPos+')',_dcSubBefore);
     cM();pgGC();
     if(newPos==='P'){
       toast('Sustitución aplicada. Usa el botón "Pitcher" para registrar sus estadísticas de pitcheo','info');
@@ -7070,6 +7246,7 @@ function openAdjM(){
     +'<div class="fg"><label class="fl">Outs</label><input class="fi" id="ao" type="number" value="'+(parseInt(gm.outs)||0)+'" min="0" max="2"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Carreras Visitante</label><input class="fi" id="aaw" type="number" value="'+(parseInt(gm.awayRuns)||0)+'"></div>'
     +'<div class="fg"><label class="fl">Carreras Local</label><input class="fi" id="ahm" type="number" value="'+(parseInt(gm.homeRuns)||0)+'"></div></div>'
+    +'<div class="alert ai" style="font-size:11px">Si cambias las carreras aqui, la diferencia se sumara/restara a la entrada y mitad indicadas arriba en la fila de la pizarra — ajusta "Entrada"/"Mitad" primero si la carrera corresponde a otra entrada.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Hits Visitante</label><input class="fi" id="aawh" type="number" value="'+(parseInt(gm.awayHits)||0)+'"></div>'
     +'<div class="fg"><label class="fl">Hits Local</label><input class="fi" id="ahmh" type="number" value="'+(parseInt(gm.homeHits)||0)+'"></div></div>'
     +'<div class="fg" id="adj-batter-wrap"><label class="fl" id="adj-batter-lbl">Bateador al turno ('+(isTop?'Visitante al bate — Alta':'Local al bate — Baja')+')</label><select class="fs" id="abat">'+batterOpts+'</select></div>'
@@ -7156,8 +7333,26 @@ async function applyAdj(){
   var oldAwayRuns=parseInt(gm.awayRuns)||0,oldHomeRuns=parseInt(gm.homeRuns)||0,oldOuts=parseInt(gm.outs)||0;
   var oldAwayHits=parseInt(gm.awayHits)||0,oldHomeHits=parseInt(gm.homeHits)||0;
   var newAwayRuns=parseInt(fv('aaw'))||0,newHomeRuns=parseInt(fv('ahm'))||0,newOuts=parseInt(fv('ao'))||0;
+  var _adjNewInning=parseInt(fv('ai'))||1;
+  var awayRunsDelta=newAwayRuns-oldAwayRuns;
+  var homeRunsDelta=newHomeRuns-oldHomeRuns;
+  // BUG CORREGIDO: al corregir el total de carreras aqui, ese delta NUNCA se reflejaba en
+  // gm.inningScores (el desglose por entrada que alimenta la fila de la pizarra) — solo se
+  // actualizaba el total (gm.awayRuns/homeRuns). Eso hacia que la suma de las entradas
+  // mostradas en la pizarra dejara de coincidir con el valor de Carreras (R). Ahora el delta
+  // se atribuye a la entrada/mitad indicadas en el formulario (visitante batea en "top",
+  // local en "bottom"), manteniendo ambos numeros sincronizados.
+  gm.inningScores=gm.inningScores||{};
+  if(awayRunsDelta){
+    var _awKey=String(_adjNewInning)+'_top';
+    gm.inningScores[_awKey]=Math.max(0,(parseInt(gm.inningScores[_awKey])||0)+awayRunsDelta);
+  }
+  if(homeRunsDelta){
+    var _hmKey=String(_adjNewInning)+'_bottom';
+    gm.inningScores[_hmKey]=Math.max(0,(parseInt(gm.inningScores[_hmKey])||0)+homeRunsDelta);
+  }
   Object.assign(gm,{
-    currentInning:parseInt(fv('ai'))||1,
+    currentInning:_adjNewInning,
     currentHalf:newHalf,
     outs:newOuts,
     awayRuns:newAwayRuns,
@@ -7177,8 +7372,6 @@ async function applyAdj(){
   // (es quien esta lanzando cuando el visitante bate); si se quitan/agregan carreras local,
   // afecta al pitcher actual del equipo VISITANTE. Los outs ajustados afectan al pitcher
   // actual del equipo que esta a la defensiva en la mitad (nueva) seleccionada.
-  var awayRunsDelta=newAwayRuns-oldAwayRuns;
-  var homeRunsDelta=newHomeRuns-oldHomeRuns;
   var outsDelta=newOuts-oldOuts;
   var newAwayHits=parseInt(fv('aawh'))||0;
   var newHomeHits=parseInt(fv('ahmh'))||0;
@@ -12202,7 +12395,10 @@ function exportReport(gid){
   // Sin esto, el orden dependia de como vinieran almacenados los eventos en la base de datos
   // (orden de insercion), lo cual podia mezclar entradas, equipos y jugadas de "UNDO" fuera
   // de su secuencia real — el reporte debe leerse de forma cronologica natural (Ent.1 arriba).
-  var gEvs2=S.events.filter(function(e){return e.gameId===gid;}).slice().sort(function(a,b){
+  // Excluye las marcas 'UNDO' (jugadas o cambios de jugador deshechos) — no deben aparecer en
+  // el informe, ya que representan algo que el anotador corrigio/revirtio, no una jugada real
+  // del partido.
+  var gEvs2=S.events.filter(function(e){return e.gameId===gid&&e.type!=='UNDO';}).slice().sort(function(a,b){
     var ta=a.timestamp||'';var tb=b.timestamp||'';
     return ta<tb?-1:ta>tb?1:0;
   });
@@ -12373,6 +12569,12 @@ function exportReport(gid){
     +'</div>'
     +(gEvs2&&gEvs2.length?'<h2>&#128221; Jugadas del Partido</h2><div style="font-size:10px;line-height:1.7">'
     +gEvs2.map(function(e){
+      if(e.type==='SUB'){
+        var sdLbl2=(e.subData&&e.subData.label)||'Cambio de jugador';
+        return'<span style="color:#2563eb">'
+          +'Ent.'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+' | &#128100; '+sdLbl2
+          +'</span><br>';
+      }
       var p2=playerOf(e.batterId);var tm2=teamOf(e.battingTeamId);
       var isH2=['H1','H2','H3','HR'].indexOf(e.type)>=0;
       return'<span style="color:'+(isH2?'#16a34a':['K','OUT','DP'].indexOf(e.type)>=0?'#dc2626':'#333')+'">'
