@@ -4300,6 +4300,7 @@ async function _doOutEnJugada(forcedBase){
     var ojFacedPitcherId=await autoUpdatePitcher(gm,'OJ',0,evHalf);
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
       type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,pitcherId:ojFacedPitcherId||null,
+      priorBases:{first:b2.first||null,second:b2.second||null,third:b2.third||null},
       timestamp:new Date().toISOString()};
     S.events.push(Object.assign({},ojEv));
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
@@ -4855,13 +4856,22 @@ async function rPlay(type){
       +'\n\nHubo anotacion (remolcada)? Cuantas carreras anotaron? (0 si ninguna)','0');
     if(rbSac===null){_rPlayBusy=false;return;}
     rbi=Math.max(0,parseInt(rbSac)||0); runs=rbi;
-    var sacAdvSel=await numPromptAsync('SACRIFICIO - '+bName
-      +'\n¿Los corredores que NO anotaron avanzaron una base?'
-      +'\n1. Si, avanzaron una base'
-      +'\n2. No, se quedaron en su base'
-      +'\n\nIngresa (1 o 2):','1');
-    if(sacAdvSel===null){_rPlayBusy=false;return;}
-    gm._sacAdvance=(parseInt(sacAdvSel)===1);
+    // BUG CORREGIDO: la pregunta de "¿avanzaron los que no anotaron?" se hacia siempre, aunque
+    // ya no quedara ningun corredor sin anotar (ej. unico corredor en 3ra y anoto con la
+    // remolcada) — no tiene sentido preguntar por corredores que ya no existen. Solo se
+    // pregunta si, restando los que anotaron (por prioridad: 3ra, 2da, 1ra), queda al menos
+    // uno todavia en base.
+    var _sacCandidates=[bases.third,bases.second,bases.first].filter(Boolean);
+    var _sacRemaining=_sacCandidates.slice(rbi);
+    if(_sacRemaining.length>0){
+      var sacAdvSel=await numPromptAsync('SACRIFICIO - '+bName
+        +'\n¿Los corredores que NO anotaron avanzaron una base?'
+        +'\n1. Si, avanzaron una base'
+        +'\n2. No, se quedaron en su base'
+        +'\n\nIngresa (1 o 2):','1');
+      if(sacAdvSel===null){_rPlayBusy=false;return;}
+      gm._sacAdvance=(parseInt(sacAdvSel)===1);
+    }
   } else if(type==='FO'){
     // Out Forzado: un corredor en base es forzado out (NO avanza), y el bateador llega safe a 1ra.
     // Es 1 solo out (no 2 como el DP). Si hay 2+ corredores en base, se preguntara DESPUES
@@ -5765,6 +5775,7 @@ function recomputeGameTotalsFromEvents(gid,gm){
 // stint del pitcher entrante) y, si era un corredor emergente, la base que ocupaba.
 async function undoSubAction(gm,last){
   _saving=true;
+  _lastEvTs=Date.now();
   try{
     var sd=last.subData||{};
     var before=sd.before||{lineups:[],pitching:[]};
@@ -5905,7 +5916,9 @@ async function undoLastPlay(){
         third:last.priorBases.third||null
       };
     } else if(last.type==='OJ'&&last.batterId){
-      // Fallback para eventos sin priorBases: restituir a la base vacia mas cercana
+      // Fallback SOLO para jugadas OJ historicas registradas antes de que este tipo guardara
+      // priorBases (ver creacion del evento OJ mas arriba) — restituye a la base vacia mas
+      // cercana como mejor esfuerzo, ya que no hay forma de saber con certeza en cual estaba.
       gm.bases=gm.bases||{first:null,second:null,third:null};
       if(!gm.bases.third)gm.bases.third=last.batterId;
       else if(!gm.bases.second)gm.bases.second=last.batterId;
@@ -6898,7 +6911,11 @@ async function applyRunnerSub(gid,tid,base){
     lu.players.push({
       playerId:inId,
       order:outLp?outLp.order:lu.players.reduce(function(mx,lp2){return Math.max(mx,lp2.order||0);},0)+1,
-      position:np&&np.position||outLp&&outLp.position||'OF',
+      // BUG CORREGIDO: debe conservar la MISMA posicion que tenia el corredor que sale (ej. si
+      // era CF, el que entra tambien queda como CF) — antes se priorizaba la posicion "por
+      // defecto" del jugador entrante (np.position), ignorando la posicion real que ocupaba en
+      // este lineup el corredor al que esta reemplazando.
+      position:outLp?outLp.position:(np&&np.position||'OF'),
       originalPosition:null,
       isSubstitute:true,
       replacedPlayerId:outId,
@@ -6911,6 +6928,7 @@ async function applyRunnerSub(gid,tid,base){
   var newBases=Object.assign({},bases);
   newBases[base]=inId;
   gm.bases=newBases;
+  _lastEvTs=Date.now();
   await api('saveLineup',{lineup:lu});
   S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
   await api('saveGame',{game:gm});
@@ -7073,6 +7091,7 @@ async function applySub(gid,tid,type){
       }
     }
   }
+  _lastEvTs=Date.now();
   await api('saveLineup',{lineup:lu});
   S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
   var _subLabel=(isPitcherChange?'Cambio de pitcher':'Cambio de jugador')+': #'+(_subOutP&&_subOutP.number||'?')+' '+(_subOutP?_subOutP.name:'?')+' sale, entra #'+(_subInP&&_subInP.number||'?')+' '+(_subInP?_subInP.name:'?');
@@ -7168,6 +7187,7 @@ async function applyDefenseChange(gid,tid){
     var pos1=lp1.position,pos2=lp2.position;
     lu.players[idx1]=Object.assign({},lp1,{position:pos2});
     lu.players[idx2]=Object.assign({},lp2,{position:pos1});
+    _lastEvTs=Date.now();
     await api('saveLineup',{lineup:lu});
     S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
     await logSubAction(gid,[tid],'defense_swap','Cambio de posición: #'+(_dcP1&&_dcP1.number||'?')+' '+(_dcP1?_dcP1.name:'?')+' ('+pos1+'&#8594;'+pos2+') &#8646; #'+(_dcP2&&_dcP2.number||'?')+' '+(_dcP2?_dcP2.name:'?')+' ('+pos2+'&#8594;'+pos1+')',_dcBefore);
@@ -7204,6 +7224,7 @@ async function applyDefenseChange(gid,tid){
       var op=S.pitching.filter(function(p){return p.gameId===gid&&p.teamId===tid&&p.pitcherId===outId;})[0];
       if(op)await api('savePitching',{event:op});
     }
+    _lastEvTs=Date.now();
     await api('saveLineup',{lineup:lu});
     S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
     await logSubAction(gid,[tid],'defense_sub','Sustitución defensiva: #'+(_dcOutP&&_dcOutP.number||'?')+' '+(_dcOutP?_dcOutP.name:'?')+' sale, entra #'+(_dcInP&&_dcInP.number||'?')+' '+(_dcInP?_dcInP.name:'?')+' ('+newPos+')',_dcSubBefore);
