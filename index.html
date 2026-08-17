@@ -1158,6 +1158,11 @@ async function saveGuestSession(){
 function doLogout(){
   stopPolling();stopSessionTimer();clearSession();
   resetModuleState();
+  cM(); // BUG CORREGIDO: cerrar cualquier formulario/modal abierto (ej. sustitucion de
+        // jugador, cambio de pitcher) al salir — #modals es independiente de #app, asi que
+        // ocultar #app no lo limpiaba: si la sesion se cerraba (por inactividad o manual) con
+        // un formulario abierto, ese mismo formulario reaparecia luego al volver a entrar
+        // (incluso como visitante), montado por encima de la pantalla de login/la app nueva.
   S.user=null;S.profile=null;S.game=null;S.authToken='';
   document.getElementById('app').style.display='none';
   document.getElementById('lscr').style.display='flex';
