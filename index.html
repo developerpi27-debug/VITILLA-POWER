@@ -167,6 +167,17 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 #slogan-bar .sl-main{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #slogan-bar .sl-sub{font-size:11px;color:var(--t2);font-style:italic;}
 /* ── FOOTER ── */
+.spg-wrap{display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);padding:6px 10px;flex-shrink:0;}
+.spg-item{display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .5s ease;position:absolute;}
+.spg-item.on{opacity:1;position:relative;}
+.spg-stage{position:relative;display:flex;align-items:center;justify-content:center;height:44px;width:100%;max-width:220px;}
+.spg-stage img{max-height:44px;max-width:100%;object-fit:contain;}
+.afg-wrap{display:flex;align-items:center;justify-content:center;padding:8px 10px;border-bottom:1px solid var(--bdr);margin-bottom:6px;}
+.afg-stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:60px;width:100%;max-width:220px;}
+.afg-item{display:flex;flex-direction:column;align-items:center;gap:2px;opacity:0;transition:opacity .5s ease;position:absolute;}
+.afg-item.on{opacity:1;position:relative;}
+.afg-item img{max-height:44px;max-width:180px;object-fit:contain;}
+.afg-item .afg-country{font-size:10px;color:var(--t3);}
 #app-footer{background:var(--bg2);border-top:1px solid var(--bdr);padding:14px 24px;text-align:center;font-size:11px;color:var(--t3);line-height:1.8;}
 #app-footer .ft-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #app-footer .ft-heart{color:var(--red);}
@@ -527,6 +538,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         </div>
       </div>
     </div>
+    <!-- GALERIA DE PATROCINADORES (solo visitantes) — encima del marquee -->
+    <div id="sp-bar" style="display:none"></div>
     <!-- MARQUEE GLOBAL -->
     <div id="mq-bar" style="display:none;background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);overflow:hidden;height:28px;flex-shrink:0">
       <div style="display:flex;align-items:center;height:100%">
@@ -538,6 +551,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
     </div>
     <div id="ct"></div>
     <footer id="app-footer">
+      <!-- GALERIA DE AFILIADOS (solo visitantes) — encima de "Vitilla Power" -->
+      <div id="af-bar" style="display:none"></div>
       <div class="ft-name" id="brandFtName">Vitilla Power</div>
       <div>Hecha con <span class="ft-heart">❤️</span> por un <span id="brandCreator">vitillero</span> &nbsp;|&nbsp; <b>ING. CARLOS REYES</b></div>
       <div style="margin-top:2px">📞 Contacto: <a href="tel:8496393540" style="color:var(--acc);text-decoration:none;font-weight:600">849-639-3540</a></div>
@@ -1143,7 +1158,7 @@ function guestLogin(){
     startPolling();
     startSessionTimer();
     trackVisit();
-    setTimeout(startMarquee,500);
+    setTimeout(function(){startMarquee();startPublicGalleries();},500);
   });
 }
 // Persiste una sesion de visitante minima (sin JWT — el acceso de visitante no requiere
@@ -1156,7 +1171,7 @@ async function saveGuestSession(){
   try{ await idbPut('session',{key:'current',user:S.user,profile:null,isGuest:true,ts:_lastAct}); }catch(e){}
 }
 function doLogout(){
-  stopPolling();stopSessionTimer();clearSession();
+  stopPolling();stopSessionTimer();clearSession();stopPublicGalleries();
   resetModuleState();
   cM(); // BUG CORREGIDO: cerrar cualquier formulario/modal abierto (ej. sustitucion de
         // jugador, cambio de pitcher) al salir — #modals es independiente de #app, asi que
@@ -1368,6 +1383,9 @@ async function loadAll(){
   }
   S.lineups=d.lineups||[];S.events=d.events||[];
   S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];S.visits=d.visits||{};S.channels=d.channels||[];
+  S.sponsors=d.sponsors||[];
+  S.sponsorSeconds=Math.max(2,parseInt(d.config&&d.config.sponsorSeconds)||6);
+  S.affiliateSeconds=Math.max(2,parseInt(d.config&&d.config.affiliateSeconds)||6);
   // Si el usuario tiene perfil restringido a un solo deporte, fijarlo automáticamente
   // (admin y visitante pueden elegir entre los 3; un usuario normal no puede ver otros deportes)
   if(!S.sportFilter&&S.user&&S.user.role!=='admin'&&S.user.role!=='public'){
@@ -1611,13 +1629,14 @@ var ALL_MOD=[
   {id:'awards',lbl:'Premiaciones',ico:'🏅',sec:'Estadisticas'},
   {id:'users',lbl:'Usuarios',ico:'👤',sec:'Admin'},
   {id:'profiles',lbl:'Perfiles',ico:'🔐',sec:'Admin'},
+  {id:'sponsors',lbl:'Patrocinadores y Afiliados',ico:'🤝',sec:'Admin'},
   {id:'license',lbl:'Licencia',ico:'🔑',sec:'Admin'},
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
   {id:'gsimport',lbl:'Importar desde GSheets',ico:'📥',sec:'Admin'},
 ];
 var BASE_PUB=['standings','schedule','teams','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','tovsto','rankings','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -2099,7 +2118,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
 function goNav(page){
   if(!S_isOnline&&!OFFLINE_ALLOWED_PAGES[page]){
     toast('Sin conexión: solo Calendario y Control de Juego están disponibles.','error');
@@ -3507,7 +3526,7 @@ function startGame(gid){
   var g=S.games.filter(function(x){return x.id===gid;})[0];if(!g)return;
   // Guests/public can only VIEW live/final games
   if(S.user&&S.user.role==='public'){
-    if(g.status==='live'||g.status==='final'){S.game=gid;goNav('gamecontrol');}
+    if(g.status==='live'||g.status==='final'){S.game=gid;goNav('gamecontrol');maybeShowFeaturedM(gid);}
     else toast('Este juego aun no ha iniciado','info');
     return;
   }
@@ -3515,10 +3534,119 @@ function startGame(gid){
   var lh=S.lineups.filter(function(l){return l.gameId===gid&&l.teamId===g.homeTeamId;})[0];
   if(!la||!la.players||!la.players.length||!lh||!lh.players||!lh.players.length){
     if(canScoreNow(g)) return lineupSetup(gid,g);
-    else{S.game=gid;goNav('gamecontrol');} // bloqueado por otro anotador, o sin permiso: solo ver
+    else{S.game=gid;goNav('gamecontrol');maybeShowFeaturedM(gid);} // bloqueado por otro anotador, o sin permiso: solo ver
     return;
   }
-  S.game=gid;goNav('gamecontrol');
+  S.game=gid;goNav('gamecontrol');maybeShowFeaturedM(gid);
+}
+// ── JUGADORES DESTACADOS DEL PARTIDO ──────────────────────────────────────
+// Al abrir el detalle de un juego FINALIZADO desde Calendario/Control de
+// Juego, muestra una sola vez (por juego y por dispositivo/navegador) un
+// formulario con el bateador y el pitcher con mas puntos de ESE juego
+// puntual, segun el mismo sistema de puntos configurable del subtorneo que
+// usan Rankings/Lideres/Destacados en Fecha. Si hay un patrocinador fijado
+// en "Destacados del Partido", se muestra su logo con el credito.
+function maybeShowFeaturedM(gid){
+  var g=S.games.filter(function(x){return x.id===gid;})[0];
+  if(!g||g.status!=='final')return;
+  var seenKey='vp_feat_seen_'+gid;
+  try{ if(localStorage.getItem(seenKey))return; }catch(e){}
+  setTimeout(function(){ showFeaturedM(gid); },350);
+}
+function closeFeaturedM(gid){
+  try{ localStorage.setItem('vp_feat_seen_'+gid,'1'); }catch(e){}
+  cM();
+}
+// Calcula el bateador y el pitcher con mas puntos DENTRO de un juego puntual
+// (no un rango de fechas), usando el sistema de puntos configurable del
+// subtorneo del juego (mismos campos asPts* que Rankings/Lideres/Destacados
+// en Fecha). Devuelve null en el campo correspondiente si el juego no tiene
+// datos de bateo/pitcheo.
+function computeGameFeatured(gid){
+  var g=S.games.filter(function(x){return x.id===gid;})[0];if(!g)return null;
+  var tourObj=S.tournaments.filter(function(t){return t.id===g.tournamentId;})[0];
+  function pts(field,def){return(tourObj&&tourObj[field]!==undefined&&tourObj[field]!==null&&tourObj[field]!=='')?Number(tourObj[field]):def;}
+  var P={
+    h1:pts('asPtsH1',1),h2:pts('asPtsH2',2),h3:pts('asPtsH3',3),hr:pts('asPtsHr',4),
+    bb:pts('asPtsBb',1),rbi:pts('asPtsRbi',1),r:pts('asPtsR',1),
+    outBat:pts('asPtsOutBat',1),kBat:pts('asPtsKBat',1),
+    kPit:pts('asPtsKPit',1),outPit:pts('asPtsOutPit',0.5),ipThird:pts('asPtsIpThird',1),
+    wPit:pts('asPtsWPit',2),svPit:pts('asPtsSvPit',2),
+    erPit:pts('asPtsErPit',1),bbPit:pts('asPtsBbPit',1),lPit:pts('asPtsLPit',2)
+  };
+  var evs=S.events.filter(function(e){return e.gameId===gid&&e.unofficial!=='true'&&e.type!=='UNDO';});
+  var pevs=S.pitching.filter(function(e){return e.gameId===gid&&e.unofficial!=='true';});
+  var batterIds=[];evs.forEach(function(e){if(e.batterId&&batterIds.indexOf(e.batterId)<0)batterIds.push(e.batterId);});
+  var pitcherIds=[];pevs.forEach(function(e){if(e.pitcherId&&pitcherIds.indexOf(e.pitcherId)<0)pitcherIds.push(e.pitcherId);});
+  var bestBat=null,bestPit=null;
+  batterIds.forEach(function(pid){
+    var p=playerOf(pid);if(!p)return;
+    var pe=evs.filter(function(e){return e.batterId===pid;});
+    var h1=pe.filter(function(e){return e.type==='H1';}).length,h2=pe.filter(function(e){return e.type==='H2';}).length;
+    var h3=pe.filter(function(e){return e.type==='H3';}).length,hr=pe.filter(function(e){return e.type==='HR';}).length;
+    var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
+    var bb=pe.filter(function(e){return e.type==='BB';}).length;
+    var kb=pe.filter(function(e){return e.type==='K';}).length;
+    var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+    var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];return s+(sids.indexOf(pid)>=0?1:0);},0);
+    var h=h1+h2+h3+hr;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var score=h1*P.h1+h2*P.h2+h3*P.h3+hr*P.hr+bb*P.bb+rbi*P.rbi+r*P.r-outBat*P.outBat-kb*P.kBat;
+    var row={p:p,tm:teamOf(p.teamId),vb:vb,h:h,hr:hr,rbi:rbi,r:r,bb:bb,pts:score};
+    if(!bestBat||score>bestBat.pts)bestBat=row;
+  });
+  pitcherIds.forEach(function(pid){
+    var p=playerOf(pid);if(!p)return;
+    var pp=pevs.filter(function(e){return e.pitcherId===pid;});
+    var ip=sumIP(pp);
+    var pOuts=pp.reduce(function(s,e){var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;return s+full*3+third;},0);
+    var er=pp.reduce(function(s,e){return s+(parseInt(e.er)||0);},0);
+    var bb=pp.reduce(function(s,e){return s+(parseInt(e.bb)||0);},0);
+    var k=pp.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
+    var w=pp.filter(function(e){return e.decision==='W';}).length;
+    var sv=pp.filter(function(e){return e.decision==='S';}).length;
+    var l=pp.filter(function(e){return e.decision==='L';}).length;
+    var score=k*P.kPit+pOuts*P.outPit+pOuts*P.ipThird+w*P.wPit+sv*P.svPit-er*P.erPit-bb*P.bbPit-l*P.lPit;
+    var row={p:p,tm:teamOf(p.teamId),ip:ip,er:er,k:k,bb:bb,w:w,l:l,sv:sv,pts:score};
+    if(!bestPit||score>bestPit.pts)bestPit=row;
+  });
+  return{batter:bestBat,pitcher:bestPit};
+}
+function showFeaturedM(gid){
+  var g=S.games.filter(function(x){return x.id===gid;})[0];if(!g||g.status!=='final')return;
+  var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);
+  var fx=computeGameFeatured(gid);
+  if(!fx||(!fx.batter&&!fx.pitcher))return; // sin datos suficientes: no interrumpe con un modal vacio
+  var sponsor=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s.pinDestacados&&(s.activo!==false&&s.activo!=='false');})[0];
+  function pRow(x,isPit){
+    if(!x)return'<div class="empty" style="padding:10px"><div style="font-size:11px">Sin datos suficientes</div></div>';
+    var line=isPit?(x.ip.toFixed(1)+' IP &middot; '+x.k+'K &middot; '+x.er+'ER'+(x.w>0?' &middot; Ganador':x.sv>0?' &middot; Salvado':'')):(x.h+'H '+x.hr+'HR '+x.rbi+'RBI '+x.r+'R');
+    return'<div style="text-align:center;padding:8px 4px">'
+      +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">#'+(x.p.number||'?')+' '+x.p.name+'</div>'
+      +'<div style="font-size:12px;color:var(--t2)">'+(x.tm?x.tm.name:'&mdash;')+'</div>'
+      +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+line+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+x.pts.toFixed(2)+' pts</div>'
+      +'</div>';
+  }
+  var html='<div class="mhd"><div class="mtl">&#127942; Jugadores Destacados del Partido</div><button class="bx" data-g="'+gid+'" onclick="closeFeaturedM(this.dataset.g)">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="ssb" style="text-align:center;margin-bottom:10px">'+aw.name+' '+(parseInt(g.awayRuns)||0)+' &ndash; '+(parseInt(g.homeRuns)||0)+' '+hw.name+'</div>'
+    +'<div class="g2">'
+    +'<div class="card"><div style="font-weight:700;font-size:12px;text-align:center;color:var(--t3)">&#127952; MEJOR BATEADOR</div>'+pRow(fx.batter,false)+'</div>'
+    +'<div class="card"><div style="font-weight:700;font-size:12px;text-align:center;color:var(--t3)">&#9918; MEJOR PITCHER</div>'+pRow(fx.pitcher,true)+'</div>'
+    +'</div>'
+    +(sponsor?'<div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--bdr)">'
+      +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Los jugadores destacados del partido llegan gracias a:</div>'
+      +(sponsor.linkUrl?'<a href="'+sponsor.linkUrl+'" target="_blank">':'')
+      +'<img src="'+sponsor.imagenUrl+'" alt="'+sponsor.nombre+'" style="max-height:56px;max-width:200px;object-fit:contain">'
+      +(sponsor.linkUrl?'</a>':'')
+      +'<div style="font-size:12px;color:var(--t2);margin-top:4px">'+sponsor.nombre+'</div>'
+      +'</div>':'')
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" data-g="'+gid+'" onclick="closeFeaturedM(this.dataset.g)">Cerrar</button></div>';
+  // Modal propio (no showM/cM genericos) para que cerrar por click afuera TAMBIEN
+  // marque el juego como "visto" y no vuelva a aparecer al reabrirlo.
+  document.getElementById('modals').innerHTML='<div class="mbg" id="mo" data-g="'+gid+'" onclick="if(event.target.id===\'mo\')closeFeaturedM(this.dataset.g)"><div class="modal" onclick="event.stopPropagation()">'+html+'</div></div>';
 }
 function lineupSetup(gid,gm){
   _LU={aw:[],hm:[]};
@@ -9346,7 +9474,7 @@ function pgLead(tid){
   function getWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function getKp(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
   function getWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinLideres','&#129309; Lideres presentados por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Lideres</div><div class="ssb">Top jugadores por categoria</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -10059,7 +10187,7 @@ function pgAwards(){
       +((S.user&&S.user.role!=='public'&&(canDo('edit','awards')||canDo('delete','awards')))?'<td><div style="display:flex;gap:5px">'+(canDo('edit','awards')?'<button class="btn bs bsm" data-aid="'+a.id+'" onclick="openAwardM(this.dataset.aid)">Editar</button>':'')+(canDo('delete','awards')?'<button class="btn bd bsm" data-aid="'+a.id+'" onclick="delAward(this.dataset.aid)">&#10005;</button>':'')+'</div></td>':'')
       +'</tr>';
   }).join('');
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+  ct(yearBar()+sponsorPinnedBanner('pinPremiaciones','&#127885; Premiaciones presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">&#127885; Premiaciones</div><div class="ssb">Registro de jugadores premiados</div></div>'
     +(S.user&&S.user.role!=='public'&&canDo('create','awards')?'<button class="btn bp" onclick="openAwardM(\'\')">+ Registrar Premio</button>':'')+'</div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">'
@@ -11789,6 +11917,153 @@ async function delChannel(id){
   else toast(r&&r.error||'Error','error');
 }
 
+// ═══════════════════════════════════════════════════════════
+// PATROCINADORES Y AFILIADOS — modulo admin-only (o por perfil con acceso al
+// modulo 'sponsors'). Los patrocinadores se muestran en una galeria rotativa
+// en el header (encima del marquee "AHORA"); los afiliados en una galeria
+// rotativa en el footer (encima de "Vitilla Power", con su pais debajo).
+// Ambas galerias SOLO se muestran a usuarios que ingresan como visitantes
+// (role 'public') — ver renderPublicGalleries(). Los patrocinadores ademas
+// pueden fijarse (sin rotar, como logo estatico) en Jugadores Destacados del
+// Partido / Lideres / Premiaciones via los flags pinDestacados/pinLideres/
+// pinPremiaciones — ver sponsorPinnedBanner().
+// ═══════════════════════════════════════════════════════════
+var _SP={tipo:'patrocinador'};
+function setSponsorTab(tipo){_SP.tipo=tipo;pgSponsors();}
+function pgSponsors(){
+  var isA=S.user&&(S.user.role==='admin'||canDo('create','sponsors'));
+  var list=(S.sponsors||[]).filter(function(x){return x.tipo===_SP.tipo;}).sort(function(a,b){return(a.orden||0)-(b.orden||0)||(a.nombre||'').localeCompare(b.nombre||'');});
+  var isPat=_SP.tipo==='patrocinador';
+  var cards=list.map(function(s){
+    var activo=s.activo!==false&&s.activo!=='false';
+    var pins=[];
+    if(isPat){
+      if(s.pinDestacados)pins.push('Destacados del Partido');
+      if(s.pinLideres)pins.push('Lideres');
+      if(s.pinPremiaciones)pins.push('Premiaciones');
+    }
+    return'<div class="card" style="margin-bottom:12px">'
+      +'<div style="display:flex;align-items:center;gap:12px">'
+      +'<div style="width:64px;height:64px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'
+      +(s.imagenUrl?'<img src="'+s.imagenUrl+'" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.style.display=\'none\'">':'<span style="font-size:26px">'+(isPat?'🤝':'🌐')+'</span>')
+      +'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:700;font-size:15px">'+s.nombre+' '+(activo?'<span class="badge bgn" style="font-size:10px">Activo</span>':'<span class="badge bgr" style="font-size:10px">Inactivo</span>')+'</div>'
+      +(s.pais?'<div style="font-size:12px;color:var(--acc);margin-top:2px">🌍 '+s.pais+'</div>':'')
+      +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank" style="font-size:12px;color:var(--grn);word-break:break-all">'+s.linkUrl+'</a>':'<div style="font-size:12px;color:var(--t3)">Sin URL de destino</div>')
+      +(pins.length?'<div style="font-size:11px;color:var(--t2);margin-top:4px">📌 Fijado en: '+pins.join(', ')+'</div>':'')
+      +'</div>'
+      +(isA?'<div style="display:flex;flex-direction:column;gap:6px">'
+        +'<button class="btn bs bsm" data-sid="'+s.id+'" onclick="toggleSponsorActive(this.dataset.sid)">'+(activo?'Inactivar':'Activar')+'</button>'
+        +'<button class="btn bs bsm" data-sid="'+s.id+'" onclick="openSponsorM(this.dataset.sid)">Editar</button>'
+        +'<button class="btn bd bsm" data-sid="'+s.id+'" onclick="delSponsor(this.dataset.sid)">&#128465;</button>'
+        +'</div>':'')
+      +'</div></div>';
+  }).join('');
+  ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+    +'<div><div class="stl">&#129309; Patrocinadores y Afiliados</div><div class="ssb">Gestiona los logos que se muestran a los visitantes en el encabezado (patrocinadores) y pie de pagina (afiliados)</div></div>'
+    +(isA?'<button class="btn bp" data-t="'+_SP.tipo+'" onclick="openSponsorM(\'\',this.dataset.t)">+ Agregar '+(isPat?'Patrocinador':'Afiliado')+'</button>':'')+'</div>'
+    +'<div class="tabs" style="margin-bottom:14px"><div class="tab '+(isPat?'on':'')+'" onclick="setSponsorTab(\'patrocinador\')">🤝 Patrocinadores</div><div class="tab '+(!isPat?'on':'')+'" onclick="setSponsorTab(\'afiliado\')">🌐 Afiliados</div></div>'
+    +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Tiempo de rotacion de la galeria (segundos)</div></div>'
+      +'<div class="fr c2">'
+      +'<div class="fg"><label class="fl">Patrocinadores (header)</label><input class="fi" id="spsec-p" type="number" min="2" max="120" value="'+S.sponsorSeconds+'"></div>'
+      +'<div class="fg"><label class="fl">Afiliados (footer)</label><input class="fi" id="spsec-a" type="number" min="2" max="120" value="'+S.affiliateSeconds+'"></div>'
+      +'</div>'
+      +'<button class="btn bp" onclick="saveGallerySeconds()">Guardar Tiempos</button>'
+      +'</div>':'')
+    +(cards||'<div class="card"><div class="empty"><div style="font-size:30px">'+(isPat?'&#129309;':'&#127760;')+'</div><div>Sin '+(isPat?'patrocinadores':'afiliados')+' registrados</div></div></div>'));
+}
+async function toggleSponsorActive(id){
+  var s=(S.sponsors||[]).filter(function(x){return x.id===id;})[0];if(!s)return;
+  var activo=!(s.activo!==false&&s.activo!=='false');
+  var upd=Object.assign({},s,{activo:activo});
+  var r=await api('saveSponsor',{sponsor:upd});
+  if(r&&r.ok){S.sponsors=S.sponsors.map(function(x){return x.id===id?r.item:x;});pgSponsors();toast(activo?'Activado':'Inactivado','info');}
+  else toast(r&&r.error||'Error','error');
+}
+function openSponsorM(id,tipo){
+  var s=id?(S.sponsors||[]).filter(function(x){return x.id===id;})[0]:{tipo:tipo||_SP.tipo,activo:true};if(!s)s={tipo:tipo||_SP.tipo,activo:true};
+  var isPat=s.tipo==='patrocinador';
+  showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' '+(isPat?'Patrocinador':'Afiliado')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<input type="hidden" id="sptp" value="'+s.tipo+'">'
+    +'<div class="fg"><label class="fl">Nombre *</label><input class="fi" id="spnm" value="'+(s.nombre||'')+'" placeholder="Ej: Ferreteria La 25"></div>'
+    +'<div class="fg"><label class="fl">URL de la imagen/logo *</label><input class="fi" id="spim" value="'+(s.imagenUrl||'')+'" placeholder="https://..." oninput="previewSponsorImg(this.value)"></div>'
+    +'<div id="sp-prev" style="display:'+(s.imagenUrl?'flex':'none')+';width:100%;height:80px;align-items:center;justify-content:center;background:var(--bg3);border-radius:8px;margin-bottom:10px;overflow:hidden">'+(s.imagenUrl?'<img src="'+s.imagenUrl+'" style="max-width:100%;max-height:100%;object-fit:contain">':'')+'</div>'
+    +'<div class="fg"><label class="fl">URL de destino (al hacer clic)</label><input class="fi" id="spurl" value="'+(s.linkUrl||'')+'" placeholder="https://..."></div>'
+    +(isPat?'':'<div class="fg"><label class="fl">Pais</label><input class="fi" id="sppais" value="'+(s.pais||'')+'" placeholder="Ej: Rep. Dominicana"></div>')
+    +'<div class="fg"><label class="fl">Orden en la galeria</label><input class="fi" id="sporden" type="number" value="'+(s.orden||0)+'"></div>'
+    +'<div class="fg"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="spact" '+(s.activo!==false&&s.activo!=='false'?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Activo (se muestra al publico)</label></div>'
+    +(isPat?'<div class="fg" style="border-top:1px solid var(--bdr);padding-top:10px;margin-top:4px"><label class="fl">Fijar logo (sin rotar) en:</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppd" '+(s.pinDestacados?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Jugadores Destacados del Partido</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppl" '+(s.pinLideres?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Lideres</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppp" '+(s.pinPremiaciones?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Premiaciones</label>'
+      +'</div>':'')
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bp" data-sid="'+(id||'')+'" onclick="saveSponsorItem(this.dataset.sid)">Guardar</button></div>');
+}
+function previewSponsorImg(url){
+  var prev=document.getElementById('sp-prev');if(!prev)return;
+  if(url){prev.style.display='flex';prev.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.parentNode.style.display=\'none\'">';}
+  else prev.style.display='none';
+}
+async function saveSponsorItem(id){
+  var tipo=fv('sptp'),nombre=fv('spnm'),img=fv('spim');
+  if(!nombre||!img){toast('Nombre e imagen son requeridos','error');return;}
+  var isPat=tipo==='patrocinador';
+  var s={
+    id:id||null,tipo:tipo,nombre:nombre,imagenUrl:img,linkUrl:fv('spurl')||'',
+    pais:isPat?'':(fv('sppais')||''),orden:parseInt(fv('sporden'))||0,
+    activo:!!(document.getElementById('spact')&&document.getElementById('spact').checked),
+    pinDestacados:isPat&&!!(document.getElementById('sppd')&&document.getElementById('sppd').checked),
+    pinLideres:isPat&&!!(document.getElementById('sppl')&&document.getElementById('sppl').checked),
+    pinPremiaciones:isPat&&!!(document.getElementById('sppp')&&document.getElementById('sppp').checked),
+    createdAt:new Date().toISOString()
+  };
+  var r=await api('saveSponsor',{sponsor:s});
+  if(r&&r.ok){
+    var saved=r.item||s;
+    if(!id)S.sponsors.push(saved);
+    else S.sponsors=S.sponsors.map(function(x){return x.id===id?saved:x;});
+    cM();pgSponsors();toast((isPat?'Patrocinador':'Afiliado')+' guardado','success');
+  } else toast(r&&r.error||'Error','error');
+}
+async function delSponsor(id){
+  if(!confirm('Eliminar este registro?'))return;
+  var r=await api('deleteRow',{sheet:'Patrocinadores',id:id});
+  if(r&&r.ok){S.sponsors=S.sponsors.filter(function(x){return x.id!==id;});pgSponsors();toast('Eliminado','info');}
+  else toast(r&&r.error||'Error','error');
+}
+async function saveGallerySeconds(){
+  var ps=parseInt(fv('spsec-p'))||6,as=parseInt(fv('spsec-a'))||6;
+  if(ps<2||ps>120||as<2||as>120){toast('El tiempo debe estar entre 2 y 120 segundos','error');return;}
+  var r1=await api('saveConfig',{key:'sponsorSeconds',value:String(ps)});
+  var r2=await api('saveConfig',{key:'affiliateSeconds',value:String(as)});
+  if(r1&&r1.ok&&r2&&r2.ok){
+    S.sponsorSeconds=ps;S.affiliateSeconds=as;S.config=S.config||{};S.config.sponsorSeconds=String(ps);S.config.affiliateSeconds=String(as);
+    restartPublicGalleries();
+    toast('Tiempos de galeria guardados','success');
+  } else toast(r1&&r1.error||r2&&r2.error||'Error','error');
+}
+// ── Banner fijo (sin rotar) de patrocinador para un modulo con flag activo ──
+// Se muestra a CUALQUIER usuario (no solo visitantes) que este viendo ese
+// modulo, a diferencia de las galerias de header/footer que son solo-visitante.
+function sponsorPinnedBanner(flagKey,label){
+  var pinned=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s[flagKey]&&(s.activo!==false&&s.activo!=='false');});
+  if(!pinned.length)return'';
+  return'<div class="card" style="margin-bottom:14px;text-align:center;padding:12px">'
+    +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
+    +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
+    +pinned.map(function(s){
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:52px;max-width:160px;object-fit:contain">';
+      return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+        +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
+        +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
+    }).join('')
+    +'</div></div>';
+}
+
 // PROFILES
 var _pfSearch='';
 function pgProfiles(q){
@@ -12868,6 +13143,65 @@ function mqSep(){
   return{type:'sep',text:'     ✦     ',color:'rgba(245,166,35,.4)'};
 }
 
+// ═══════════════════════════════════════════════════════════
+// GALERIAS PUBLICAS de Patrocinadores (header) y Afiliados (footer). SOLO se
+// muestran cuando el usuario esta conectado como visitante (role 'public') —
+// ver requerimiento del modulo Patrocinadores y Afiliados. Van "pasando"
+// (fade in/out) una imagen a la vez, cada N segundos (configurables por el
+// admin), adaptando su tamaño via object-fit:contain.
+// ═══════════════════════════════════════════════════════════
+var _spgTimer=null,_afgTimer=null;
+function stopPublicGalleries(){
+  if(_spgTimer){clearInterval(_spgTimer);_spgTimer=null;}
+  if(_afgTimer){clearInterval(_afgTimer);_afgTimer=null;}
+  var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
+  if(spb){spb.style.display='none';spb.innerHTML='';}
+  if(afb){afb.style.display='none';afb.innerHTML='';}
+}
+function restartPublicGalleries(){ stopPublicGalleries(); startPublicGalleries(); }
+function startPublicGalleries(){
+  stopPublicGalleries();
+  if(!S.user||S.user.role!=='public') return; // solo visitantes ven estas galerias
+  var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
+  var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
+  var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
+  if(pats.length&&spb){
+    spb.style.display='block';
+    spb.innerHTML='<div class="spg-wrap"><div class="spg-stage" id="spg-stage">'
+      +pats.map(function(s,i){
+        var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" onerror="this.style.display=\'none\'">';
+        return'<div class="spg-item'+(i===0?' on':'')+'" data-i="'+i+'">'+(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)+'</div>';
+      }).join('')
+      +'</div></div>';
+    if(pats.length>1){
+      var spgIdx=0;
+      _spgTimer=setInterval(function(){
+        var items=document.querySelectorAll('#spg-stage .spg-item');if(!items.length)return;
+        items[spgIdx].classList.remove('on');
+        spgIdx=(spgIdx+1)%items.length;
+        items[spgIdx].classList.add('on');
+      },Math.max(2,S.sponsorSeconds||6)*1000);
+    }
+  } else if(spb){spb.style.display='none';}
+  if(afis.length&&afb){
+    afb.style.display='block';
+    afb.innerHTML='<div class="afg-wrap"><div class="afg-stage" id="afg-stage">'
+      +afis.map(function(s,i){
+        var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" onerror="this.style.display=\'none\'">';
+        return'<div class="afg-item'+(i===0?' on':'')+'" data-i="'+i+'">'+(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)+(s.pais?'<div class="afg-country">🌍 '+s.pais+'</div>':'')+'</div>';
+      }).join('')
+      +'</div></div>';
+    if(afis.length>1){
+      var afgIdx=0;
+      _afgTimer=setInterval(function(){
+        var items=document.querySelectorAll('#afg-stage .afg-item');if(!items.length)return;
+        items[afgIdx].classList.remove('on');
+        afgIdx=(afgIdx+1)%items.length;
+        items[afgIdx].classList.add('on');
+      },Math.max(2,S.affiliateSeconds||6)*1000);
+    }
+  } else if(afb){afb.style.display='none';}
+}
 function startMarquee(){
   var bar=document.getElementById('mq-bar');
   var track=document.getElementById('mq-track');
@@ -12965,7 +13299,7 @@ window.onload=function(){
         document.getElementById('app').style.display='flex';
         // Al refrescar con sesion activa, aplicar auto-select de torneo padre igual que en login
         if(!S.parentTourFilter){var pts2=visibleParentTournaments();if(pts2.length>0){S.parentTourFilter=String(pts2[0].id);var defYr=defaultYearForParent(pts2[0].id)||_curYear;S.yearFilter=parseInt(defYr)||_curYear;S.tourFilter=autoSubTour(pts2[0].id,S.yearFilter);if(S.tourFilter)S.tourFilter=String(S.tourFilter);}else{S.yearFilter=_curYear;}}
-        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();
+        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();startPublicGalleries();
       }).catch(function(){
         // Tampoco hubo red para el intento normal: mismo camino offline de arriba.
         loadOfflineCache().then(function(){
