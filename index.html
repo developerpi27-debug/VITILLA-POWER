@@ -5836,8 +5836,13 @@ async function undoSubAction(gm,last){
       }
     }
     // Si el cambio tambien modifico una base (corredor emergente), restaurarla.
-    if(sd.basesBefore){
-      gm.bases=sd.basesBefore;
+    // BUG CORREGIDO: se leia sd.basesBefore, pero el dato en realidad se guarda un nivel mas
+    // adentro, en sd.before.basesBefore (= before.basesBefore, ya extraido arriba) — por eso
+    // esta condicion nunca era verdadera y la base JAMAS se restauraba: el nombre del
+    // sustituto se quedaba en la base aunque el lineup si revertia correctamente (esa parte
+    // usa 'before.lineups', que si estaba en el nivel correcto).
+    if(before.basesBefore){
+      gm.bases=before.basesBefore;
       S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
       await api('saveGame',{game:gm});
     }
