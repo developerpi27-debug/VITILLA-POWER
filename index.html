@@ -4888,7 +4888,11 @@ async function rPlay(type){
     }
     // FO con 2+ corredores: preguntar primero a cuál se hizo el out para calcular
     // el mínimo forzado real ANTES de preguntar carreras (evita anotar carreras incorrectas).
-    var _foOutBase='first'; // default: el de 1ra es el eliminado (caso clásico)
+    // BUG CORREGIDO: con un SOLO corredor en base, antes se asumia siempre 'first' sin
+    // verificar en cual base estaba realmente ese corredor (ej. con corredor solo en 2da o
+    // solo en 3ra, el out le caia igual al de 1ra que ni existia). Ahora, con un unico
+    // corredor, se identifica automaticamente su base real (no hay ambiguedad que preguntar).
+    var _foOutBase=bases.first?'first':(bases.second?'second':'third');
     if(enBase>=2){
       // Construir lista de opciones con los corredores disponibles
       var _foOpts=[];
@@ -4928,10 +4932,26 @@ async function rPlay(type){
     var _foHint=(_foOutBase==='second'&&nbForce<3)?'\n(El out fue en 2da. Si alguien anotó, indicarlo abajo.)'
                :(_foOutBase==='third'?'\n(El out fue en 3ra.)':'');
     var rbFO=await numPromptAsync('OUT FORZADO - '+bName
-      +'\nEl bateador llega safe a 1ra. El out fue al corredor de '+{first:'1ra',second:'2da',third:'3ra'}[_foOutBase]+'.'+_foHint
+      +'\nEl bateador llega safe. El out fue al corredor de '+{first:'1ra',second:'2da',third:'3ra'}[_foOutBase]+'.'+_foHint
       +'\n\nCuantas carreras anotaron? (0 si ninguna)','0');
     if(rbFO===null){_rPlayBusy=false;return;}
     runs=Math.max(0,parseInt(rbFO)||0); rbi=runs;
+    // FIX: si el out NO fue al corredor de 1ra (caso ambiguo — ej. corredor solo en 2da o
+    // solo en 3ra al que le hicieron el out, o el out se le hizo al corredor mas adelantado
+    // con otros detras), la posicion final del bateador no es automaticamente 1ra: pudo
+    // quedarse en 1ra, o aprovechar la jugada para llegar mas lejos. Cuando el out fue al de
+    // 1ra (el force clasico: bateador ocupa 1ra, el de 1ra es forzado y eliminado en la
+    // siguiente base), el bateador SIEMPRE queda en 1ra sin ambiguedad — no se pregunta.
+    gm._foBatterDest='first';
+    if(_foOutBase!=='first'){
+      var foBatSel=await numPromptAsync('OUT FORZADO - '+bName
+        +'\n¿Hasta donde llego el bateador?'
+        +'\n1. 1ra base\n2. 2da base'+(nbForce>=3?'\n3. 3ra base':'')
+        +'\n\nIngresa (1'+(nbForce>=3?', 2 o 3':' o 2')+'):','1');
+      if(foBatSel===null){_rPlayBusy=false;return;}
+      var _foBatSelNum=parseInt(foBatSel)||1;
+      gm._foBatterDest=(nbForce>=3&&_foBatSelNum===3)?'third':(_foBatSelNum===2?'second':'first');
+    }
   } else if(type==='BB'||type==='HBP'){
     var minFBB=minForcedRunsBB(); // BB/HBP solo fuerza carrera con bases llenas
     var rb5=await numPromptAsync(({BB:'BASE POR BOLAS',HBP:'GOLPEADO POR PITCHEO'}[type])+' - '+bName
@@ -5296,9 +5316,13 @@ async function rPlay(type){
       // Usar la base que el anotador indicó (preguntado ANTES si había 2+ corredores)
       var foOut=gm._foOutBase||'first';
       if(gm._foOutBase) delete gm._foOutBase;
+      // Destino del bateador: 1ra por defecto (force clasico), o lo indicado si el out no fue
+      // al corredor de 1ra (caso ambiguo — ver pregunta arriba).
+      var foBatDest=gm._foBatterDest||'first';
+      if(gm._foBatterDest) delete gm._foBatterDest;
       var foOrder=nb>=3?['third','second','first']:['second','first'];
       var foOutIdx=foOrder.indexOf(foOut);
-      var foNewBases={first:batter,second:null,third:null};
+      var foNewBases={first:null,second:null,third:null};
       // Corredores DELANTE del eliminado (más cerca de home) no se mueven
       for(var fi=0;fi<foOutIdx;fi++){
         foNewBases[foOrder[fi]]=scored(b[foOrder[fi]])?null:(b[foOrder[fi]]||null);
@@ -5310,6 +5334,8 @@ async function rPlay(type){
         var foTo=foOrder[foOrder.indexOf(foFrom)-1];
         if(b[foFrom]&&foTo) foNewBases[foTo]=scored(b[foFrom])?null:b[foFrom];
       }
+      // Colocar al bateador en su destino final (1ra por defecto, o el indicado)
+      foNewBases[foBatDest]=batter;
       gm.bases=foNewBases;
     } else if(type==='DP'){
       // Double play: clear one runner from base if any (estimacion inicial; el anotador
