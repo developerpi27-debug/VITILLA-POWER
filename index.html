@@ -167,17 +167,26 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 #slogan-bar .sl-main{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #slogan-bar .sl-sub{font-size:11px;color:var(--t2);font-style:italic;}
 /* ── FOOTER ── */
-.spg-wrap{display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);padding:6px 10px;flex-shrink:0;}
-.spg-item{display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .5s ease;position:absolute;}
+.spg-bar-wrap{background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);padding:8px 14px 12px;flex-shrink:0;}
+.spg-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--acc);text-align:center;margin-bottom:6px;text-transform:uppercase;}
+.spg-stage{position:relative;display:flex;align-items:center;justify-content:center;height:100px;margin:0 auto;max-width:520px;}
+.spg-item{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease;}
 .spg-item.on{opacity:1;position:relative;}
-.spg-stage{position:relative;display:flex;align-items:center;justify-content:center;height:44px;width:100%;max-width:220px;}
-.spg-stage img{max-height:44px;max-width:100%;object-fit:contain;}
-.afg-wrap{display:flex;align-items:center;justify-content:center;padding:8px 10px;border-bottom:1px solid var(--bdr);margin-bottom:6px;}
-.afg-stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:60px;width:100%;max-width:220px;}
-.afg-item{display:flex;flex-direction:column;align-items:center;gap:2px;opacity:0;transition:opacity .5s ease;position:absolute;}
-.afg-item.on{opacity:1;position:relative;}
-.afg-item img{max-height:44px;max-width:180px;object-fit:contain;}
-.afg-item .afg-country{font-size:10px;color:var(--t3);}
+.spg-item img{max-height:100px;max-width:100%;object-fit:contain;border-radius:6px;}
+.afg-bar-wrap{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bdr);margin-bottom:8px;}
+.afg-label{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--acc);white-space:nowrap;text-transform:uppercase;flex-shrink:0;}
+.afg-arrow{background:var(--bg3);border:1px solid var(--bdr);color:var(--t2);width:28px;height:28px;min-width:28px;border-radius:50%;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.afg-arrow:hover{background:var(--acc);color:#000;border-color:var(--acc);}
+.afg-toggle{background:var(--bg3);border:1px solid var(--bdr);color:var(--t2);width:28px;height:28px;min-width:28px;border-radius:50%;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.afg-toggle:hover{background:var(--acc);color:#000;border-color:var(--acc);}
+.afg-track-outer{overflow-x:auto;overflow-y:hidden;flex:1;min-width:0;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:auto;}
+.afg-track-outer::-webkit-scrollbar{display:none;}
+.afg-track{display:flex;gap:18px;width:max-content;}
+.afg-card{flex:0 0 auto;width:140px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
+.afg-card a{display:flex;align-items:center;justify-content:center;width:100%;}
+.afg-card img{width:100%;height:80px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.03);}
+.afg-card .afg-name{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2;}
+.afg-card .afg-country{font-size:10px;color:var(--t3);}
 #app-footer{background:var(--bg2);border-top:1px solid var(--bdr);padding:14px 24px;text-align:center;font-size:11px;color:var(--t3);line-height:1.8;}
 #app-footer .ft-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #app-footer .ft-heart{color:var(--red);}
@@ -2214,7 +2223,7 @@ function gcH(g){
   else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div></div>';
   else if(g.status==='live')rgt='<div style="text-align:right"><span class="badge '+(g.paused?'bo':'br')+'">'+(g.paused?'&#9646;&#9646; PAUSADO':'&#128308; EN VIVO')+'</span><div style="font-size:16px;font-weight:700">'+(+g.awayRuns||0)+' - '+(+g.homeRuns||0)+'</div></div>';
   else rgt='<div style="text-align:right"><span class="badge bb">PROG.</span><div style="font-size:12px;color:var(--t3)">'+(g.time&&g.time.indexOf&&g.time.indexOf('1899')<0&&g.time.indexOf('1900')<0?g.time:'TBD')+'</div></div>';
-  return'<div class="gcrd" onclick="openGD(\''+g.id+'\')"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div><div style="flex:1"><div class="gvs">'+aw.name+' vs '+hw.name+'</div><div class="ginf">&#127967; '+(g.venue||'TBD')+' &middot; '+tmNm(g.tournamentId)+'</div></div>'+rgt+'</div>';
+  return'<div class="gcrd" onclick="openGD(\''+g.id+'\')"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div><div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+' &middot; '+tmNm(g.tournamentId)+'</div></div>'+rgt+'</div>';
 }
 function openGD(id){
   var g=S.games.filter(function(x){return x.id===id;})[0];
@@ -2223,6 +2232,7 @@ function openGD(id){
     return;
   }
   S.game=id;goNav('gamecontrol');
+  maybeShowFeaturedM(id);
 }
 
 // DASHBOARD
@@ -3332,7 +3342,7 @@ function pgSched(){
     +'<option value="playoff" '+(_schedPhaseFilter==='playoff'?'selected':'')+'>Playoffs</option>'
     +'<option value="final" '+(_schedPhaseFilter==='final'?'selected':'')+'>Serie Final</option>'
     +'<option value="allstar" '+(_schedPhaseFilter==='allstar'?'selected':'')+'>&#11088; Juego de Estrellas</option>';
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+  ct(yearBar()+sponsorPinnedBanner('pinCalendario','&#128197; Calendario presentado por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Calendario</div><div class="ssb">Programa y gestiona juegos</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -3378,7 +3388,7 @@ function pgSched(){
       if(g.date){var dp2=String(g.date).split('-');if(dp2.length>=3){day2=parseInt(dp2[2]);var mn2=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];mon2=mn2[parseInt(dp2[1])-1]||'';}}
       var day=day2,mon=mon2;
       return'<div class="gcrd"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div>'
-        +'<div style="flex:1"><div class="gvs">'+aw.name+' vs '+hw.name+'</div><div class="ginf">&#127967; '+(g.venue||'TBD')+(g.time&&g.time.indexOf('1899')<0?' &#128336; '+g.time:'')+'</div></div>'
+        +'<div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+(g.time&&g.time.indexOf('1899')<0?' &#128336; '+g.time:'')+'</div></div>'
         +'<div style="display:flex;gap:6px">'
         +(canDo('edit','schedule')?'<button class="btn bs bsm" data-gid="'+g.id+'" onclick="openGM(this.dataset.gid)">Editar</button>':'')
         +(canDo('edit','schedule')?'<button class="btn bd bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();openForfeitM(this.dataset.gid)" title="Declarar Forfeit">&#128683; Forfeit</button>':'')
@@ -3971,6 +3981,7 @@ function pgGC(){
     +'</div>'
     +'<div style="overflow-x:auto"><table class="lst"><thead><tr><th class="tc">Equipo</th>'+hdrs+'<th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th></tr></thead><tbody>'+lsRow(aw,true)+lsRow(hw,false)+'</tbody></table></div>'
     +'</div>'
+    +((S.user&&S.user.role==='public'&&gm.status==='live'&&(S.channels||[]).filter(function(c){return c.tournamentId===gm.tournamentId;}).length)?'<div style="text-align:center;margin:14px 0"><button class="btn bp" style="font-size:14px;padding:10px 24px" data-tid="'+gm.tournamentId+'" onclick="watchLiveChannel(this.dataset.tid)">&#128250; Ver Transmisión en Vivo</button></div>':'')
     +'<div class="g2">'
     +'<div>'
     +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:12px 16px;margin-bottom:8px">'
@@ -7774,7 +7785,7 @@ function pgStand(){
       +'<td style="text-align:center;color:'+(s.streak.indexOf('&#10003;')>=0?'var(--grn)':'var(--red)')+'">'+s.streak+'</td>'
       +'<td style="text-align:center">'+zona+'</td></tr>';
   }).join(''));
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinPosiciones','&#128202; Posiciones presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Posiciones</div><div class="ssb">'+(tour?tour.name:'Todos los subtorneos (consolidado)')+' &mdash; '+(phase?{regular:'Serie Regular',playin:'Play In',playoff:'Playoffs',final:'Serie Final',allstar:'Juego de Estrellas'}[phase]:'Todas las Fases')+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -9273,7 +9284,7 @@ function pgStats(tid,sBy,pSBy){
   }).join('');
   var _streakTourId=_ST.tourId||'';
   var _streakYear=S.yearFilter||null;
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
+  ct(yearBar()+sponsorPinnedBanner('pinEstadisticas','&#128202; Estadisticas presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="_ST.divFilter=\'\';pgStats(this.value)">'+tOpts+'</select>'
     +(divisionsST.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_ST.divFilter=this.value;pgStats(_ST.tourId)"><option value="">Todas las Divs.</option>'+divisionsST.map(function(d){return'<option value="'+d+'" '+(_ST.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select>'
@@ -9465,6 +9476,9 @@ function pgLead(tid){
   }
   function getAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
   function getSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function getOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
+  function getOPS(ids){return getOBP(ids)+getSLG(ids);}
+  function getBB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='BB';}).length;}
   function getHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
   function getRBI(ids){return evs.reduce(function(s,e){return s+(ids.indexOf(e.batterId)>=0?parseInt(e.rbi)||0:0);},0);}
   function getR(ids){return countRunsScored(evs,ids);}
@@ -9494,8 +9508,8 @@ function pgLead(tid){
     +((minLeadVB||minLeadIP||_ldTh.vbAuto||_ldTh.ipAuto)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo) &mdash; fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Serie Regular (referencia de "Todas")')+': '+(_ldTh.vbAuto?'<b>'+minLeadVB+' VB</b> (media automática de bateadores con actividad)':(minLeadVB?minLeadVB+' VB (manual)':'sin mínimo de VB'))+' &middot; '+(_ldTh.ipAuto?'<b>'+minLeadIP.toFixed(1)+' IP</b> (media automática de pitchers con actividad)':(minLeadIP?minLeadIP+' IP (manual)':'sin mínimo de IP'))+'.</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
-    +lCard('&#128200; SLG',topN(getSLG,10,true),function(v){return v.toFixed(3);},function(){return fullN(getSLG,true);})+lCard('&#127952; AVG',topN(getAvg,10,true),function(v){return v.toFixed(3);},function(){return fullN(getAvg,true);})+lCard('&#128165; HR',topN(getHR),null,function(){return fullN(getHR);})+lCard('&#127919; RBI',topN(getRBI),null,function(){return fullN(getRBI);})
-    +lCard('&#127939; Hits',topN(getH),null,function(){return fullN(getH);})+lCard('&#9889; 2B',topN(get2B),null,function(){return fullN(get2B);})+lCard('&#128293; 3B',topN(get3B),null,function(){return fullN(get3B);})+lCard('&#128168; SB',topN(getSB),null,function(){return fullN(getSB);})+lCard('&#127937; Carreras Anotadas',topN(getR),null,function(){return fullN(getR);})
+    +lCard('&#128202; OPS',topN(getOPS,10,true),function(v){return v.toFixed(3);},function(){return fullN(getOPS,true);})+lCard('&#128200; SLG',topN(getSLG,10,true),function(v){return v.toFixed(3);},function(){return fullN(getSLG,true);})+lCard('&#127952; AVG',topN(getAvg,10,true),function(v){return v.toFixed(3);},function(){return fullN(getAvg,true);})+lCard('&#128165; HR',topN(getHR),null,function(){return fullN(getHR);})+lCard('&#127919; RBI',topN(getRBI),null,function(){return fullN(getRBI);})
+    +lCard('&#127939; Hits',topN(getH),null,function(){return fullN(getH);})+lCard('&#9889; 2B',topN(get2B),null,function(){return fullN(get2B);})+lCard('&#128293; 3B',topN(get3B),null,function(){return fullN(get3B);})+lCard('&#128309; BB',topN(getBB),null,function(){return fullN(getBB);})+lCard('&#128168; SB',topN(getSB),null,function(){return fullN(getSB);})+lCard('&#127937; Carreras Anotadas',topN(getR),null,function(){return fullN(getR);})
     +'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
     +'<div class="g3">'
@@ -9780,6 +9794,9 @@ function pgLeadLife(){
   function fullLifePit(fn){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
   function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
   function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function cOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
+  function cOPS(ids){return cOBP(ids)+cSLG(ids);}
+  function cBB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='BB';}).length;}
   function cHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
   function cRBI(ids){return evs.reduce(function(s,e){return s+(ids.indexOf(e.batterId)>=0?parseInt(e.rbi)||0:0);},0);}
   function cR(ids){return countRunsScored(evs,ids);}
@@ -9811,8 +9828,8 @@ function pgLeadLife(){
     +((minLeadVB2||minLeadIP2)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo), calculado automáticamente como la <b>media</b> de VB/IP entre los jugadores con actividad en '+(S.parentTourFilter?('<b>'+((S.parentTournaments.filter(function(x){return x.id===S.parentTourFilter;})[0]||{}).name||'este torneo')+'</b> (todos sus subtorneos/años)'):'<b>todos los subtorneos</b> del deporte vigente')+', fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Todas las Fases')+': <b>'+minLeadVB2+' VB</b> &middot; <b>'+minLeadIP2.toFixed(1)+' IP</b>.</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
-    +lCard2('&#128200; SLG (carrera)',topLifeBat(cSLG,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cSLG,true);},'vb')+lCard2('&#127952; AVG (carrera)',topLifeBat(cAvg,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cAvg,true);},'vb')+lCard2('&#128165; HR (carrera)',topLifeBat(cHR),null,function(){return fullLifeBat(cHR);},'vb')+lCard2('&#127919; RBI (carrera)',topLifeBat(cRBI),null,function(){return fullLifeBat(cRBI);},'vb')
-    +lCard2('&#127939; Hits (carrera)',topLifeBat(cH),null,function(){return fullLifeBat(cH);},'vb')+lCard2('&#9889; 2B (carrera)',topLifeBat(c2B),null,function(){return fullLifeBat(c2B);},'vb')+lCard2('&#128293; 3B (carrera)',topLifeBat(c3B),null,function(){return fullLifeBat(c3B);},'vb')+lCard2('&#128168; SB (carrera)',topLifeBat(cSB),null,function(){return fullLifeBat(cSB);},'vb')+lCard2('&#127937; Carreras Anotadas (carrera)',topLifeBat(cR),null,function(){return fullLifeBat(cR);},'vb')
+    +lCard2('&#128202; OPS (carrera)',topLifeBat(cOPS,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cOPS,true);},'vb')+lCard2('&#128200; SLG (carrera)',topLifeBat(cSLG,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cSLG,true);},'vb')+lCard2('&#127952; AVG (carrera)',topLifeBat(cAvg,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cAvg,true);},'vb')+lCard2('&#128165; HR (carrera)',topLifeBat(cHR),null,function(){return fullLifeBat(cHR);},'vb')+lCard2('&#127919; RBI (carrera)',topLifeBat(cRBI),null,function(){return fullLifeBat(cRBI);},'vb')
+    +lCard2('&#127939; Hits (carrera)',topLifeBat(cH),null,function(){return fullLifeBat(cH);},'vb')+lCard2('&#9889; 2B (carrera)',topLifeBat(c2B),null,function(){return fullLifeBat(c2B);},'vb')+lCard2('&#128293; 3B (carrera)',topLifeBat(c3B),null,function(){return fullLifeBat(c3B);},'vb')+lCard2('&#128309; BB (carrera)',topLifeBat(cBB),null,function(){return fullLifeBat(cBB);},'vb')+lCard2('&#128168; SB (carrera)',topLifeBat(cSB),null,function(){return fullLifeBat(cSB);},'vb')+lCard2('&#127937; Carreras Anotadas (carrera)',topLifeBat(cR),null,function(){return fullLifeBat(cR);},'vb')
     +'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
     +'<div class="g3">'
@@ -10065,7 +10082,7 @@ function pgRankings(tid){
   divisionsRK.sort();
   var lists=buildRankingLists();
   var top10Bat=lists.batList.slice(0,10),top10Pit=lists.pitList.slice(0,10);
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div class="stl">&#127942; Rankings</div><div class="ssb">Top 10 por puntos acumulados, según los filtros seleccionados</div></div></div>'
+  ct(yearBar()+sponsorPinnedBanner('pinRankings','&#127942; Rankings presentados por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div class="stl">&#127942; Rankings</div><div class="ssb">Top 10 por puntos acumulados, según los filtros seleccionados</div></div></div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:200px" onchange="_RK.divFilter=\'\';pgRankings(this.value)">'+tOpts+'</select>'
     +(divisionsRK.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_RK.divFilter=this.value;pgRankings(_RK.tourId)"><option value="">Todas las Divs.</option>'+divisionsRK.map(function(d){return'<option value="'+d+'" '+(_RK.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
@@ -11673,7 +11690,7 @@ function pgToVsTo(){
         +'<div id="tvt-team-match" style="'+(_TVT.teamTab==='match'?'':'display:none')+'">'+matchHTML+'</div></div>';
     }
   }
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinToVsTo','&#9876;&#65039; To vs To presentado por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">⚔️ To vs To</div><div class="ssb">Compara estadísticas de dos jugadores o equipos</div></div></div>'
     +'<div class="card" style="margin-bottom:14px">'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
@@ -11863,6 +11880,22 @@ function setChTour(val){
   _lastFilterCombo['channels']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
   pgChannels();
 }
+// Boton "Ver Transmision en Vivo" en Control de Juego: solo aparece para
+// visitantes viendo un juego EN VIVO cuando el torneo de ese juego tiene al
+// menos un canal configurado. Con un solo canal abre directo; con varios,
+// pregunta cual usar.
+function watchLiveChannel(tid){
+  var chs=(S.channels||[]).filter(function(c){return c.tournamentId===tid;});
+  if(!chs.length)return;
+  if(chs.length===1){window.open(chs[0].url,'_blank');return;}
+  var rows=chs.map(function(c){
+    return'<button class="btn bs" style="width:100%;text-align:left;margin-bottom:8px;display:block" data-url="'+(c.url||'').replace(/"/g,'&quot;')+'" onclick="window.open(this.dataset.url,\'_blank\');cM()">'
+      +'<div style="font-weight:700">&#128250; '+c.name+'</div>'
+      +(c.description?'<div style="font-size:11px;color:var(--t3)">'+c.description+'</div>':'')
+      +'</button>';
+  }).join('');
+  showM('<div class="mhd"><div class="mtl">&#128250; Elige un canal</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'+rows+'</div>');
+}
 function pgChannels(){
   var isA=S.user&&S.user.role!=='public'&&canDo('create','channels');
   S.chTourFilter=resyncTourId('channels',S.chTourFilter);
@@ -11950,6 +11983,11 @@ function pgSponsors(){
       if(s.pinDestacados)pins.push('Destacados del Partido');
       if(s.pinLideres)pins.push('Lideres');
       if(s.pinPremiaciones)pins.push('Premiaciones');
+      if(s.pinPosiciones)pins.push('Posiciones');
+      if(s.pinEstadisticas)pins.push('Estadisticas');
+      if(s.pinCalendario)pins.push('Calendario');
+      if(s.pinRankings)pins.push('Rankings');
+      if(s.pinToVsTo)pins.push('To vs To');
     }
     return'<div class="card" style="margin-bottom:12px">'
       +'<div style="display:flex;align-items:center;gap:12px">'
@@ -11975,8 +12013,8 @@ function pgSponsors(){
     +'<div class="tabs" style="margin-bottom:14px"><div class="tab '+(isPat?'on':'')+'" onclick="setSponsorTab(\'patrocinador\')">🤝 Patrocinadores</div><div class="tab '+(!isPat?'on':'')+'" onclick="setSponsorTab(\'afiliado\')">🌐 Afiliados</div></div>'
     +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Tiempo de rotacion de la galeria (segundos)</div></div>'
       +'<div class="fr c2">'
-      +'<div class="fg"><label class="fl">Patrocinadores (header)</label><input class="fi" id="spsec-p" type="number" min="2" max="120" value="'+S.sponsorSeconds+'"></div>'
-      +'<div class="fg"><label class="fl">Afiliados (footer)</label><input class="fi" id="spsec-a" type="number" min="2" max="120" value="'+S.affiliateSeconds+'"></div>'
+      +'<div class="fg"><label class="fl">Patrocinadores (header) &mdash; seg. por imagen</label><input class="fi" id="spsec-p" type="number" min="2" max="120" value="'+S.sponsorSeconds+'"></div>'
+      +'<div class="fg"><label class="fl">Afiliados (footer) &mdash; velocidad del marquee (seg. aprox. por tarjeta)</label><input class="fi" id="spsec-a" type="number" min="2" max="120" value="'+S.affiliateSeconds+'"></div>'
       +'</div>'
       +'<button class="btn bp" onclick="saveGallerySeconds()">Guardar Tiempos</button>'
       +'</div>':'')
@@ -12007,6 +12045,11 @@ function openSponsorM(id,tipo){
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppd" '+(s.pinDestacados?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Jugadores Destacados del Partido</label>'
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppl" '+(s.pinLideres?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Lideres</label>'
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppp" '+(s.pinPremiaciones?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Premiaciones</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppo" '+(s.pinPosiciones?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Posiciones</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppe" '+(s.pinEstadisticas?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Estadisticas</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppc" '+(s.pinCalendario?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Calendario</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppr" '+(s.pinRankings?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Rankings</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="spptv" '+(s.pinToVsTo?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo To vs To</label>'
       +'</div>':'')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
@@ -12028,6 +12071,11 @@ async function saveSponsorItem(id){
     pinDestacados:isPat&&!!(document.getElementById('sppd')&&document.getElementById('sppd').checked),
     pinLideres:isPat&&!!(document.getElementById('sppl')&&document.getElementById('sppl').checked),
     pinPremiaciones:isPat&&!!(document.getElementById('sppp')&&document.getElementById('sppp').checked),
+    pinPosiciones:isPat&&!!(document.getElementById('sppo')&&document.getElementById('sppo').checked),
+    pinEstadisticas:isPat&&!!(document.getElementById('sppe')&&document.getElementById('sppe').checked),
+    pinCalendario:isPat&&!!(document.getElementById('sppc')&&document.getElementById('sppc').checked),
+    pinRankings:isPat&&!!(document.getElementById('sppr')&&document.getElementById('sppr').checked),
+    pinToVsTo:isPat&&!!(document.getElementById('spptv')&&document.getElementById('spptv').checked),
     createdAt:new Date().toISOString()
   };
   var r=await api('saveSponsor',{sponsor:s});
@@ -13159,10 +13207,11 @@ function mqSep(){
 // (fade in/out) una imagen a la vez, cada N segundos (configurables por el
 // admin), adaptando su tamaño via object-fit:contain.
 // ═══════════════════════════════════════════════════════════
-var _spgTimer=null,_afgTimer=null;
+var _spgTimer=null,_afgRAF=null,_afgPaused=false,_afgHalfWidth=0,_afgSpeed=0.6;
 function stopPublicGalleries(){
   if(_spgTimer){clearInterval(_spgTimer);_spgTimer=null;}
-  if(_afgTimer){clearInterval(_afgTimer);_afgTimer=null;}
+  if(_afgRAF){cancelAnimationFrame(_afgRAF);_afgRAF=null;}
+  _afgPaused=false;_afgHalfWidth=0;
   var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
   if(spb){spb.style.display='none';spb.innerHTML='';}
   if(afb){afb.style.display='none';afb.innerHTML='';}
@@ -13174,9 +13223,10 @@ function startPublicGalleries(){
   var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
+  // ── Patrocinadores: galeria de fade, una imagen grande a la vez ──
   if(pats.length&&spb){
     spb.style.display='block';
-    spb.innerHTML='<div class="spg-wrap"><div class="spg-stage" id="spg-stage">'
+    spb.innerHTML='<div class="spg-bar-wrap"><div class="spg-label">Patrocinadores:</div><div class="spg-stage" id="spg-stage">'
       +pats.map(function(s,i){
         var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" onerror="this.style.display=\'none\'">';
         return'<div class="spg-item'+(i===0?' on':'')+'" data-i="'+i+'">'+(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)+'</div>';
@@ -13192,24 +13242,73 @@ function startPublicGalleries(){
       },Math.max(2,S.sponsorSeconds||6)*1000);
     }
   } else if(spb){spb.style.display='none';}
+  // ── Afiliados: carrusel/marquee horizontal, mostrando 3+ a la vez, con
+  // auto-desplazamiento continuo que el usuario puede pausar/reanudar y
+  // navegar manualmente con flechas o arrastrando/scrolleando ──
   if(afis.length&&afb){
     afb.style.display='block';
-    afb.innerHTML='<div class="afg-wrap"><div class="afg-stage" id="afg-stage">'
-      +afis.map(function(s,i){
-        var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" onerror="this.style.display=\'none\'">';
-        return'<div class="afg-item'+(i===0?' on':'')+'" data-i="'+i+'">'+(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)+(s.pais?'<div class="afg-country">🌍 '+s.pais+'</div>':'')+'</div>';
-      }).join('')
-      +'</div></div>';
-    if(afis.length>1){
-      var afgIdx=0;
-      _afgTimer=setInterval(function(){
-        var items=document.querySelectorAll('#afg-stage .afg-item');if(!items.length)return;
-        items[afgIdx].classList.remove('on');
-        afgIdx=(afgIdx+1)%items.length;
-        items[afgIdx].classList.add('on');
-      },Math.max(2,S.affiliateSeconds||6)*1000);
+    var cardHtml=function(s){
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" onerror="this.style.display=\'none\'">';
+      return'<div class="afg-card">'+(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
+        +'<div class="afg-name">'+s.nombre+'</div>'
+        +(s.pais?'<div class="afg-country">&#127760; '+s.pais+'</div>':'')
+        +'</div>';
+    };
+    // Duplicamos la lista para lograr el efecto de loop infinito sin saltos.
+    var singleHtml=afis.map(cardHtml).join('');
+    var loopEnabled=afis.length>1;
+    afb.innerHTML='<div class="afg-bar-wrap">'
+      +'<div class="afg-label">Afiliados:</div>'
+      +(loopEnabled?'<button class="afg-arrow" onclick="afgScroll(-1)" title="Anterior">&#10094;</button>':'')
+      +'<div class="afg-track-outer" id="afg-track-outer"><div class="afg-track" id="afg-track">'+singleHtml+(loopEnabled?singleHtml:'')+'</div></div>'
+      +(loopEnabled?'<button class="afg-arrow" onclick="afgScroll(1)" title="Siguiente">&#10095;</button>':'')
+      +(loopEnabled?'<button class="afg-toggle" id="afg-toggle" onclick="toggleAfgAuto()" title="Pausar/Reanudar">&#10074;&#10074;</button>':'')
+      +'</div>';
+    if(loopEnabled){
+      var outer=document.getElementById('afg-track-outer');
+      // Velocidad del marquee derivada del tiempo (segundos) configurado por
+      // el admin para afiliados: aprox. cuanto tarda en cruzar una tarjeta.
+      _afgSpeed=Math.max(0.15,158/(Math.max(2,S.affiliateSeconds||6)*60));
+      // Pausar automaticamente ante cualquier interaccion manual del usuario
+      // (arrastre, rueda del mouse, touch) — se reanuda con el boton toggle.
+      ['pointerdown','wheel','touchstart'].forEach(function(ev){
+        outer.addEventListener(ev,function(){ setAfgPaused(true); },{passive:true});
+      });
+      setTimeout(function(){
+        var track=document.getElementById('afg-track');
+        if(!track)return;
+        _afgHalfWidth=track.scrollWidth/2;
+        afgAutoStep();
+      },50);
     }
   } else if(afb){afb.style.display='none';}
+}
+function afgAutoStep(){
+  var outer=document.getElementById('afg-track-outer');
+  if(!outer){_afgRAF=null;return;}
+  if(!_afgPaused&&_afgHalfWidth>0){
+    outer.scrollLeft+=_afgSpeed;
+    if(outer.scrollLeft>=_afgHalfWidth) outer.scrollLeft-=_afgHalfWidth;
+  }
+  _afgRAF=requestAnimationFrame(afgAutoStep);
+}
+function setAfgPaused(p){
+  _afgPaused=p;
+  var btn=document.getElementById('afg-toggle');
+  if(btn) btn.innerHTML=p?'&#9654;':'&#10074;&#10074;';
+}
+function toggleAfgAuto(){ setAfgPaused(!_afgPaused); }
+function afgScroll(dir){
+  var outer=document.getElementById('afg-track-outer');
+  if(!outer)return;
+  setAfgPaused(true);
+  var card=outer.querySelector('.afg-card');
+  var step=card?(card.offsetWidth+18):160;
+  outer.scrollLeft+=dir*step;
+  if(_afgHalfWidth>0){
+    if(outer.scrollLeft>=_afgHalfWidth) outer.scrollLeft-=_afgHalfWidth;
+    else if(outer.scrollLeft<0) outer.scrollLeft+=_afgHalfWidth;
+  }
 }
 function startMarquee(){
   var bar=document.getElementById('mq-bar');
