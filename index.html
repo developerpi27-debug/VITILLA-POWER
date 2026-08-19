@@ -27,7 +27,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 #sb-toggle{width:28px;height:28px;border-radius:8px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--acc);font-weight:700;user-select:none;flex-shrink:0;transition:background .15s;}
 #sb-toggle:hover{background:rgba(245,166,35,.3);}
 #tb{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-#ct{padding:24px;flex:1;}
+#ct{padding:24px;flex:1;min-width:0;overflow-x:hidden;}
 .sbl{padding:0 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;height:60px;flex-shrink:0;}
 .sbl h1{font-size:20px;color:var(--acc);letter-spacing:1px;font-family:'Barlow Condensed',sans-serif;font-weight:800;}
 .sbl span{font-size:10px;color:var(--t3);display:block;letter-spacing:2px;}
@@ -475,6 +475,31 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   #mn, #mn.sb-collapsed{margin-top:50px;}
   .ni, #sb.collapsed .ni{padding:5px 10px !important;}
   .ni-lbl, #sb.collapsed .ni-lbl{font-size:8px;}
+}
+
+/* ── Pantallas grandes (monitores 14"+ / 19"+) ──────────────────────
+   La app ya es fluida en ancho (#ct no tiene max-width fijo), pero en
+   monitores grandes el tamaño de fuente/paddings fijos hacia se ve
+   pequeño y disperso. Estos breakpoints aumentan progresivamente la
+   escala tipografica y el espaciado para aprovechar mejor la pantalla,
+   sin tocar el layout (que ya se adapta solo por ser flex/grid fluido). */
+@media (min-width:1440px){
+  #sb{width:260px;}
+  #mn{margin-left:260px;}
+  #ct{padding:30px 40px;}
+  .card{padding:24px;}
+  .stl{font-size:26px;}
+  table{font-size:13.5px;}
+  th,td{padding:9px 12px;}
+}
+@media (min-width:1920px){
+  #sb{width:280px;}
+  #mn{margin-left:280px;}
+  #ct{padding:36px 56px;}
+  .card{padding:28px;}
+  .stl{font-size:29px;}
+  table{font-size:14.5px;}
+  th,td{padding:11px 14px;}
 }
 </style>
 </head>
@@ -1528,6 +1553,10 @@ async function _doPoll(){
     saveOfflineCache();
     // Refrescar marquee con datos actualizados (silencioso) — solo aplica cuando hubo loadAll()
     if(!_isViewingGame){ try{ refreshMarquee(); } catch(e2){} }
+    // Re-evaluar patrocinadores/afiliados visibles (activo + fecha de vencimiento) en cada
+    // ciclo de poll, para que un patrocinador vencido deje de presentarse automaticamente
+    // sin esperar a que el visitante recargue la pagina o cambie de modulo.
+    if(!_isViewingGame&&S.user&&S.user.role==='public'){ try{ restartPublicGalleries(); } catch(e2){} }
 
     // ── Auto-refresh del módulo activo (silencioso) ──────────────
     // 'gamecontrol' se maneja aparte mas abajo (no aqui) porque necesita logica especial
@@ -3632,7 +3661,7 @@ function showFeaturedM(gid){
   var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);
   var fx=computeGameFeatured(gid);
   if(!fx||(!fx.batter&&!fx.pitcher))return; // sin datos suficientes: no interrumpe con un modal vacio
-  var sponsor=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s.pinDestacados&&(s.activo!==false&&s.activo!=='false');})[0];
+  var sponsor=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s.pinDestacados&&sponsorVisible(s);})[0];
   function pRow(x,isPit){
     if(!x)return'<div class="empty" style="padding:10px"><div style="font-size:11px">Sin datos suficientes</div></div>';
     var line=isPit?(x.ip.toFixed(1)+' IP &middot; '+x.k+'K &middot; '+x.er+'ER'+(x.w>0?' &middot; Ganador':x.sv>0?' &middot; Salvado':'')):(x.h+'H '+x.hr+'HR '+x.rbi+'RBI '+x.r+'R');
@@ -11974,6 +12003,22 @@ async function delChannel(id){
 // pinPremiaciones — ver sponsorPinnedBanner().
 // ═══════════════════════════════════════════════════════════
 var _SP={tipo:'patrocinador'};
+// Un patrocinador/afiliado es visible al publico si esta activo Y (no tiene
+// fecha de vencimiento O esa fecha aun no ha pasado). Al llegar el vencimiento
+// deja de presentarse automaticamente, sin necesidad de inactivarlo a mano.
+function sponsorVisible(s){
+  if(!s)return false;
+  if(s.activo===false||s.activo==='false')return false;
+  if(s.fechaVencimiento){
+    var hoy=new Date().toISOString().slice(0,10);
+    if(s.fechaVencimiento<hoy)return false;
+  }
+  return true;
+}
+function sponsorVencido(s){
+  if(!s||!s.fechaVencimiento)return false;
+  return s.fechaVencimiento<new Date().toISOString().slice(0,10);
+}
 function setSponsorTab(tipo){_SP.tipo=tipo;pgSponsors();}
 function pgSponsors(){
   var isA=S.user&&(S.user.role==='admin'||canDo('create','sponsors'));
@@ -11998,9 +12043,10 @@ function pgSponsors(){
       +(s.imagenUrl?'<img src="'+s.imagenUrl+'" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.style.display=\'none\'">':'<span style="font-size:26px">'+(isPat?'🤝':'🌐')+'</span>')
       +'</div>'
       +'<div style="flex:1;min-width:0">'
-      +'<div style="font-weight:700;font-size:15px">'+s.nombre+' '+(activo?'<span class="badge bgn" style="font-size:10px">Activo</span>':'<span class="badge bgr" style="font-size:10px">Inactivo</span>')+'</div>'
+      +'<div style="font-weight:700;font-size:15px">'+s.nombre+' '+(activo?'<span class="badge bgn" style="font-size:10px">Activo</span>':'<span class="badge bgr" style="font-size:10px">Inactivo</span>')+(sponsorVencido(s)?' <span class="badge br" style="font-size:10px">Vencido</span>':'')+'</div>'
       +(s.pais?'<div style="font-size:12px;color:var(--acc);margin-top:2px">🌍 '+s.pais+'</div>':'')
       +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank" style="font-size:12px;color:var(--grn);word-break:break-all">'+s.linkUrl+'</a>':'<div style="font-size:12px;color:var(--t3)">Sin URL de destino</div>')
+      +'<div style="font-size:12px;'+(sponsorVencido(s)?'color:var(--red)':'color:var(--t3)')+';margin-top:2px">&#128197; '+(s.fechaVencimiento?'Vence: '+s.fechaVencimiento:'Sin fecha de vencimiento')+'</div>'
       +(pins.length?'<div style="font-size:11px;color:var(--t2);margin-top:4px">📌 Fijado en: '+pins.join(', ')+'</div>':'')
       +'</div>'
       +(isA?'<div style="display:flex;flex-direction:column;gap:6px">'
@@ -12012,7 +12058,10 @@ function pgSponsors(){
   }).join('');
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">&#129309; Patrocinadores y Afiliados</div><div class="ssb">Gestiona los logos que se muestran a los visitantes en el encabezado (patrocinadores) y pie de pagina (afiliados)</div></div>'
-    +(isA?'<button class="btn bp" data-t="'+_SP.tipo+'" onclick="openSponsorM(\'\',this.dataset.t)">+ Agregar '+(isPat?'Patrocinador':'Afiliado')+'</button>':'')+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +(isPat?'<button class="btn bs" onclick="exportSponsorsPDF()">&#128196; Exportar PDF</button>':'')
+    +(isA?'<button class="btn bp" data-t="'+_SP.tipo+'" onclick="openSponsorM(\'\',this.dataset.t)">+ Agregar '+(isPat?'Patrocinador':'Afiliado')+'</button>':'')
+    +'</div></div>'
     +'<div class="tabs" style="margin-bottom:14px"><div class="tab '+(isPat?'on':'')+'" onclick="setSponsorTab(\'patrocinador\')">🤝 Patrocinadores</div><div class="tab '+(!isPat?'on':'')+'" onclick="setSponsorTab(\'afiliado\')">🌐 Afiliados</div></div>'
     +(isA?'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9201; Tiempo de rotacion de la galeria (segundos)</div></div>'
       +'<div class="fr c2">'
@@ -12022,6 +12071,36 @@ function pgSponsors(){
       +'<button class="btn bp" onclick="saveGallerySeconds()">Guardar Tiempos</button>'
       +'</div>':'')
     +(cards||'<div class="card"><div class="empty"><div style="font-size:30px">'+(isPat?'&#129309;':'&#127760;')+'</div><div>Sin '+(isPat?'patrocinadores':'afiliados')+' registrados</div></div></div>'));
+}
+function exportSponsorsPDF(){
+  var list=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador';});
+  if(!list.length){toast('No hay patrocinadores para exportar','error');return;}
+  // Orden ascendente por fecha de vencimiento; los que no tienen fecha (no vencen) van al final.
+  var withDate=list.filter(function(s){return!!s.fechaVencimiento;}).sort(function(a,b){return a.fechaVencimiento<b.fechaVencimiento?-1:a.fechaVencimiento>b.fechaVencimiento?1:0;});
+  var noDate=list.filter(function(s){return!s.fechaVencimiento;}).sort(function(a,b){return(a.nombre||'').localeCompare(b.nombre||'');});
+  var ordered=withDate.concat(noDate);
+  var now=new Date();var nowStr=now.toLocaleDateString('es-DO',{year:'numeric',month:'long',day:'numeric'});
+  var rows=ordered.map(function(s){
+    var activo=s.activo!==false&&s.activo!=='false';
+    var estado=sponsorVencido(s)?'<span style="color:#f87171;font-weight:700">Vencido</span>':(activo?'<span style="color:#4ade80;font-weight:700">Activo</span>':'<span style="color:#94a3b8">Inactivo</span>');
+    return'<tr><td>'+(s.imagenUrl?'<img src="'+s.imagenUrl+'" style="max-height:36px;max-width:80px;object-fit:contain">':'&mdash;')+'</td>'
+      +'<td><b>'+s.nombre+'</b></td>'
+      +'<td>'+(s.fechaVencimiento||'Sin vencimiento')+'</td>'
+      +'<td>'+estado+'</td>'
+      +'<td style="font-size:11px;word-break:break-all">'+(s.linkUrl||'&mdash;')+'</td></tr>';
+  }).join('');
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Patrocinadores — '+brandName()+'</title>'
+    +'<style>'+VP_PDF_STYLE+'</style></head><body>'
+    +'<div class="page-header"><img class="logo" src="'+VP_LOGO+'" alt="'+brandName()+'">'
+    +'<div class="title-block"><h1>&#129309; Patrocinadores</h1>'
+    +'<div class="sub">Ordenados por fecha de vencimiento (ascendente)</div>'
+    +'<div class="sub2">Generado: '+nowStr+' &middot; '+ordered.length+' patrocinador(es)</div></div>'
+    +'<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:800;color:#f5a623">&#9889; '+brandName()+'</div></div></div>'
+    +'<table><thead><tr><th>Logo</th><th>Nombre</th><th>Fecha de vencimiento</th><th>Estado</th><th>URL</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div class="footer">&#9889; '+brandName()+' &nbsp;&middot;&nbsp; Patrocinadores &nbsp;&middot;&nbsp; '+nowStr+'</div>'
+    +'</body></html>';
+  var w=window.open('','_blank','width=1000,height=750');
+  if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},500);}
 }
 async function toggleSponsorActive(id){
   var s=(S.sponsors||[]).filter(function(x){return x.id===id;})[0];if(!s)return;
@@ -12043,6 +12122,7 @@ function openSponsorM(id,tipo){
     +'<div class="fg"><label class="fl">URL de destino (al hacer clic)</label><input class="fi" id="spurl" value="'+(s.linkUrl||'')+'" placeholder="https://..."></div>'
     +(isPat?'':'<div class="fg"><label class="fl">Pais</label><input class="fi" id="sppais" value="'+(s.pais||'')+'" placeholder="Ej: Rep. Dominicana"></div>')
     +'<div class="fg"><label class="fl">Orden en la galeria</label><input class="fi" id="sporden" type="number" value="'+(s.orden||0)+'"></div>'
+    +'<div class="fg"><label class="fl">Fecha de vencimiento (opcional)</label><input class="fi" id="spfv" type="date" value="'+(s.fechaVencimiento||'')+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">Al llegar esta fecha, el logo deja de mostrarse automaticamente. Dejar vacio para que no venza.</div></div>'
     +'<div class="fg"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="spact" '+(s.activo!==false&&s.activo!=='false'?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Activo (se muestra al publico)</label></div>'
     +(isPat?'<div class="fg" style="border-top:1px solid var(--bdr);padding-top:10px;margin-top:4px"><label class="fl">Fijar logo (sin rotar) en:</label>'
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppd" '+(s.pinDestacados?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Jugadores Destacados del Partido</label>'
@@ -12070,6 +12150,7 @@ async function saveSponsorItem(id){
   var s={
     id:id||null,tipo:tipo,nombre:nombre,imagenUrl:img,linkUrl:fv('spurl')||'',
     pais:isPat?'':(fv('sppais')||''),orden:parseInt(fv('sporden'))||0,
+    fechaVencimiento:fv('spfv')||'',
     activo:!!(document.getElementById('spact')&&document.getElementById('spact').checked),
     pinDestacados:isPat&&!!(document.getElementById('sppd')&&document.getElementById('sppd').checked),
     pinLideres:isPat&&!!(document.getElementById('sppl')&&document.getElementById('sppl').checked),
@@ -12110,7 +12191,7 @@ async function saveGallerySeconds(){
 // Se muestra a CUALQUIER usuario (no solo visitantes) que este viendo ese
 // modulo, a diferencia de las galerias de header/footer que son solo-visitante.
 function sponsorPinnedBanner(flagKey,label){
-  var pinned=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s[flagKey]&&(s.activo!==false&&s.activo!=='false');});
+  var pinned=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&s[flagKey]&&sponsorVisible(s);});
   if(!pinned.length)return'';
   return'<div class="card" style="margin-bottom:14px;text-align:center;padding:12px">'
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
@@ -13235,8 +13316,8 @@ function startPublicGalleries(){
   stopPublicGalleries();
   if(!S.user||S.user.role!=='public') return; // solo visitantes ven estas galerias
   initAfgOutsideListener();
-  var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
-  var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
+  var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&sponsorVisible(s)&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
+  var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&sponsorVisible(s)&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
   // ── Patrocinadores: galeria de fade, una imagen grande a la vez ──
   if(pats.length&&spb){
