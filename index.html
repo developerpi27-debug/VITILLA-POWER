@@ -170,16 +170,16 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .spg-bar-wrap{background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);padding:8px 14px 12px;flex-shrink:0;}
 .spg-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--acc);text-align:center;margin-bottom:6px;text-transform:uppercase;}
 .spg-stage{position:relative;display:flex;align-items:center;justify-content:center;height:100px;margin:0 auto;max-width:520px;}
-.spg-item{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease;}
-.spg-item.on{opacity:1;position:relative;}
+.spg-item{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease;pointer-events:none;}
+.spg-item.on{opacity:1;position:relative;pointer-events:auto;}
 .spg-item img{max-height:100px;max-width:100%;object-fit:contain;border-radius:6px;}
-.afg-bar-wrap{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bdr);margin-bottom:8px;}
+.afg-bar-wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bdr);margin-bottom:8px;}
 .afg-label{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--acc);white-space:nowrap;text-transform:uppercase;flex-shrink:0;}
 .afg-arrow{background:var(--bg3);border:1px solid var(--bdr);color:var(--t2);width:28px;height:28px;min-width:28px;border-radius:50%;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;}
 .afg-arrow:hover{background:var(--acc);color:#000;border-color:var(--acc);}
 .afg-toggle{background:var(--bg3);border:1px solid var(--bdr);color:var(--t2);width:28px;height:28px;min-width:28px;border-radius:50%;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;}
 .afg-toggle:hover{background:var(--acc);color:#000;border-color:var(--acc);}
-.afg-track-outer{overflow-x:auto;overflow-y:hidden;flex:1;min-width:0;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:auto;}
+.afg-track-outer{overflow-x:auto;overflow-y:hidden;flex:0 1 456px;min-width:0;max-width:456px;scrollbar-width:none;-ms-overflow-style:none;scroll-behavior:auto;}
 .afg-track-outer::-webkit-scrollbar{display:none;}
 .afg-track{display:flex;gap:18px;width:max-content;}
 .afg-card{flex:0 0 auto;width:140px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
@@ -2146,6 +2146,9 @@ function goNav(page){
   document.getElementById('ptl').textContent=TITLES[page]||page;
   initPGS();if(PGS[page])PGS[page]();
   else ct('<div class="empty"><div style="font-size:36px">&#128679;</div><div>En construccion</div></div>');
+  // Al cambiar de modulo, reanudar el auto-scroll de la galeria de afiliados
+  // si estaba pausada manualmente.
+  if(typeof setAfgPaused==='function') setAfgPaused(false);
 }
 
 // UI HELPERS
@@ -3342,7 +3345,7 @@ function pgSched(){
     +'<option value="playoff" '+(_schedPhaseFilter==='playoff'?'selected':'')+'>Playoffs</option>'
     +'<option value="final" '+(_schedPhaseFilter==='final'?'selected':'')+'>Serie Final</option>'
     +'<option value="allstar" '+(_schedPhaseFilter==='allstar'?'selected':'')+'>&#11088; Juego de Estrellas</option>';
-  ct(yearBar()+sponsorPinnedBanner('pinCalendario','&#128197; Calendario presentado por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+  ct(yearBar()+sponsorPinnedBanner('pinCalendario','&#128197; Calendario presentado gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Calendario</div><div class="ssb">Programa y gestiona juegos</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -7785,7 +7788,7 @@ function pgStand(){
       +'<td style="text-align:center;color:'+(s.streak.indexOf('&#10003;')>=0?'var(--grn)':'var(--red)')+'">'+s.streak+'</td>'
       +'<td style="text-align:center">'+zona+'</td></tr>';
   }).join(''));
-  ct(yearBar()+sponsorPinnedBanner('pinPosiciones','&#128202; Posiciones presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinPosiciones','&#128202; Posiciones presentadas gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Posiciones</div><div class="ssb">'+(tour?tour.name:'Todos los subtorneos (consolidado)')+' &mdash; '+(phase?{regular:'Serie Regular',playin:'Play In',playoff:'Playoffs',final:'Serie Final',allstar:'Juego de Estrellas'}[phase]:'Todas las Fases')+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -9284,7 +9287,7 @@ function pgStats(tid,sBy,pSBy){
   }).join('');
   var _streakTourId=_ST.tourId||'';
   var _streakYear=S.yearFilter||null;
-  ct(yearBar()+sponsorPinnedBanner('pinEstadisticas','&#128202; Estadisticas presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
+  ct(yearBar()+sponsorPinnedBanner('pinEstadisticas','&#128202; Estadisticas presentadas gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="_ST.divFilter=\'\';pgStats(this.value)">'+tOpts+'</select>'
     +(divisionsST.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_ST.divFilter=this.value;pgStats(_ST.tourId)"><option value="">Todas las Divs.</option>'+divisionsST.map(function(d){return'<option value="'+d+'" '+(_ST.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select>'
@@ -9490,7 +9493,7 @@ function pgLead(tid){
   function getWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function getKp(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
   function getWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
-  ct(yearBar()+sponsorPinnedBanner('pinLideres','&#129309; Lideres presentados por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinLideres','&#129309; Lideres presentados gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Lideres</div><div class="ssb">Top jugadores por categoria</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
@@ -10082,7 +10085,7 @@ function pgRankings(tid){
   divisionsRK.sort();
   var lists=buildRankingLists();
   var top10Bat=lists.batList.slice(0,10),top10Pit=lists.pitList.slice(0,10);
-  ct(yearBar()+sponsorPinnedBanner('pinRankings','&#127942; Rankings presentados por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div class="stl">&#127942; Rankings</div><div class="ssb">Top 10 por puntos acumulados, según los filtros seleccionados</div></div></div>'
+  ct(yearBar()+sponsorPinnedBanner('pinRankings','&#127942; Rankings presentados gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div class="stl">&#127942; Rankings</div><div class="ssb">Top 10 por puntos acumulados, según los filtros seleccionados</div></div></div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:200px" onchange="_RK.divFilter=\'\';pgRankings(this.value)">'+tOpts+'</select>'
     +(divisionsRK.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_RK.divFilter=this.value;pgRankings(_RK.tourId)"><option value="">Todas las Divs.</option>'+divisionsRK.map(function(d){return'<option value="'+d+'" '+(_RK.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
@@ -10206,7 +10209,7 @@ function pgAwards(){
       +((S.user&&S.user.role!=='public'&&(canDo('edit','awards')||canDo('delete','awards')))?'<td><div style="display:flex;gap:5px">'+(canDo('edit','awards')?'<button class="btn bs bsm" data-aid="'+a.id+'" onclick="openAwardM(this.dataset.aid)">Editar</button>':'')+(canDo('delete','awards')?'<button class="btn bd bsm" data-aid="'+a.id+'" onclick="delAward(this.dataset.aid)">&#10005;</button>':'')+'</div></td>':'')
       +'</tr>';
   }).join('');
-  ct(yearBar()+sponsorPinnedBanner('pinPremiaciones','&#127885; Premiaciones presentadas por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+  ct(yearBar()+sponsorPinnedBanner('pinPremiaciones','&#127885; Premiaciones presentadas gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">&#127885; Premiaciones</div><div class="ssb">Registro de jugadores premiados</div></div>'
     +(S.user&&S.user.role!=='public'&&canDo('create','awards')?'<button class="btn bp" onclick="openAwardM(\'\')">+ Registrar Premio</button>':'')+'</div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">'
@@ -11690,7 +11693,7 @@ function pgToVsTo(){
         +'<div id="tvt-team-match" style="'+(_TVT.teamTab==='match'?'':'display:none')+'">'+matchHTML+'</div></div>';
     }
   }
-  ct(yearBar()+sponsorPinnedBanner('pinToVsTo','&#9876;&#65039; To vs To presentado por')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
+  ct(yearBar()+sponsorPinnedBanner('pinToVsTo','&#9876;&#65039; To vs To presentado gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">⚔️ To vs To</div><div class="ssb">Compara estadísticas de dos jugadores o equipos</div></div></div>'
     +'<div class="card" style="margin-bottom:14px">'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'
@@ -12113,7 +12116,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:52px;max-width:160px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -13207,7 +13210,18 @@ function mqSep(){
 // (fade in/out) una imagen a la vez, cada N segundos (configurables por el
 // admin), adaptando su tamaño via object-fit:contain.
 // ═══════════════════════════════════════════════════════════
-var _spgTimer=null,_afgRAF=null,_afgPaused=false,_afgHalfWidth=0,_afgSpeed=0.6;
+var _spgTimer=null,_afgRAF=null,_afgPaused=false,_afgHalfWidth=0,_afgSpeed=0.6,_afgOutsideListenerAdded=false;
+// Reanuda el auto-scroll de afiliados al hacer clic en cualquier parte fuera
+// de la galeria (se agrega una sola vez).
+function initAfgOutsideListener(){
+  if(_afgOutsideListenerAdded)return;
+  _afgOutsideListenerAdded=true;
+  document.addEventListener('click',function(ev){
+    var bar=document.getElementById('af-bar');
+    if(!bar||bar.style.display==='none')return;
+    if(!bar.contains(ev.target)) setAfgPaused(false);
+  });
+}
 function stopPublicGalleries(){
   if(_spgTimer){clearInterval(_spgTimer);_spgTimer=null;}
   if(_afgRAF){cancelAnimationFrame(_afgRAF);_afgRAF=null;}
@@ -13220,6 +13234,7 @@ function restartPublicGalleries(){ stopPublicGalleries(); startPublicGalleries()
 function startPublicGalleries(){
   stopPublicGalleries();
   if(!S.user||S.user.role!=='public') return; // solo visitantes ven estas galerias
+  initAfgOutsideListener();
   var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&(s.activo!==false&&s.activo!=='false')&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
@@ -13386,7 +13401,7 @@ window.onload=function(){
         startPolling();
         startSessionTimer();
         trackVisit();
-        setTimeout(startMarquee,500);
+        setTimeout(function(){startMarquee();startPublicGalleries();},500);
       });
       return;
     }
