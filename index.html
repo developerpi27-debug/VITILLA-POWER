@@ -62,6 +62,11 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .fi:focus,.fs:focus,.fta:focus{border-color:var(--acc);}.fs option{background:var(--bg3);}
 .fr{display:grid;gap:12px;}.c2{grid-template-columns:1fr 1fr;}.c3{grid-template-columns:1fr 1fr 1fr;}
 .tw{overflow-x:auto;}
+.tw table{zoom:var(--tzoom,1);}
+.tz-ctrl{display:inline-flex;align-items:center;gap:2px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:2px;vertical-align:middle;}
+.tz-ctrl button{width:24px;height:24px;border:none;background:transparent;color:var(--t2);font-size:15px;font-weight:700;border-radius:6px;line-height:1;cursor:pointer;}
+.tz-ctrl button:hover{background:var(--card2);color:var(--txt);}
+.tz-ctrl .tzv{font-size:11px;color:var(--t3);min-width:34px;text-align:center;user-select:none;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{background:var(--bg3);color:var(--t2);font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:10px 14px;text-align:left;white-space:nowrap;}
 td{padding:9px 14px;border-bottom:1px solid var(--bdr);}
@@ -501,6 +506,10 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   table{font-size:14.5px;}
   th,td{padding:11px 14px;}
 }
+@media (max-width:480px){
+  .tz-ctrl .tzv{display:none;}
+  .tz-ctrl button{width:20px;height:20px;font-size:13px;}
+}
 </style>
 </head>
 <body>
@@ -547,7 +556,14 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   </div>
   <div id="mn">
     <div id="tb">
-      <div class="tbt" id="ptl">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden">
+        <div class="tbt" id="ptl">Dashboard</div>
+        <div class="tz-ctrl" title="Alejar/acercar tablas de este modulo">
+          <button onclick="tzStep(-0.1)">&#8722;</button>
+          <span class="tzv" id="tzv" onclick="tzReset()" title="Restablecer" style="cursor:pointer">100%</span>
+          <button onclick="tzStep(0.1)">&#43;</button>
+        </div>
+      </div>
       <div class="ub">
         <div style="text-align:right">
           <div style="font-weight:600;font-size:14px" id="unm"></div>
@@ -2159,6 +2175,29 @@ function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
 function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
+// ── Zoom de tablas ──────────────────────────────────────────────────────
+// Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
+// (.tw table) de la app, para poder ver todas las columnas sin depender
+// del scroll horizontal. Usa la propiedad CSS "zoom" (reduce el tamaño
+// renderizado Y el ancho ocupado en el layout, a diferencia de transform),
+// aplicada globalmente via la variable --tzoom en <html>. La preferencia
+// se guarda en localStorage y se restaura en cada visita.
+var _TZ=1;
+function initTZoom(){
+  var saved=parseFloat(localStorage.getItem('vp_tzoom'));
+  _TZ=(saved&&saved>=0.5&&saved<=1)?saved:1;
+  applyTZoom();
+}
+function applyTZoom(){
+  document.documentElement.style.setProperty('--tzoom',_TZ);
+  document.querySelectorAll('.tzv').forEach(function(el){el.textContent=Math.round(_TZ*100)+'%';});
+}
+function tzStep(delta){
+  _TZ=Math.round(Math.min(1,Math.max(0.5,_TZ+delta))*100)/100;
+  applyTZoom();
+  localStorage.setItem('vp_tzoom',_TZ);
+}
+function tzReset(){_TZ=1;applyTZoom();localStorage.setItem('vp_tzoom',_TZ);}
 function goNav(page){
   if(!S_isOnline&&!OFFLINE_ALLOWED_PAGES[page]){
     toast('Sin conexión: solo Calendario y Control de Juego están disponibles.','error');
@@ -12197,7 +12236,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -13459,6 +13498,11 @@ function refreshMarquee(){
 
 window.onload=function(){
   applyBrandToStaticDOM();
+  // Zoom de tablas: preferencia del usuario para alejar/acercar el contenido
+  // de las tablas (.tw table) sin depender del scroll horizontal. Se guarda
+  // en localStorage y se aplica a TODOS los modulos via la variable CSS
+  // --tzoom, controlada desde el boton fijo en la barra superior (#tb).
+  initTZoom();
   // App shell offline: cachea solo el HTML/JS propio (network-first), nunca
   // intercepta llamadas al backend. Ver sw.js — debe subirse al mismo
   // origen/raiz que este archivo.
