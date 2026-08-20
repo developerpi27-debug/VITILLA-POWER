@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cuadro Visual</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-navy:#0b1522;--ov-navy2:#0f1e33;
+    --ov-bar:#f5a623;--ov-bar2:#e8901a;--ov-bartext:#1a1200;
+    --ov-run:#f4f7fb;--ov-team:#f4f7fb;--ov-bat:#f5a623;--ov-inning:#f4f7fb;
+    --ov-text2:#a9b7c9;--ov-bdr:rgba(255,255,255,.10);
+    --grn:#22c55e;--red:#ef4444;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:'Arial Narrow',Arial,sans-serif;color:var(--ov-team);display:flex;align-items:flex-start;justify-content:flex-start;min-height:100vh;padding:14px;}
+  /* Fondo transparente por defecto (ideal para OBS Browser Source). Si se
+     abre como pestaña/ventana normal, se agrega un halo sutil para que el
+     texto blanco no "flote" sobre fondo blanco del navegador. */
+  body.windowed{background:#05070c;}
+
+  #sbug{width:420px;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--ov-bg);}
+  #sbug.transp{background:transparent;box-shadow:none;border-color:transparent;}
+  .sb-top{background:linear-gradient(90deg,var(--ov-bar),var(--ov-bar2));color:var(--ov-bartext);font-weight:800;font-size:12px;letter-spacing:.4px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase;}
+  .sb-top .live{display:inline-flex;align-items:center;gap:5px;}
+  .sb-top .live i{width:7px;height:7px;border-radius:50%;background:#c0281f;display:inline-block;animation:pulse 1.4s infinite;}
+  .sb-top.paused .live i{background:#333;animation:none;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+  .sb-body{display:flex;background:var(--ov-navy);}
+  .sb-teams{flex:1;min-width:0;}
+  .sb-team{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid var(--ov-bdr);}
+  .sb-team:last-child{border-bottom:none;}
+  .sb-team.bat{background:color-mix(in srgb,var(--ov-bat) 10%,transparent);}
+  .sb-stripe{width:4px;align-self:stretch;border-radius:2px;flex:0 0 auto;}
+  .sb-logo{width:26px;height:26px;border-radius:5px;object-fit:cover;flex:0 0 auto;background:#fff;}
+  .sb-logo.ph{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0b1522;}
+  .sb-nm{flex:1;min-width:0;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ov-team);}
+  .sb-team.bat .sb-nm{color:var(--ov-bat);}
+  .sb-rn{font-family:'Arial Narrow',Arial,sans-serif;font-size:24px;font-weight:800;min-width:30px;text-align:right;color:var(--ov-run);}
+
+  .sb-side{flex:0 0 108px;border-left:1px solid var(--ov-bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:5px;}
+  .sb-inn-arr{font-size:10px;color:var(--ov-text2);letter-spacing:.5px;}
+  .sb-inn-num{font-size:26px;font-weight:800;line-height:1;color:var(--ov-inning);}
+  .sb-inn-of{font-size:9px;color:var(--ov-text2);margin-bottom:2px;}
+
+  .sb-dia{position:relative;width:34px;height:34px;margin-top:2px;}
+  .sb-base{position:absolute;width:11px;height:11px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);transform:rotate(45deg);border-radius:2px;}
+  .sb-base.on{background:var(--ov-bat);border-color:var(--ov-bat);box-shadow:0 0 6px var(--ov-bat);}
+  .sb-b2{top:0;left:50%;margin-left:-5.5px;}
+  .sb-b3{top:50%;left:0;margin-top:-5.5px;}
+  .sb-b1{top:50%;right:0;margin-top:-5.5px;}
+
+  .sb-outs{display:flex;gap:4px;margin-top:2px;}
+  .sb-outs .d{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);}
+  .sb-outs .d.on{background:var(--red);border-color:var(--red);}
+
+  .sb-status{padding:5px 12px;font-size:10px;color:var(--ov-text2);background:var(--ov-navy2);text-align:center;letter-spacing:.5px;}
+  .sb-status b{color:var(--ov-bat);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  /* ── Panel de personalizacion (nunca forma parte del marcador en si) ── */
+  #gear{position:fixed;top:12px;right:12px;width:34px;height:34px;border-radius:50%;background:rgba(10,14,26,.75);border:1px solid rgba(255,255,255,.15);color:#e6edf5;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;z-index:50;font-family:Arial,sans-serif;}
+  #gear:hover{background:rgba(10,14,26,.95);}
+  #panel{position:fixed;top:54px;right:12px;width:270px;max-height:calc(100vh - 70px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;&#65039;</button>
+<div id="panel">
+  <h3>&#127912; Colores del marcador</h3>
+  <div class="cf-row"><label>Fondo del marcador</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Fondo de filas de equipo</label><input type="color" id="cNavy"></div>
+  <div class="cf-row"><label>Franja superior</label><input type="color" id="cBar"></div>
+  <div class="cf-row"><label>Texto de franja superior</label><input type="color" id="cBartext"></div>
+  <div class="cf-row"><label>Carreras (marcador)</label><input type="color" id="cRun"></div>
+  <div class="cf-row"><label>Nombre de equipos</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Resaltado (al bate / bases)</label><input type="color" id="cBat"></div>
+  <div class="cf-row"><label>Numero de inning</label><input type="color" id="cInning"></div>
+  <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="sbug" style="display:none">
+  <div class="sb-top" id="sbTop"><span id="sbVenue">&#9918; JUEGO</span><span class="live" id="sbLive"><i></i> EN VIVO</span></div>
+  <div class="sb-body">
+    <div class="sb-teams">
+      <div class="sb-team" id="sbAwayRow">
+        <div class="sb-stripe" id="sbAwayStripe"></div>
+        <div id="sbAwayLogoWrap"></div>
+        <div class="sb-nm" id="sbAwayNm">Visitante</div>
+        <div class="sb-rn" id="sbAwayR">0</div>
+      </div>
+      <div class="sb-team" id="sbHomeRow">
+        <div class="sb-stripe" id="sbHomeStripe"></div>
+        <div id="sbHomeLogoWrap"></div>
+        <div class="sb-nm" id="sbHomeNm">Local</div>
+        <div class="sb-rn" id="sbHomeR">0</div>
+      </div>
+    </div>
+    <div class="sb-side">
+      <div class="sb-inn-arr" id="sbArrow">&#9650; ENTRADA</div>
+      <div class="sb-inn-num" id="sbInn">1</div>
+      <div class="sb-inn-of" id="sbInnOf">DE 7</div>
+      <div class="sb-dia">
+        <div class="sb-base sb-b2" id="bB2"></div>
+        <div class="sb-base sb-b3" id="bB3"></div>
+        <div class="sb-base sb-b1" id="bB1"></div>
+      </div>
+      <div class="sb-outs" id="sbOuts"><div class="d"></div><div class="d"></div></div>
+    </div>
+  </div>
+  <div class="sb-status" id="sbStatusBar" style="display:none"></div>
+</div>
+<script>
+// ── Cuadro Visual — overlay independiente para transmision en vivo ────────
+// Pagina totalmente autonoma: no depende de la sesion ni del estado de la
+// app principal. Se abre con ?game=<id> y consulta directamente al backend
+// (accion publica getGameSlice — no requiere login) cada pocos segundos.
+// Pensada para usarse como Browser Source en OBS/vMix (fondo transparente)
+// o simplemente como ventana/pestaña aparte capturada en la transmision.
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||4000;
+var _teamsCache=null; // {id: {name,logoUrl,color}} — se carga una vez, los equipos casi no cambian
+if(window.self===window.top) document.body.classList.add('windowed'); // ventana normal (no iframe de OBS): dar fondo solido
+
+// ── Colores personalizables ────────────────────────────────────────────
+// Se guardan en localStorage (por navegador/maquina) y tambien pueden venir
+// por la URL (para que el enlace pegado en OBS ya traiga los colores del
+// club, sin depender de localStorage de esa maquina). ?edit=0 en la URL
+// oculta el engranaje de personalizacion (para la captura final limpia).
+var COLOR_KEYS=['bg','navy','bar','bartext','run','team','bat','inning','text2'];
+var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',transp:false};
+var VARMAP={bg:'--ov-bg',navy:'--ov-navy',bar:'--ov-bar',bartext:'--ov-bartext',run:'--ov-run',team:'--ov-team',bat:'--ov-bat',inning:'--ov-inning',text2:'--ov-text2'};
+
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{
+    var saved=JSON.parse(localStorage.getItem('vp_overlay_colors')||'{}');
+    Object.assign(s,saved);
+  }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  // La franja superior usa un pequeño degradado con el mismo tono (bar2 = bar, mas oscuro un poco)
+  document.documentElement.style.setProperty('--ov-bar2',shade(SET.bar,-14));
+  document.getElementById('sbug').classList.toggle('transp',!!SET.transp);
+}
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');
+  if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function saveSettings(){
+  localStorage.setItem('vp_overlay_colors',JSON.stringify(SET));
+}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cNavy').value=SET.navy;
+  document.getElementById('cBar').value=SET.bar;
+  document.getElementById('cBartext').value=SET.bartext;
+  document.getElementById('cRun').value=SET.run;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cBat').value=SET.bat;
+  document.getElementById('cInning').value=SET.inning;
+  document.getElementById('cText2').value=SET.text2;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cBg:'bg',cNavy:'navy',cBar:'bar',cBartext:'bartext',cRun:'run',cTeam:'team',cBat:'bat',cInning:'inning',cText2:'text2'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){
+      SET[map[id]]=this.value;applySettings();saveSettings();
+    });
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){
+    SET.transp=this.checked;applySettings();saveSettings();
+  });
+  document.getElementById('btnReset').addEventListener('click',function(){
+    SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();
+  });
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('edit','0'); // enlace listo para OBS: sin el engranaje
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';
+      setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){
+    document.getElementById('panel').classList.remove('open');
+  });
+  document.getElementById('gear').addEventListener('click',function(){
+    document.getElementById('panel').classList.toggle('open');
+  });
+}
+applySettings();
+if(qs.get('edit')==='0'){
+  document.getElementById('gear').style.display='none';
+} else {
+  syncPanelInputs();wirePanel();
+}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+
+async function ensureTeams(){
+  if(_teamsCache)return _teamsCache;
+  var res=await apiCall('getAll',{});
+  if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
+  var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
+  _teamsCache=map;
+  return map;
+}
+
+function logoHtml(team,wrapId){
+  var wrap=document.getElementById(wrapId);
+  if(!wrap)return;
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="sb-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;sb-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="sb-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+
+function render(gm,teams){
+  var aw=teams[gm.awayTeamId]||{name:'Visitante'},hw=teams[gm.homeTeamId]||{name:'Local'};
+  var isTop=gm.currentHalf==='top';
+  document.getElementById('msg').style.display='none';
+  document.getElementById('sbug').style.display='block';
+
+  document.getElementById('sbVenue').innerHTML='&#9918; '+esc(gm.venue||(aw.name+' vs '+hw.name));
+  var topBar=document.getElementById('sbTop'),liveEl=document.getElementById('sbLive');
+  if(gm.status==='final'){
+    topBar.classList.add('paused');liveEl.innerHTML='<i></i> FINAL';
+  } else if(gm.paused){
+    topBar.classList.add('paused');liveEl.innerHTML='<i></i> PAUSADO';
+  } else {
+    topBar.classList.remove('paused');liveEl.innerHTML='<i></i> EN VIVO';
+  }
+
+  logoHtml(aw,'sbAwayLogoWrap');logoHtml(hw,'sbHomeLogoWrap');
+  document.getElementById('sbAwayNm').textContent=aw.name||'Visitante';
+  document.getElementById('sbHomeNm').textContent=hw.name||'Local';
+  document.getElementById('sbAwayR').textContent=parseInt(gm.awayRuns)||0;
+  document.getElementById('sbHomeR').textContent=parseInt(gm.homeRuns)||0;
+  document.getElementById('sbAwayStripe').style.background=aw.color||'#f5a623';
+  document.getElementById('sbHomeStripe').style.background=hw.color||'#f5a623';
+  document.getElementById('sbAwayRow').classList.toggle('bat',isTop&&gm.status==='live');
+  document.getElementById('sbHomeRow').classList.toggle('bat',!isTop&&gm.status==='live');
+
+  document.getElementById('sbArrow').innerHTML=(isTop?'&#9650;':'&#9660;')+' ENTRADA';
+  document.getElementById('sbInn').textContent=parseInt(gm.currentInning)||1;
+  document.getElementById('sbInnOf').textContent='DE '+(parseInt(gm.totalInnings)||7);
+
+  var bases=gm.bases||{};
+  document.getElementById('bB1').classList.toggle('on',!!bases.first);
+  document.getElementById('bB2').classList.toggle('on',!!bases.second);
+  var b3=document.getElementById('bB3');
+  if((parseInt(gm.numBases)||2)>=3){b3.style.display='block';b3.classList.toggle('on',!!bases.third);}
+  else b3.style.display='none';
+
+  var outs=parseInt(gm.outs)||0;
+  document.getElementById('sbOuts').innerHTML=[0,1].map(function(i){return'<div class="d '+(outs>i?'on':'')+'"></div>';}).join('');
+
+  var statusBar=document.getElementById('sbStatusBar');
+  if(gm.status==='final'){
+    statusBar.style.display='block';
+    statusBar.innerHTML='<b>JUEGO FINALIZADO</b>'+((parseInt(gm.awayRuns)||0)!==(parseInt(gm.homeRuns)||0)?' &middot; Gana '+((parseInt(gm.awayRuns)||0)>(parseInt(gm.homeRuns)||0)?esc(aw.name):esc(hw.name)):'');
+  } else statusBar.style.display='none';
+
+  document.title='Cuadro Visual — '+aw.name+' '+(parseInt(gm.awayRuns)||0)+'-'+(parseInt(gm.homeRuns)||0)+' '+hw.name;
+}
+
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var teams=await ensureTeams();
+    var res=await apiCall('getGameSlice',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('sbug').style.display='none';return;}
+    _errCount=0;
+    render(res.data.game,teams);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('sbug').style.display==='none'){
+      document.getElementById('msg').textContent='Sin conexion, reintentando...';
+    }
+  }finally{
+    _pollTimer=setTimeout(poll,POLL_MS);
+  }
+}
+poll();
+document.addEventListener('visibilitychange',function(){
+  // Reintentar de inmediato al volver a la pestaña, en vez de esperar el ciclo normal.
+  if(!document.hidden){clearTimeout(_pollTimer);poll();}
+});
+</script>
+</body>
+</html>
