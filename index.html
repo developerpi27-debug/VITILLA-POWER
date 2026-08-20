@@ -1571,8 +1571,10 @@ async function _doPoll(){
     if(!_isViewingGame){ try{ refreshMarquee(); } catch(e2){} }
     // Re-evaluar patrocinadores/afiliados visibles (activo + fecha de vencimiento) en cada
     // ciclo de poll, para que un patrocinador vencido deje de presentarse automaticamente
-    // sin esperar a que el visitante recargue la pagina o cambie de modulo.
-    if(!_isViewingGame&&S.user&&S.user.role==='public'){ try{ restartPublicGalleries(); } catch(e2){} }
+    // sin esperar a que el visitante recargue la pagina o cambie de modulo. Solo se
+    // reconstruye la galeria (lo cual reinicia el carrusel) si el conjunto de
+    // visibles realmente cambio — si no, se deja el auto-scroll en curso intacto.
+    if(!_isViewingGame&&S.user&&S.user.role==='public'){ try{ refreshPublicGalleriesIfChanged(); } catch(e2){} }
 
     // ── Auto-refresh del módulo activo (silencioso) ──────────────
     // 'gamecontrol' se maneja aparte mas abajo (no aqui) porque necesita logica especial
@@ -3931,6 +3933,16 @@ function _updateGCScoreboard(gm){
     try{ pgGC(); } catch(e2){}
   }
 }
+// Abre el "Cuadro Visual" (marcador estilo transmision) en una ventana/pestaña
+// aparte, totalmente independiente del panel de anotacion — se puede seguir
+// anotando en esta pantalla sin problema mientras esa ventana permanece
+// abierta y se actualiza sola. Pensada para usarse como fuente en OBS/vMix
+// (Browser Source) o simplemente capturada/mostrada en otra pantalla.
+function openCuadroVisual(gameId){
+  var url=new URL('overlay.html',window.location.href);
+  url.searchParams.set('game',gameId);
+  window.open(url.href,'cuadroVisual_'+gameId,'width=460,height=280,resizable=yes,noopener');
+}
 function pgGC(){
   if(!S.game){
     var gs=visibleGames().filter(function(g){return g.status==='live'||g.status==='scheduled';});
@@ -4070,6 +4082,7 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openCuadroVisual(this.dataset.gid)" title="Abre una ventana con el marcador para superponer en una transmision en vivo (se actualiza sola)">&#128250; Cuadro Visual</button>'
       +'</div>':'')
     +'</div>'
     +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
@@ -13351,10 +13364,23 @@ function stopPublicGalleries(){
   if(afb){afb.style.display='none';afb.innerHTML='';}
 }
 function restartPublicGalleries(){ stopPublicGalleries(); startPublicGalleries(); }
+// Firma de los patrocinadores/afiliados actualmente visibles (activo + no vencido),
+// usada para saber si algo realmente cambio antes de reconstruir las galerias.
+var _pgVisibleSig=null;
+function publicGalleriesVisibleSig(){
+  return(S.sponsors||[]).filter(sponsorVisible).map(function(s){return s.tipo+':'+s.id;}).sort().join(',');
+}
+function refreshPublicGalleriesIfChanged(){
+  var sig=publicGalleriesVisibleSig();
+  if(sig===_pgVisibleSig)return; // nada vencio ni cambio: no tocar el carrusel en curso
+  _pgVisibleSig=sig;
+  restartPublicGalleries();
+}
 function startPublicGalleries(){
   stopPublicGalleries();
   if(!S.user||S.user.role!=='public') return; // solo visitantes ven estas galerias
   initAfgOutsideListener();
+  _pgVisibleSig=publicGalleriesVisibleSig(); // sincroniza la firma con lo que se va a renderizar ahora
   var pats=(S.sponsors||[]).filter(function(s){return s.tipo==='patrocinador'&&sponsorVisible(s)&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var afis=(S.sponsors||[]).filter(function(s){return s.tipo==='afiliado'&&sponsorVisible(s)&&s.imagenUrl;}).sort(function(a,b){return(a.orden||0)-(b.orden||0);});
   var spb=document.getElementById('sp-bar'),afb=document.getElementById('af-bar');
