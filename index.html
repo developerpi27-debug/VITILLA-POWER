@@ -22,7 +22,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 #sb.collapsed .ni-lbl{display:none;}
 #sb.collapsed .nsec{display:none;}
 #sb.collapsed .sbf{display:none;}
-#mn{margin-left:240px;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s cubic-bezier(.4,0,.2,1);}
+#mn{margin-left:240px;flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s cubic-bezier(.4,0,.2,1);}
 #mn.sb-collapsed{margin-left:56px;}
 #sb-toggle{width:28px;height:28px;border-radius:8px;background:rgba(245,166,35,.15);border:1px solid rgba(245,166,35,.3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--acc);font-weight:700;user-select:none;flex-shrink:0;transition:background .15s;}
 #sb-toggle:hover{background:rgba(245,166,35,.3);}
@@ -12197,7 +12197,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
