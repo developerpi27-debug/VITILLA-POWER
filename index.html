@@ -5909,6 +5909,11 @@ async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,
     ex.id=nid();
     S.pitching=S.pitching.map(function(p){return(p.gameId===ex.gameId&&p.teamId===ex.teamId&&p.pitcherId===ex.pitcherId&&!p.id)?ex:p;});
   }
+  // Conteo de pitcheos del "Cuadro Visual": cada jugada terminal (K, OUT, DP, FO, OJ, BB,
+  // HBP, E, H1-HR, SAC, etc.) representa el ultimo lanzamiento de ese turno al bate, asi
+  // que suma 1 aqui. Los lanzamientos intermedios (bolas/strikes/fouls que NO terminaron
+  // el turno) se cuentan aparte en rBSO — juntos dan el total de pitcheos del pitcher.
+  ex.pitches=(parseInt(ex.pitches)||0)+1;
   if(['H1','H2','H3','HR'].indexOf(type)>=0)ex.h=(parseInt(ex.h)||0)+1;
   if(type==='HR')ex.hr=(parseInt(ex.hr)||0)+1;
   if(type==='K')ex.k=(parseInt(ex.k)||0)+1;
@@ -5961,9 +5966,25 @@ function rBSO(type){
   if(_rPlayBusy)return;
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
   if(!canScoreNow(gm)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
-  if(type==='ball'){gm.balls=Math.min((parseInt(gm.balls)||0)+1,4);if(gm.balls>=4){rPlay('BB');return;}}
-  else if(type==='strike'){gm.strikes=Math.min((parseInt(gm.strikes)||0)+1,3);if(gm.strikes>=3){rPlay('K');return;}}
+  var terminal=false;
+  if(type==='ball'){gm.balls=Math.min((parseInt(gm.balls)||0)+1,4);if(gm.balls>=4)terminal=true;}
+  else if(type==='strike'){gm.strikes=Math.min((parseInt(gm.strikes)||0)+1,3);if(gm.strikes>=3)terminal=true;}
   else if(type==='foul'){if((parseInt(gm.strikes)||0)<2)gm.strikes=(parseInt(gm.strikes)||0)+1;}
+  if(terminal){
+    // El 4to bola (BB) o 3er strike (K) termina el turno: ese lanzamiento ya se cuenta
+    // dentro de autoUpdatePitcher via rPlay, para no contarlo dos veces aqui.
+    rPlay(type==='ball'?'BB':'K');
+    return;
+  }
+  // Bola/strike que no termino el turno, o foul: cuenta como 1 pitcheo mas del pitcher actual.
+  var isTop=gm.currentHalf==='top';
+  var ftId=isTop?gm.homeTeamId:gm.awayTeamId;
+  var pRec=findCurrentPitcherRecord(gm,ftId);
+  if(pRec){
+    pRec.pitches=(parseInt(pRec.pitches)||0)+1;
+    S.pitching=S.pitching.map(function(p){return(p.gameId===pRec.gameId&&p.teamId===pRec.teamId&&p.pitcherId===pRec.pitcherId)?pRec:p;});
+    api('savePitching',{event:pRec}); // fire-and-forget
+  }
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});pgGC();
   api('saveGame',{game:gm}); // fire-and-forget
 }
