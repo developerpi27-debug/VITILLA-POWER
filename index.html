@@ -3933,15 +3933,18 @@ function _updateGCScoreboard(gm){
     try{ pgGC(); } catch(e2){}
   }
 }
-// Abre el "Cuadro Visual" (marcador estilo transmision) en una ventana/pestaña
-// aparte, totalmente independiente del panel de anotacion — se puede seguir
-// anotando en esta pantalla sin problema mientras esa ventana permanece
-// abierta y se actualiza sola. Pensada para usarse como fuente en OBS/vMix
-// (Browser Source) o simplemente capturada/mostrada en otra pantalla.
-function openCuadroVisual(gameId){
-  var url=new URL('overlay.html',window.location.href);
+// Abre cualquiera de las ventanas de transmision (Pizarra, Lineup, Defensiva,
+// Marcador) en una ventana/pestaña aparte, totalmente independiente del panel
+// de anotacion — se puede seguir anotando en esta pantalla sin problema
+// mientras esas ventanas permanecen abiertas y se actualizan solas. Pensadas
+// para usarse como fuente en OBS/vMix (Browser Source) o simplemente
+// capturadas/mostradas en otra pantalla.
+function openScoreboardWindow(page,gameId,extra){
+  var url=new URL(page,window.location.href);
   url.searchParams.set('game',gameId);
-  window.open(url.href,'cuadroVisual_'+gameId,'width=460,height=280,resizable=yes,noopener');
+  var winName=page+'_'+gameId;
+  if(extra)Object.keys(extra).forEach(function(k){url.searchParams.set(k,extra[k]);winName+='_'+extra[k];});
+  window.open(url.href,winName,'width=460,height=340,resizable=yes,noopener');
 }
 function pgGC(){
   if(!S.game){
@@ -4082,7 +4085,12 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openCuadroVisual(this.dataset.gid)" title="Abre una ventana con el marcador para superponer en una transmision en vivo (se actualiza sola)">&#128250; Cuadro Visual</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'overlay.html\',this.dataset.gid)" title="Marcador estilo transmision con inning, bases, outs, bateador y pitcher — se actualiza sola">&#128250; Pizarra</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'lineup.html\',this.dataset.gid,{team:\'away\'})" title="Alineacion del equipo visitante en una ventana aparte">&#128203; Lineup Visitante</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'lineup.html\',this.dataset.gid,{team:\'home\'})" title="Alineacion del equipo local en una ventana aparte">&#128203; Lineup Local</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'defense.html\',this.dataset.gid,{team:\'away\'})" title="Posiciones defensivas del equipo visitante en una ventana aparte">&#9918; Defensiva Visitante</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'defense.html\',this.dataset.gid,{team:\'home\'})" title="Posiciones defensivas del equipo local en una ventana aparte">&#9918; Defensiva Local</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'scoreboard.html\',this.dataset.gid)" title="Marcador simple (torneo, equipos y carreras) en una ventana aparte">&#127942; Marcador</button>'
       +'</div>':'')
     +'</div>'
     +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
@@ -12270,7 +12278,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
