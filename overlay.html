@@ -20,7 +20,7 @@
      texto blanco no "flote" sobre fondo blanco del navegador. */
   body.windowed{background:#05070c;}
 
-  #sbug{width:420px;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--ov-bg);}
+  #sbug{width:440px;border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--ov-bg);}
   #sbug.transp{background:transparent;box-shadow:none;border-color:transparent;}
   .sb-top{background:linear-gradient(90deg,var(--ov-bar),var(--ov-bar2));color:var(--ov-bartext);font-weight:800;font-size:12px;letter-spacing:.4px;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase;}
   .sb-top .live{display:inline-flex;align-items:center;gap:5px;}
@@ -40,7 +40,7 @@
   .sb-team.bat .sb-nm{color:var(--ov-bat);}
   .sb-rn{font-family:'Arial Narrow',Arial,sans-serif;font-size:24px;font-weight:800;min-width:30px;text-align:right;color:var(--ov-run);}
 
-  .sb-side{flex:0 0 108px;border-left:1px solid var(--ov-bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:5px;}
+  .sb-side{flex:0 0 128px;border-left:1px solid var(--ov-bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:5px;}
   .sb-inn-arr{font-size:10px;color:var(--ov-text2);letter-spacing:.5px;}
   .sb-inn-num{font-size:26px;font-weight:800;line-height:1;color:var(--ov-inning);}
   .sb-inn-of{font-size:9px;color:var(--ov-text2);margin-bottom:2px;}
@@ -52,9 +52,14 @@
   .sb-b3{top:50%;left:0;margin-top:-5.5px;}
   .sb-b1{top:50%;right:0;margin-top:-5.5px;}
 
-  .sb-outs{display:flex;gap:4px;margin-top:2px;}
-  .sb-outs .d{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);}
-  .sb-outs .d.on{background:var(--red);border-color:var(--red);}
+  .sb-bs{display:flex;gap:5px;margin-top:6px;}
+  .sb-bs-grp{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .sb-bs-grp .lbl{font-size:7.5px;color:var(--ov-text2);letter-spacing:.3px;white-space:nowrap;}
+  .sb-bs-dots{display:flex;gap:3px;}
+  .sb-bs-dots .d{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);}
+  .sb-bs-dots .d.b-on{background:var(--grn);border-color:var(--grn);}
+  .sb-bs-dots .d.s-on{background:var(--ov-bat);border-color:var(--ov-bat);}
+  .sb-bs-dots .d.o-on{background:var(--red);border-color:var(--red);}
 
   .sb-status{padding:5px 12px;font-size:10px;color:var(--ov-text2);background:var(--ov-navy2);text-align:center;letter-spacing:.5px;}
   .sb-status b{color:var(--ov-bat);}
@@ -128,7 +133,11 @@
         <div class="sb-base sb-b3" id="bB3"></div>
         <div class="sb-base sb-b1" id="bB1"></div>
       </div>
-      <div class="sb-outs" id="sbOuts"><div class="d"></div><div class="d"></div></div>
+      <div class="sb-bs">
+        <div class="sb-bs-grp"><div class="lbl">BOLAS</div><div class="sb-bs-dots" id="sbBalls"></div></div>
+        <div class="sb-bs-grp"><div class="lbl">STRIKES</div><div class="sb-bs-dots" id="sbStrikes"></div></div>
+        <div class="sb-bs-grp"><div class="lbl">OUTS</div><div class="sb-bs-dots" id="sbOuts"></div></div>
+      </div>
     </div>
   </div>
   <div class="sb-status" id="sbStatusBar" style="display:none"></div>
@@ -298,7 +307,10 @@ function render(gm,teams){
   else b3.style.display='none';
 
   var outs=parseInt(gm.outs)||0;
-  document.getElementById('sbOuts').innerHTML=[0,1].map(function(i){return'<div class="d '+(outs>i?'on':'')+'"></div>';}).join('');
+  var balls=parseInt(gm.balls)||0,strikes=parseInt(gm.strikes)||0;
+  document.getElementById('sbBalls').innerHTML=[0,1,2].map(function(i){return'<div class="d '+(balls>i?'b-on':'')+'"></div>';}).join('');
+  document.getElementById('sbStrikes').innerHTML=[0,1].map(function(i){return'<div class="d '+(strikes>i?'s-on':'')+'"></div>';}).join('');
+  document.getElementById('sbOuts').innerHTML=[0,1].map(function(i){return'<div class="d '+(outs>i?'o-on':'')+'"></div>';}).join('');
 
   var statusBar=document.getElementById('sbStatusBar');
   if(gm.status==='final'){
