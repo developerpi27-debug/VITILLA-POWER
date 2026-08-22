@@ -7,7 +7,7 @@
 <style>
   :root{
     --ov-bg:#0d1b2e;--ov-hdr:#8a1f2b;--ov-hdr2:#a8283a;--ov-subbg:#f2f2f2;--ov-subtext:#1a1a1a;
-    --ov-t1bg:#2a2f38;--ov-t2bg:#8a1f2b;--ov-score:#ffffff;--ov-tname:#ffffff;
+    --ov-t1bg:#2a2f38;--ov-t2bg:#8a1f2b;--ov-score:#ffffff;--ov-tname:#ffffff;--ov-midtext:#f4f7fb;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{background:transparent;}
@@ -33,6 +33,12 @@
   .mk-nmbar{padding:7px 6px;text-align:center;font-size:12.5px;font-weight:800;color:var(--ov-tname);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mk-col.t1 .mk-nmbar{background:var(--ov-t1bg);}
   .mk-col.t2 .mk-nmbar{background:var(--ov-t2bg);}
+
+  .mk-mid{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-bg);border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.08);}
+  .mk-mid .arr{font-size:10px;color:var(--ov-midtext);letter-spacing:.5px;}
+  .mk-mid .num{font-size:26px;font-weight:900;color:var(--ov-midtext);line-height:1;}
+  .mk-mid .of{font-size:9px;color:var(--ov-midtext);opacity:.75;}
+  .mk-mid.final .num{font-size:15px;letter-spacing:.5px;}
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
 
@@ -62,6 +68,7 @@
   <div class="cf-row"><label>Fondo equipo 2 (derecha)</label><input type="color" id="cT2"></div>
   <div class="cf-row"><label>Numero de carreras</label><input type="color" id="cScore"></div>
   <div class="cf-row"><label>Nombre de equipos</label><input type="color" id="cTname"></div>
+  <div class="cf-row"><label>Inning central / Final</label><input type="color" id="cMidtext"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
@@ -83,6 +90,11 @@
       <div class="mk-scorebox"><div id="mkLogo1Wrap"></div><div class="mk-score" id="mkScore1">0</div></div>
       <div class="mk-nmbar" id="mkName1">Visitante</div>
     </div>
+    <div class="mk-mid" id="mkMid">
+      <div class="arr" id="mkArrow">&#9650;</div>
+      <div class="num" id="mkInnNum">1</div>
+      <div class="of" id="mkInnOf">DE 7</div>
+    </div>
     <div class="mk-col t2">
       <div class="mk-scorebox"><div id="mkLogo2Wrap"></div><div class="mk-score" id="mkScore2">0</div></div>
       <div class="mk-nmbar" id="mkName2">Local</div>
@@ -100,9 +112,9 @@ var GAME_ID=qs.get('game')||qs.get('gid')||'';
 var POLL_MS=parseInt(qs.get('ms'))||5000;
 var _teamsCache=null;
 
-var COLOR_KEYS=['hdr','subbg','t1','t2','score','tname'];
-var DEFAULTS={hdr:'#8a1f2b',subbg:'#f2f2f2',t1:'#2a2f38',t2:'#8a1f2b',score:'#ffffff',tname:'#ffffff',transp:false};
-var VARMAP={hdr:'--ov-hdr',subbg:'--ov-subbg',t1:'--ov-t1bg',t2:'--ov-t2bg',score:'--ov-score',tname:'--ov-tname'};
+var COLOR_KEYS=['hdr','subbg','t1','t2','score','tname','midtext'];
+var DEFAULTS={hdr:'#8a1f2b',subbg:'#f2f2f2',t1:'#2a2f38',t2:'#8a1f2b',score:'#ffffff',tname:'#ffffff',midtext:'#f4f7fb',transp:false};
+var VARMAP={hdr:'--ov-hdr',subbg:'--ov-subbg',t1:'--ov-t1bg',t2:'--ov-t2bg',score:'--ov-score',tname:'--ov-tname',midtext:'--ov-midtext'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_scoreboard_colors')||'{}')); }catch(e){}
@@ -131,10 +143,11 @@ function syncPanelInputs(){
   document.getElementById('cT2').value=SET.t2;
   document.getElementById('cScore').value=SET.score;
   document.getElementById('cTname').value=SET.tname;
+  document.getElementById('cMidtext').value=SET.midtext;
   document.getElementById('cTransp').checked=!!SET.transp;
 }
 function wirePanel(){
-  var map={cHdr:'hdr',cSubbg:'subbg',cT1:'t1',cT2:'t2',cScore:'score',cTname:'tname'};
+  var map={cHdr:'hdr',cSubbg:'subbg',cT1:'t1',cT2:'t2',cScore:'score',cTname:'tname',cMidtext:'midtext'};
   Object.keys(map).forEach(function(id){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });
@@ -192,6 +205,20 @@ function render(gm,teams,tournament,parentTournament){
   document.getElementById('mkScore2').textContent=parseInt(gm.homeRuns)||0;
   document.getElementById('mkName1').textContent=aw.name||'Visitante';
   document.getElementById('mkName2').textContent=hw.name||'Local';
+
+  var mid=document.getElementById('mkMid');
+  if(gm.status==='final'){
+    mid.classList.add('final');
+    document.getElementById('mkArrow').style.display='none';
+    document.getElementById('mkInnNum').textContent='FINAL';
+    document.getElementById('mkInnOf').textContent='';
+  } else {
+    mid.classList.remove('final');
+    document.getElementById('mkArrow').style.display='block';
+    document.getElementById('mkArrow').innerHTML=gm.currentHalf==='top'?'&#9650;':'&#9660;';
+    document.getElementById('mkInnNum').textContent=parseInt(gm.currentInning)||1;
+    document.getElementById('mkInnOf').textContent='DE '+(parseInt(gm.totalInnings)||7);
+  }
 
   document.title='Marcador — '+aw.name+' '+(parseInt(gm.awayRuns)||0)+'-'+(parseInt(gm.homeRuns)||0)+' '+hw.name;
 }

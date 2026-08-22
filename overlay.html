@@ -300,8 +300,9 @@ function currentBatterId(lineups,teamId,idx){
   });
   if(!ordered.length)ordered=lu.players.slice();
   var len=ordered.length||1;
-  var bi=ordered[idx%len];
-  return bi?bi.playerId:null;
+  var pos=idx%len;
+  var bi=ordered[pos];
+  return bi?{playerId:bi.playerId,battingOrder:pos+1}:null;
 }
 function currentPitcherId(lineups,teamId){
   var lu=lineups.filter(function(l){return l.teamId===teamId;})[0];
@@ -380,10 +381,10 @@ function render(gm,teams,players,lineups,pitching){
     var battingTeamId=isTop?gm.awayTeamId:gm.homeTeamId;
     var fieldingTeamId=isTop?gm.homeTeamId:gm.awayTeamId;
     var bIdx=isTop?parseInt(gm.awayBatterIdx)||0:parseInt(gm.homeBatterIdx)||0;
-    var bId=currentBatterId(lineups,battingTeamId,bIdx);
+    var batter=currentBatterId(lineups,battingTeamId,bIdx);
     var pId=currentPitcherId(lineups,fieldingTeamId);
-    var bp=bId?players[bId]:null,pp=pId?players[pId]:null;
-    document.getElementById('sbBatterNm').textContent=bp?('#'+(bp.number||'?')+' '+bp.name):'—';
+    var bp=batter?players[batter.playerId]:null,pp=pId?players[pId]:null;
+    document.getElementById('sbBatterNm').textContent=bp?(batter.battingOrder+'. '+bp.name):'—';
     document.getElementById('sbPitcherNm').textContent=pp?('#'+(pp.number||'?')+' '+pp.name):'—';
     var pRec=pId?pitching.filter(function(p){return p.teamId===fieldingTeamId&&p.pitcherId===pId;}).sort(function(a,b){return(a.timestamp||'')<(b.timestamp||'')?1:-1;})[0]:null;
     document.getElementById('sbPitchCount').textContent=pRec?('('+(parseInt(pRec.pitches)||0)+')'):'';
