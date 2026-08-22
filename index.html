@@ -56,6 +56,7 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .bd{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}.bd:hover{background:rgba(239,68,68,.25);}
 .bg2{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
 .bsm{padding:5px 10px;font-size:12px;}.blg{padding:12px 28px;font-size:15px;}.wf{width:100%;justify-content:center;}
+.gcbtn{padding:4px 7px!important;font-size:10.5px!important;gap:3px;}
 .fg{margin-bottom:14px;}
 .fl{display:block;font-size:12px;color:var(--t2);margin-bottom:5px;font-weight:500;}
 .fi,.fs,.fta{width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:7px;padding:9px 12px;color:var(--txt);font-size:13px;outline:none;transition:border .15s;}
@@ -3946,6 +3947,57 @@ function openScoreboardWindow(page,gameId,extra){
   if(extra)Object.keys(extra).forEach(function(k){url.searchParams.set(k,extra[k]);winName+='_'+extra[k];});
   window.open(url.href,winName,'width=460,height=340,resizable=yes,noopener');
 }
+// Panel de Transmision: ventana independiente (igual que las de overlay) que agrupa los
+// accesos a Pizarra/Marcador/Lineup/Defensiva, para no saturar de botones el modulo de
+// Control de Juego. Se genera 100% en la ventana nueva (URLs absolutas ya resueltas), asi que
+// sigue funcionando aunque el usuario cierre o navegue la pestaña principal.
+function openTransmissionPanel(gameId){
+  var winName='panel_transmision_'+gameId;
+  var w=window.open('',winName,'width=300,height=460,resizable=yes,noopener');
+  if(!w){toast('El navegador bloqueo la ventana emergente. Habilita las ventanas emergentes para este sitio.','error');return;}
+  function abs(page,extra){
+    var u=new URL(page,window.location.href);
+    u.searchParams.set('game',gameId);
+    var wn=page+'_'+gameId;
+    if(extra)Object.keys(extra).forEach(function(k){u.searchParams.set(k,extra[k]);wn+='_'+extra[k];});
+    return{href:u.href,winName:wn};
+  }
+  var items=[
+    {label:'&#128250; Marcador G.',sub:'Pizarra de transmision (inning, bases, outs, bateador, pitcher)',page:'overlay.html'},
+    {label:'&#127942; Marcador S.',sub:'Marcador simple (torneo, equipos, carreras)',page:'scoreboard.html'},
+    {label:'&#128203; Lineup Visitante',sub:'Alineacion actual del equipo visitante',page:'lineup.html',extra:{team:'away'}},
+    {label:'&#128203; Lineup Local',sub:'Alineacion actual del equipo local',page:'lineup.html',extra:{team:'home'}},
+    {label:'&#9918; Defensa Visitante',sub:'Posiciones defensivas del equipo visitante',page:'defense.html',extra:{team:'away'}},
+    {label:'&#9918; Defensa Local',sub:'Posiciones defensivas del equipo local',page:'defense.html',extra:{team:'home'}}
+  ];
+  var rows=items.map(function(it,i){
+    var r=abs(it.page,it.extra);
+    return'<button class="pt-btn" onclick="window.open(\''+r.href.replace(/'/g,"\\'")+'\',\''+r.winName+'\',\'width=460,height=340,resizable=yes,noopener\')">'
+      +'<span class="pt-lbl">'+it.label+'</span>'
+      +'<span class="pt-sub">'+it.sub+'</span>'
+      +'</button>';
+  }).join('');
+  var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Panel de Transmisión</title>'
+    +'<style>'
+    +'*{box-sizing:border-box}'
+    +'body{margin:0;padding:16px;background:#0b1220;color:#e6edf5;font-family:Arial,sans-serif}'
+    +'h2{font-size:15px;margin:0 0 4px;color:#f5a623}'
+    +'.pt-hint{font-size:11px;color:#8a97ab;margin:0 0 14px;line-height:1.4}'
+    +'.pt-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:#141f33;color:#e6edf5;cursor:pointer}'
+    +'.pt-btn:hover{background:#1c2b47;border-color:rgba(245,166,35,.4)}'
+    +'.pt-lbl{font-size:13px;font-weight:700}'
+    +'.pt-sub{font-size:10.5px;color:#8a97ab}'
+    +'</style></head><body>'
+    +'<h2>&#127916; Panel de Transmisión</h2>'
+    +'<p class="pt-hint">Cada boton abre una ventana aparte que se actualiza sola. Usalas como fuente en OBS/vMix o mostralas en otra pantalla.</p>'
+    +rows
+    +'</body></html>';
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
 function pgGC(){
   if(!S.game){
     var gs=visibleGames().filter(function(g){return g.status==='live'||g.status==='scheduled';});
@@ -4085,12 +4137,7 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'overlay.html\',this.dataset.gid)" title="Marcador estilo transmision con inning, bases, outs, bateador y pitcher — se actualiza sola">&#128250; Pizarra</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'lineup.html\',this.dataset.gid,{team:\'away\'})" title="Alineacion del equipo visitante en una ventana aparte">&#128203; Lineup Visitante</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'lineup.html\',this.dataset.gid,{team:\'home\'})" title="Alineacion del equipo local en una ventana aparte">&#128203; Lineup Local</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'defense.html\',this.dataset.gid,{team:\'away\'})" title="Posiciones defensivas del equipo visitante en una ventana aparte">&#9918; Defensiva Visitante</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'defense.html\',this.dataset.gid,{team:\'home\'})" title="Posiciones defensivas del equipo local en una ventana aparte">&#9918; Defensiva Local</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openScoreboardWindow(\'scoreboard.html\',this.dataset.gid)" title="Marcador simple (torneo, equipos y carreras) en una ventana aparte">&#127942; Marcador</button>'
+    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>'
       +'</div>':'')
     +'</div>'
     +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
@@ -4979,6 +5026,15 @@ async function rPlay(type){
     }
     return 0;
   }
+  function hardForcedRunsH2(){
+    // El corredor de 2da normalmente estaba forzado a anotar en un doble (igual que el de
+    // 3ra). Ahora se permite que se quede en 3ra en vez de anotar, SOLO cuando es el UNICO
+    // corredor en base (1ra y 3ra vacias) -- asi no hay conflicto de bases, ya que el
+    // bateador ocupa 2da y 3ra queda libre para el. Si tambien hay corredor en 1ra o 3ra, se
+    // mantiene el forzado de siempre para evitar choques de bases.
+    if(nbForce>=3&&bases.second&&!bases.first&&!bases.third) return 0;
+    return minForcedRuns('H2');
+  }
   function minForcedRunsBB(){
     // BB/HBP solo fuerza una carrera si TODAS las bases del juego estan ocupadas
     // (cadena de fuerza real desde el bateador hasta home), no como un sencillo.
@@ -4995,14 +5051,15 @@ async function rPlay(type){
   } else if(type==='H1'||type==='H2'||type==='H3'){
     var tipH={H1:'SENCILLO',H2:'DOBLE',H3:'TRIPLE'}[type];
     var minF=minForcedRuns(type);
+    var hardMin=(type==='H2')?hardForcedRunsH2():minF;
     var rb2=await numPromptAsync(tipH+' - '+bName
       +'\nCorredores en base: '+enBase
-      +(minF>0?'\n(Forzado: minimo '+minF+' carrera(s) anota(n) con las bases ocupadas)':'')
+      +(hardMin>0?'\n(Forzado: minimo '+hardMin+' carrera(s) anota(n) con las bases ocupadas)':'')
       +'\n\nCuantas carreras anotaron?',String(minF));
     if(rb2===null){_rPlayBusy=false;return;}
-    rbi=Math.max(minF,parseInt(rb2)||0); runs=rbi;
-    if(rbi<minF){
-      toast('Con las bases ocupadas, esta jugada fuerza minimo '+minF+' carrera(s). Se ajusto automaticamente.','info');
+    rbi=Math.max(hardMin,parseInt(rb2)||0); runs=rbi;
+    if(rbi<hardMin){
+      toast('Con las bases ocupadas, esta jugada fuerza minimo '+hardMin+' carrera(s). Se ajusto automaticamente.','info');
     }
     // FIX: en juegos de 3 bases, si el corredor de 1ra NO anota en esta jugada y 2da esta
     // vacia, su ubicacion final (2da o 3ra) es ambigua -- preguntar al anotador.
@@ -5484,8 +5541,16 @@ async function rPlay(type){
     } else if(type==='H2'){
       // Batter goes to 2nd. Push runners ahead 2 bases — igual, respetando quien ya anoto.
       if(nb>=3){
-        // 3rd→scores, 2nd→scores, 1st→3rd, batter→2nd
-        gm.bases={first:null,second:batter,third:scored(b.first)?null:(b.first||null)};
+        // Caso especial: el UNICO corredor en base es el de 2da (1ra y 3ra vacias) y el
+        // anotador marco 0 carreras -- ese corredor se queda en 3ra en vez de anotar (no hay
+        // conflicto de bases posible en esta composicion, ver hardForcedRunsH2()).
+        var h2SecondOnly=b.second&&!b.first&&!b.third;
+        if(h2SecondOnly&&!scored(b.second)){
+          gm.bases={first:null,second:batter,third:b.second};
+        } else {
+          // 3rd→scores, 2nd→scores, 1st→3rd, batter→2nd
+          gm.bases={first:null,second:batter,third:scored(b.first)?null:(b.first||null)};
+        }
       } else {
         // 2-base game: 2nd→scores, 1st→scores, batter→2nd (home)
         gm.bases={first:null,second:batter,third:null};
