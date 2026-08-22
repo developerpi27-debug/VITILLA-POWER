@@ -2291,7 +2291,8 @@ function gcH(g){
     rgt='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700">'+_awR+' - '+_hmR+'</div>'
       +(_canReopen?'<button class="reopen-btn" data-gid="'+g.id+'" onclick="event.stopPropagation();reopenGame(this.dataset.gid)">&#128275; Reabrir</button>':'')
       +(_canRestart?'<button class="reopen-btn" style="margin-top:4px;background:var(--rd, #c0392b)" data-gid="'+g.id+'" onclick="event.stopPropagation();restartGame(this.dataset.gid)">&#9851; Reiniciar</button>':'')
-      +(!_canReopen&&!_canRestart?'<span class="badge bg">FINAL</span>':'')
+      +(_isAdmin?'<button class="reopen-btn" style="margin-top:4px;background:#7a1220" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)">&#128465; Eliminar</button>':'')
+      +(!_canReopen&&!_canRestart&&!_isAdmin?'<span class="badge bg">FINAL</span>':'')
       +'</div>';
   }
   else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div></div>';
@@ -6479,6 +6480,49 @@ async function restartGame(gid){
   S.game=gid;
   goNav('gamecontrol');
   toast(lineupWarning?'Juego reiniciado 0-0. Nota: hubo cambios de pitcheo — verifica el lineup manualmente.':'Juego reiniciado — comienza desde 0-0','success');
+}
+// Eliminar permanentemente un juego FINALIZADO y todo lo que le pertenece (eventos/jugadas,
+// picheo y lineups guardados). Solo visible/ejecutable por un administrador, y exige
+// confirmar con la contraseña de administrador -- mismo flujo que "Eliminar Equipo".
+function delGame(id){
+  var g=S.games.filter(function(x){return x.id===id;})[0];if(!g)return;
+  if(!S.user||S.user.role!=='admin'){toast('Solo un administrador puede eliminar juegos','error');return;}
+  if(g.status!=='final'){toast('Solo se pueden eliminar juegos finalizados','error');return;}
+  var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);
+  var evCount=S.events.filter(function(e){return e.gameId===id;}).length;
+  var pitCount=S.pitching.filter(function(p){return p.gameId===id;}).length;
+  var luCount=S.lineups.filter(function(l){return l.gameId===id;}).length;
+  showM('<div class="mhd"><div class="mtl">&#9888; Eliminar Juego</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ae" style="font-size:12px">Esta accion es <b>irreversible</b> y eliminara permanentemente:'
+    +'<ul style="margin:6px 0 0 18px;padding:0">'
+    +'<li>El juego <b>'+(aw?aw.name:'?')+' vs '+(hw?hw.name:'?')+'</b>'+(g.date?' ('+g.date+')':'')+'</li>'
+    +'<li>'+evCount+' jugada(s)/evento(s) registrados</li>'
+    +'<li>'+pitCount+' registro(s) de picheo</li>'
+    +'<li>'+luCount+' lineup(s) guardado(s) de este juego</li>'
+    +'</ul></div>'
+    +'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delGamePwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bd" data-gid="'+id+'" onclick="confirmDelGame(this.dataset.gid)">Eliminar Permanentemente</button></div>');
+  setTimeout(function(){var el=document.getElementById('delGamePwd');if(el)el.focus();},60);
+}
+async function confirmDelGame(id){
+  var pwd=fv('delGamePwd');
+  if(!pwd){toast('Ingresa tu contraseña','error');return;}
+  _saving=true;
+  var r=await api('deleteGameCascade',{gameId:id,username:S.user.username,password:pwd});
+  _saving=false;
+  if(r&&r.ok){
+    S.games=S.games.filter(function(x){return x.id!==id;});
+    S.events=S.events.filter(function(x){return x.gameId!==id;});
+    S.pitching=S.pitching.filter(function(x){return x.gameId!==id;});
+    S.lineups=S.lineups.filter(function(x){return x.gameId!==id;});
+    if(S.game===id)S.game=null;
+    cM();pgSched();
+    toast('Juego y todos sus registros eliminados','success');
+  } else {
+    toast(r&&r.error||'Error al eliminar el juego','error');
+  }
 }
 async function endGame(){
   if(!confirm('Confirmar finalizacion del juego?'))return;
