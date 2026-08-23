@@ -60,6 +60,12 @@
   .sb-bs-dots .d.b-on{background:var(--grn);border-color:var(--grn);}
   .sb-bs-dots .d.s-on{background:var(--ov-bat);border-color:var(--ov-bat);}
   .sb-bs-dots .d.o-on{background:var(--red);border-color:var(--red);}
+  .sb-bs-num{font-family:'Arial Narrow',Arial,sans-serif;font-weight:800;font-size:13px;line-height:1;min-width:12px;text-align:center;}
+  .sb-bs-num.b{color:var(--grn);}
+  .sb-bs-num.s{color:var(--ov-bat);}
+  .sb-bs-num.o{color:var(--red);}
+  .sb-bs.sb-bs-inline{margin-top:3px;justify-content:flex-start;gap:9px;}
+  .sb-bs.sb-bs-inline .sb-bs-grp{align-items:flex-start;}
 
   .sb-status{padding:5px 12px;font-size:10px;color:var(--ov-text2);background:var(--ov-navy2);text-align:center;letter-spacing:.5px;}
   .sb-status b{color:var(--ov-bat);}
@@ -79,14 +85,16 @@
      discreto, para que quepa en la zona que se captura. El panel de
      colores se abre flotando sobre la pagina (fixed), independiente del
      recuadro, ya que es solo una herramienta de configuracion temporal. */
-  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--ov-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;margin-left:2px;}
+  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--ov-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;position:absolute;top:4px;right:4px;z-index:5;}
   #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
-  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel{position:fixed;top:16px;right:16px;width:280px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
   #panel.open{display:block;}
   #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  #panel h4{font-size:11px;color:#8a97ab;margin:14px 0 8px;letter-spacing:.4px;text-transform:uppercase;border-top:1px solid rgba(255,255,255,.1);padding-top:12px;}
   .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
   .cf-row label{font-size:12px;color:#c7d2e0;}
   .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-row select{background:#1a2536;color:#e6edf5;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 6px;font-size:12px;}
   .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
   .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
   .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
@@ -110,6 +118,9 @@
   <div class="cf-row"><label>Bateador / Pitcher (nombres)</label><input type="color" id="cMatchup"></div>
   <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <h4>&#9918; Bolas / Strikes / Outs</h4>
+  <div class="cf-row"><label>Como mostrarlos</label><select id="cCountMode"><option value="dots">Bolitas</option><option value="numbers">Numeros</option></select></div>
+  <div class="cf-row"><label>Donde mostrarlos</label><select id="cCountPos"><option value="side">Junto al inning (actual)</option><option value="batter">Junto al bateador</option></select></div>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
     <button id="btnReset">&#8635; Restablecer</button>
@@ -136,7 +147,8 @@
         <div class="sb-rn" id="sbHomeR">0</div>
       </div>
     </div>
-    <div class="sb-side">
+    <div class="sb-side" style="position:relative">
+      <button id="gear" title="Personalizar colores">&#9881;</button>
       <div class="sb-inn-arr" id="sbArrow">&#9650; ENTRADA</div>
       <div class="sb-inn-num" id="sbInn">1</div>
       <div class="sb-inn-of" id="sbInnOf">DE 7</div>
@@ -145,16 +157,13 @@
         <div class="sb-base sb-b3" id="bB3"></div>
         <div class="sb-base sb-b1" id="bB1"></div>
       </div>
-      <div class="sb-bs">
-        <div class="sb-bs-grp"><div class="lbl">BOLAS</div><div class="sb-bs-dots" id="sbBalls"></div></div>
-        <div class="sb-bs-grp"><div class="lbl">STRIKES</div><div class="sb-bs-dots" id="sbStrikes"></div></div>
-        <div class="sb-bs-grp"><div class="lbl">OUTS</div><div class="sb-bs-dots" id="sbOuts"></div></div>
-        <button id="gear" title="Personalizar colores">&#9881;</button>
-      </div>
+      <div class="sb-bs" id="sbBsSide"></div>
     </div>
   </div>
   <div class="sb-matchup" id="sbMatchup">
-    <div class="sb-mu-item"><span class="sb-mu-lbl">AL BATE</span><span class="sb-mu-nm" id="sbBatterNm">&mdash;</span></div>
+    <div class="sb-mu-item"><span class="sb-mu-lbl">AL BATE</span><span class="sb-mu-nm" id="sbBatterNm">&mdash;</span>
+      <div class="sb-bs sb-bs-inline" id="sbBsBatter" style="display:none"></div>
+    </div>
     <div class="sb-mu-div"></div>
     <div class="sb-mu-item right"><span class="sb-mu-lbl">LANZANDO <span class="sb-mu-pc" id="sbPitchCount"></span></span><span class="sb-mu-nm" id="sbPitcherNm">&mdash;</span></div>
   </div>
@@ -179,7 +188,7 @@ var _teamsCache=null; // {id: {name,logoUrl,color}} — se carga una vez, los eq
 // club, sin depender de localStorage de esa maquina). ?edit=0 en la URL
 // oculta el engranaje de personalizacion (para la captura final limpia).
 var COLOR_KEYS=['bg','navy','bar','bartext','run','team','bat','inning','text2','matchup'];
-var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',transp:false};
+var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',transp:false,countMode:'dots',countPos:'side'};
 var VARMAP={bg:'--ov-bg',navy:'--ov-navy',bar:'--ov-bar',bartext:'--ov-bartext',run:'--ov-run',team:'--ov-team',bat:'--ov-bat',inning:'--ov-inning',text2:'--ov-text2',matchup:'--ov-matchup'};
 
 function loadSettings(){
@@ -190,6 +199,8 @@ function loadSettings(){
   }catch(e){}
   COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
   if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('countMode')==='dots'||qs.get('countMode')==='numbers')s.countMode=qs.get('countMode');
+  if(qs.get('countPos')==='side'||qs.get('countPos')==='batter')s.countPos=qs.get('countPos');
   return s;
 }
 var SET=loadSettings();
@@ -222,6 +233,8 @@ function syncPanelInputs(){
   document.getElementById('cMatchup').value=SET.matchup;
   document.getElementById('cText2').value=SET.text2;
   document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cCountMode').value=SET.countMode;
+  document.getElementById('cCountPos').value=SET.countPos;
 }
 function wirePanel(){
   var map={cBg:'bg',cNavy:'navy',cBar:'bar',cBartext:'bartext',cRun:'run',cTeam:'team',cBat:'bat',cInning:'inning',cMatchup:'matchup',cText2:'text2'};
@@ -233,6 +246,12 @@ function wirePanel(){
   document.getElementById('cTransp').addEventListener('change',function(){
     SET.transp=this.checked;applySettings();saveSettings();
   });
+  document.getElementById('cCountMode').addEventListener('change',function(){
+    SET.countMode=this.value;renderCounts();saveSettings();
+  });
+  document.getElementById('cCountPos').addEventListener('change',function(){
+    SET.countPos=this.value;renderCounts();saveSettings();
+  });
   document.getElementById('btnReset').addEventListener('click',function(){
     SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();
   });
@@ -240,6 +259,8 @@ function wirePanel(){
     var u=new URL(location.href);
     COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
     u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('countMode',SET.countMode);
+    u.searchParams.set('countPos',SET.countPos);
     u.searchParams.set('edit','0'); // enlace listo para OBS: sin el engranaje
     navigator.clipboard.writeText(u.href).then(function(){
       var m=document.getElementById('copyMsg');m.style.display='block';
@@ -325,6 +346,35 @@ function logoHtml(team,wrapId){
   }
 }
 
+// ── Bolas / Strikes / Outs: modo (bolitas o numeros) y posicion (junto al
+// inning, como esta por defecto, o junto al nombre del bateador) configurables
+// desde el panel. Se guarda el ultimo conteo recibido para poder re-renderizar
+// al instante cuando el usuario cambia estas opciones, sin esperar el proximo poll.
+var _lastCount={balls:0,strikes:0,outs:0};
+function countGroupHtml(mode){
+  function grp(lbl,val,max,cls){
+    if(mode==='numbers'){
+      return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-num '+cls+'">'+val+'</div></div>';
+    }
+    var dots=[];
+    for(var i=0;i<max;i++)dots.push('<div class="d '+(val>i?cls+'-on':'')+'"></div>');
+    return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-dots">'+dots.join('')+'</div></div>';
+  }
+  return grp('BOLAS',_lastCount.balls,3,'b')+grp('STRIKES',_lastCount.strikes,2,'s')+grp('OUTS',_lastCount.outs,2,'o');
+}
+function renderCounts(){
+  var html=countGroupHtml(SET.countMode);
+  var sideEl=document.getElementById('sbBsSide'),batEl=document.getElementById('sbBsBatter');
+  if(!sideEl||!batEl)return;
+  if(SET.countPos==='batter'){
+    sideEl.innerHTML='';sideEl.style.display='none';
+    batEl.innerHTML=html;batEl.style.display='flex';
+  } else {
+    batEl.innerHTML='';batEl.style.display='none';
+    sideEl.innerHTML=html;sideEl.style.display='flex';
+  }
+}
+
 function render(gm,teams,players,lineups,pitching){
   var aw=teams[gm.awayTeamId]||{name:'Visitante'},hw=teams[gm.homeTeamId]||{name:'Local'};
   var isTop=gm.currentHalf==='top';
@@ -364,9 +414,8 @@ function render(gm,teams,players,lineups,pitching){
 
   var outs=parseInt(gm.outs)||0;
   var balls=parseInt(gm.balls)||0,strikes=parseInt(gm.strikes)||0;
-  document.getElementById('sbBalls').innerHTML=[0,1,2].map(function(i){return'<div class="d '+(balls>i?'b-on':'')+'"></div>';}).join('');
-  document.getElementById('sbStrikes').innerHTML=[0,1].map(function(i){return'<div class="d '+(strikes>i?'s-on':'')+'"></div>';}).join('');
-  document.getElementById('sbOuts').innerHTML=[0,1].map(function(i){return'<div class="d '+(outs>i?'o-on':'')+'"></div>';}).join('');
+  _lastCount={balls:balls,strikes:strikes,outs:outs};
+  renderCounts();
 
   var statusBar=document.getElementById('sbStatusBar');
   if(gm.status==='final'){

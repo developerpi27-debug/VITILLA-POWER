@@ -23,11 +23,16 @@
   .df-tname{font-size:16px;font-weight:800;color:var(--ov-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .df-sub{background:var(--ov-sub);color:var(--ov-subtext);font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;}
 
-  .df-field{position:relative;width:100%;height:300px;background:var(--ov-field);}
+  .df-field{position:relative;width:100%;height:300px;background:var(--ov-field);transition:height .15s;}
+  #card.df-2base .df-field{height:225px;}
+  #card.df-2base .df-arc{display:none;}
   .df-diamond{position:absolute;top:56%;left:50%;width:150px;height:150px;transform:translate(-50%,-50%) rotate(45deg);border:3px solid var(--ov-fieldln);border-radius:4px;}
   .df-arc{position:absolute;top:8%;left:50%;width:340px;height:340px;transform:translateX(-50%);border:3px solid var(--ov-fieldln);border-radius:50%;clip-path:inset(0 0 58% 0);}
-  .df-pos{position:absolute;transform:translate(-50%,-50%);text-align:center;font-size:12.5px;font-weight:800;color:var(--ov-name);text-shadow:0 1px 3px rgba(255,255,255,.8),0 1px 3px rgba(255,255,255,.8);white-space:nowrap;}
+  .df-pos{position:absolute;transform:translate(-50%,-50%);text-align:center;font-size:12.5px;font-weight:800;color:var(--ov-name);text-shadow:0 1px 3px rgba(255,255,255,.8),0 1px 3px rgba(255,255,255,.8);white-space:nowrap;transition:top .15s,left .15s;}
   .df-pos .lbl{display:block;font-size:9px;font-weight:700;color:var(--ov-hdr);letter-spacing:.5px;}
+  .df-photo{width:30px;height:30px;border-radius:50%;overflow:hidden;margin:0 auto 3px;border:2px solid var(--ov-hdr);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:none;}
+  .df-photo.show{display:block;}
+  .df-photo img{width:100%;height:100%;object-fit:cover;display:block;}
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
 
@@ -99,6 +104,29 @@ var TEAM_SIDE=(qs.get('team')||'away')==='home'?'home':'away';
 var POLL_MS=parseInt(qs.get('ms'))||6000;
 var _teamsCache=null;
 var POS_CODES=['P','C','1B','2B','3B','SS','LF','CF','RF'];
+// ── Layout original (juego de 3 bases / completo) — se guarda para poder restaurarlo si el
+// juego cambia de modo, ya que en modo vitilla (2 bases) reposicionamos algunos marcadores
+// con JS (inline style, que pesa mas que una regla CSS).
+var ORIG_LAYOUT={
+  CF:{top:'12%',left:'50%'},LF:{top:'26%',left:'14%'},RF:{top:'26%',left:'86%'},
+  SS:{top:'46%',left:'33%'},'2B':{top:'46%',left:'67%'},'3B':{top:'64%',left:'20%'},
+  P:{top:'64%',left:'50%'},'1B':{top:'64%',left:'80%'},C:{top:'88%',left:'50%'}
+};
+// ── Layout modo Vitilla (2 bases): solo posiciones de diamante, sin OF fuera del cuadro.
+// El campo "3B" del lineup se muestra como "2da" (asi funciona la ultima base antes de home
+// en un juego de 2 bases) y el campo "2B" del lineup se muestra como "OF" generico (ya no
+// hay una 2da base "real" que cubrir). SS/LF/CF/RF no se muestran en este modo.
+var LAYOUT_2B={
+  P:{top:'70%',left:'50%'},C:{top:'92%',left:'50%'},
+  '1B':{top:'50%',left:'78%'},'3B':{top:'50%',left:'22%'},'2B':{top:'16%',left:'50%'}
+};
+// slot DOM (id) -> {label a mostrar, codigo de posicion del que se toma el jugador}, por modo
+var SLOTS_3B=POS_CODES.map(function(c){return{code:c,label:c,src:c};});
+var SLOTS_2B=[
+  {code:'P',label:'P',src:'P'},{code:'C',label:'C',src:'C'},{code:'1B',label:'1B',src:'1B'},
+  {code:'3B',label:'2B',src:'3B'},{code:'2B',label:'OF',src:'2B'}
+];
+var HIDE_IN_2B=['SS','LF','CF','RF'];
 
 var COLOR_KEYS=['field','hdr','title','sub','name'];
 var DEFAULTS={field:'#c9cfd3',hdr:'#1f8a4c',title:'#ffffff',sub:'#d7c94a',name:'#0f3b23',transp:false};
@@ -202,11 +230,30 @@ function render(gm,teams,players,lineups){
   var rows=activeLineupRows(lineups,teamId);
   var byPos={};
   rows.forEach(function(r){if(r.position)byPos[r.position]=r.playerId;});
-  POS_CODES.forEach(function(code){
+
+  // Modo "Vitilla" (juegos de 2 bases): diamante reducido, sin posiciones de OF, con la 3ra
+  // base mostrandose como 2da y la 2da como OF (ver comentario de LAYOUT_2B arriba).
+  var is2Base=parseInt(gm.numBases)===2;
+  document.getElementById('card').classList.toggle('df-2base',is2Base);
+
+  HIDE_IN_2B.forEach(function(code){
     var el=document.getElementById('p'+code);
-    var pid=byPos[code];
+    if(el)el.style.display=is2Base?'none':'';
+  });
+
+  var slots=is2Base?SLOTS_2B:SLOTS_3B;
+  var layout=is2Base?LAYOUT_2B:ORIG_LAYOUT;
+  slots.forEach(function(sd){
+    var el=document.getElementById('p'+sd.code);
+    if(!el)return;
+    var pos=layout[sd.code];
+    if(pos){el.style.top=pos.top;el.style.left=pos.left;}
+    var pid=byPos[sd.src];
     var p=pid?players[pid]:null;
-    if(el)el.innerHTML='<span class="lbl">'+code+'</span>'+esc(p?p.name:'—');
+    var photoHtml=(p&&p.photoUrl)
+      ?'<div class="df-photo show"><img src="'+esc(p.photoUrl)+'" alt="" onerror="this.parentNode.classList.remove(\'show\')"></div>'
+      :'';
+    el.innerHTML=photoHtml+'<span class="lbl">'+sd.label+'</span>'+esc(p?p.name:'—');
   });
   document.title='Defensiva — '+team.name;
 }
