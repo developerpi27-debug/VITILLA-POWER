@@ -69,6 +69,12 @@
   <div class="cf-row"><label>Valor de estadistica</label><input type="color" id="cStatval"></div>
   <div class="cf-row"><label>Etiqueta de estadistica</label><input type="color" id="cStatlbl"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <h3 style="margin-top:14px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">&#128202; Numeros a mostrar</h3>
+  <div class="cf-row"><label>Alcance</label><select id="cStatScope" style="background:#1a2536;color:#e6edf5;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 6px;font-size:12px">
+    <option value="season">Temporada actual</option>
+    <option value="career">De por vida</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">En ambos casos se respeta la fase del juego (regular/playoffs/serie final) — "De por vida" suma esa fase en TODAS las temporadas.</div>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
     <button id="btnReset">&#8635; Restablecer</button>
@@ -108,13 +114,14 @@ var POLL_MS=parseInt(qs.get('ms'))||6000;
 var _teamsCache=null;
 
 var COLOR_KEYS=['bg','stripe','team','name','sub','statbg','statval','statlbl'];
-var DEFAULTS={bg:'#0b1220',stripe:'#f5a623',team:'#f4f7fb',name:'#ffffff',sub:'#a9b7c9',statbg:'#111d30',statval:'#f5a623',statlbl:'#a9b7c9',transp:false};
+var DEFAULTS={bg:'#0b1220',stripe:'#f5a623',team:'#f4f7fb',name:'#ffffff',sub:'#a9b7c9',statbg:'#111d30',statval:'#f5a623',statlbl:'#a9b7c9',transp:false,statScope:'season'};
 var VARMAP={bg:'--ov-bg',stripe:'--ov-stripe',team:'--ov-team',name:'--ov-name',sub:'--ov-sub',statbg:'--ov-statbg',statval:'--ov-statval',statlbl:'--ov-statlbl'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_batter_colors')||'{}')); }catch(e){}
   COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
   if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('statScope')==='season'||qs.get('statScope')==='career')s.statScope=qs.get('statScope');
   return s;
 }
 var SET=loadSettings();
@@ -140,6 +147,7 @@ function syncPanelInputs(){
   document.getElementById('cStatval').value=SET.statval;
   document.getElementById('cStatlbl').value=SET.statlbl;
   document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cStatScope').value=SET.statScope;
 }
 function wirePanel(){
   var map={cBg:'bg',cStripe:'stripe',cTeam:'team',cName:'name',cSub:'sub',cStatbg:'statbg',cStatval:'statval',cStatlbl:'statlbl'};
@@ -147,11 +155,14 @@ function wirePanel(){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });
   document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
-  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('cStatScope').addEventListener('change',function(){SET.statScope=this.value;saveSettings();rerenderFromCache();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();});
   document.getElementById('btnCopy').addEventListener('click',function(){
     var u=new URL(location.href);
     COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
-    u.searchParams.set('transp',SET.transp?'1':'0');u.searchParams.set('edit','0');
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('statScope',SET.statScope);
+    u.searchParams.set('edit','0');
     navigator.clipboard.writeText(u.href).then(function(){
       var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
     });
@@ -223,7 +234,13 @@ function activeBattingOrder(lineups,teamId){
   return ordered;
 }
 var PHASE_LBL={regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'};
-function render(gm,teams,players,lineups,statsByPlayerId,targetPhase){
+var SCOPE_LBL={season:'Temporada',career:'De por vida'};
+var _lastRenderArgs=null;
+function rerenderFromCache(){
+  if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
+}
+function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,targetPhase){
+  _lastRenderArgs=[gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,targetPhase];
   var isTop=gm.currentHalf==='top';
   var side=FORCE_SIDE==='home'||FORCE_SIDE==='away'?FORCE_SIDE:(isTop?'away':'home');
   var teamId=side==='home'?gm.homeTeamId:gm.awayTeamId;
@@ -251,8 +268,10 @@ function render(gm,teams,players,lineups,statsByPlayerId,targetPhase){
   logoHtml(team,'btLogoWrap');
   document.getElementById('btTeam').textContent=team.name||'Equipo';
   document.getElementById('btName').textContent='#'+(player.number||'?')+' '+(player.name||'?');
-  document.getElementById('btSub').innerHTML=(idx%len+1)+'&ordm; en orden &middot; '+(PHASE_LBL[targetPhase]||'Serie Regular');
-  var st=(statsByPlayerId&&statsByPlayerId[player.id])||{avg:0,ops:0,hr:0,rbi:0};
+  var scope=SET.statScope==='career'?'career':'season';
+  document.getElementById('btSub').innerHTML=(idx%len+1)+'&ordm; en orden &middot; '+(SCOPE_LBL[scope])+' &middot; '+(PHASE_LBL[targetPhase]||'Serie Regular');
+  var srcMap=scope==='career'?careerStatsByPlayerId:statsByPlayerId;
+  var st=(srcMap&&srcMap[player.id])||{avg:0,ops:0,hr:0,rbi:0};
   document.getElementById('btAvg').textContent=fmt3(st.avg);
   document.getElementById('btOps').textContent=fmt3(st.ops);
   document.getElementById('btHr').textContent=parseInt(st.hr)||0;
@@ -268,7 +287,7 @@ async function poll(){
     if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
     _errCount=0;
     var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
-    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.targetPhase);
+    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.careerStatsByPlayerId||{},res.data.targetPhase);
   }catch(e){
     _errCount++;
     if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}

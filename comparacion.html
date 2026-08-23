@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comparaciones</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-hdr:#8a1f2b;--ov-hdr2:#a8283a;
+    --ov-team:#f4f7fb;--ov-sub:#a9b7c9;--ov-acc:#f5a623;--ov-t1:#f5a623;--ov-t2:#5aa9ff;
+    --ov-lbl:#a9b7c9;--ov-bdr:rgba(255,255,255,.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-name);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
+
+  #card{width:480px;border-radius:12px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.5);background:var(--ov-bg);}
+  #card.transp{background:transparent;box-shadow:none;}
+
+  .cp-hdr{background:linear-gradient(90deg,var(--ov-hdr),var(--ov-hdr2));padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .cp-hdr .lbl{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#fff;}
+
+  .cp-teams{display:flex;align-items:center;justify-content:space-between;padding:14px;gap:8px;}
+  .cp-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;}
+  .cp-logo{width:44px;height:44px;border-radius:9px;object-fit:cover;background:#fff;}
+  .cp-logo.ph{display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#0b1522;}
+  .cp-tname{font-size:12.5px;font-weight:800;color:var(--ov-team);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cp-vs{font-family:'Barlow Condensed',Arial,sans-serif;font-size:15px;font-weight:900;color:var(--ov-acc);flex:0 0 auto;}
+
+  .cp-tabs{display:flex;overflow-x:auto;border-top:1px solid var(--ov-bdr);border-bottom:1px solid var(--ov-bdr);}
+  .cp-tab{flex:1;text-align:center;padding:8px 4px;font-size:10.5px;font-weight:700;color:var(--ov-sub);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;}
+  .cp-tab.on{color:var(--ov-acc);border-bottom-color:var(--ov-acc);}
+
+  .cp-rows{padding:6px 14px 12px;}
+  .cp-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ov-bdr);}
+  .cp-row:last-child{border-bottom:none;}
+  .cp-v{font-size:13.5px;font-weight:700;min-width:56px;}
+  .cp-v.left{text-align:left;color:var(--ov-t1);}
+  .cp-v.right{text-align:right;color:var(--ov-t2);}
+  .cp-lbl{font-size:10.5px;color:var(--ov-lbl);text-align:center;flex:1;}
+
+  .cp-empty{padding:24px;text-align:center;font-size:12px;color:var(--ov-sub);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;position:fixed;top:16px;right:16px;z-index:51;}
+  #gear:hover{background:rgba(255,255,255,.32);}
+  #panel{position:fixed;top:40px;right:16px;width:270px;max-height:calc(100vh - 56px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
+<div id="panel">
+  <h3>&#127912; Colores de Comparaciones</h3>
+  <div class="cf-row"><label>Franja superior</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Fondo</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Nombre de equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Equipo 1 (visitante)</label><input type="color" id="cT1"></div>
+  <div class="cf-row"><label>Equipo 2 (local)</label><input type="color" id="cT2"></div>
+  <div class="cf-row"><label>Etiquetas</label><input type="color" id="cLbl"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="card" style="display:none">
+  <div class="cp-hdr"><span class="lbl">&#9878; Comparaciones</span></div>
+  <div class="cp-teams">
+    <div class="cp-team"><div id="t1LogoWrap"></div><div class="cp-tname" id="t1Name">Equipo 1</div></div>
+    <div class="cp-vs">VS</div>
+    <div class="cp-team"><div id="t2LogoWrap"></div><div class="cp-tname" id="t2Name">Equipo 2</div></div>
+  </div>
+  <div class="cp-tabs" id="cpTabs"></div>
+  <div class="cp-rows" id="cpRows"></div>
+</div>
+<script>
+// ── Comparaciones — numeros de POR VIDA entre los 2 equipos de un juego, para transmision ──
+// Autonomo: no depende de sesion. ?game=<id>[&tab=general|regular|playoff|final|h2h]. Consulta
+// la accion publica getTeamComparison, que calcula del lado del servidor los numeros generales
+// (todas las temporadas), desglosados por fase, y el enfrentamiento directo historico (H2H).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||20000;
+var TABS=[
+  {key:'general',label:'General'},{key:'regular',label:'Regular'},{key:'playoff',label:'Playoffs'},
+  {key:'final',label:'Serie Final'},{key:'h2h',label:'H2H'}
+];
+var _tab=(function(){var t=qs.get('tab');return TABS.some(function(x){return x.key===t;})?t:'general';})();
+
+var COLOR_KEYS=['bg','hdr','team','t1','t2','lbl'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#8a1f2b',team:'#f4f7fb',t1:'#f5a623',t2:'#5aa9ff',lbl:'#a9b7c9',transp:false};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',team:'--ov-team',t1:'--ov-t1',t2:'--ov-t2',lbl:'--ov-lbl'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_comparacion_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,14));
+  document.documentElement.style.setProperty('--ov-acc',SET.t1);
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_comparacion_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cT1').value=SET.t1;
+  document.getElementById('cT2').value=SET.t2;
+  document.getElementById('cLbl').value=SET.lbl;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cHdr:'hdr',cBg:'bg',cTeam:'team',cT1:'t1',cT2:'t2',cLbl:'lbl'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');u.searchParams.set('tab',_tab);u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function logoHtml(team,wrapId){
+  var wrap=document.getElementById(wrapId);if(!wrap)return;
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="cp-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;cp-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="cp-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+function fmt3(v){v=v||0;if(v>=1)return v.toFixed(3);return v.toFixed(3).replace(/^0\./,'.');}
+function statRow(lbl,v1,v2){
+  return'<div class="cp-row"><div class="cp-v left">'+v1+'</div><div class="cp-lbl">'+lbl+'</div><div class="cp-v right">'+v2+'</div></div>';
+}
+function rowsForBucket(b){
+  if(!b||!b.team1||!b.team2)return'';
+  var t1=b.team1,t2=b.team2;
+  if(!t1.gp&&!t2.gp){
+    return'<div class="cp-empty">&#9918; Sin juegos registrados en este apartado todavia</div>';
+  }
+  return statRow('Record (G-P)',t1.w+'-'+t1.l,t2.w+'-'+t2.l)
+    +statRow('Juegos jugados',t1.gp,t2.gp)
+    +statRow('Carreras anotadas',t1.rf,t2.rf)
+    +statRow('Carreras permitidas',t1.rc,t2.rc)
+    +statRow('AVG de equipo',fmt3(t1.avg),fmt3(t2.avg))
+    +statRow('OBP de equipo',fmt3(t1.obp),fmt3(t2.obp))
+    +statRow('HR',t1.hr,t2.hr)
+    +statRow('RBI',t1.rbi,t2.rbi)
+    +statRow('ERA',t1.era!=null?t1.era.toFixed(2):'—',t2.era!=null?t2.era.toFixed(2):'—');
+}
+var _lastData=null;
+function renderTabs(){
+  document.getElementById('cpTabs').innerHTML=TABS.map(function(t){
+    return'<div class="cp-tab'+(t.key===_tab?' on':'')+'" data-k="'+t.key+'">'+t.label+'</div>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('.cp-tab'),function(el){
+    el.addEventListener('click',function(){_tab=el.getAttribute('data-k');renderTabs();renderRows();});
+  });
+}
+function renderRows(){
+  if(!_lastData)return;
+  document.getElementById('cpRows').innerHTML=rowsForBucket(_lastData.stats[_tab]);
+}
+function render(data){
+  _lastData=data;
+  document.getElementById('msg').style.display='none';
+  document.getElementById('card').style.display='block';
+  logoHtml(data.team1,'t1LogoWrap');
+  logoHtml(data.team2,'t2LogoWrap');
+  document.getElementById('t1Name').textContent=data.team1.name||'Equipo 1';
+  document.getElementById('t2Name').textContent=data.team2.name||'Equipo 2';
+  renderTabs();
+  renderRows();
+  document.title='Comparaciones — '+(data.team1.name||'')+' vs '+(data.team2.name||'');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getTeamComparison',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
+    _errCount=0;
+    render(res.data);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>

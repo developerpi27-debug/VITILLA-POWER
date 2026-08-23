@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>En Breve</title>
+<style>
+  :root{
+    --ov-bg:#0b1220;--ov-hdr:#f5a623;--ov-hdrtext:#1a1200;
+    --ov-team:#f4f7fb;--ov-rec:#f5a623;--ov-sub:#a9b7c9;--ov-vs:#f5a623;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-name);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
+
+  #card{width:560px;border-radius:12px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.5);background:var(--ov-bg);}
+  #card.transp{background:transparent;box-shadow:none;}
+
+  .mt-hdr{background:linear-gradient(90deg,var(--ov-hdr),var(--ov-hdr2,var(--ov-hdr)));padding:9px 14px;text-align:center;}
+  .mt-hdr .lbl{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--ov-hdrtext);}
+
+  .mt-body{display:flex;align-items:center;padding:22px 18px;gap:10px;}
+  .mt-side{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0;}
+  .mt-logo{width:78px;height:78px;border-radius:14px;object-fit:cover;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .mt-logo.ph{display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#0b1522;}
+  .mt-name{font-family:'Barlow Condensed',Arial,sans-serif;font-size:20px;font-weight:800;color:var(--ov-team);text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mt-rec{font-size:13px;font-weight:800;color:var(--ov-rec);}
+  .mt-rec .n{font-size:16px;}
+  .mt-tag{font-size:9.5px;color:var(--ov-sub);letter-spacing:.4px;text-transform:uppercase;}
+
+  .mt-vs{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 6px;}
+  .mt-vs .txt{font-family:'Barlow Condensed',Arial,sans-serif;font-size:26px;font-weight:900;color:var(--ov-vs);}
+
+  .mt-foot{padding:8px 14px;text-align:center;font-size:11px;color:var(--ov-sub);border-top:1px solid rgba(255,255,255,.08);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;position:fixed;top:16px;right:16px;z-index:51;}
+  #gear:hover{background:rgba(255,255,255,.32);}
+  #panel{position:fixed;top:40px;right:16px;width:270px;max-height:calc(100vh - 56px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
+<div id="panel">
+  <h3>&#127912; Colores de "En Breve"</h3>
+  <div class="cf-row"><label>Franja superior</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Fondo</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Nombre de equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Record</label><input type="color" id="cRec"></div>
+  <div class="cf-row"><label>"VS"</label><input type="color" id="cVs"></div>
+  <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cSub"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="card" style="display:none">
+  <div class="mt-hdr"><span class="lbl">&#9203; En breve</span></div>
+  <div class="mt-body">
+    <div class="mt-side">
+      <div id="awLogoWrap"></div>
+      <div class="mt-name" id="awName">Visitante</div>
+      <div class="mt-rec"><span class="n" id="awRec">0-0</span></div>
+      <div class="mt-tag">Visitante</div>
+    </div>
+    <div class="mt-vs"><div class="txt">VS</div></div>
+    <div class="mt-side">
+      <div id="hmLogoWrap"></div>
+      <div class="mt-name" id="hmName">Local</div>
+      <div class="mt-rec"><span class="n" id="hmRec">0-0</span></div>
+      <div class="mt-tag">Local</div>
+    </div>
+  </div>
+  <div class="mt-foot" id="mtFoot">Torneo</div>
+</div>
+<script>
+// ── En Breve — pantalla previa al juego (matchup) para transmision en vivo ────────────────
+// Autonomo: no depende de sesion. ?game=<id>. Consulta la accion publica getMatchCard, que
+// calcula del lado del servidor el record (G-P) de cada equipo acotado al MISMO subtorneo del
+// juego y a la MISMA fase (regular/playoffs/serie final).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||15000;
+
+var COLOR_KEYS=['bg','hdr','team','rec','vs','sub'];
+var DEFAULTS={bg:'#0b1220',hdr:'#f5a623',team:'#f4f7fb',rec:'#f5a623',vs:'#f5a623',sub:'#a9b7c9',transp:false};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',team:'--ov-team',rec:'--ov-rec',vs:'--ov-vs',sub:'--ov-sub'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_match_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,15));
+  document.documentElement.style.setProperty('--ov-hdrtext',shade(SET.hdr,-80));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_match_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cRec').value=SET.rec;
+  document.getElementById('cVs').value=SET.vs;
+  document.getElementById('cSub').value=SET.sub;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cHdr:'hdr',cBg:'bg',cTeam:'team',cRec:'rec',cVs:'vs',cSub:'sub'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function logoHtml(team,wrapId){
+  var wrap=document.getElementById(wrapId);if(!wrap)return;
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="mt-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;mt-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="mt-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+var PHASE_LBL={regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'};
+function render(gm,away,home,targetPhase){
+  document.getElementById('msg').style.display='none';
+  document.getElementById('card').style.display='block';
+  logoHtml(away,'awLogoWrap');
+  logoHtml(home,'hmLogoWrap');
+  document.getElementById('awName').textContent=away.name||'Visitante';
+  document.getElementById('hmName').textContent=home.name||'Local';
+  document.getElementById('awRec').textContent=(away.record?away.record.w:0)+'-'+(away.record?away.record.l:0);
+  document.getElementById('hmRec').textContent=(home.record?home.record.w:0)+'-'+(home.record?home.record.l:0);
+  document.getElementById('mtFoot').textContent=(PHASE_LBL[targetPhase]||'Serie Regular')+(gm.date?' &middot; '+gm.date:'').replace('&middot;','·');
+  document.title='En Breve — '+(away.name||'')+' vs '+(home.name||'');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getMatchCard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
+    _errCount=0;
+    render(res.data.game,res.data.away,res.data.home,res.data.targetPhase);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>
