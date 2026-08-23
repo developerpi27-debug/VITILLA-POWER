@@ -3994,6 +3994,8 @@ function openTransmissionPanel(gameId){
     return{href:u.href,winName:wn};
   }
   var items=[
+    {label:'&#9203; En Breve (Matchup)',sub:'Pantalla previa al juego: logos, nombres y record de la fase actual',page:'match.html'},
+    {label:'&#9878; Comparaciones',sub:'Numeros de por vida de ambos equipos: general, por fase y enfrentamiento directo',page:'comparacion.html'},
     {label:'&#128250; Marcador G.',sub:'Pizarra de transmision (inning, bases, outs, bateador, pitcher)',page:'overlay.html'},
     {label:'&#127942; Marcador S.',sub:'Marcador simple (torneo, equipos, carreras)',page:'scoreboard.html'},
     {label:'&#127908; Bateador al Plato',sub:'Cintillo con foto, equipo y AVG/OPS/HR/RBI del bateador actual (sigue al equipo al bate)',page:'batter.html'},
@@ -5137,6 +5139,17 @@ async function rPlay(type){
       if(h1AdvSel2===null){_rPlayBusy=false;return;}
       gm._h1SecondAdv=(parseInt(h1AdvSel2)===2)?'third':'second';
     }
+    // FIX: en juegos de 3 bases, si hay corredores en 2da Y 3ra (1ra vacia) y solo anoto 1
+    // carrera (necesariamente el de 3ra, por prioridad), 3ra queda libre y es ambiguo si el
+    // corredor de 2da se quedo en 2da o avanzo hasta la 3ra recien desocupada -- preguntar.
+    if(type==='H1'&&nbForce>=3&&!bases.first&&bases.second&&bases.third&&rbi===1){
+      var h1AdvSel3=await numPromptAsync('SENCILLO - '+bName
+        +'\nCorredor en 2da base (el de 3ra ya anoto). ¿Avanzo a 3ra?'
+        +'\n1. No, se quedo en 2da\n2. Si, avanzo a 3ra'
+        +'\n\nIngresa (1 o 2):','1');
+      if(h1AdvSel3===null){_rPlayBusy=false;return;}
+      gm._h1SecondAdv=(parseInt(h1AdvSel3)===2)?'third':'second';
+    }
   } else if(type==='OUT'){
     var rb3=await numPromptAsync('OUT DE CAMPO - '+bName
       +'\nCorredores en base: '+enBase
@@ -5544,9 +5557,11 @@ async function rPlay(type){
           // salir de 1ra; por defecto avanza a 2da, salvo que el anotador haya indicado que
           // llego a 3ra (gm._h1FirstAdv, preguntado antes cuando su destino final era
           // ambiguo: 1ra era el unico corredor sin anotar, o 1ra+3ra estaban ocupadas y solo
-          // el de 3ra anoto -- ver el calculo de _h1Ambiguous mas arriba). Igual, si el UNICO
-          // corredor en base era el de 2da (1ra y 3ra vacias) y no anoto, tambien se pregunto
-          // si avanzo a 3ra (gm._h1SecondAdv).
+          // el de 3ra anoto -- ver el calculo de _h1Ambiguous mas arriba). Con 1ra vacia, el
+          // corredor de 2da (si hay) tambien puede tener un destino ambiguo -- se pregunto
+          // (gm._h1SecondAdv) cuando: (a) era el unico corredor en base (1ra y 3ra vacias) y
+          // no anoto, o (b) tambien habia corredor en 3ra y este SI anoto (dejando 3ra libre
+          // para que el de 2da la ocupe o no).
           var h1Adv=gm._h1FirstAdv;
           if(gm._h1FirstAdv!==undefined)delete gm._h1FirstAdv;
           var h1Adv2=gm._h1SecondAdv;
@@ -5561,9 +5576,10 @@ async function rPlay(type){
             } else {
               gm.bases={first:batter,second:scored(b.first)?null:b.first,third:scored(b.third)?null:(b.third||null)};
             }
-          } else if(b.second&&!b.third&&h1Adv2==='third'){
-            // Solo corredor en 2da (1ra y 3ra vacias): el anotador indico que avanzo hasta
-            // 3ra (no es forzado, es una decision propia del corredor/jugada).
+          } else if(b.second&&h1Adv2==='third'){
+            // El anotador indico que el corredor de 2da avanzo hasta 3ra — ya sea porque
+            // 3ra estaba vacia y corrio libremente, o porque 3ra se desocupo en esta misma
+            // jugada al anotar su corredor y el de 2da avanzo a la base recien liberada.
             gm.bases={first:batter,second:null,third:scored(b.second)?null:b.second};
           } else {
             // 1ra vacia: nadie es forzado por el bateador; 2da y 3ra se mantienen igual
@@ -11921,10 +11937,9 @@ function pgToVsTo(){
         +'<div class="chd"><div class="ctl">⚔️ '+label1+' vs '+label2+'</div>'
         +'<button class="btn bs bsm" onclick="exportToVsToPDF()">&#128196; PDF</button></div>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;margin-bottom:12px">'
-        +'<div style="font-size:14px;font-weight:800;color:var(--acc)">'+label1+'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+playerAvatarHtml(pl1.photoUrl,pl1.name,48,'circle',pl1.number)+'<div style="font-size:14px;font-weight:800;color:var(--acc);text-align:center">'+label1+'</div></div>'
         +'<div style="font-size:12px;color:var(--t3)">VS</div>'
-        +'<div style="font-size:14px;font-weight:800;color:var(--blu)">'+label2+'</div></div>'
-        +'<div class="tabs"><div class="tab'+(_TVT.tab==='bat'?' on':'')+'" onclick="_TVT.tab=\'bat\';showTab(this,\'tvt-bat\')">🏏 Bateo</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+playerAvatarHtml(pl2.photoUrl,pl2.name,48,'circle',pl2.number)+'<div style="font-size:14px;font-weight:800;color:var(--blu);text-align:center">'+label2+'</div></div></div>'
         +'<div class="tab'+(_TVT.tab==='pit'?' on':'')+'" onclick="_TVT.tab=\'pit\';showTab(this,\'tvt-pit\')">⚾ Pitcheo</div>'
         +'<div class="tab'+(_TVT.tab==='awards'?' on':'')+'" onclick="_TVT.tab=\'awards\';showTab(this,\'tvt-awards\')">🏆 Premios</div></div>'
         +'<div id="tvt-bat" style="'+(_TVT.tab==='bat'?'':'display:none')+'">'+batHTML+'</div>'
@@ -11990,9 +12005,9 @@ function pgToVsTo(){
         +'<div class="chd"><div class="ctl">⚔️ '+label1+' vs '+label2+'</div>'
         +'<button class="btn bs bsm" onclick="exportToVsToPDF()">&#128196; PDF</button></div>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;margin-bottom:12px">'
-        +'<div style="font-size:14px;font-weight:800;color:var(--acc)">'+label1+'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+teamLogoHtml(team1,48,10)+'<div style="font-size:14px;font-weight:800;color:var(--acc);text-align:center">'+label1+'</div></div>'
         +'<div style="font-size:12px;color:var(--t3)">VS</div>'
-        +'<div style="font-size:14px;font-weight:800;color:var(--blu)">'+label2+'</div></div>'
+        +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+teamLogoHtml(team2,48,10)+'<div style="font-size:14px;font-weight:800;color:var(--blu);text-align:center">'+label2+'</div></div></div>'
         +'<div class="tabs"><div class="tab'+(_TVT.teamTab!=='match'?' on':'')+'" onclick="_TVT.teamTab=\'general\';showTab(this,\'tvt-team-general\')">📊 General</div>'
         +'<div class="tab'+(_TVT.teamTab==='match'?' on':'')+'" onclick="_TVT.teamTab=\'match\';showTab(this,\'tvt-team-match\')">⚔️ Match (H2H)</div></div>'
         +'<div id="tvt-team-general" style="'+(_TVT.teamTab!=='match'?'':'display:none')+'">'+teamHTML+'</div>'
