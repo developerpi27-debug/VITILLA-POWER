@@ -113,9 +113,11 @@ var ORIG_LAYOUT={
   P:{top:'64%',left:'50%'},'1B':{top:'64%',left:'80%'},C:{top:'88%',left:'50%'}
 };
 // ── Layout modo Vitilla (2 bases): solo posiciones de diamante, sin OF fuera del cuadro.
-// El campo "3B" del lineup se muestra como "2da" (asi funciona la ultima base antes de home
-// en un juego de 2 bases) y el campo "2B" del lineup se muestra como "OF" generico (ya no
-// hay una 2da base "real" que cubrir). SS/LF/CF/RF no se muestran en este modo.
+// El slot visual donde esta la 2da base (posicion "2B" en el diamante) muestra al jugador
+// que fue puesto como CF en el lineup (etiquetado "CF"), y el slot visual donde esta la
+// 3ra base (posicion "3B" en el diamante) muestra al jugador que fue puesto como 2B en el
+// lineup (etiquetado "2B"). El slot original de CF (fuera del diamante, en el arco) y las
+// posiciones SS/LF/RF no se muestran en este modo.
 var LAYOUT_2B={
   P:{top:'70%',left:'50%'},C:{top:'92%',left:'50%'},
   '1B':{top:'50%',left:'78%'},'3B':{top:'50%',left:'22%'},'2B':{top:'16%',left:'50%'}
@@ -124,7 +126,7 @@ var LAYOUT_2B={
 var SLOTS_3B=POS_CODES.map(function(c){return{code:c,label:c,src:c};});
 var SLOTS_2B=[
   {code:'P',label:'P',src:'P'},{code:'C',label:'C',src:'C'},{code:'1B',label:'1B',src:'1B'},
-  {code:'3B',label:'2B',src:'3B'},{code:'2B',label:'OF',src:'2B'}
+  {code:'3B',label:'2B',src:'2B'},{code:'2B',label:'CF',src:'CF'}
 ];
 var HIDE_IN_2B=['SS','LF','CF','RF'];
 
@@ -231,8 +233,9 @@ function render(gm,teams,players,lineups){
   var byPos={};
   rows.forEach(function(r){if(r.position)byPos[r.position]=r.playerId;});
 
-  // Modo "Vitilla" (juegos de 2 bases): diamante reducido, sin posiciones de OF, con la 3ra
-  // base mostrandose como 2da y la 2da como OF (ver comentario de LAYOUT_2B arriba).
+  // Modo "Vitilla" (juegos de 2 bases): diamante reducido, sin posiciones de OF sueltas,
+  // con el jugador de CF mostrandose en el slot de 2da base y el de 2B en el slot de 3ra
+  // base (ver comentario de LAYOUT_2B arriba).
   var is2Base=parseInt(gm.numBases)===2;
   document.getElementById('card').classList.toggle('df-2base',is2Base);
 
