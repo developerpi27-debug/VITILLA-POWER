@@ -15,7 +15,7 @@
   body{font-family:Arial,sans-serif;color:var(--ov-name);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
   /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
 
-  #card{width:620px;border-radius:10px;overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,.5);background:var(--ov-bg);display:flex;align-items:stretch;}
+  #card{width:680px;border-radius:10px;overflow:hidden;box-shadow:0 10px 32px rgba(0,0,0,.5);background:var(--ov-bg);display:flex;align-items:stretch;}
   #card.transp{background:transparent;box-shadow:none;}
 
   .bt-stripe{width:6px;flex:0 0 auto;background:linear-gradient(180deg,var(--ov-stripe2),var(--ov-stripe));}
@@ -23,16 +23,19 @@
   .bt-photo img{width:100%;height:100%;object-fit:cover;display:block;}
   .bt-photo.ph{display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#0b1522;background:var(--ov-stripe);}
 
-  .bt-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:8px 14px;gap:4px;}
+  .bt-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:8px 14px;gap:4px;overflow:hidden;}
   .bt-teamrow{display:flex;align-items:center;gap:7px;}
   .bt-logo{width:20px;height:20px;border-radius:4px;object-fit:cover;background:#fff;flex:0 0 auto;}
   .bt-logo.ph{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0b1522;}
   .bt-team{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ov-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .bt-name{font-family:'Barlow Condensed',Arial,sans-serif;font-size:27px;font-weight:800;line-height:1.05;color:var(--ov-name);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bt-name{font-family:'Barlow Condensed',Arial,sans-serif;font-size:27px;font-weight:800;line-height:1.05;color:var(--ov-name);white-space:nowrap;overflow:hidden;}
+  .bt-gameline{display:flex;align-items:baseline;gap:7px;font-size:12.5px;overflow:hidden;}
+  .bt-gameline .ab{font-weight:800;color:var(--ov-statval);white-space:nowrap;flex:0 0 auto;}
+  .bt-gameline .plays{color:var(--ov-sub);font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .bt-sub{font-size:11px;color:var(--ov-sub);}
 
   .bt-stats{display:flex;flex:0 0 auto;}
-  .bt-stat{width:76px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-statbg);border-left:1px solid rgba(255,255,255,.08);}
+  .bt-stat{width:70px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-statbg);border-left:1px solid rgba(255,255,255,.08);}
   .bt-stat .val{font-family:'Barlow Condensed',Arial,sans-serif;font-size:20px;font-weight:800;color:var(--ov-statval);line-height:1;}
   .bt-stat .lbl{font-size:9.5px;font-weight:700;letter-spacing:.6px;color:var(--ov-statlbl);text-transform:uppercase;}
   .bt-phaselbl{font-size:9px;color:var(--ov-sub);opacity:.75;margin-top:1px;}
@@ -80,6 +83,7 @@
     <button id="btnReset">&#8635; Restablecer</button>
     <button id="btnClose">Cerrar</button>
   </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
   <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
 </div>
 
@@ -90,6 +94,7 @@
   <div class="bt-body">
     <div class="bt-teamrow"><div id="btLogoWrap"></div><div class="bt-team" id="btTeam">Equipo</div></div>
     <div class="bt-name" id="btName">Jugador</div>
+    <div class="bt-gameline" id="btGameLine"><span class="ab" id="btGameAB">0-0</span><span class="plays" id="btGamePlays"></span></div>
     <div class="bt-sub" id="btSub">&mdash;</div>
   </div>
   <div class="bt-stats">
@@ -209,6 +214,25 @@ function photoHtml(player){
     wrap.innerHTML='<div class="bt-photo ph">'+initial+'</div>';
   }
 }
+// Nombres largos (ej. "#1 ANTHONY DAMIRON") se cortaban con "..." porque el espacio
+// disponible es angosto (foto + 4 cajas de stats a los lados). En vez de truncar el
+// nombre, se reduce el tamano de letra automaticamente hasta que quepa completo en una
+// sola linea; como ultimo recurso (nombres MUY largos) se permite pasar a 2 lineas.
+function fitNameText(el){
+  var maxSize=27,minSize=15;
+  el.style.whiteSpace='nowrap';
+  el.style.fontSize=maxSize+'px';
+  var size=maxSize;
+  while(el.scrollWidth>el.clientWidth&&size>minSize){
+    size-=1;
+    el.style.fontSize=size+'px';
+  }
+  if(el.scrollWidth>el.clientWidth){
+    el.style.whiteSpace='normal';
+    el.style.fontSize=minSize+'px';
+    el.style.lineHeight='1.05';
+  }
+}
 // Orden de bateo ACTIVO (sustituciones/no-bate aplicadas) — MISMA logica que usa
 // Control de Juego (index.html) para determinar quien esta realmente al bate ahora mismo.
 function activeBattingOrder(lineups,teamId){
@@ -239,8 +263,8 @@ var _lastRenderArgs=null;
 function rerenderFromCache(){
   if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
 }
-function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,targetPhase){
-  _lastRenderArgs=[gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,targetPhase];
+function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,gameLineByPlayerId,targetPhase){
+  _lastRenderArgs=[gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,gameLineByPlayerId,targetPhase];
   var isTop=gm.currentHalf==='top';
   var side=FORCE_SIDE==='home'||FORCE_SIDE==='away'?FORCE_SIDE:(isTop?'away':'home');
   var teamId=side==='home'?gm.homeTeamId:gm.awayTeamId;
@@ -268,6 +292,17 @@ function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,t
   logoHtml(team,'btLogoWrap');
   document.getElementById('btTeam').textContent=team.name||'Equipo';
   document.getElementById('btName').textContent='#'+(player.number||'?')+' '+(player.name||'?');
+  fitNameText(document.getElementById('btName'));
+  // Como va HOY en el juego: turnos-hits (ej. "3-1") + secuencia de sus jugadas en orden
+  // (ej. H1, K, OUT), justo debajo del nombre.
+  var gl=(gameLineByPlayerId&&gameLineByPlayerId[player.id])||{ab:0,h:0,plays:[]};
+  document.getElementById('btGameAB').textContent=(parseInt(gl.ab)||0)+'-'+(parseInt(gl.h)||0);
+  var playsEl=document.getElementById('btGamePlays');
+  if(gl.plays&&gl.plays.length){
+    playsEl.textContent=gl.plays.join(', ');
+  } else {
+    playsEl.textContent='Sin turnos aun';
+  }
   var scope=SET.statScope==='career'?'career':'season';
   document.getElementById('btSub').innerHTML=(idx%len+1)+'&ordm; en orden &middot; '+(SCOPE_LBL[scope])+' &middot; '+(PHASE_LBL[targetPhase]||'Serie Regular');
   var srcMap=scope==='career'?careerStatsByPlayerId:statsByPlayerId;
@@ -287,7 +322,7 @@ async function poll(){
     if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
     _errCount=0;
     var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
-    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.careerStatsByPlayerId||{},res.data.targetPhase);
+    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.careerStatsByPlayerId||{},res.data.gameLineByPlayerId||{},res.data.targetPhase);
   }catch(e){
     _errCount++;
     if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}

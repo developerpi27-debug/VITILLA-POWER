@@ -7,7 +7,7 @@
 <style>
   :root{
     --ov-bg:#0d1b2e;--ov-hdr:#8a1f2b;--ov-hdr2:#a8283a;--ov-subbg:#f2f2f2;--ov-subtext:#1a1a1a;
-    --ov-t1bg:#2a2f38;--ov-t2bg:#8a1f2b;--ov-score:#ffffff;--ov-tname:#ffffff;--ov-midtext:#f4f7fb;
+    --ov-t1bg:#2a2f38;--ov-t2bg:#8a1f2b;--ov-score:#ffffff;--ov-tname:#ffffff;--ov-midtext:#f4f7fb;--ov-midbg:#0d1b2e;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{background:transparent;}
@@ -34,7 +34,7 @@
   .mk-col.t1 .mk-nmbar{background:var(--ov-t1bg);}
   .mk-col.t2 .mk-nmbar{background:var(--ov-t2bg);}
 
-  .mk-mid{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-bg);border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.08);}
+  .mk-mid{flex:0 0 74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-midbg);border-left:1px solid rgba(255,255,255,.08);border-right:1px solid rgba(255,255,255,.08);}
   .mk-mid .arr{font-size:10px;color:var(--ov-midtext);letter-spacing:.5px;}
   .mk-mid .num{font-size:26px;font-weight:900;color:var(--ov-midtext);line-height:1;}
   .mk-mid .of{font-size:9px;color:var(--ov-midtext);opacity:.75;}
@@ -68,13 +68,15 @@
   <div class="cf-row"><label>Fondo equipo 2 (derecha)</label><input type="color" id="cT2"></div>
   <div class="cf-row"><label>Numero de carreras</label><input type="color" id="cScore"></div>
   <div class="cf-row"><label>Nombre de equipos</label><input type="color" id="cTname"></div>
-  <div class="cf-row"><label>Inning central / Final</label><input type="color" id="cMidtext"></div>
+  <div class="cf-row"><label>Fondo del inning central</label><input type="color" id="cMidbg"></div>
+  <div class="cf-row"><label>Texto del inning central / Final</label><input type="color" id="cMidtext"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
     <button id="btnReset">&#8635; Restablecer</button>
     <button id="btnClose">Cerrar</button>
   </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
   <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
 </div>
 
@@ -112,9 +114,9 @@ var GAME_ID=qs.get('game')||qs.get('gid')||'';
 var POLL_MS=parseInt(qs.get('ms'))||5000;
 var _teamsCache=null;
 
-var COLOR_KEYS=['hdr','subbg','t1','t2','score','tname','midtext'];
-var DEFAULTS={hdr:'#8a1f2b',subbg:'#f2f2f2',t1:'#2a2f38',t2:'#8a1f2b',score:'#ffffff',tname:'#ffffff',midtext:'#f4f7fb',transp:false};
-var VARMAP={hdr:'--ov-hdr',subbg:'--ov-subbg',t1:'--ov-t1bg',t2:'--ov-t2bg',score:'--ov-score',tname:'--ov-tname',midtext:'--ov-midtext'};
+var COLOR_KEYS=['hdr','subbg','t1','t2','score','tname','midtext','midbg'];
+var DEFAULTS={hdr:'#8a1f2b',subbg:'#f2f2f2',t1:'#2a2f38',t2:'#8a1f2b',score:'#ffffff',tname:'#ffffff',midtext:'#f4f7fb',midbg:'#0d1b2e',transp:false};
+var VARMAP={hdr:'--ov-hdr',subbg:'--ov-subbg',t1:'--ov-t1bg',t2:'--ov-t2bg',score:'--ov-score',tname:'--ov-tname',midtext:'--ov-midtext',midbg:'--ov-midbg'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_scoreboard_colors')||'{}')); }catch(e){}
@@ -144,10 +146,11 @@ function syncPanelInputs(){
   document.getElementById('cScore').value=SET.score;
   document.getElementById('cTname').value=SET.tname;
   document.getElementById('cMidtext').value=SET.midtext;
+  document.getElementById('cMidbg').value=SET.midbg;
   document.getElementById('cTransp').checked=!!SET.transp;
 }
 function wirePanel(){
-  var map={cHdr:'hdr',cSubbg:'subbg',cT1:'t1',cT2:'t2',cScore:'score',cTname:'tname',cMidtext:'midtext'};
+  var map={cHdr:'hdr',cSubbg:'subbg',cT1:'t1',cT2:'t2',cScore:'score',cTname:'tname',cMidtext:'midtext',cMidbg:'midbg'};
   Object.keys(map).forEach(function(id){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });

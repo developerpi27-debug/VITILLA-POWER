@@ -59,7 +59,8 @@
   <div class="cf-row"><label>Fondo del campo</label><input type="color" id="cField"></div>
   <div class="cf-row"><label>Encabezado (equipo)</label><input type="color" id="cHdr"></div>
   <div class="cf-row"><label>Titulo del equipo</label><input type="color" id="cTitle"></div>
-  <div class="cf-row"><label>Franja "DEFENSIVA"</label><input type="color" id="cSub"></div>
+  <div class="cf-row"><label>Franja "DEFENSIVA" (fondo)</label><input type="color" id="cSub"></div>
+  <div class="cf-row"><label>Franja "DEFENSIVA" (letra)</label><input type="color" id="cSubtext"></div>
   <div class="cf-row"><label>Nombre de jugador</label><input type="color" id="cName"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
   <div class="cf-btns">
@@ -67,6 +68,7 @@
     <button id="btnReset">&#8635; Restablecer</button>
     <button id="btnClose">Cerrar</button>
   </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
   <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
 </div>
 
@@ -130,9 +132,9 @@ var SLOTS_2B=[
 ];
 var HIDE_IN_2B=['SS','LF','CF','RF'];
 
-var COLOR_KEYS=['field','hdr','title','sub','name'];
-var DEFAULTS={field:'#c9cfd3',hdr:'#1f8a4c',title:'#ffffff',sub:'#d7c94a',name:'#0f3b23',transp:false};
-var VARMAP={field:'--ov-field',hdr:'--ov-hdr',title:'--ov-title',sub:'--ov-sub',name:'--ov-name'};
+var COLOR_KEYS=['field','hdr','title','sub','subtext','name'];
+var DEFAULTS={field:'#c9cfd3',hdr:'#1f8a4c',title:'#ffffff',sub:'#d7c94a',subtext:'#2a2400',name:'#0f3b23',transp:false};
+var VARMAP={field:'--ov-field',hdr:'--ov-hdr',title:'--ov-title',sub:'--ov-sub',subtext:'--ov-subtext',name:'--ov-name'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_defense_colors')||'{}')); }catch(e){}
@@ -150,7 +152,6 @@ function shade(hex,percent){
 function applySettings(){
   COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
   document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,12));
-  document.documentElement.style.setProperty('--ov-subtext',shade(SET.sub,-85));
   document.documentElement.style.setProperty('--ov-fieldln',shade(SET.field,-25));
   document.getElementById('card').classList.toggle('transp',!!SET.transp);
 }
@@ -160,11 +161,12 @@ function syncPanelInputs(){
   document.getElementById('cHdr').value=SET.hdr;
   document.getElementById('cTitle').value=SET.title;
   document.getElementById('cSub').value=SET.sub;
+  document.getElementById('cSubtext').value=SET.subtext;
   document.getElementById('cName').value=SET.name;
   document.getElementById('cTransp').checked=!!SET.transp;
 }
 function wirePanel(){
-  var map={cField:'field',cHdr:'hdr',cTitle:'title',cSub:'sub',cName:'name'};
+  var map={cField:'field',cHdr:'hdr',cTitle:'title',cSub:'sub',cSubtext:'subtext',cName:'name'};
   Object.keys(map).forEach(function(id){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });
