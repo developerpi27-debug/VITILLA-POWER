@@ -29,9 +29,11 @@
   .bt-logo.ph{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0b1522;}
   .bt-team{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ov-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .bt-name{font-family:'Barlow Condensed',Arial,sans-serif;font-size:27px;font-weight:800;line-height:1.05;color:var(--ov-name);white-space:nowrap;overflow:hidden;}
-  .bt-gameline{display:flex;align-items:baseline;gap:7px;font-size:12.5px;overflow:hidden;}
-  .bt-gameline .ab{font-weight:800;color:var(--ov-statval);white-space:nowrap;flex:0 0 auto;}
-  .bt-gameline .plays{color:var(--ov-sub);font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bt-gameline{display:flex;align-items:baseline;gap:5px;font-size:12.5px;overflow:hidden;}
+  .bt-gameline .ab{font-weight:800;color:var(--ov-statval);white-space:nowrap;}
+  .bt-gameline .rr,.bt-gameline .rbi{font-weight:800;color:var(--ov-name);white-space:nowrap;}
+  .bt-gameline .sep{color:var(--ov-sub);}
+  .bt-gameplays{color:var(--ov-sub);font-weight:600;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .bt-sub{font-size:11px;color:var(--ov-sub);}
 
   .bt-stats{display:flex;flex:0 0 auto;}
@@ -94,7 +96,10 @@
   <div class="bt-body">
     <div class="bt-teamrow"><div id="btLogoWrap"></div><div class="bt-team" id="btTeam">Equipo</div></div>
     <div class="bt-name" id="btName">Jugador</div>
-    <div class="bt-gameline" id="btGameLine"><span class="ab" id="btGameAB">0-0</span><span class="plays" id="btGamePlays"></span></div>
+    <div class="bt-gameline" id="btGameLine">
+      <span class="ab" id="btGameAB">0-0</span><span class="sep">&middot;</span><span class="rr" id="btGameR">0R</span><span class="sep">&middot;</span><span class="rbi" id="btGameRBI">0RBI</span>
+    </div>
+    <div class="bt-gameplays" id="btGamePlays"></div>
     <div class="bt-sub" id="btSub">&mdash;</div>
   </div>
   <div class="bt-stats">
@@ -293,16 +298,14 @@ function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,g
   document.getElementById('btTeam').textContent=team.name||'Equipo';
   document.getElementById('btName').textContent='#'+(player.number||'?')+' '+(player.name||'?');
   fitNameText(document.getElementById('btName'));
-  // Como va HOY en el juego: turnos-hits (ej. "3-1") + secuencia de sus jugadas en orden
-  // (ej. H1, K, OUT), justo debajo del nombre.
-  var gl=(gameLineByPlayerId&&gameLineByPlayerId[player.id])||{ab:0,h:0,plays:[]};
+  // Como va HOY en el juego: turnos-hits (ej. "3-1"), carreras anotadas y remolcadas (ej.
+  // "3R · 2RBI"), y la secuencia de sus jugadas en orden (ej. H1, K, OUT).
+  var gl=(gameLineByPlayerId&&gameLineByPlayerId[player.id])||{ab:0,h:0,r:0,rbi:0,plays:[]};
   document.getElementById('btGameAB').textContent=(parseInt(gl.ab)||0)+'-'+(parseInt(gl.h)||0);
+  document.getElementById('btGameR').textContent=(parseInt(gl.r)||0)+'R';
+  document.getElementById('btGameRBI').textContent=(parseInt(gl.rbi)||0)+'RBI';
   var playsEl=document.getElementById('btGamePlays');
-  if(gl.plays&&gl.plays.length){
-    playsEl.textContent=gl.plays.join(', ');
-  } else {
-    playsEl.textContent='Sin turnos aun';
-  }
+  playsEl.textContent=(gl.plays&&gl.plays.length)?gl.plays.join(', '):'Sin turnos aun';
   var scope=SET.statScope==='career'?'career':'season';
   document.getElementById('btSub').innerHTML=(idx%len+1)+'&ordm; en orden &middot; '+(SCOPE_LBL[scope])+' &middot; '+(PHASE_LBL[targetPhase]||'Serie Regular');
   var srcMap=scope==='career'?careerStatsByPlayerId:statsByPlayerId;
