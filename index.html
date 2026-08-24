@@ -11046,7 +11046,12 @@ function renderBracket(tourId,phase,games){
     seriesMap[key].games.push(g);
   });
   var series=Object.values(seriesMap);
-  var winsNeeded=parseInt(tour.seriesWins)||3;
+  // FIX: "tour.seriesWins" nunca se guarda/mapea en ningun lado (siempre caia al default 3,
+  // ignorando lo configurado). La cantidad de juegos de la serie debe salir del campo real
+  // del subtorneo: "Juegos Playoffs" (gamesPlayoff) o "Juegos Serie Final" (gamesFinal) segun
+  // la fase que se esta mostrando.
+  var configuredGames=phase==='final'?(parseInt(tour.gamesFinal)||7):(parseInt(tour.gamesPlayoff)||5);
+  var winsNeeded=Math.ceil(configuredGames/2);
   function seriesResult(s){
     var wA=0,wB=0;
     s.games.forEach(function(g){
@@ -11069,7 +11074,7 @@ function renderBracket(tourId,phase,games){
   }
   var html='<div class="card" style="margin-bottom:14px;overflow-x:auto">'
     +'<div class="chd"><div class="ctl">'+(phase==='playoff'?'🏆 Bracket de Playoffs':'🏆 Bracket de Serie Final')+'</div>'
-    +'<div style="font-size:11px;color:var(--t3)">Mejor de '+(winsNeeded*2-1)+'</div></div>'
+    +'<div style="font-size:11px;color:var(--t3)">Mejor de '+configuredGames+'</div></div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 0">';
   series.forEach(function(s){
     var r=seriesResult(s);
@@ -11097,14 +11102,17 @@ function renderBracket(tourId,phase,games){
       html+='<div style="margin-top:6px;font-size:10px;color:var(--t3);background:var(--card);border-radius:6px;padding:4px 7px">'
         +(nextGame.status==='live'?'🔴 EN VIVO':'📅 '+( nextGame.date||''))+(nextGame.time&&nextGame.time.indexOf('1899')<0?' ⏰ '+nextGame.time:'')+' Jg '+(r.wA+r.wB+1)+'</div>';
     }
-    // Progress dots
+    // Bolitas de progreso: la cantidad de bolitas es la configurada en el subtorneo
+    // (configuredGames). Las victorias del equipo A (visitante de la serie) se cuentan
+    // desde la IZQUIERDA, y las del equipo B (local de la serie) desde la DERECHA — asi,
+    // si cada uno tiene 1 victoria en una serie al mejor de 3, la primera bolita (izq.) es
+    // del equipo A y la ultima (der.) es del equipo B, con la(s) del medio aun sin decidir.
     html+='<div style="display:flex;gap:3px;margin-top:8px;justify-content:center">';
-    for(var d=0;d<(winsNeeded*2-1);d++){
-      var played=d<(r.wA+r.wB);
-      var gm=s.games[d];
-      var gmAr=gm?(parseInt(gm.awayRuns)||0):0,gmHr=gm?(parseInt(gm.homeRuns)||0):0;
-      var gmWinnerId=gm?(gmAr>gmHr?gm.awayTeamId:(gmHr>gmAr?gm.homeTeamId:null)):null;
-      var col=!played?'var(--bdr2)':gmWinnerId===s.awayId?'var(--blu)':'var(--acc)';
+    for(var d=0;d<configuredGames;d++){
+      var col;
+      if(d<r.wA)col='var(--blu)';
+      else if(d>=configuredGames-r.wB)col='var(--acc)';
+      else col='var(--bdr2)';
       html+='<div style="width:10px;height:10px;border-radius:50%;background:'+col+'"></div>';
     }
     html+='</div></div>';
