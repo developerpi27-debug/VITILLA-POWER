@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comparación de Temporadas</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-hdr:#1f8a4c;--ov-hdr2:#2aa85e;
+    --ov-team:#f4f7fb;--ov-sub:#a9b7c9;--ov-prev:#a9b7c9;--ov-cur:#f5a623;
+    --ov-lbl:#a9b7c9;--ov-bdr:rgba(255,255,255,.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-name);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
+
+  #card{width:480px;border-radius:12px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.5);background:var(--ov-bg);}
+  #card.transp{background:transparent;box-shadow:none;}
+
+  .cs-hdr{background:linear-gradient(90deg,var(--ov-hdr),var(--ov-hdr2));padding:10px 14px;display:flex;align-items:center;gap:10px;}
+  .cs-photo{width:38px;height:38px;border-radius:8px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .cs-photo.ph{display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#0b1522;}
+  .cs-hdrtext{flex:1;min-width:0;}
+  .cs-name{font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cs-team{font-size:10.5px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .cs-seasons{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;gap:8px;border-bottom:1px solid var(--ov-bdr);}
+  .cs-season{flex:1;text-align:center;}
+  .cs-season .yr{font-family:'Barlow Condensed',Arial,sans-serif;font-size:20px;font-weight:900;}
+  .cs-season.prev .yr{color:var(--ov-prev);}
+  .cs-season.cur .yr{color:var(--ov-cur);}
+  .cs-season .tn{font-size:9.5px;color:var(--ov-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;margin:0 auto;}
+  .cs-arrow{font-size:16px;color:var(--ov-sub);flex:0 0 auto;}
+
+  .cs-rows{padding:6px 14px 12px;}
+  .cs-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--ov-bdr);}
+  .cs-row:last-child{border-bottom:none;}
+  .cs-v{font-size:13.5px;font-weight:700;min-width:56px;}
+  .cs-v.left{text-align:left;color:var(--ov-prev);}
+  .cs-v.right{text-align:right;color:var(--ov-cur);}
+  .cs-lbl{font-size:10.5px;color:var(--ov-lbl);text-align:center;flex:1;}
+  .cs-delta{font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:6px;}
+  .cs-delta.up{color:#4ade80;background:rgba(74,222,128,.12);}
+  .cs-delta.down{color:#f87171;background:rgba(248,113,113,.12);}
+
+  .cs-empty{padding:24px;text-align:center;font-size:12px;color:var(--ov-sub);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;position:fixed;top:16px;right:16px;z-index:51;}
+  #gear:hover{background:rgba(255,255,255,.32);}
+  #panel{position:fixed;top:40px;right:16px;width:270px;max-height:calc(100vh - 56px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
+<div id="panel">
+  <h3>&#127912; Colores de Comparación</h3>
+  <div class="cf-row"><label>Franja superior</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Fondo</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Temporada anterior</label><input type="color" id="cPrev"></div>
+  <div class="cf-row"><label>Temporada actual</label><input type="color" id="cCur"></div>
+  <div class="cf-row"><label>Etiquetas</label><input type="color" id="cLbl"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="card" style="display:none">
+  <div class="cs-hdr">
+    <div id="csPhotoWrap"></div>
+    <div class="cs-hdrtext"><div class="cs-name" id="csName">Jugador</div><div class="cs-team" id="csTeam">Equipo</div></div>
+  </div>
+  <div class="cs-seasons">
+    <div class="cs-season prev"><div class="yr" id="csPrevYear">—</div><div class="tn" id="csPrevTour">Temporada anterior</div></div>
+    <div class="cs-arrow">&#8594;</div>
+    <div class="cs-season cur"><div class="yr" id="csCurYear">—</div><div class="tn" id="csCurTour">Temporada actual</div></div>
+  </div>
+  <div class="cs-rows" id="csRows"></div>
+</div>
+<script>
+// ── Comparación de Temporadas — jugador actual al bate: temporada ANTERIOR vs ACTUAL ──────
+// Autonomo: no depende de sesion. ?game=<id>[&team=away|home]. Primero resuelve el bateador
+// actual con getBatterCard (misma logica que batter.html), y luego pide la comparacion de
+// temporadas de ESE jugador con getPlayerSeasonComparison (temporada anterior = mismo torneo
+// padre, el año mas reciente anterior al actual).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var FORCE_SIDE=qs.get('team')||'';
+var POLL_MS=parseInt(qs.get('ms'))||20000;
+var _teamsCache=null;
+
+var COLOR_KEYS=['bg','hdr','prev','cur','lbl'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#1f8a4c',prev:'#a9b7c9',cur:'#f5a623',lbl:'#a9b7c9',transp:false};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',prev:'--ov-prev',cur:'--ov-cur',lbl:'--ov-lbl'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_comparaciontemporada_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,15));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_comparaciontemporada_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cPrev').value=SET.prev;
+  document.getElementById('cCur').value=SET.cur;
+  document.getElementById('cLbl').value=SET.lbl;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cHdr:'hdr',cBg:'bg',cPrev:'prev',cCur:'cur',cLbl:'lbl'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function ensureTeams(){
+  if(_teamsCache)return _teamsCache;
+  var res=await apiCall('getAll',{});
+  if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
+  var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
+  _teamsCache=map;return map;
+}
+function photoHtml(player){
+  var wrap=document.getElementById('csPhotoWrap');if(!wrap)return;
+  var initial=esc((player&&player.name?player.name[0]:'?').toUpperCase());
+  if(player&&player.photoUrl){
+    wrap.innerHTML='<img class="cs-photo" src="'+esc(player.photoUrl)+'" alt="" onerror="this.outerHTML=\'<div class=&quot;cs-photo ph&quot;>'+initial+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="cs-photo ph">'+initial+'</div>';
+  }
+}
+function activeBattingOrder(lineups,teamId){
+  var lu=(lineups||[]).filter(function(l){return l.teamId===teamId;})[0];
+  if(!lu||!lu.players||!lu.players.length)return[];
+  var rpIds=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;});
+  var slots=[];
+  lu.players.forEach(function(lp){var s=lp.order||0;if(slots.indexOf(s)<0)slots.push(s);});
+  slots.sort(function(a,b){return a-b;});
+  var ordered=[];
+  slots.forEach(function(slot){
+    var inSlot=lu.players.filter(function(lp){return(lp.order||0)===slot;});
+    var cur=inSlot.filter(function(lp){return rpIds.indexOf(lp.playerId)<0;});
+    if(cur.length===0){
+      var allNoBat=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});
+      if(allNoBat)return;
+      ordered.push(inSlot[inSlot.length-1]);
+    } else {
+      ordered.push(cur[cur.length-1]);
+    }
+  });
+  if(!ordered.length)ordered=lu.players.slice();
+  return ordered;
+}
+function fmt3(v){v=v||0;if(v>=1)return v.toFixed(3);return v.toFixed(3).replace(/^0\./,'.');}
+function deltaHtml(prevVal,curVal,higherIsBetter){
+  if(prevVal==null||curVal==null)return'';
+  var d=curVal-prevVal;
+  if(Math.abs(d)<0.0005)return'';
+  var up=higherIsBetter?d>0:d<0;
+  return'<span class="cs-delta '+(up?'up':'down')+'">'+(d>0?'&#9650;':'&#9660;')+'</span>';
+}
+function statRow(lbl,prevVal,curVal,fmtFn,higherIsBetter){
+  var pv=prevVal==null?'—':fmtFn(prevVal);
+  var cv=curVal==null?'—':fmtFn(curVal);
+  return'<div class="cs-row"><div class="cs-v left">'+pv+'</div><div class="cs-lbl">'+lbl+'</div><div class="cs-v right">'+cv+(curVal!=null&&prevVal!=null?deltaHtml(prevVal,curVal,higherIsBetter):'')+'</div></div>';
+}
+function renderRows(data){
+  var cur=data.current&&data.current.stats;
+  var prev=data.previous&&data.previous.stats;
+  if(!prev){
+    return'<div class="cs-empty">&#128197; No hay una temporada anterior registrada para este jugador todavia.</div>';
+  }
+  return statRow('Juegos jugados',prev.gp,cur.gp,function(v){return v;},true)
+    +statRow('AVG',prev.avg,cur.avg,fmt3,true)
+    +statRow('OBP',prev.obp,cur.obp,fmt3,true)
+    +statRow('SLG',prev.slg,cur.slg,fmt3,true)
+    +statRow('OPS',prev.ops,cur.ops,fmt3,true)
+    +statRow('Hits',prev.h,cur.h,function(v){return v;},true)
+    +statRow('HR',prev.hr,cur.hr,function(v){return v;},true)
+    +statRow('RBI',prev.rbi,cur.rbi,function(v){return v;},true);
+}
+var _lastPlayerId=null;
+async function renderComparison(playerId,player,team){
+  var res=await apiCall('getPlayerSeasonComparison',{gameId:GAME_ID,playerId:playerId});
+  if(!res.ok){
+    document.getElementById('msg').style.display='block';
+    document.getElementById('msg').textContent=res.error||'No se pudo cargar la comparacion.';
+    document.getElementById('card').style.display='none';
+    return;
+  }
+  document.getElementById('msg').style.display='none';
+  document.getElementById('card').style.display='block';
+  photoHtml(player);
+  document.getElementById('csName').textContent='#'+(player.number||'?')+' '+(player.name||'?');
+  document.getElementById('csTeam').textContent=team.name||'Equipo';
+  document.getElementById('csCurYear').textContent=res.data.current.year||'—';
+  document.getElementById('csCurTour').textContent=res.data.current.tournamentName||'Temporada actual';
+  if(res.data.previous){
+    document.getElementById('csPrevYear').textContent=res.data.previous.year||'—';
+    document.getElementById('csPrevTour').textContent=res.data.previous.tournamentName||'Temporada anterior';
+  } else {
+    document.getElementById('csPrevYear').textContent='—';
+    document.getElementById('csPrevTour').textContent='Sin datos previos';
+  }
+  document.getElementById('csRows').innerHTML=renderRows(res.data);
+  document.title='Comparación de Temporadas — '+(player.name||'');
+}
+async function render(gm,teams,players,lineups){
+  var isTop=gm.currentHalf==='top';
+  var side=FORCE_SIDE==='home'||FORCE_SIDE==='away'?FORCE_SIDE:(isTop?'away':'home');
+  var teamId=side==='home'?gm.homeTeamId:gm.awayTeamId;
+  var team=teams[teamId]||{name:side==='home'?'Local':'Visitante'};
+  var idx=side==='away'?(parseInt(gm.awayBatterIdx)||0):(parseInt(gm.homeBatterIdx)||0);
+  var ordered=activeBattingOrder(lineups,teamId);
+  if(!ordered.length){
+    document.getElementById('msg').style.display='block';
+    document.getElementById('msg').textContent='Sin alineacion registrada para este equipo aun.';
+    document.getElementById('card').style.display='none';
+    return;
+  }
+  var len=ordered.length;
+  var slot=ordered[idx%len];
+  var player=slot?players[slot.playerId]:null;
+  if(!player){
+    document.getElementById('msg').style.display='block';
+    document.getElementById('msg').textContent='No se pudo determinar el bateador actual.';
+    document.getElementById('card').style.display='none';
+    return;
+  }
+  // Solo se vuelve a pedir la comparacion de temporadas cuando CAMBIA el bateador (evita
+  // pedirla de mas en cada poll, ya que esos numeros no cambian turno a turno).
+  if(player.id!==_lastPlayerId){
+    _lastPlayerId=player.id;
+    await renderComparison(player.id,player,team);
+  }
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var teams=await ensureTeams();
+    var res=await apiCall('getBatterCard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
+    _errCount=0;
+    var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
+    await render(res.data.game,teams,players,res.data.lineups||[]);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cuadrangular</title>
+<style>
+  :root{
+    --ov-bg:#0b1220;--ov-accent:#f5a623;--ov-accent2:#ffcf6b;
+    --ov-title:#ffffff;--ov-team:#f4f7fb;--ov-name:#ffffff;--ov-sub:#a9b7c9;--ov-numbg:#111d30;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-name);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro (y solo cuando corresponde). */
+
+  #card{width:620px;border-radius:12px;overflow:hidden;box-shadow:0 14px 38px rgba(0,0,0,.55);background:var(--ov-bg);display:none;}
+  #card.show{display:flex;align-items:stretch;}
+  #card.transp{background:transparent;box-shadow:none;}
+
+  .hr-stripe{width:7px;flex:0 0 auto;background:linear-gradient(180deg,var(--ov-accent2),var(--ov-accent));}
+  .hr-photo{width:112px;height:112px;flex:0 0 auto;background:#1a2536;overflow:hidden;align-self:center;margin:12px 0 12px 14px;border-radius:10px;border:3px solid var(--ov-accent);}
+  .hr-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .hr-photo.ph{display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:#0b1522;background:var(--ov-accent);}
+
+  .hr-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 16px;gap:4px;overflow:hidden;}
+  .hr-badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:900;letter-spacing:1.5px;color:var(--ov-accent);text-transform:uppercase;}
+  .hr-teamrow{display:flex;align-items:center;gap:7px;margin-top:2px;}
+  .hr-logo{width:20px;height:20px;border-radius:4px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .hr-logo.ph{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0b1522;}
+  .hr-team{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ov-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hr-name{font-family:'Barlow Condensed',Arial,sans-serif;font-size:26px;font-weight:800;line-height:1.05;color:var(--ov-name);white-space:nowrap;overflow:hidden;}
+  .hr-sub{font-size:11px;color:var(--ov-sub);}
+
+  .hr-numwrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--ov-numbg);padding:0 20px;}
+  .hr-numwrap .n{font-family:'Barlow Condensed',Arial,sans-serif;font-size:46px;font-weight:900;color:var(--ov-accent);line-height:1;}
+  .hr-numwrap .lbl{font-size:9.5px;font-weight:700;letter-spacing:.6px;color:var(--ov-sub);text-transform:uppercase;text-align:center;}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+  #waiting{color:#8a97ab;font-family:Arial,sans-serif;font-size:11.5px;background:rgba(10,14,26,.55);padding:6px 12px;border-radius:6px;display:none;}
+
+  #gear{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;position:fixed;top:16px;right:16px;z-index:51;}
+  #gear:hover{background:rgba(255,255,255,.32);}
+  #panel{position:fixed;top:40px;right:16px;width:280px;max-height:calc(100vh - 56px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  #panel h4{font-size:11px;color:#8a97ab;margin:14px 0 8px;letter-spacing:.4px;text-transform:uppercase;border-top:1px solid rgba(255,255,255,.1);padding-top:12px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-row select{background:#1a2536;color:#e6edf5;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 6px;font-size:12px;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
+<div id="panel">
+  <h3>&#127920; Colores de Cuadrangular</h3>
+  <div class="cf-row"><label>Fondo</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Acento / franja</label><input type="color" id="cAccent"></div>
+  <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Nombre del jugador</label><input type="color" id="cName"></div>
+  <div class="cf-row"><label>Texto secundario</label><input type="color" id="cSub"></div>
+  <div class="cf-row"><label>Fondo del numero</label><input type="color" id="cNumbg"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <h4>&#9918; Conteo de cuadrangulares</h4>
+  <div class="cf-row"><label>Alcance</label><select id="cStatScope">
+    <option value="season">Temporada actual</option>
+    <option value="career">De por vida</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Se respeta la fase del juego (regular/playoffs/serie final) — "De por vida" suma esa fase en TODAS las temporadas.</div>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="waiting">&#9918; Esperando un cuadrangular...</div>
+<div id="card">
+  <div class="hr-stripe"></div>
+  <div id="hrPhotoWrap"></div>
+  <div class="hr-body">
+    <div class="hr-badge">&#128165; &iexcl;Cuadrangular!</div>
+    <div class="hr-teamrow"><div id="hrLogoWrap"></div><div class="hr-team" id="hrTeam">Equipo</div></div>
+    <div class="hr-name" id="hrName">Jugador</div>
+    <div class="hr-sub" id="hrSub">&mdash;</div>
+  </div>
+  <div class="hr-numwrap"><div class="n" id="hrNum">0</div><div class="lbl" id="hrNumLbl">Cuadrangulares<br>de la temporada</div></div>
+</div>
+<script>
+// ── Cuadrangular — grafico de Home Run para transmision en vivo ───────────────────────────
+// Autonomo: no depende de sesion. ?game=<id>[&team=away|home]. Reutiliza la MISMA accion
+// publica que batter.html (getBatterCard): determina el bateador ANTERIOR (el que acaba de
+// completar su turno) y, SOLO SI su ultima jugada de este juego fue un HR, muestra la tarjeta
+// con la cantidad ACTUALIZADA de cuadrangulares (temporada actual o de por vida, a eleccion,
+// respetando siempre la fase del juego). Si el ultimo turno no fue HR, la tarjeta queda oculta
+// (pensada para dejarla como capa fija en OBS/Prism: aparece sola justo despues del jonron).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var FORCE_SIDE=qs.get('team')||'';
+var POLL_MS=parseInt(qs.get('ms'))||5000;
+var _teamsCache=null;
+
+var COLOR_KEYS=['bg','accent','team','name','sub','numbg'];
+var DEFAULTS={bg:'#0b1220',accent:'#f5a623',team:'#f4f7fb',name:'#ffffff',sub:'#a9b7c9',numbg:'#111d30',transp:false,statScope:'season'};
+var VARMAP={bg:'--ov-bg',accent:'--ov-accent',team:'--ov-team',name:'--ov-name',sub:'--ov-sub',numbg:'--ov-numbg'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_cuadrangular_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('statScope')==='season'||qs.get('statScope')==='career')s.statScope=qs.get('statScope');
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-accent2',shade(SET.accent,20));
+  var card=document.getElementById('card');
+  card.classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_cuadrangular_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cAccent').value=SET.accent;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cName').value=SET.name;
+  document.getElementById('cSub').value=SET.sub;
+  document.getElementById('cNumbg').value=SET.numbg;
+  document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cStatScope').value=SET.statScope;
+}
+function wirePanel(){
+  var map={cBg:'bg',cAccent:'accent',cTeam:'team',cName:'name',cSub:'sub',cNumbg:'numbg'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('cStatScope').addEventListener('change',function(){SET.statScope=this.value;saveSettings();rerenderFromCache();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('statScope',SET.statScope);
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function ensureTeams(){
+  if(_teamsCache)return _teamsCache;
+  var res=await apiCall('getAll',{});
+  if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
+  var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
+  _teamsCache=map;return map;
+}
+function logoHtml(team,wrapId){
+  var wrap=document.getElementById(wrapId);if(!wrap)return;
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="hr-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;hr-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="hr-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+function photoHtml(player){
+  var wrap=document.getElementById('hrPhotoWrap');if(!wrap)return;
+  var initial=esc((player&&player.name?player.name[0]:'?').toUpperCase());
+  if(player&&player.photoUrl){
+    wrap.innerHTML='<div class="hr-photo"><img src="'+esc(player.photoUrl)+'" alt="" onerror="this.parentNode.className=\'hr-photo ph\';this.parentNode.textContent=\''+initial+'\'"></div>';
+  } else {
+    wrap.innerHTML='<div class="hr-photo ph">'+initial+'</div>';
+  }
+}
+function fitNameText(el){
+  var maxSize=26,minSize=15;
+  el.style.whiteSpace='nowrap';
+  el.style.fontSize=maxSize+'px';
+  var size=maxSize;
+  while(el.scrollWidth>el.clientWidth&&size>minSize){
+    size-=1;
+    el.style.fontSize=size+'px';
+  }
+  if(el.scrollWidth>el.clientWidth){
+    el.style.whiteSpace='normal';
+    el.style.fontSize=minSize+'px';
+    el.style.lineHeight='1.05';
+  }
+}
+// Orden de bateo ACTIVO (sustituciones/no-bate aplicadas) — misma logica que Control de
+// Juego y batter.html para saber quien esta/estuvo realmente al bate.
+function activeBattingOrder(lineups,teamId){
+  var lu=(lineups||[]).filter(function(l){return l.teamId===teamId;})[0];
+  if(!lu||!lu.players||!lu.players.length)return[];
+  var rpIds=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;});
+  var slots=[];
+  lu.players.forEach(function(lp){var s=lp.order||0;if(slots.indexOf(s)<0)slots.push(s);});
+  slots.sort(function(a,b){return a-b;});
+  var ordered=[];
+  slots.forEach(function(slot){
+    var inSlot=lu.players.filter(function(lp){return(lp.order||0)===slot;});
+    var cur=inSlot.filter(function(lp){return rpIds.indexOf(lp.playerId)<0;});
+    if(cur.length===0){
+      var allNoBat=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});
+      if(allNoBat)return;
+      ordered.push(inSlot[inSlot.length-1]);
+    } else {
+      ordered.push(cur[cur.length-1]);
+    }
+  });
+  if(!ordered.length)ordered=lu.players.slice();
+  return ordered;
+}
+var PHASE_LBL={regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'};
+var SCOPE_LBL={season:'Cuadrangulares de la temporada',career:'Cuadrangulares de por vida'};
+var _lastRenderArgs=null;
+function rerenderFromCache(){
+  if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
+}
+function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,gameLineByPlayerId,targetPhase){
+  _lastRenderArgs=[gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId,gameLineByPlayerId,targetPhase];
+  document.getElementById('msg').style.display='none';
+  var isTop=gm.currentHalf==='top';
+  var side=FORCE_SIDE==='home'||FORCE_SIDE==='away'?FORCE_SIDE:(isTop?'away':'home');
+  var teamId=side==='home'?gm.homeTeamId:gm.awayTeamId;
+  var team=teams[teamId]||{name:side==='home'?'Local':'Visitante'};
+  var idx=side==='away'?(parseInt(gm.awayBatterIdx)||0):(parseInt(gm.homeBatterIdx)||0);
+  var ordered=activeBattingOrder(lineups,teamId);
+  if(!ordered.length){
+    document.getElementById('card').classList.remove('show');
+    document.getElementById('waiting').style.display='block';
+    return;
+  }
+  var len=ordered.length;
+  // El bateador ANTERIOR es el que acaba de completar su turno (idx ya avanzo al siguiente).
+  var prevIdx=(idx-1+len)%len;
+  var slot=ordered[prevIdx];
+  var player=slot?players[slot.playerId]:null;
+  var gl=player?((gameLineByPlayerId&&gameLineByPlayerId[player.id])||{plays:[]}):{plays:[]};
+  var lastPlay=(gl.plays&&gl.plays.length)?gl.plays[gl.plays.length-1]:null;
+  if(!player||lastPlay!=='HR'){
+    document.getElementById('card').classList.remove('show');
+    document.getElementById('waiting').style.display='block';
+    return;
+  }
+  document.getElementById('waiting').style.display='none';
+  document.getElementById('card').classList.add('show');
+  photoHtml(player);
+  logoHtml(team,'hrLogoWrap');
+  document.getElementById('hrTeam').textContent=team.name||'Equipo';
+  document.getElementById('hrName').textContent='#'+(player.number||'?')+' '+(player.name||'?');
+  fitNameText(document.getElementById('hrName'));
+  var scope=SET.statScope==='career'?'career':'season';
+  document.getElementById('hrSub').textContent=(SCOPE_LBL[scope]==='Cuadrangulares de la temporada'?'Temporada':'De por vida')+' · '+(PHASE_LBL[targetPhase]||'Serie Regular');
+  var srcMap=scope==='career'?careerStatsByPlayerId:statsByPlayerId;
+  var st=(srcMap&&srcMap[player.id])||{hr:0};
+  document.getElementById('hrNum').textContent=parseInt(st.hr)||0;
+  document.getElementById('hrNumLbl').innerHTML=(scope==='career'?'Cuadrangulares<br>de por vida':'Cuadrangulares<br>de la temporada');
+  document.title='¡Cuadrangular! — '+(player.name||'');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var teams=await ensureTeams();
+    var res=await apiCall('getBatterCard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').classList.remove('show');document.getElementById('waiting').style.display='none';return;}
+    _errCount=0;
+    var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
+    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.careerStatsByPlayerId||{},res.data.gameLineByPlayerId||{},res.data.targetPhase);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';document.getElementById('card').classList.remove('show');document.getElementById('waiting').style.display='none';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>
