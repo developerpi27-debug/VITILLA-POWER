@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pitcher</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-hdr:#0f1e33;--ov-hdr2:#13253d;--ov-sub:#050b14;
+    --ov-title:#f4f7fb;--ov-pname:#f5a623;--ov-lbl:#a9b7c9;--ov-val:#f4f7fb;--ov-text2:#a9b7c9;
+    --ov-bdr:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-val);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
+
+  #card{width:260px;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--ov-bg);}
+  #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
+
+  .p-hdr{display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg,var(--ov-hdr2),var(--ov-hdr));border-bottom:1px solid var(--ov-bdr);}
+  .p-logo{width:32px;height:32px;border-radius:7px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .p-logo.ph{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#0b1522;}
+  .p-tname{font-size:15px;font-weight:800;color:var(--ov-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .p-sub{background:var(--ov-sub);color:var(--ov-text2);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:6px 12px;}
+
+  .p-photo-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 12px 10px;}
+  .p-photo{width:88px;height:88px;border-radius:50%;overflow:hidden;background:#1a2b42;border:2px solid var(--ov-pname);flex-shrink:0;}
+  .p-photo img{width:100%;height:100%;object-fit:cover;}
+  .p-photo.ph{display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--ov-pname);}
+  .p-pname{margin-top:10px;font-size:16px;font-weight:800;color:var(--ov-pname);line-height:1.25;}
+  .p-pnum{margin-top:2px;font-size:11px;font-weight:700;color:var(--ov-text2);}
+
+  .p-rows{padding:2px 0 8px;}
+  .p-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 16px;border-top:1px solid var(--ov-bdr);}
+  .p-lbl{font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--ov-lbl);}
+  .p-val{font-size:15px;font-weight:800;color:var(--ov-val);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{position:absolute;top:8px;right:8px;width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--ov-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;}
+  #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
+  #cardWrap{position:relative;}
+  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<div id="panel">
+  <h3>&#127912; Colores del pitcher</h3>
+  <div class="cf-row"><label>Fondo de la tarjeta</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Encabezado (equipo)</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTitle"></div>
+  <div class="cf-row"><label>Nombre del pitcher</label><input type="color" id="cPname"></div>
+  <div class="cf-row"><label>Etiquetas (VG, IP, K...)</label><input type="color" id="cLbl"></div>
+  <div class="cf-row"><label>Valores de las stats</label><input type="color" id="cVal"></div>
+  <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-row"><label>Stats mostradas</label><select id="cStatScope">
+    <option value="season">Temporada actual</option>
+    <option value="career">De por vida</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Se respeta la fase del juego (regular/playoffs/serie final) — "De por vida" suma esa fase en TODAS las temporadas.</div>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="cardWrap" style="display:none">
+  <div id="card">
+    <div class="p-hdr">
+      <div id="pLogoWrap"></div>
+      <div class="p-tname" id="pTeamName">Equipo</div>
+    </div>
+    <div class="p-sub"><span id="pSubLabel">Pitcher Actual</span></div>
+    <div class="p-photo-wrap">
+      <div id="pPhotoWrap"></div>
+      <div class="p-pname" id="pPitcherName">—</div>
+      <div class="p-pnum" id="pPitcherNum"></div>
+    </div>
+    <div class="p-rows" id="pRows"></div>
+  </div>
+  <button id="gear" title="Personalizar colores">&#9881;</button>
+</div>
+<script>
+// ── Pitcher — overlay independiente para transmision en vivo ──────────────
+// Autonomo: no depende de sesion. ?game=<id>&team=away|home. Consulta
+// getPitcherCard (accion publica) y muestra el pitcher ACTUAL (segun el
+// lineup, sustituciones aplicadas) del equipo indicado, con su foto y su
+// linea de pitcheo (temporada actual o de por vida, a eleccion, siempre
+// acotada a la fase del juego).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var TEAM_SIDE=(qs.get('team')||'away')==='home'?'home':'away';
+var POLL_MS=parseInt(qs.get('ms'))||6000;
+
+var COLOR_KEYS=['bg','hdr','title','pname','lbl','val','text2'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',pname:'#f5a623',lbl:'#a9b7c9',val:'#f4f7fb',text2:'#a9b7c9',transp:false,statScope:'season'};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',pname:'--ov-pname',lbl:'--ov-lbl',val:'--ov-val',text2:'--ov-text2'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_pitcher_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('statScope')==='season'||qs.get('statScope')==='career')s.statScope=qs.get('statScope');
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,10));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_pitcher_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cTitle').value=SET.title;
+  document.getElementById('cPname').value=SET.pname;
+  document.getElementById('cLbl').value=SET.lbl;
+  document.getElementById('cVal').value=SET.val;
+  document.getElementById('cText2').value=SET.text2;
+  document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cStatScope').value=SET.statScope;
+}
+function wirePanel(){
+  var map={cBg:'bg',cHdr:'hdr',cTitle:'title',cPname:'pname',cLbl:'lbl',cVal:'val',cText2:'text2'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('cStatScope').addEventListener('change',function(){SET.statScope=this.value;saveSettings();rerenderFromCache();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('statScope',SET.statScope);
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function logoHtml(team){
+  var wrap=document.getElementById('pLogoWrap');
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="p-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;p-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="p-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+function photoHtml(pitcher){
+  var wrap=document.getElementById('pPhotoWrap');
+  var initial=esc((pitcher&&pitcher.name||'?').charAt(0).toUpperCase());
+  if(pitcher&&pitcher.photoUrl){
+    wrap.innerHTML='<div class="p-photo"><img src="'+esc(pitcher.photoUrl)+'" onerror="this.parentNode.outerHTML=\'<div class=&quot;p-photo ph&quot;>'+initial+'</div>\'"></div>';
+  } else {
+    wrap.innerHTML='<div class="p-photo ph">'+initial+'</div>';
+  }
+}
+function fmt2(v,noData){if(noData)return'-.--';v=v||0;return v.toFixed(2);}
+function fmtIP(v){v=v||0;return v.toFixed(1);}
+var _lastRenderArgs=null;
+function rerenderFromCache(){
+  if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
+}
+function render(data){
+  _lastRenderArgs=[data];
+  var side=data[TEAM_SIDE];
+  document.getElementById('msg').style.display='none';
+  document.getElementById('cardWrap').style.display='block';
+  logoHtml(side.team);
+  document.getElementById('pTeamName').textContent=(side.team&&side.team.name)||(TEAM_SIDE==='home'?'Local':'Visitante');
+  document.title='Pitcher — '+((side.team&&side.team.name)||'');
+  var scope=SET.statScope==='career'?'career':'season';
+  document.getElementById('pSubLabel').textContent='Pitcher Actual · '+(scope==='career'?'De por vida':'Temporada');
+  if(!side.pitcher){
+    photoHtml(null);
+    document.getElementById('pPitcherName').textContent='Sin pitcher definido';
+    document.getElementById('pPitcherNum').textContent='';
+    document.getElementById('pRows').innerHTML='';
+    return;
+  }
+  photoHtml(side.pitcher);
+  document.getElementById('pPitcherName').textContent=side.pitcher.name||'—';
+  document.getElementById('pPitcherNum').textContent=side.pitcher.number?('#'+side.pitcher.number):'';
+  var st=(scope==='career'?side.career:side.season)||{gp:0,gs:0,w:0,l:0,sv:0,ip:0,era:99,k:0,bb:0,whip:99};
+  var noData=!st.gp;
+  var rowsDef=[
+    ['Salidas',st.gs||0],
+    ['G — P',(st.w||0)+' — '+(st.l||0)],
+    ['Salvamentos',st.sv||0],
+    ['IP',fmtIP(st.ip)],
+    ['Efectividad',fmt2(st.era,noData)],
+    ['Ponches (K)',st.k||0],
+    ['Boletos (BB)',st.bb||0],
+    ['WHIP',fmt2(st.whip,noData)],
+  ];
+  document.getElementById('pRows').innerHTML=rowsDef.map(function(r){
+    return'<div class="p-row"><div class="p-lbl">'+esc(r[0])+'</div><div class="p-val">'+esc(r[1])+'</div></div>';
+  }).join('');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getPitcherCard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('cardWrap').style.display='none';return;}
+    _errCount=0;
+    render(res.data);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('cardWrap').style.display==='none'){document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>

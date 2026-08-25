@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Comparacion de Pitcheo</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-hdr:#0f1e33;--ov-hdr2:#13253d;--ov-sub:#050b14;
+    --ov-title:#f4f7fb;--ov-away:#f5a623;--ov-home:#5ac8fa;--ov-lbl:#a9b7c9;--ov-val:#f4f7fb;--ov-win:#4ade80;--ov-text2:#a9b7c9;
+    --ov-bdr:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--ov-val);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro. */
+
+  #card{width:380px;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--ov-bg);}
+  #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
+
+  .c-title{background:var(--ov-sub);color:var(--ov-text2);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:6px 12px;text-align:center;}
+
+  .c-hdr{display:flex;align-items:center;padding:12px 12px 8px;background:linear-gradient(180deg,var(--ov-hdr2),var(--ov-hdr));border-bottom:1px solid var(--ov-bdr);}
+  .c-side{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:0;}
+  .c-vs{flex:0 0 auto;padding:0 10px;font-size:11px;font-weight:800;color:var(--ov-text2);}
+  .c-logo{width:26px;height:26px;border-radius:6px;object-fit:cover;background:#fff;}
+  .c-logo.ph{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0b1522;}
+  .c-tname{font-size:12px;font-weight:800;color:var(--ov-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .c-photo{width:56px;height:56px;border-radius:50%;overflow:hidden;background:#1a2b42;border:2px solid;flex-shrink:0;}
+  .c-photo.away{border-color:var(--ov-away);}
+  .c-photo.home{border-color:var(--ov-home);}
+  .c-photo img{width:100%;height:100%;object-fit:cover;}
+  .c-photo.ph{display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;}
+  .c-photo.ph.away{color:var(--ov-away);}
+  .c-photo.ph.home{color:var(--ov-home);}
+  .c-pname{font-size:13px;font-weight:800;line-height:1.2;}
+  .c-pname.away{color:var(--ov-away);}
+  .c-pname.home{color:var(--ov-home);}
+
+  .c-rows{padding:4px 0 8px;}
+  .c-row{display:flex;align-items:center;padding:6px 12px;border-top:1px solid var(--ov-bdr);}
+  .c-cell{flex:1;font-size:14px;font-weight:700;color:var(--ov-val);}
+  .c-cell.away{text-align:right;padding-right:10px;}
+  .c-cell.home{text-align:left;padding-left:10px;}
+  .c-cell.win{color:var(--ov-win);font-weight:800;}
+  .c-lbl{flex:0 0 96px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--ov-lbl);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{position:absolute;top:8px;right:8px;width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--ov-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;}
+  #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
+  #cardWrap{position:relative;}
+  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<div id="panel">
+  <h3>&#127912; Colores de la comparacion</h3>
+  <div class="cf-row"><label>Fondo de la tarjeta</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Encabezado</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Nombre de equipo</label><input type="color" id="cTitle"></div>
+  <div class="cf-row"><label>Color lado Visitante</label><input type="color" id="cAway"></div>
+  <div class="cf-row"><label>Color lado Local</label><input type="color" id="cHome"></div>
+  <div class="cf-row"><label>Etiquetas centrales</label><input type="color" id="cLbl"></div>
+  <div class="cf-row"><label>Valores</label><input type="color" id="cVal"></div>
+  <div class="cf-row"><label>Valor que va ganando</label><input type="color" id="cWin"></div>
+  <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <label class="cf-chk"><input type="checkbox" id="cHighlight" checked> Resaltar quien va mejor en cada linea</label>
+  <div class="cf-row"><label>Stats mostradas</label><select id="cStatScope">
+    <option value="season">Temporada actual</option>
+    <option value="career">De por vida</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Se respeta la fase del juego (regular/playoffs/serie final) — "De por vida" suma esa fase en TODAS las temporadas.</div>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="cardWrap" style="display:none">
+  <div id="card">
+    <div class="c-title" id="cTitleLabel">Comparacion de Pitcheo</div>
+    <div class="c-hdr">
+      <div class="c-side">
+        <div id="cLogoAway"></div>
+        <div class="c-tname" id="cTeamAway">Visitante</div>
+        <div id="cPhotoAway"></div>
+        <div class="c-pname away" id="cPnameAway">—</div>
+      </div>
+      <div class="c-vs">VS</div>
+      <div class="c-side">
+        <div id="cLogoHome"></div>
+        <div class="c-tname" id="cTeamHome">Local</div>
+        <div id="cPhotoHome"></div>
+        <div class="c-pname home" id="cPnameHome">—</div>
+      </div>
+    </div>
+    <div class="c-rows" id="cRows"></div>
+  </div>
+  <button id="gear" title="Personalizar colores">&#9881;</button>
+</div>
+<script>
+// ── Comparacion de Pitcheo — overlay independiente para transmision en vivo ─
+// Autonomo: no depende de sesion. ?game=<id>. Consulta getPitcherCard (accion
+// publica — la misma que usa pitcher.html) y muestra lado a lado al pitcher
+// ACTUAL visitante y local, con su foto y su linea de pitcheo (temporada
+// actual o de por vida, a eleccion, siempre acotada a la fase del juego).
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||6000;
+
+var COLOR_KEYS=['bg','hdr','title','away','home','lbl','val','win','text2'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',away:'#f5a623',home:'#5ac8fa',lbl:'#a9b7c9',val:'#f4f7fb',win:'#4ade80',text2:'#a9b7c9',transp:false,statScope:'season',highlight:true};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',away:'--ov-away',home:'--ov-home',lbl:'--ov-lbl',val:'--ov-val',win:'--ov-win',text2:'--ov-text2'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_pitchercmp_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('highlight')!=null)s.highlight=qs.get('highlight')!=='0';
+  if(qs.get('statScope')==='season'||qs.get('statScope')==='career')s.statScope=qs.get('statScope');
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-hdr2',shade(SET.hdr,10));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_pitchercmp_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cTitle').value=SET.title;
+  document.getElementById('cAway').value=SET.away;
+  document.getElementById('cHome').value=SET.home;
+  document.getElementById('cLbl').value=SET.lbl;
+  document.getElementById('cVal').value=SET.val;
+  document.getElementById('cWin').value=SET.win;
+  document.getElementById('cText2').value=SET.text2;
+  document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cHighlight').checked=!!SET.highlight;
+  document.getElementById('cStatScope').value=SET.statScope;
+}
+function wirePanel(){
+  var map={cBg:'bg',cHdr:'hdr',cTitle:'title',cAway:'away',cHome:'home',cLbl:'lbl',cVal:'val',cWin:'win',cText2:'text2'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('cHighlight').addEventListener('change',function(){SET.highlight=this.checked;saveSettings();rerenderFromCache();});
+  document.getElementById('cStatScope').addEventListener('change',function(){SET.statScope=this.value;saveSettings();rerenderFromCache();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('highlight',SET.highlight?'1':'0');
+    u.searchParams.set('statScope',SET.statScope);
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function logoHtml(team,elId){
+  var wrap=document.getElementById(elId);
+  if(team&&team.logoUrl){
+    wrap.innerHTML='<img class="c-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;c-logo ph&quot; style=&quot;background:'+esc(team&&team.color||'#f5a623')+'&quot;>'+esc((team&&team.name||'?').charAt(0))+'</div>\'">';
+  } else {
+    wrap.innerHTML='<div class="c-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+esc((team&&team.name||'?').charAt(0))+'</div>';
+  }
+}
+function photoHtml(pitcher,elId,side){
+  var wrap=document.getElementById(elId);
+  var initial=esc((pitcher&&pitcher.name||'?').charAt(0).toUpperCase());
+  if(pitcher&&pitcher.photoUrl){
+    wrap.innerHTML='<div class="c-photo '+side+'"><img src="'+esc(pitcher.photoUrl)+'" onerror="this.parentNode.outerHTML=\'<div class=&quot;c-photo ph '+side+'&quot;>'+initial+'</div>\'"></div>';
+  } else {
+    wrap.innerHTML='<div class="c-photo ph '+side+'">'+initial+'</div>';
+  }
+}
+function fmt2(v,noData){if(noData)return'-.--';v=v||0;return v.toFixed(2);}
+function fmtIP(v){v=v||0;return v.toFixed(1);}
+var _lastRenderArgs=null;
+function rerenderFromCache(){
+  if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
+}
+// higher=true → el valor mas ALTO gana (K, IP, SV, G, Salidas); higher=false → el mas BAJO
+// gana (EFE, BB, WHIP, Derrotas). Empates o sin datos en ambos lados: nadie se resalta.
+function winSide(av,hv,higher){
+  if(av===hv)return null;
+  if(higher)return av>hv?'away':'home';
+  return av<hv?'away':'home';
+}
+function render(data){
+  _lastRenderArgs=[data];
+  document.getElementById('msg').style.display='none';
+  document.getElementById('cardWrap').style.display='block';
+  var away=data.away,home=data.home;
+  logoHtml(away.team,'cLogoAway');logoHtml(home.team,'cLogoHome');
+  document.getElementById('cTeamAway').textContent=(away.team&&away.team.name)||'Visitante';
+  document.getElementById('cTeamHome').textContent=(home.team&&home.team.name)||'Local';
+  document.title='Comparacion de Pitcheo — '+((away.team&&away.team.name)||'')+' vs '+((home.team&&home.team.name)||'');
+  var scope=SET.statScope==='career'?'career':'season';
+  document.getElementById('cTitleLabel').textContent='Comparacion de Pitcheo · '+(scope==='career'?'De por vida':'Temporada');
+  photoHtml(away.pitcher,'cPhotoAway','away');
+  photoHtml(home.pitcher,'cPhotoHome','home');
+  document.getElementById('cPnameAway').textContent=(away.pitcher&&away.pitcher.name)||'Sin definir';
+  document.getElementById('cPnameHome').textContent=(home.pitcher&&home.pitcher.name)||'Sin definir';
+  var stA=(scope==='career'?away.career:away.season)||{gp:0,gs:0,w:0,l:0,sv:0,ip:0,era:99,k:0,bb:0,whip:99};
+  var stH=(scope==='career'?home.career:home.season)||{gp:0,gs:0,w:0,l:0,sv:0,ip:0,era:99,k:0,bb:0,whip:99};
+  var noDataA=!stA.gp,noDataH=!stH.gp;
+  // [etiqueta, valor visitante, valor local, valor numerico visitante, valor numerico local, higher-is-better]
+  var rowsDef=[
+    ['Salidas',stA.gs||0,stH.gs||0,stA.gs||0,stH.gs||0,true],
+    ['G',stA.w||0,stH.w||0,stA.w||0,stH.w||0,true],
+    ['P',stA.l||0,stH.l||0,stA.l||0,stH.l||0,false],
+    ['SV',stA.sv||0,stH.sv||0,stA.sv||0,stH.sv||0,true],
+    ['IP',fmtIP(stA.ip),fmtIP(stH.ip),stA.ip||0,stH.ip||0,true],
+    ['EFE',fmt2(stA.era,noDataA),fmt2(stH.era,noDataH),noDataA?999:stA.era,noDataH?999:stH.era,false],
+    ['K',stA.k||0,stH.k||0,stA.k||0,stH.k||0,true],
+    ['BB',stA.bb||0,stH.bb||0,stA.bb||0,stH.bb||0,false],
+    ['WHIP',fmt2(stA.whip,noDataA),fmt2(stH.whip,noDataH),noDataA?999:stA.whip,noDataH?999:stH.whip,false],
+  ];
+  document.getElementById('cRows').innerHTML=rowsDef.map(function(r){
+    var win=(SET.highlight&&!(noDataA&&noDataH))?winSide(r[3],r[4],r[5]):null;
+    var awayCls='c-cell away'+(win==='away'?' win':'');
+    var homeCls='c-cell home'+(win==='home'?' win':'');
+    return'<div class="c-row"><div class="'+awayCls+'">'+esc(r[1])+(win==='away'?' &#127942;':'')+'</div><div class="c-lbl">'+esc(r[0])+'</div><div class="'+homeCls+'">'+(win==='home'?'&#127942; ':'')+esc(r[2])+'</div></div>';
+  }).join('');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getPitcherCard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('cardWrap').style.display='none';return;}
+    _errCount=0;
+    render(res.data);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('cardWrap').style.display==='none'){document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>
