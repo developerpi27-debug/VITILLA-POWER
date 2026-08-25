@@ -8,7 +8,7 @@
   :root{
     --ov-bg:#0d1b2e;--ov-hdr:#0f1e33;--ov-hdr2:#13253d;--ov-sub:#050b14;
     --ov-pos:#f5a623;--ov-name:#f4f7fb;--ov-title:#f4f7fb;--ov-text2:#a9b7c9;
-    --ov-bdr:rgba(255,255,255,.10);
+    --ov-bdr:rgba(255,255,255,.10);--ov-ord:#a9b7c9;--ov-avg:#f5a623;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html,body{background:transparent;}
@@ -26,10 +26,13 @@
   .lu-sub{background:var(--ov-sub);color:var(--ov-text2);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;}
 
   .lu-rows{padding:4px 0;}
-  .lu-row{display:flex;align-items:center;gap:12px;padding:6px 14px;border-bottom:1px solid var(--ov-bdr);}
+  .lu-row{display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid var(--ov-bdr);}
   .lu-row:last-child{border-bottom:none;}
+  .lu-ord{width:16px;flex:0 0 auto;font-size:12px;font-weight:800;color:var(--ov-ord);text-align:right;}
   .lu-pos{width:28px;flex:0 0 auto;font-size:12px;font-weight:800;color:var(--ov-pos);letter-spacing:.3px;}
-  .lu-nm{font-size:14px;font-weight:600;color:var(--ov-name);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lu-nm{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--ov-name);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lu-avg{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--ov-avg);white-space:nowrap;}
+  .lu-avg .lbl{font-size:8.5px;font-weight:700;color:var(--ov-text2);margin-right:2px;letter-spacing:.3px;}
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
 
@@ -57,9 +60,16 @@
   <div class="cf-row"><label>Encabezado (equipo)</label><input type="color" id="cHdr"></div>
   <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTitle"></div>
   <div class="cf-row"><label>Posicion (LF, CF, etc.)</label><input type="color" id="cPos"></div>
+  <div class="cf-row"><label>Numero de orden</label><input type="color" id="cOrd"></div>
   <div class="cf-row"><label>Nombre de jugador</label><input type="color" id="cName"></div>
+  <div class="cf-row"><label>AVG</label><input type="color" id="cAvg"></div>
   <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-row"><label>AVG mostrado</label><select id="cStatScope">
+    <option value="season">Temporada actual</option>
+    <option value="career">De por vida</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Se respeta la fase del juego (regular/playoffs/serie final) — "De por vida" suma esa fase en TODAS las temporadas.</div>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
     <button id="btnReset">&#8635; Restablecer</button>
@@ -82,8 +92,10 @@
 <script>
 // ── Lineup — overlay independiente para transmision en vivo ───────────────
 // Autonomo: no depende de sesion. ?game=<id>&team=away|home. Consulta
-// getGameSlice (accion publica) y muestra la alineacion ACTUAL (sustituciones
-// aplicadas) del equipo indicado, en orden al bate.
+// getBatterCard (accion publica — la misma que usa batter.html) y muestra la
+// alineacion ACTUAL (sustituciones aplicadas) del equipo indicado, en orden al
+// bate, numerada, con el AVG de cada jugador (temporada actual o de por vida,
+// a eleccion, siempre acotado a la fase del juego).
 var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
 var qs=new URLSearchParams(location.search);
 var GAME_ID=qs.get('game')||qs.get('gid')||'';
@@ -91,14 +103,15 @@ var TEAM_SIDE=(qs.get('team')||'away')==='home'?'home':'away';
 var POLL_MS=parseInt(qs.get('ms'))||6000;
 var _teamsCache=null;
 
-var COLOR_KEYS=['bg','hdr','title','pos','name','text2'];
-var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',pos:'#f5a623',name:'#f4f7fb',text2:'#a9b7c9',transp:false};
-var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',pos:'--ov-pos',name:'--ov-name',text2:'--ov-text2'};
+var COLOR_KEYS=['bg','hdr','title','pos','ord','name','avg','text2'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',pos:'#f5a623',ord:'#a9b7c9',name:'#f4f7fb',avg:'#f5a623',text2:'#a9b7c9',transp:false,statScope:'season'};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',pos:'--ov-pos',ord:'--ov-ord',name:'--ov-name',avg:'--ov-avg',text2:'--ov-text2'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_lineup_colors')||'{}')); }catch(e){}
   COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
   if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('statScope')==='season'||qs.get('statScope')==='career')s.statScope=qs.get('statScope');
   return s;
 }
 var SET=loadSettings();
@@ -119,21 +132,27 @@ function syncPanelInputs(){
   document.getElementById('cHdr').value=SET.hdr;
   document.getElementById('cTitle').value=SET.title;
   document.getElementById('cPos').value=SET.pos;
+  document.getElementById('cOrd').value=SET.ord;
   document.getElementById('cName').value=SET.name;
+  document.getElementById('cAvg').value=SET.avg;
   document.getElementById('cText2').value=SET.text2;
   document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cStatScope').value=SET.statScope;
 }
 function wirePanel(){
-  var map={cBg:'bg',cHdr:'hdr',cTitle:'title',cPos:'pos',cName:'name',cText2:'text2'};
+  var map={cBg:'bg',cHdr:'hdr',cTitle:'title',cPos:'pos',cOrd:'ord',cName:'name',cAvg:'avg',cText2:'text2'};
   Object.keys(map).forEach(function(id){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });
   document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
-  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('cStatScope').addEventListener('change',function(){SET.statScope=this.value;saveSettings();rerenderFromCache();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();});
   document.getElementById('btnCopy').addEventListener('click',function(){
     var u=new URL(location.href);
     COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
-    u.searchParams.set('transp',SET.transp?'1':'0');u.searchParams.set('edit','0');
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('statScope',SET.statScope);
+    u.searchParams.set('edit','0');
     navigator.clipboard.writeText(u.href).then(function(){
       var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
     });
@@ -184,7 +203,13 @@ function activeLineupRows(lineups,teamId){
   });
   return rows;
 }
-function render(gm,teams,players,lineups){
+function fmt3(v){v=v||0;if(v>=1)return v.toFixed(3);return v.toFixed(3).replace(/^0\./,'.');}
+var _lastRenderArgs=null;
+function rerenderFromCache(){
+  if(_lastRenderArgs)render.apply(null,_lastRenderArgs);
+}
+function render(gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId){
+  _lastRenderArgs=[gm,teams,players,lineups,statsByPlayerId,careerStatsByPlayerId];
   var teamId=TEAM_SIDE==='home'?gm.homeTeamId:gm.awayTeamId;
   var team=teams[teamId]||{name:TEAM_SIDE==='home'?'Local':'Visitante'};
   document.getElementById('msg').style.display='none';
@@ -192,9 +217,13 @@ function render(gm,teams,players,lineups){
   logoHtml(team,'luLogoWrap');
   document.getElementById('luTeamName').textContent=team.name||'Equipo';
   var rows=activeLineupRows(lineups,teamId);
-  document.getElementById('luRows').innerHTML=rows.map(function(r){
+  var scope=SET.statScope==='career'?'career':'season';
+  var srcMap=scope==='career'?careerStatsByPlayerId:statsByPlayerId;
+  document.getElementById('luRows').innerHTML=rows.map(function(r,i){
     var p=players[r.playerId];
-    return'<div class="lu-row"><div class="lu-pos">'+esc(r.position||'')+'</div><div class="lu-nm">'+esc(p?p.name:'—')+'</div></div>';
+    var st=(p&&srcMap&&srcMap[p.id])||null;
+    var avgHtml=st?'<div class="lu-avg"><span class="lbl">AVG</span>'+fmt3(st.avg)+'</div>':'';
+    return'<div class="lu-row"><div class="lu-ord">'+(i+1)+'.</div><div class="lu-pos">'+esc(r.position||'')+'</div><div class="lu-nm">'+esc(p?p.name:'—')+'</div>'+avgHtml+'</div>';
   }).join('')||'<div class="lu-row"><div class="lu-nm" style="color:var(--ov-text2)">Sin alineacion registrada aun</div></div>';
   document.title='Lineup — '+team.name;
 }
@@ -203,11 +232,11 @@ async function poll(){
   try{
     if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
     var teams=await ensureTeams();
-    var res=await apiCall('getGameSlice',{gameId:GAME_ID});
+    var res=await apiCall('getBatterCard',{gameId:GAME_ID});
     if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
     _errCount=0;
     var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
-    render(res.data.game,teams,players,res.data.lineups||[]);
+    render(res.data.game,teams,players,res.data.lineups||[],res.data.statsByPlayerId||{},res.data.careerStatsByPlayerId||{});
   }catch(e){
     _errCount++;
     if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msg').textContent='Sin conexion, reintentando...';}

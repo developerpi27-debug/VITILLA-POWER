@@ -31,6 +31,7 @@
 
   .mt-vs{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 6px;}
   .mt-vs .txt{font-family:'Barlow Condensed',Arial,sans-serif;font-size:26px;font-weight:900;color:var(--ov-vs);}
+  .mt-vs .venue{font-size:9px;color:var(--ov-sub);text-align:center;max-width:110px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   .mt-foot{padding:8px 14px;text-align:center;font-size:11px;color:var(--ov-sub);border-top:1px solid rgba(255,255,255,.08);}
 
@@ -83,7 +84,7 @@
       <div class="mt-rec"><span class="n" id="awRec">0-0</span></div>
       <div class="mt-tag">Visitante</div>
     </div>
-    <div class="mt-vs"><div class="txt">VS</div></div>
+    <div class="mt-vs"><div class="txt">VS</div><div class="venue" id="mtVenue"></div></div>
     <div class="mt-side">
       <div id="hmLogoWrap"></div>
       <div class="mt-name" id="hmName">Local</div>
@@ -182,6 +183,7 @@ function render(gm,away,home,targetPhase){
   document.getElementById('hmName').textContent=home.name||'Local';
   document.getElementById('awRec').textContent=(away.record?away.record.w:0)+'-'+(away.record?away.record.l:0);
   document.getElementById('hmRec').textContent=(home.record?home.record.w:0)+'-'+(home.record?home.record.l:0);
+  document.getElementById('mtVenue').textContent=gm.venue?('\u{1F4CD} '+gm.venue):'';
   document.getElementById('mtFoot').textContent=(PHASE_LBL[targetPhase]||'Serie Regular')+(gm.date?' &middot; '+gm.date:'').replace('&middot;','·');
   document.title='En Breve — '+(away.name||'')+' vs '+(home.name||'');
 }
