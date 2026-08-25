@@ -1677,6 +1677,7 @@ var ALL_MOD=[
   {id:'teams',lbl:'Equipos',ico:'👥',sec:'General'},
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
+  {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
@@ -1695,7 +1696,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','tovsto','rankings','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -1976,6 +1977,11 @@ function getUserMods(u){
   if(prof&&prof.modules&&prof.modules.length)return ALL_MOD.filter(function(m){return prof.modules.indexOf(m.id)>=0;});
   return ALL_MOD.filter(function(m){return BASE_SCR.indexOf(m.id)>=0;});
 }
+// Chequeo de acceso a un modulo/permiso puntual (incluye pseudo-modulos como
+// "transmissionpanel" que no son paginas navegables, solo un permiso booleano).
+function hasModuleAccess(moduleId){
+  return getUserMods(S.user).some(function(m){return m.id===moduleId;});
+}
 function visibleTournaments(){
   var u=S.user;
   var tours;
@@ -2144,7 +2150,11 @@ function renderApp(){
   var isPublic=S.user&&S.user.role==='public';
   document.getElementById('lici').innerHTML=isPublic?'':licHtml;
   document.getElementById('coni').innerHTML=isPublic?'':'<span style="color:var(--grn)">&#9679; Supabase</span>';
-  var mods=getUserMods(u);var nm='';var last='';
+  // "transmissionpanel" es un permiso, no una pagina navegable — no debe salir en el menu
+  // lateral (solo controla si el boton "Panel Transmisión" se muestra dentro de Control de
+  // Juego). Se excluye aqui pero SI se mantiene en ALL_MOD para que aparezca en el checklist
+  // de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel';});var nm='';var last='';
   var subMods=['statslife','leaderslife'];
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -2232,9 +2242,15 @@ function teamOf(id){return S.teams.filter(function(t){return t.id===id;})[0]||nu
 function teamLogoHtml(t,size,radius){
   if(!t)return'';
   var sz=size||40; var rd=radius||8;
-  var style='width:'+sz+'px;height:'+sz+'px;border-radius:'+rd+'px;background:'+(t.color||'var(--acc)')+';';
+  // Estilos inline autocontenidos (tamaño, recorte y encuadre de la imagen) en vez de
+  // depender solo de las clases .team-badge/.team-logo-img: esas clases solo existen en
+  // la hoja de estilos de la app en vivo, y los reportes PDF (To vs To, Estadisticas, etc.)
+  // abren una ventana nueva con su propia hoja de estilos aparte que no las incluye — sin
+  // estos inline, el logo se mostraba a su tamaño natural (sin recortar) y se desbordaba
+  // sobre el resto del contenido del PDF. Las clases se conservan por compatibilidad.
+  var style='width:'+sz+'px;height:'+sz+'px;border-radius:'+rd+'px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-family:Barlow Condensed,sans-serif;font-weight:800;color:#000;';
   if(t.logoUrl){
-    return'<div class="team-badge" style="'+style+'"><img class="team-logo-img" src="'+t.logoUrl+'" alt="'+t.name+'" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+((t.abbreviation||t.name.slice(0,2)).replace(/'/g,''))+'\'"></div>';
+    return'<div class="team-badge" style="'+style+'"><img class="team-logo-img" src="'+t.logoUrl+'" alt="'+t.name+'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+((t.abbreviation||t.name.slice(0,2)).replace(/'/g,''))+'\'"></div>';
   }
   return'<div class="team-badge" style="'+style+';font-size:'+Math.round(sz*0.35)+'px;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div>';
 }
@@ -3703,7 +3719,7 @@ function computeGameFeatured(gid){
     var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
     var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];return s+(sids.indexOf(pid)>=0?1:0);},0);
     var h=h1+h2+h3+hr;
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var score=h1*P.h1+h2*P.h2+h3*P.h3+hr*P.hr+bb*P.bb+rbi*P.rbi+r*P.r-outBat*P.outBat-kb*P.kBat;
     var row={p:p,tm:teamOf(p.teamId),vb:vb,h:h,hr:hr,rbi:rbi,r:r,bb:bb,pts:score};
     if(!bestBat||score>bestBat.pts)bestBat=row;
@@ -4173,7 +4189,7 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
-    +'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>'
+    +(hasModuleAccess('transmissionpanel')?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>':'')
       +'</div>':'')
     +'</div>'
     +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
@@ -4195,6 +4211,7 @@ function pgGC(){
     +'<div class="pbtn" style="border-color:var(--blu);color:var(--blu)" onclick="openSendToBaseM()">&#8594;<br><span style="font-size:10px">A BASE</span></div>'
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)" onclick="wildPitch()">WP<br><span style="font-size:10px">WILD PITCH</span></div>'
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)" onclick="balk()">BK<br><span style="font-size:10px">BALK</span></div>'
+    +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)'+(!(gm.bases&&(gm.bases.first||gm.bases.second||gm.bases.third))?';opacity:.35;pointer-events:none':'')+'" title="'+(!(gm.bases&&(gm.bases.first||gm.bases.second||gm.bases.third))?'Requiere al menos un corredor en base':'')+'" onclick="passBall()">PB<br><span style="font-size:10px">PASSED BALL</span></div>'
     +'</div>'
     +'<div style="display:flex;gap:6px">'
     +'<button class="btn bs bsm" onclick="rBSO(\'ball\')">+ Bola</button>'
@@ -4249,7 +4266,7 @@ function bsHTML(gid,tid){
     slots[slot].forEach(function(entry){
       var lp=entry.lp; var p=playerOf(lp.playerId); var isSub=entry.isSub;
       var pe=evs.filter(function(e){return e.batterId===lp.playerId;});
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
       var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -4324,7 +4341,7 @@ function playLog(gid){
   var gm=S.games.filter(function(x){return x.id===gid;})[0];
   var isAdmin=S.user&&S.user.role==='admin';
   var canEdit=isAdmin&&gm&&gm.status==='final';
-  var undoLabel={'H1':'Sencillo','H2':'Doble','H3':'Triple','HR':'Jonron','K':'Ponche','OUT':'Out','DP':'Doble Play','BB':'Base por Bolas','HBP':'HBP','E':'Error','SB':'Robo','SAC':'Sacrificio','OJ':'Out en Jugada','WP':'Wild Pitch','BK':'Balk'};
+  var undoLabel={'H1':'Sencillo','H2':'Doble','H3':'Triple','HR':'Jonron','K':'Ponche','OUT':'Out','DP':'Doble Play','BB':'Base por Bolas','HBP':'HBP','E':'Error','SB':'Robo','SAC':'Sacrificio','OJ':'Out en Jugada','WP':'Wild Pitch','BK':'Balk','PB':'Passed Ball'};
   if(!evs.length)return'<div class="empty"><div>Sin jugadas registradas</div></div>';
   return (canEdit?'<div class="alert ai" style="font-size:12px;margin-bottom:8px">&#128274; Modo edicion: Puedes corregir RBI, carreras o eliminar jugadas incorrectas.</div>':'')+
   evs.slice(0,100).map(function(e){
@@ -4367,7 +4384,7 @@ function playLog(gid){
   }).join('');
 }
 
-var EVENT_TYPES=['H1','H2','H3','HR','K','OUT','FO','DP','BB','HBP','E','SB','SAC','WP','BK'];
+var EVENT_TYPES=['H1','H2','H3','HR','K','OUT','FO','DP','BB','HBP','E','SB','SAC','WP','BK','PB'];
 
 function openEditEventM(eid,gid){
   var e=S.events.filter(function(x){return x.id===eid;})[0];if(!e)return;
@@ -4952,6 +4969,212 @@ async function _doBalk(){
     await api('saveGame',{game:gm});
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Balk registrado — anotaron '+scorerIds.length+' carrera(s)':'Balk registrado — corredores avanzaron','success');
+  } finally{_rPlayBusy=false;_saving=false;}
+}
+// ── Passed Ball (PB): jugada de los CORREDORES, no del bateador en turno ───
+// No consume el turno al bate. Solo disponible (botón habilitado) si hay al
+// menos un corredor en base. Flujo guiado con preguntas secuenciales:
+//  1) Siempre pregunta si hubo anotación — se refiere al corredor mas
+//     adelantado (el mas cercano a home), que es quien realisticamente puede
+//     anotar en un passed ball. Si NO anotó pero no estaba ya en la ultima
+//     base, avanza una base por defecto (el passed ball SIEMPRE mueve algo).
+//  2) Con los corredores restantes (los que iban detras del mas adelantado):
+//     - Si no queda ninguno: listo.
+//     - Si queda exactamente uno: se pregunta directamente si avanzó y hasta
+//       que base llegó (puede saltar bases o incluso anotar).
+//     - Si quedan 2 o mas: primero pregunta cuantos avanzaron (ninguno/uno/
+//       todos); si es "uno", pregunta cual y luego hasta que base llegó
+//       (mismo paso que el caso de un solo corredor restante).
+var _pbCtx=null;
+function _pbOrder(nb0){return nb0>=3?['first','second','third']:['first','second'];}
+function _pbNextMap(nb0){return nb0>=3?{first:'second',second:'third',third:null}:{first:'second',second:null};}
+function _pbLabel(k,nb0){return k==='first'?'1ra Base':(k==='second'?('2da Base'+(nb0<3?' (Home)':'')):'3ra Base (Home)');}
+function passBall(){
+  if(_rPlayBusy){toast('Procesando...','info');return;}
+  var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
+  if(!gmRef||gmRef.status!=='live')return;
+  if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
+  var b0=gmRef.bases||{first:null,second:null,third:null};
+  var nb0=parseInt(gmRef.numBases)||3;
+  var occ=_pbOrder(nb0).filter(function(k){return b0[k];});
+  if(!occ.length){toast('No hay corredores en base para un passed ball','error');return;}
+  _pbCtx={gid:gmRef.id,nb0:nb0,priorBases:{first:b0.first||null,second:b0.second||null,third:b0.third||null},occ:occ,scored:[],advanced:{}};
+  openPBScoreM();
+}
+function openPBScoreM(){
+  var ctx=_pbCtx;
+  var leadBase=ctx.occ[ctx.occ.length-1];
+  var p=playerOf(ctx.priorBases[leadBase]);
+  showM('<div class="mhd"><div class="mtl">&#9889; Passed Ball &mdash; ¿Hubo anotación?</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">¿Anotó el corredor más adelantado con esta jugada?</div>'
+    +'<div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-bottom:14px">'
+    +'<div style="font-weight:600;font-size:13px">'+_pbLabel(leadBase,ctx.nb0)+' &mdash; '+(p?'#'+(p.number||'?')+' '+p.name:'Corredor')+'</div></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button class="btn bp" style="flex:1" onclick="_pbAnswerScore(true)">Sí, anotó</button>'
+    +'<button class="btn bs" style="flex:1" onclick="_pbAnswerScore(false)">No anotó</button>'
+    +'</div></div>');
+}
+function _pbAnswerScore(scored){
+  var ctx=_pbCtx;
+  var leadBase=ctx.occ.pop();
+  if(scored){
+    ctx.scored.push(leadBase);
+  } else {
+    // No anotó: si no estaba ya en la ultima base, el passed ball igual lo
+    // adelanta una base (por defecto, sin preguntar — asi ocurre en la
+    // realidad: el descontrol del receptor siempre mueve al corredor mas
+    // expuesto). Si ya estaba en la ultima base, simplemente se queda.
+    var to=_pbNextMap(ctx.nb0)[leadBase];
+    ctx.advanced[leadBase]=to||'stay';
+  }
+  var remaining=ctx.occ;
+  if(!remaining.length){cM();_doPassBall();return;}
+  if(remaining.length===1)openPBSingleM(remaining[0]);
+  else openPBCountM();
+}
+function openPBSingleM(base){
+  var ctx=_pbCtx;
+  var p=playerOf(ctx.priorBases[base]);
+  var order=_pbOrder(ctx.nb0);
+  var aheadBases=order.slice(order.indexOf(base)+1);
+  var opts='<option value="stay">Se queda en '+_pbLabel(base,ctx.nb0)+'</option>'
+    +aheadBases.map(function(k){return'<option value="to:'+k+'">Avanza a '+_pbLabel(k,ctx.nb0)+'</option>';}).join('')
+    +'<option value="score">Anota (Home)</option>';
+  showM('<div class="mhd"><div class="mtl">&#9889; Passed Ball &mdash; ¿El corredor avanzó?</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Indica qué pasó con el corredor restante y hasta qué base llegó.</div>'
+    +'<div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-bottom:8px">'
+    +'<div style="font-weight:600;font-size:13px;margin-bottom:6px">'+_pbLabel(base,ctx.nb0)+' &mdash; '+(p?'#'+(p.number||'?')+' '+p.name:'Corredor')+'</div>'
+    +'<select class="fs" id="pb-single-sel" style="width:100%;padding:6px 8px;font-size:13px">'+opts+'</select>'
+    +'</div></div>'
+    +'<div class="mft"><button class="btn bp" onclick="_pbConfirmSingle(\''+base+'\')">Confirmar</button></div>');
+}
+function _pbConfirmSingle(base){
+  var sel=document.getElementById('pb-single-sel');
+  var val=sel?sel.value:'stay';
+  var ctx=_pbCtx;
+  if(val==='score')ctx.scored.push(base);
+  else if(val==='stay')ctx.advanced[base]='stay';
+  else ctx.advanced[base]=val.slice(3); // 'to:second' -> 'second'
+  cM();
+  _doPassBall();
+}
+function openPBCountM(){
+  showM('<div class="mhd"><div class="mtl">&#9889; Passed Ball &mdash; ¿Cuáles avanzaron?</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">De los corredores restantes en base, ¿cuántos avanzaron con esta jugada?</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +'<button class="btn bs" onclick="_pbCountAnswer(\'none\')">Ninguno avanzó</button>'
+    +'<button class="btn bs" onclick="_pbCountAnswer(\'one\')">Uno avanzó</button>'
+    +'<button class="btn bp" onclick="_pbCountAnswer(\'all\')">Todos avanzaron</button>'
+    +'</div></div>');
+}
+function _pbCountAnswer(which){
+  var ctx=_pbCtx;
+  if(which==='none'){
+    ctx.occ.forEach(function(k){ctx.advanced[k]='stay';});
+    cM();_doPassBall();
+  } else if(which==='all'){
+    var nextMap=_pbNextMap(ctx.nb0);
+    ctx.occ.forEach(function(k){
+      var to=nextMap[k];
+      if(to)ctx.advanced[k]=to;else ctx.scored.push(k);
+    });
+    cM();_doPassBall();
+  } else {
+    openPBWhichM();
+  }
+}
+function openPBWhichM(){
+  var ctx=_pbCtx;
+  var rows=ctx.occ.map(function(k){
+    var p=playerOf(ctx.priorBases[k]);
+    return'<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-bottom:8px;cursor:pointer">'
+      +'<input type="radio" name="pb-which" value="'+k+'" style="width:18px;height:18px;accent-color:var(--acc)">'
+      +'<div><div style="font-weight:600;font-size:13px">'+_pbLabel(k,ctx.nb0)+'</div><div style="font-size:11px;color:var(--t3)">'+(p?'#'+(p.number||'?')+' '+p.name:'Corredor')+'</div></div></label>';
+  }).join('');
+  showM('<div class="mhd"><div class="mtl">&#9889; Passed Ball &mdash; ¿Cuál corredor avanzó?</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Selecciona cuál de los corredores restantes avanzó con la jugada.</div>'
+    +rows+'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="_pbConfirmWhich()">Confirmar</button></div>');
+}
+function _pbConfirmWhich(){
+  var chosen=fv2('pb-which');
+  if(!chosen){toast('Selecciona un corredor','error');return;}
+  var ctx=_pbCtx;
+  ctx.occ.filter(function(k){return k!==chosen;}).forEach(function(k){ctx.advanced[k]='stay';});
+  ctx.occ=[chosen];
+  cM();
+  openPBSingleM(chosen);
+}
+async function _doPassBall(){
+  if(_rPlayBusy){toast('Procesando...','info');return;}
+  var ctx=_pbCtx;
+  if(!ctx)return;
+  var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
+  if(!gmRef||gmRef.status!=='live'){_pbCtx=null;return;}
+  if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');_pbCtx=null;return;}
+  _rPlayBusy=true;_saving=true;
+  try{
+    var gm=JSON.parse(JSON.stringify(gmRef));
+    gm.inningScores=gm.inningScores||{};gm.bases=gm.bases||{first:null,second:null,third:null};
+    gm.errorBases=gm.errorBases||[];
+    var isTop=gm.currentHalf==='top';
+    var btId=isTop?gm.awayTeamId:gm.homeTeamId;
+    var evInning=parseInt(gm.currentInning)||1;
+    var evHalf=gm.currentHalf;
+    var priorBasesSnap=ctx.priorBases;
+    var b=gm.bases;
+    var scorerIds=[];
+    var dirtyIds=[];
+    var movedRunners=[];
+    ctx.scored.forEach(function(fromBase){
+      var runnerId=priorBasesSnap[fromBase];
+      if(!runnerId)return;
+      b[fromBase]=null;
+      scorerIds.push(runnerId);
+      if(gm.errorBases.indexOf(runnerId)>=0)dirtyIds.push(runnerId);
+      var k=String(evInning)+'_'+evHalf;
+      gm.inningScores[k]=(parseInt(gm.inningScores[k])||0)+1;
+      if(isTop)gm.awayRuns=(parseInt(gm.awayRuns)||0)+1;else gm.homeRuns=(parseInt(gm.homeRuns)||0)+1;
+      movedRunners.push({runnerId:runnerId,scored:true});
+    });
+    // Procesar avances desde la base mas avanzada hacia atras para no chocar
+    // corredores cuando varios avanzan en la misma jugada.
+    var order=ctx.nb0>=3?['third','second','first']:['second','first'];
+    order.forEach(function(fromBase){
+      var dest=ctx.advanced[fromBase];
+      if(!dest||dest==='stay')return;
+      var runnerId=priorBasesSnap[fromBase];
+      if(!runnerId)return;
+      b[fromBase]=null;
+      b[dest]=runnerId;
+      movedRunners.push({runnerId:runnerId,scored:false});
+    });
+    gm.bases=b;
+    if(gm.errorBases.length&&scorerIds.length){
+      gm.errorBases=gm.errorBases.filter(function(sid){return scorerIds.indexOf(sid)<0;});
+    }
+    _pbCtx=null;
+    if(!movedRunners.length){toast('Ningun corredor se movio','info');_rPlayBusy=false;_saving=false;return;}
+    // El passed ball, igual que el wild pitch, no es un error de fildeo (isError=false).
+    // La carrera es limpia salvo que el corredor especifico se hubiera embasado antes
+    // por error (dirtyIds) — mismo criterio ya usado en Wild Pitch.
+    var facedPitcherId=await autoUpdatePitcher(gm,'PB',scorerIds.length,evHalf,false,scorerIds.length-dirtyIds.length,scorerIds,dirtyIds);
+    S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+    var newEvs=[];
+    movedRunners.forEach(function(mr){
+      var pbId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.floor(Math.random()*90+10);
+      var pbEv={id:pbId,gameId:gm.id,batterId:mr.runnerId,battingTeamId:btId,
+        type:'PB',inning:evInning,half:evHalf,rbi:0,runs:mr.scored?1:0,
+        scorerIds:mr.scored?[mr.runnerId]:[],pitcherId:facedPitcherId||null,
+        priorBases:priorBasesSnap,timestamp:new Date().toISOString()};
+      S.events.push(Object.assign({},pbEv));
+      newEvs.push(pbEv);
+    });
+    pgGC();
+    _lastEvTs=Date.now();
+    await api('saveGame',{game:gm});
+    for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
+    toast(scorerIds.length?'Passed ball registrado — anotaron '+scorerIds.length+' carrera(s)':'Passed ball registrado — corredor(es) avanzaron','success');
   } finally{_rPlayBusy=false;_saving=false;}
 }
 // Prompt numérico: solo acepta dígitos. Repite si el usuario escribe letras.
@@ -6371,8 +6594,8 @@ async function undoLastPlay(){
       gm.errorBases=gm.errorBases.filter(function(id){return id!==last.batterId;});
     }
   }
-  // OJ, SB (base robada), WP (wild pitch), BK (balk) y error en tiro no consumen turno (el bateador sigue)
-  if(last.type!=='OJ'&&last.type!=='SB'&&last.type!=='WP'&&last.type!=='BK'&&!(last.type==='E'&&last.errorSubtype==='throw')){
+  // OJ, SB (base robada), WP (wild pitch), BK (balk), PB (passed ball) y error en tiro no consumen turno (el bateador sigue)
+  if(last.type!=='OJ'&&last.type!=='SB'&&last.type!=='WP'&&last.type!=='BK'&&last.type!=='PB'&&!(last.type==='E'&&last.errorSubtype==='throw')){
     if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
     else gm.homeBatterIdx=Math.max(0,(parseInt(gm.homeBatterIdx)||0)-1);
   }
@@ -8253,7 +8476,7 @@ function draftRegularStatLine(p,tourId){
     var hr=pe.filter(function(e){return e.type==='HR';}).length;
     var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
     var h=h1+h2+h3+hr;
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var r=allEvs.reduce(function(s,e){var sids=e.scorerIds||[];var cnt=0;ids.forEach(function(pid){sids.forEach(function(sid){if(sid===pid)cnt++;});});return s+cnt;},0);
     var avg=vb>0?(h/vb):0;
     var avgStr=avg.toFixed(3).replace(/^0\./,'.');
@@ -8578,7 +8801,7 @@ function openPlayerStatsM(pid,role){
 
     // ── STAT LINE helper ──────────────────────────────────────────────────────
     function calcLine(es){
-      var vb=es.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=es.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var h=es.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var bb=es.filter(function(e){return e.type==='BB';}).length;
       var hbp=es.filter(function(e){return e.type==='HBP';}).length;
@@ -8812,7 +9035,7 @@ function openPlayerStatsM(pid,role){
         document.getElementById('pit-vsb-body').innerHTML=bids.map(function(bid){
           var bp=window.playerOf(bid);
           var be=window._msEvs.filter(function(e){return e.batterId===bid&&e.type!=='UNDO'&&window._msPe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;});
-          var vb=be.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+          var vb=be.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
           var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
           var bb=be.filter(function(e){return e.type==='BB';}).length;
           var k=be.filter(function(e){return e.type==='K';}).length;
@@ -8838,7 +9061,7 @@ function openPlayerStatsM(pid,role){
         // respetando el torneo padre seleccionado (si hay uno)
         var _batInst=scopeIdsToParentTour(careerInstances(bid));
         var be=evs.filter(function(e){return (_useConsPit?_batInst:([bid])).indexOf(e.batterId)>=0&&e.type!=='UNDO'&&pe2.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId;}).length>0;});
-        var vb=be.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+        var vb=be.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
         var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
         var bb=be.filter(function(e){return e.type==='BB';}).length;
         var k=be.filter(function(e){return e.type==='K';}).length;
@@ -9011,7 +9234,7 @@ function calcStreaks(tourId, yearFilter, allowedTourIds){
   // La racha se rompe en el primer VB sin hit
   // ──────────────────────────────────────────────
   var batStreaks = {};  // playerId → {cur, lastEnded, bestEnded}
-  var NOTAB=['BB','HBP','SAC','OJ','SB','WP','BK'];
+  var NOTAB=['BB','HBP','SAC','OJ','SB','WP','BK','PB'];
   var HITS=['H1','H2','H3','HR'];
   
   // ── Sort events by game date first, then within game by inning+half+timestamp ──
@@ -9314,7 +9537,17 @@ function pgStats(tid,sBy,pSBy){
   var tidsFilteredST=_ST.divFilter?tidsAllST.filter(function(t){return(t.division||'')===_ST.divFilter;}):tidsAllST;
   var tids=tidsFilteredST.map(function(t){return t.id;});
   var statsQ=(_ST.search||'').toLowerCase();
-  var rawPlayersST=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&(!statsQ||p.name.toLowerCase().indexOf(statsQ)>=0);});
+  // El buscador filtra tanto por nombre de jugador como por nombre de equipo — sin esto,
+  // buscar un equipo aqui dejaba la lista de Bateo vacia porque este filtro previo (antes
+  // de generar las filas) solo miraba el nombre del jugador; el filtro de texto completo
+  // en filterStatsDisplay() ya soportaba equipo, pero nunca llegaba a ver esas filas.
+  var rawPlayersST=S.players.filter(function(p){
+    if(tids.indexOf(p.teamId)<0)return false;
+    if(!statsQ)return true;
+    if(p.name.toLowerCase().indexOf(statsQ)>=0)return true;
+    var tm=teamOf(p.teamId);
+    return!!(tm&&tm.name&&tm.name.toLowerCase().indexOf(statsQ)>=0);
+  });
   // ── Rachas activas para badge en la tabla (declarados antes que pitRows/tmRows/batRows) ──
   var _activeBatIds={},_activePitIds={},_activeTmIds={};
   try{
@@ -9345,7 +9578,7 @@ function pgStats(tid,sBy,pSBy){
   var ps=playerGroupsST.map(function(pg){
     var p=pg.rep;var ids=pg.ids;
     var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h2=pe.filter(function(e){return e.type==='H2';}).length;
     var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -9361,7 +9594,16 @@ function pgStats(tid,sBy,pSBy){
     var avg=vb>0?h/vb:0;var obp=(vb+bb)>0?(h+bb)/(vb+bb):0;var slg=vb>0?(h-h2-h3-hr+h2*2+h3*3+hr*4)/vb:0;
     var tm=teamOf(p.teamId);
     return{p:p,tm:tm,teamNames:pg.teamNames,vb:vb,h:h,h2:h2,h3:h3,hr:hr,rbi:rbi,r:r,bb:bb,k:k,sb:sb,avg:avg,obp:obp,slg:slg};
-  }).filter(function(s){return s.vb>0;}).sort(function(a,b){return _ST.sortDir*(b[_ST.sortBy]-a[_ST.sortBy]);});
+  }).filter(function(s){return s.vb>0;}).sort(function(a,b){
+    // Orden por nombre de jugador (columna "Jugador"): comparacion alfabetica en vez de
+    // resta numerica, manteniendo la misma convencion b-a que usan las columnas numericas
+    // para que el toggle asc/desc y la flecha del encabezado funcionen igual.
+    if(_ST.sortBy==='name'){
+      var an=(a.p&&a.p.name||'').toLowerCase(),bn=(b.p&&b.p.name||'').toLowerCase();
+      return _ST.sortDir*(bn>an?1:(bn<an?-1:0));
+    }
+    return _ST.sortDir*(b[_ST.sortBy]-a[_ST.sortBy]);
+  });
   var pitPids=[];pevs.forEach(function(e){if(pitPids.indexOf(e.pitcherId)<0)pitPids.push(e.pitcherId);});
   var pitGroupsST=[];
   var seenPitST={};
@@ -9408,6 +9650,11 @@ function pgStats(tid,sBy,pSBy){
     return{p:p,tm:tm,teamNames:pg.teamNames,ip:ip,h:h,r:r,er:er,bb:bb,k:k,hr:hr,w:w,l:l,sv:sv,era:eraNum,whip:whipNum,homeS:homeS,awayS:awayS};
   }).sort(function(a,b){
     var col=_ST.pitSortBy;
+    // Orden por nombre de pitcher: comparacion alfabetica en vez de resta numerica.
+    if(col==='name'){
+      var an=(a.p&&a.p.name||'').toLowerCase(),bn=(b.p&&b.p.name||'').toLowerCase();
+      return _ST.pitSortDir*(an>bn?1:(an<bn?-1:0));
+    }
     var av=a[col],bv=b[col];
     // For era/whip: treat 99 (no IP) as worst regardless of sort dir
     if(col==='era'||col==='whip'){
@@ -9494,7 +9741,7 @@ function pgStats(tid,sBy,pSBy){
     var rh=hg.reduce(function(s,g){return s+(parseInt(g.homeHits)||0);},0)+ag.reduce(function(s,g){return s+(parseInt(g.awayHits)||0);},0);
     var re=hg.reduce(function(s,g){return s+(parseInt(g.homeErrors)||0);},0)+ag.reduce(function(s,g){return s+(parseInt(g.awayErrors)||0);},0);
     var tEvs=evs.filter(function(e){return e.battingTeamId===tid;});
-    var tvb=tEvs.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var tvb=tEvs.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var th2=tEvs.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var thr=tEvs.filter(function(e){return e.type==='HR';}).length;
     var trbi=tEvs.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
@@ -9584,7 +9831,13 @@ function pgStats(tid,sBy,pSBy){
     var pos='';lu.forEach(function(l){var lp=l.players&&l.players.filter(function(x){return ids.indexOf(x.playerId)>=0;});if(lp&&lp.length){pos=lp[lp.length-1].position||'';}});
     if(!pos){var pp=playerOf(p.id);pos=pp&&pp.position||'OF';}
     return{p:p,tm:teamOf(p.teamId),teamNames:pg.teamNames,e:e,pos:pos};
-  }).sort(function(a,b){return _ST.defSortDir*(b[_ST.defSortBy]-a[_ST.defSortBy]);});
+  }).sort(function(a,b){
+    if(_ST.defSortBy==='name'){
+      var an=(a.p&&a.p.name||'').toLowerCase(),bn=(b.p&&b.p.name||'').toLowerCase();
+      return _ST.defSortDir*(bn>an?1:(bn<an?-1:0));
+    }
+    return _ST.defSortDir*(b[_ST.defSortBy]-a[_ST.defSortBy]);
+  });
   var defRows=defData.map(function(s){
     return'<tr><td><b>#'+(s.p.number||'?')+' '+s.p.name+'</b></td><td style="font-size:12px;white-space:nowrap">'+((s.teamNames&&s.teamNames.length>1)?s.teamNames.join(', '):(s.tm?s.tm.name:'—'))+'</td>'
       +'<td style="text-align:center;color:'+(s.e>0?'var(--red)':'inherit')+';font-weight:'+(s.e>0?700:400)+'">'+s.e+'</td>'
@@ -9604,7 +9857,7 @@ function pgStats(tid,sBy,pSBy){
     +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." value="'+(_ST.search||'')+'" oninput="_ST.search=this.value;filterStatsDisplay()" style="width:180px"></div></div>'
     +streakSectionHTML(_streakTourId, _streakYear, scopeTourIdsST)
     +'<div class="tabs">'    +'<div class="tab'+(_ST.activeTab==='st-b'?' on':'')+'" onclick="_ST.activeTab=&quot;st-b&quot;;showTab(this,&quot;st-b&quot;)">&#127952; Bateo</div>'    +'<div class="tab'+(_ST.activeTab==='st-d'?' on':'')+'" onclick="_ST.activeTab=&quot;st-d&quot;;showTab(this,&quot;st-d&quot;)">&#129354; Defensa</div>'    +'<div class="tab'+(_ST.activeTab==='st-p'?' on':'')+'" onclick="_ST.activeTab=&quot;st-p&quot;;showTab(this,&quot;st-p&quot;)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_ST.activeTab==='st-t'?' on':'')+'" onclick="_ST.activeTab=&quot;st-t&quot;;showTab(this,&quot;st-t&quot;)">&#127970; Equipos</div>'    +'</div>'
-    +'<div id="st-b" style="'+(_ST.activeTab==='st-b'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipo</th>'+th('vb','VB')+th('h','H')+th('h2','2B')+th('h3','3B')+th('hr','HR')+th('r','R')+th('rbi','RBI')+th('bb','BB')+th('k','K')+th('sb','SB')+th('avg','AVG')+th('obp','OBP')+th('slg','SLG')+'</tr></thead><tbody>'
+    +'<div id="st-b" style="'+(_ST.activeTab==='st-b'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'+th('name','Jugador')+'<th>Equipo</th>'+th('vb','VB')+th('h','H')+th('h2','2B')+th('h3','3B')+th('hr','HR')+th('r','R')+th('rbi','RBI')+th('bb','BB')+th('k','K')+th('sb','SB')+th('avg','AVG')+th('obp','OBP')+th('slg','SLG')+'</tr></thead><tbody>'
     +(ps.map(function(s){
       var _pid=s.p.id||'';
       var _fireB=(_activeBatIds[s.p.id]!==undefined)?'<span title="Racha activa: '+_activeBatIds[s.p.id]+' hits consecutivos" style="margin-left:4px;font-size:13px;vertical-align:middle;cursor:default">&#128293;</span>':'';
@@ -9619,7 +9872,7 @@ function pgStats(tid,sBy,pSBy){
         +'<td style="text-align:center">'+s.obp.toFixed(3)+'</td><td style="text-align:center">'+s.slg.toFixed(3)+'</td></tr>';
     }).join('')||'<tr><td colspan="15"><div class="empty">Sin estadisticas</div></td></tr>')
     +'</tbody></table></div></div></div>'
-    +'<div id="st-p" style="'+(_ST.activeTab==='st-p'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th>Pitcher</th><th>Equipo</th>'+pth('w','G')+pth('l','P')+pth('sv','S')+pth('ip','IP')+pth('h','H')+pth('r','R')+pth('er','ER')+pth('bb','BB')+pth('k','K')+pth('hr','HR')+pth('era','ERA')+pth('whip','WHIP')+'<th style="text-align:center;font-size:10px">&#9992; RUTA<br><span style="font-size:9px">G-P / ERA</span></th><th style="text-align:center;font-size:10px">&#127968; LOCAL<br><span style="font-size:9px">G-P / ERA</span></th></tr></thead><tbody>'
+    +'<div id="st-p" style="'+(_ST.activeTab==='st-p'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'+pth('name','Pitcher')+'<th>Equipo</th>'+pth('w','G')+pth('l','P')+pth('sv','S')+pth('ip','IP')+pth('h','H')+pth('r','R')+pth('er','ER')+pth('bb','BB')+pth('k','K')+pth('hr','HR')+pth('era','ERA')+pth('whip','WHIP')+'<th style="text-align:center;font-size:10px">&#9992; RUTA<br><span style="font-size:9px">G-P / ERA</span></th><th style="text-align:center;font-size:10px">&#127968; LOCAL<br><span style="font-size:9px">G-P / ERA</span></th></tr></thead><tbody>'
     +(pitRows||'<tr><td colspan="14"><div class="empty">Sin estadisticas de pitcheo</div></td></tr>')
     +'</tbody></table></div></div></div>'
     +'<div id="st-t" style="'+(_ST.activeTab==='st-t'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'
@@ -9629,7 +9882,7 @@ function pgStats(tid,sBy,pSBy){
     +'</tbody></table></div></div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:8px">RF=Carreras a favor &middot; RC=Carreras en contra &middot; DIF=Diferencial &middot; ERA=Efectividad del equipo &middot; PTS=Puntos consolidados de bateo+pitcheo de los jugadores del equipo (sistema de puntos del subtorneo, ya con las restas aplicadas)</div>'
     +'</div>'
-    +'<div id="st-d" style="'+(_ST.activeTab==='st-d'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Equipo</th><th onclick="pgStats(undefined,undefined,undefined,undefined,\'e\')" style="text-align:center;cursor:pointer;user-select:none;'+(_ST.defSortBy==='e'?'color:var(--acc)':'')+'">'+'E'+(_ST.defSortDir===-1?'&darr;':'&uarr;')+'</th><th style="text-align:center">POS</th></tr></thead><tbody>'
+    +'<div id="st-d" style="'+(_ST.activeTab==='st-d'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th onclick="pgStats(undefined,undefined,undefined,undefined,\'name\')" style="cursor:pointer;user-select:none;'+(_ST.defSortBy==='name'?'color:var(--acc)':'')+'">'+'Jugador'+(_ST.defSortDir===-1?'&darr;':'&uarr;')+'</th><th>Equipo</th><th onclick="pgStats(undefined,undefined,undefined,undefined,\'e\')" style="text-align:center;cursor:pointer;user-select:none;'+(_ST.defSortBy==='e'?'color:var(--acc)':'')+'">'+'E'+(_ST.defSortDir===-1?'&darr;':'&uarr;')+'</th><th style="text-align:center">POS</th></tr></thead><tbody>'
     +(defRows||'<tr><td colspan="4"><div class="empty">Sin datos de defensa</div></td></tr>')
     +'</tbody></table></div></div></div>');
 }
@@ -9753,7 +10006,7 @@ function pgLead(tid){
   });
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_LD.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var _ldTh=leadersThresholdsFor(scopeTourIds,_LD.tourId,S.phaseFilter);
-  function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;}
+  function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;}
   function getIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
   var minLeadVB=resolveMinVB(_ldTh,players,getVB),minLeadIP=resolveMinIP(_ldTh,players,getIP);
   // applyMin: SOLO las tarjetas de SLG/AVG (bateo) y ERA/WHIP (pitcheo) aplican el minimo de
@@ -9782,9 +10035,9 @@ function pgLead(tid){
       +(items.length?'<div style="padding:10px 14px"><button class="btn bs bsm" style="width:100%" onclick="openLeaderFullListM(\''+cardKey+'\')">Ver más &#8595;</button></div>':'')
       +'</div>';
   }
-  function getAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
-  function getSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
-  function getOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
+  function getAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
+  function getSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function getOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
   function getOPS(ids){return getOBP(ids)+getSLG(ids);}
   function getBB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='BB';}).length;}
   function getHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
@@ -9888,7 +10141,7 @@ function pgStatsLife(sBy,pSBy){
   // Batting career stats
   var batData=careerPlayers.map(function(cp){
     var pe=evs.filter(function(e){return cp.ids.indexOf(e.batterId)>=0;});
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h2=pe.filter(function(e){return e.type==='H2';}).length;
     var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -9984,7 +10237,7 @@ function pgStatsLife(sBy,pSBy){
       var grp=byTeam[key];var tm=grp.tm;var pids=grp.pids;
       var teamLabel=tm?tm.name:key;
       var pe=evs.filter(function(e){return pids.indexOf(e.batterId)>=0;});
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;
       var hr=pe.filter(function(e){return e.type==='HR';}).length;
@@ -10074,7 +10327,7 @@ function pgLeadLife(){
     if(p.photoUrl&&!seenRoots2[root].photoUrl)seenRoots2[root].photoUrl=p.photoUrl;
   });
   var _leadLifeCardSeq=0;
-  function getVBLife(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;}
+  function getVBLife(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;}
   function getIPLife(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
   // Lideres de Por Vida SIEMPRE usa la media automatica de VB/IP por defecto (no depende de la
   // configuracion manual/automatica de ningun subtorneo en particular, a diferencia del modulo
@@ -10101,9 +10354,9 @@ function pgLeadLife(){
   function fullLifeBat(fn,applyMin){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;});}
   function topLifePit(fn,n){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
   function fullLifePit(fn){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
-  function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
-  function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
-  function cOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
+  function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
+  function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
+  function cOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
   function cOPS(ids){return cOBP(ids)+cSLG(ids);}
   function cBB(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='BB';}).length;}
   function cHR(ids){return evs.filter(function(e){return ids.indexOf(e.batterId)>=0&&e.type==='HR';}).length;}
@@ -10235,7 +10488,7 @@ function pgFeaturedByDate(){
       var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
       var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];var cnt=0;ids.forEach(function(pid){sids.forEach(function(sid){if(sid===pid)cnt++;});});return s+cnt;},0);
       var h=h1+h2+h3+hr;
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var battingPts=h1*P.h1+h2*P.h2+h3*P.h3+hr*P.hr+bb*P.bb+rbi*P.rbi+r*P.r-outBat*P.outBat-kb*P.kBat;
       var avg=vb>0?(h/vb):0;
       batList.push({p:p,tm:teamOf(p.teamId),teamNames:teamNamesFD,vb:vb,h:h,hr:hr,rbi:rbi,r:r,bb:bb,avg:avg,pts:battingPts});
@@ -10344,7 +10597,7 @@ function buildRankingLists(){
       var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
       var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];var cnt=0;ids.forEach(function(pid){sids.forEach(function(sid){if(sid===pid)cnt++;});});return s+cnt;},0);
       var h=h1+h2+h3+hr;
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var battingPts=h1*P.h1+h2*P.h2+h3*P.h3+hr*P.hr+bb*P.bb+rbi*P.rbi+r*P.r-outBat*P.outBat-kb*P.kBat;
       var avg=vb>0?(h/vb):0;
       batList.push({p:p,tm:teamOf(p.teamId),teamNames:teamNamesRK,vb:vb,h:h,hr:hr,rbi:rbi,r:r,bb:bb,avg:avg,pts:battingPts});
@@ -10668,7 +10921,7 @@ function awardCandidates(tourId,divFilter){
     return uniq.map(function(p){
       var ids=idsForName(p);
       var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h1=pe.filter(function(e){return e.type==='H1';}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
@@ -11240,7 +11493,7 @@ function doExportTeamStatsPDF(){
   function battingRowsFor(teamId){
     var pls=S.players.filter(function(p){return p.teamId===teamId;}).sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
     function calcBat(pe){
-      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+      var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
       var h3=pe.filter(function(e){return e.type==='H3';}).length;
@@ -11493,7 +11746,7 @@ function doExportPlayerPDF(){
   }
   if(!isPitcher){
     // BATTING REPORT
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h1=pe.filter(function(e){return e.type==='H1';}).length;
     var h2b=pe.filter(function(e){return e.type==='H2';}).length;
@@ -11525,14 +11778,14 @@ function doExportPlayerPDF(){
     // With/without runners analysis
     var withRun=pe.filter(function(e){var prior=evs.filter(function(ev){return ev.gameId===e.gameId&&ev.half===e.half&&ev.inning===e.inning&&ev.timestamp<e.timestamp;});return['H1','H2','H3','BB','HBP','E'].filter(function(t){return prior.filter(function(ev){return ev.type===t;}).length>0;}).length>0;});
     var noRun=pe.filter(function(e){return withRun.indexOf(e)<0;});
-    var wrvb=withRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var wrvb=withRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var wrh=withRun.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
-    var nrvb=noRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var nrvb=noRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var nrh=noRun.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var wrAvg=wrvb>0?(wrh/wrvb).toFixed(3):'—';var nrAvg=nrvb>0?(nrh/nrvb).toFixed(3):'—';
     // 2-out stats
     var twoOut=pe.filter(function(e){return parseInt(e.outs||0)>=2;});
-    var tovb=twoOut.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var tovb=twoOut.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var toh=twoOut.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var toAvg=tovb>0?(toh/tovb).toFixed(3):'—';
     html+='<div class="section-title">🔍 Situaciones Clave</div>'
@@ -11551,7 +11804,7 @@ function doExportPlayerPDF(){
       gameIds.forEach(function(gid){
         var gm=S.games.filter(function(x){return x.id===gid;})[0];
         var gpe=pe.filter(function(e){return e.gameId===gid;});
-        var gvb=gpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+        var gvb=gpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
         var gh=gpe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
         var ghr=gpe.filter(function(e){return e.type==='HR';}).length;
         var grbi=gpe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
@@ -11649,7 +11902,7 @@ function doExportPlayerPDF(){
     if(seenTeams[key])return;seenTeams[key]=true;
     var bpe=S.events.filter(function(e){return e.batterId===pid2&&e.type!=='UNDO'&&e.unofficial!=='true';});
     var bpp=S.pitching.filter(function(e){return e.pitcherId===pid2&&e.unofficial!=='true';});
-    var bvb=bpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var bvb=bpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var bh=bpe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var bhr=bpe.filter(function(e){return e.type==='HR';}).length;
     var brbi=bpe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
@@ -11755,7 +12008,7 @@ function pgToVsTo(){
   function playerBatStats(pid){
     var ids=namePlayerIds(pid);
     var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});
-    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h1=pe.filter(function(e){return e.type==='H1';}).length;
     var h2=pe.filter(function(e){return e.type==='H2';}).length;
@@ -11772,12 +12025,12 @@ function pgToVsTo(){
     // Situational
     var withRun=pe.filter(function(e){var prior=evs.filter(function(ev){return ev.gameId===e.gameId&&ev.half===e.half&&ev.inning===e.inning&&ev.timestamp<e.timestamp;});return['H1','H2','H3','BB','HBP','E'].filter(function(t){return prior.filter(function(ev){return ev.type===t;}).length>0;}).length>0;});
     var noRun=pe.filter(function(e){return withRun.indexOf(e)<0;});
-    var wrvb=withRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var wrvb=withRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var wrh=withRun.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
-    var nrvb=noRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var nrvb=noRun.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var nrh=noRun.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var twoOut=pe.filter(function(e){return parseInt(e.outs||0)>=2;});
-    var tovb=twoOut.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var tovb=twoOut.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var toh=twoOut.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     return{vb:vb,h:h,h1:h1,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:k,sb:sb,gp:gp,avg:avg,obp:obp,slg:slg,ops:ops,wrvb:wrvb,wrh:wrh,nrvb:nrvb,nrh:nrh,tovb:tovb,toh:toh};
   }
@@ -11800,7 +12053,7 @@ function pgToVsTo(){
   }
   function teamBatStats(tid){
     var tpe=evs.filter(function(e){return e.battingTeamId===tid;});
-    var vb=tpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=tpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=tpe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h2=tpe.filter(function(e){return e.type==='H2';}).length;
     var h3=tpe.filter(function(e){return e.type==='H3';}).length;
@@ -11836,7 +12089,7 @@ function pgToVsTo(){
   function teamBatStatsVs(tid,rivalId){
     var h2hGids=headToHeadGids(tid,rivalId);
     var tpe=evs.filter(function(e){return e.battingTeamId===tid&&h2hGids.indexOf(e.gameId)>=0;});
-    var vb=tpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+    var vb=tpe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
     var h=tpe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
     var h2=tpe.filter(function(e){return e.type==='H2';}).length;
     var h3=tpe.filter(function(e){return e.type==='H3';}).length;
@@ -11950,6 +12203,7 @@ function pgToVsTo(){
         +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+playerAvatarHtml(pl1.photoUrl,pl1.name,48,'circle',pl1.number)+'<div style="font-size:14px;font-weight:800;color:var(--acc);text-align:center">'+label1+'</div></div>'
         +'<div style="font-size:12px;color:var(--t3)">VS</div>'
         +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+playerAvatarHtml(pl2.photoUrl,pl2.name,48,'circle',pl2.number)+'<div style="font-size:14px;font-weight:800;color:var(--blu);text-align:center">'+label2+'</div></div></div>'
+        +'<div class="tabs"><div class="tab'+(_TVT.tab==='bat'?' on':'')+'" onclick="_TVT.tab=\'bat\';showTab(this,\'tvt-bat\')">🏏 Bateo</div>'
         +'<div class="tab'+(_TVT.tab==='pit'?' on':'')+'" onclick="_TVT.tab=\'pit\';showTab(this,\'tvt-pit\')">⚾ Pitcheo</div>'
         +'<div class="tab'+(_TVT.tab==='awards'?' on':'')+'" onclick="_TVT.tab=\'awards\';showTab(this,\'tvt-awards\')">🏆 Premios</div></div>'
         +'<div id="tvt-bat" style="'+(_TVT.tab==='bat'?'':'display:none')+'">'+batHTML+'</div>'
@@ -13232,7 +13486,7 @@ function exportReport(gid){
         var isSub=lp.isSubstitute||ci>0;
         var wasReplaced=!!lp.replacedBy;
         var pe=evs.filter(function(e){return e.batterId===lp.playerId;});
-        var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK'].indexOf(e.type)<0;}).length;
+        var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
         var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
         var h2=pe.filter(function(e){return e.type==='H2';}).length;
         var h3=pe.filter(function(e){return e.type==='H3';}).length;
