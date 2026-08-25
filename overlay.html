@@ -42,13 +42,16 @@
 
   /* Bateador/Pitcher: viven DENTRO de la columna de equipos, aprovechando el espacio que
      antes quedaba vacio debajo de las 2 filas de equipo (esa columna se estira para igualar
-     la altura de .sb-side, que es mas alta por el diamante/conteo). */
-  .sb-matchup{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:7px 12px;}
-  .sb-mu-line{display:flex;align-items:baseline;gap:5px;overflow:hidden;}
-  .sb-mu-lbl{font-size:8px;letter-spacing:.5px;color:var(--ov-text2);flex:0 0 auto;}
+     la altura de .sb-side, que es mas alta por el diamante/conteo). Bateador y pitcher van
+     LADO A LADO (2 columnas), y el conteo de bolas/strikes va debajo, a todo lo ancho — los
+     outs se muestran aparte, siempre debajo del diamante de bases (ver .sb-side/.sb-bs). */
+  .sb-matchup{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:7px 12px;}
+  .sb-mu-cols{display:flex;align-items:flex-start;gap:8px;}
+  .sb-mu-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+  .sb-mu-divider{width:1px;align-self:stretch;background:var(--ov-bdr);flex:0 0 auto;}
+  .sb-mu-lbl{font-size:8px;letter-spacing:.5px;color:var(--ov-text2);}
   .sb-mu-nm{font-size:12px;font-weight:700;color:var(--ov-matchup);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .sb-mu-val{font-size:11px;font-weight:700;color:var(--ov-line);white-space:nowrap;flex:0 0 auto;}
-  .sb-mu-pc{font-size:9.5px;font-weight:700;color:var(--ov-bat);}
+  .sb-mu-val{font-size:11px;font-weight:700;color:var(--ov-line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
   .sb-side{flex:0 0 128px;border-left:1px solid var(--ov-bdr);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;gap:5px;}
   .sb-inn-arr{font-size:10px;color:var(--ov-text2);letter-spacing:.5px;}
@@ -118,12 +121,12 @@
   <div class="cf-row"><label>Resaltado (al bate / bases)</label><input type="color" id="cBat"></div>
   <div class="cf-row"><label>Numero de inning</label><input type="color" id="cInning"></div>
   <div class="cf-row"><label>Bateador / Pitcher (nombres)</label><input type="color" id="cMatchup"></div>
-  <div class="cf-row"><label>Como va el bateador (ej. "2-1")</label><input type="color" id="cLine"></div>
+  <div class="cf-row"><label>Como va el bateador (ej. "Hoy: 3-2")</label><input type="color" id="cLine"></div>
   <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
   <h4>&#9918; Bolas / Strikes / Outs</h4>
   <div class="cf-row"><label>Como mostrarlos</label><select id="cCountMode"><option value="dots">Bolitas</option><option value="numbers">Numeros</option></select></div>
-  <div class="cf-row"><label>Donde mostrarlos</label><select id="cCountPos"><option value="side">Junto al inning (actual)</option><option value="batter">Junto al bateador</option></select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Bolas y strikes se muestran debajo del bateador; los outs se muestran debajo de las bases.</div>
   <div class="cf-btns">
     <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
     <button id="btnReset">&#8635; Restablecer</button>
@@ -151,9 +154,20 @@
         <div class="sb-rn" id="sbHomeR">0</div>
       </div>
       <div class="sb-matchup" id="sbMatchup">
-        <div class="sb-mu-line"><span class="sb-mu-lbl">AL BATE</span><span class="sb-mu-nm" id="sbBatterNm">&mdash;</span><span class="sb-mu-val" id="sbBatterLine"></span></div>
-        <div class="sb-bs sb-bs-inline" id="sbBsBatter" style="display:none"></div>
-        <div class="sb-mu-line"><span class="sb-mu-lbl">LANZANDO <span class="sb-mu-pc" id="sbPitchCount"></span></span><span class="sb-mu-nm" id="sbPitcherNm">&mdash;</span></div>
+        <div class="sb-mu-cols">
+          <div class="sb-mu-col">
+            <span class="sb-mu-lbl">AL BATE</span>
+            <span class="sb-mu-nm" id="sbBatterNm">&mdash;</span>
+            <span class="sb-mu-val" id="sbBatterLine"></span>
+          </div>
+          <div class="sb-mu-divider"></div>
+          <div class="sb-mu-col">
+            <span class="sb-mu-lbl">LANZANDO</span>
+            <span class="sb-mu-nm" id="sbPitcherNm">&mdash;</span>
+            <span class="sb-mu-val" id="sbPitchCount"></span>
+          </div>
+        </div>
+        <div class="sb-bs sb-bs-inline" id="sbBsBatter"></div>
       </div>
     </div>
     <div class="sb-side" style="position:relative">
@@ -190,7 +204,7 @@ var _teamsCache=null; // {id: {name,logoUrl,color}} — se carga una vez, los eq
 // club, sin depender de localStorage de esa maquina). ?edit=0 en la URL
 // oculta el engranaje de personalizacion (para la captura final limpia).
 var COLOR_KEYS=['bg','navy','bar','bartext','run','team','bat','inning','text2','matchup','line'];
-var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'dots',countPos:'side'};
+var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'dots'};
 var VARMAP={bg:'--ov-bg',navy:'--ov-navy',bar:'--ov-bar',bartext:'--ov-bartext',run:'--ov-run',team:'--ov-team',bat:'--ov-bat',inning:'--ov-inning',text2:'--ov-text2',matchup:'--ov-matchup',line:'--ov-line'};
 
 function loadSettings(){
@@ -202,7 +216,6 @@ function loadSettings(){
   COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
   if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
   if(qs.get('countMode')==='dots'||qs.get('countMode')==='numbers')s.countMode=qs.get('countMode');
-  if(qs.get('countPos')==='side'||qs.get('countPos')==='batter')s.countPos=qs.get('countPos');
   return s;
 }
 var SET=loadSettings();
@@ -237,7 +250,6 @@ function syncPanelInputs(){
   document.getElementById('cText2').value=SET.text2;
   document.getElementById('cTransp').checked=!!SET.transp;
   document.getElementById('cCountMode').value=SET.countMode;
-  document.getElementById('cCountPos').value=SET.countPos;
 }
 function wirePanel(){
   var map={cBg:'bg',cNavy:'navy',cBar:'bar',cBartext:'bartext',cRun:'run',cTeam:'team',cBat:'bat',cInning:'inning',cMatchup:'matchup',cLine:'line',cText2:'text2'};
@@ -252,9 +264,6 @@ function wirePanel(){
   document.getElementById('cCountMode').addEventListener('change',function(){
     SET.countMode=this.value;renderCounts();saveSettings();
   });
-  document.getElementById('cCountPos').addEventListener('change',function(){
-    SET.countPos=this.value;renderCounts();saveSettings();
-  });
   document.getElementById('btnReset').addEventListener('click',function(){
     SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();
   });
@@ -263,7 +272,6 @@ function wirePanel(){
     COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
     u.searchParams.set('transp',SET.transp?'1':'0');
     u.searchParams.set('countMode',SET.countMode);
-    u.searchParams.set('countPos',SET.countPos);
     u.searchParams.set('edit','0'); // enlace listo para OBS: sin el engranaje
     navigator.clipboard.writeText(u.href).then(function(){
       var m=document.getElementById('copyMsg');m.style.display='block';
@@ -349,33 +357,25 @@ function logoHtml(team,wrapId){
   }
 }
 
-// ── Bolas / Strikes / Outs: modo (bolitas o numeros) y posicion (junto al
-// inning, como esta por defecto, o junto al nombre del bateador) configurables
-// desde el panel. Se guarda el ultimo conteo recibido para poder re-renderizar
-// al instante cuando el usuario cambia estas opciones, sin esperar el proximo poll.
+// ── Bolas / Strikes / Outs: el modo de visualizacion (bolitas o numeros) es
+// configurable desde el panel; la posicion ya NO lo es — Bolas y Strikes se
+// muestran siempre debajo del bateador, y Outs siempre debajo del diamante
+// de bases (junto al inning). Se guarda el ultimo conteo recibido para poder
+// re-renderizar al instante cuando cambia el modo, sin esperar el proximo poll.
 var _lastCount={balls:0,strikes:0,outs:0};
-function countGroupHtml(mode){
-  function grp(lbl,val,max,cls){
-    if(mode==='numbers'){
-      return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-num '+cls+'">'+val+'</div></div>';
-    }
-    var dots=[];
-    for(var i=0;i<max;i++)dots.push('<div class="d '+(val>i?cls+'-on':'')+'"></div>');
-    return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-dots">'+dots.join('')+'</div></div>';
+function bsGrp(lbl,val,max,cls,mode){
+  if(mode==='numbers'){
+    return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-num '+cls+'">'+val+'</div></div>';
   }
-  return grp('BOLAS',_lastCount.balls,3,'b')+grp('STRIKES',_lastCount.strikes,2,'s')+grp('OUTS',_lastCount.outs,2,'o');
+  var dots=[];
+  for(var i=0;i<max;i++)dots.push('<div class="d '+(val>i?cls+'-on':'')+'"></div>');
+  return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-dots">'+dots.join('')+'</div></div>';
 }
 function renderCounts(){
-  var html=countGroupHtml(SET.countMode);
   var sideEl=document.getElementById('sbBsSide'),batEl=document.getElementById('sbBsBatter');
   if(!sideEl||!batEl)return;
-  if(SET.countPos==='batter'){
-    sideEl.innerHTML='';sideEl.style.display='none';
-    batEl.innerHTML=html;batEl.style.display='flex';
-  } else {
-    batEl.innerHTML='';batEl.style.display='none';
-    sideEl.innerHTML=html;sideEl.style.display='flex';
-  }
+  sideEl.innerHTML=bsGrp('OUTS',_lastCount.outs,2,'o',SET.countMode);
+  batEl.innerHTML=bsGrp('BOLAS',_lastCount.balls,3,'b',SET.countMode)+bsGrp('STRIKES',_lastCount.strikes,2,'s',SET.countMode);
 }
 
 function render(gm,teams,players,lineups,pitching,events){
@@ -439,16 +439,18 @@ function render(gm,teams,players,lineups,pitching,events){
     document.getElementById('sbBatterNm').textContent=bp?(batter.battingOrder+'. '+bp.name):'—';
     document.getElementById('sbPitcherNm').textContent=pp?('#'+(pp.number||'?')+' '+pp.name):'—';
     var pRec=pId?pitching.filter(function(p){return p.teamId===fieldingTeamId&&p.pitcherId===pId;}).sort(function(a,b){return(a.timestamp||'')<(b.timestamp||'')?1:-1;})[0]:null;
-    document.getElementById('sbPitchCount').textContent=pRec?('('+(parseInt(pRec.pitches)||0)+')'):'';
-    // Como va el bateador ACTUAL en este juego (turnos-hits, ej. "2-1") — se calcula con los
-    // eventos de este mismo juego (ya vienen incluidos en getGameSlice, sin pedir nada extra).
+    var pcEl=document.getElementById('sbPitchCount');
+    if(pp){pcEl.textContent='Pitcheos: '+(pRec?(parseInt(pRec.pitches)||0):0);pcEl.style.display='';}
+    else{pcEl.textContent='';pcEl.style.display='none';}
+    // Como va el bateador ACTUAL en este juego (turnos-hits, ej. "Hoy: 3-2") — se calcula con
+    // los eventos de este mismo juego (ya vienen incluidos en getGameSlice, sin pedir nada extra).
     var lineEl=document.getElementById('sbBatterLine');
     if(bp){
       var NOT_AB=['BB','HBP','SAC','OJ','SB','WP','BK'];
       var be=(events||[]).filter(function(e){return e.batterId===bp.id&&e.unofficial!=='true'&&e.unofficial!==true&&e.type!=='UNDO';});
       var vb=be.filter(function(e){return NOT_AB.indexOf(e.type)<0;}).length;
       var h=be.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
-      lineEl.textContent='('+vb+'-'+h+')';
+      lineEl.textContent='Hoy: '+vb+'-'+h;
       lineEl.style.display='';
     } else {
       lineEl.textContent='';lineEl.style.display='none';
