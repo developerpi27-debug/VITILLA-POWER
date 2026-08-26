@@ -6,7 +6,7 @@
 <title>Pitcher</title>
 <style>
   :root{
-    --ov-bg:#0d1b2e;--ov-hdr:#0f1e33;--ov-hdr2:#13253d;--ov-sub:#050b14;
+    --ov-bg:#0d1b2e;--ov-hdr:#0f1e33;--ov-hdr2:#13253d;--ov-titlebg:#050b14;--ov-titletext:#a9b7c9;
     --ov-title:#f4f7fb;--ov-pname:#f5a623;--ov-lbl:#a9b7c9;--ov-val:#f4f7fb;--ov-text2:#a9b7c9;
     --ov-bdr:rgba(255,255,255,.10);
   }
@@ -23,7 +23,7 @@
   .p-logo.ph{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#0b1522;}
   .p-tname{font-size:15px;font-weight:800;color:var(--ov-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
-  .p-sub{background:var(--ov-sub);color:var(--ov-text2);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:6px 12px;}
+  .p-sub{background:var(--ov-titlebg);color:var(--ov-titletext);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:6px 12px;}
 
   .p-photo-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 12px 10px;}
   .p-photo{width:88px;height:88px;border-radius:50%;overflow:hidden;background:#1a2b42;border:2px solid var(--ov-pname);flex-shrink:0;}
@@ -39,10 +39,10 @@
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
 
-  #gear{position:absolute;top:8px;right:8px;width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--ov-text2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;}
-  #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
+  #gear{position:fixed;top:12px;right:12px;width:30px;height:30px;border-radius:7px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;line-height:1;padding:0;z-index:51;box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  #gear:hover{background:rgba(0,0,0,.65);border-color:rgba(255,255,255,.6);}
   #cardWrap{position:relative;}
-  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel{position:fixed;top:48px;right:12px;width:270px;max-height:calc(100vh - 64px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
   #panel.open{display:block;}
   #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
   .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
@@ -58,9 +58,12 @@
 </style>
 </head>
 <body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
 <div id="panel">
   <h3>&#127912; Colores del pitcher</h3>
   <div class="cf-row"><label>Fondo de la tarjeta</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Franja superior (fondo)</label><input type="color" id="cTitleBg"></div>
+  <div class="cf-row"><label>Franja superior (texto)</label><input type="color" id="cTitleText"></div>
   <div class="cf-row"><label>Encabezado (equipo)</label><input type="color" id="cHdr"></div>
   <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTitle"></div>
   <div class="cf-row"><label>Nombre del pitcher</label><input type="color" id="cPname"></div>
@@ -97,7 +100,6 @@
     </div>
     <div class="p-rows" id="pRows"></div>
   </div>
-  <button id="gear" title="Personalizar colores">&#9881;</button>
 </div>
 <script>
 // ── Pitcher — overlay independiente para transmision en vivo ──────────────
@@ -112,9 +114,9 @@ var GAME_ID=qs.get('game')||qs.get('gid')||'';
 var TEAM_SIDE=(qs.get('team')||'away')==='home'?'home':'away';
 var POLL_MS=parseInt(qs.get('ms'))||6000;
 
-var COLOR_KEYS=['bg','hdr','title','pname','lbl','val','text2'];
-var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',pname:'#f5a623',lbl:'#a9b7c9',val:'#f4f7fb',text2:'#a9b7c9',transp:false,statScope:'season'};
-var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',pname:'--ov-pname',lbl:'--ov-lbl',val:'--ov-val',text2:'--ov-text2'};
+var COLOR_KEYS=['bg','hdr','title','titlebg','titletext','pname','lbl','val','text2'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',title:'#f4f7fb',titlebg:'#050b14',titletext:'#a9b7c9',pname:'#f5a623',lbl:'#a9b7c9',val:'#f4f7fb',text2:'#a9b7c9',transp:false,statScope:'season'};
+var VARMAP={bg:'--ov-bg',hdr:'--ov-hdr',title:'--ov-title',titlebg:'--ov-titlebg',titletext:'--ov-titletext',pname:'--ov-pname',lbl:'--ov-lbl',val:'--ov-val',text2:'--ov-text2'};
 function loadSettings(){
   var s=Object.assign({},DEFAULTS);
   try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_pitcher_colors')||'{}')); }catch(e){}
@@ -138,6 +140,8 @@ function applySettings(){
 function saveSettings(){localStorage.setItem('vp_pitcher_colors',JSON.stringify(SET));}
 function syncPanelInputs(){
   document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cTitleBg').value=SET.titlebg;
+  document.getElementById('cTitleText').value=SET.titletext;
   document.getElementById('cHdr').value=SET.hdr;
   document.getElementById('cTitle').value=SET.title;
   document.getElementById('cPname').value=SET.pname;
@@ -148,7 +152,7 @@ function syncPanelInputs(){
   document.getElementById('cStatScope').value=SET.statScope;
 }
 function wirePanel(){
-  var map={cBg:'bg',cHdr:'hdr',cTitle:'title',cPname:'pname',cLbl:'lbl',cVal:'val',cText2:'text2'};
+  var map={cBg:'bg',cTitleBg:'titlebg',cTitleText:'titletext',cHdr:'hdr',cTitle:'title',cPname:'pname',cLbl:'lbl',cVal:'val',cText2:'text2'};
   Object.keys(map).forEach(function(id){
     document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
   });
