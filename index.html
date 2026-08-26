@@ -4023,7 +4023,8 @@ function openTransmissionPanel(gameId){
     {label:'&#9918; Defensa Local',sub:'Posiciones defensivas del equipo local',page:'defense.html',extra:{team:'home'}},
     {label:'&#9918; Pitcher Visitante',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual visitante',page:'pitcher.html',extra:{team:'away'}},
     {label:'&#9918; Pitcher Local',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual local',page:'pitcher.html',extra:{team:'home'}},
-    {label:'&#9878; Comparacion de Pitcheo',sub:'Pitcher actual visitante vs local, lado a lado',page:'comparacionpitchers.html'}
+    {label:'&#9878; Comparacion de Pitcheo',sub:'Pitcher actual visitante vs local, lado a lado',page:'comparacionpitchers.html'},
+    {label:'&#128240; Marcador del Dia',sub:'Cintillo con los resultados de los demas juegos de hoy en este subtorneo',page:'marquee.html'}
   ];
   var rows=items.map(function(it,i){
     var r=abs(it.page,it.extra);
@@ -12783,7 +12784,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
