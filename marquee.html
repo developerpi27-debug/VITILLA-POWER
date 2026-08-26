@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marcador del Dia</title>
+<style>
+  :root{
+    --ov-bg:#0d1b2e;--ov-chip:#13253d;--ov-team:#f4f7fb;--ov-score:#f5a623;--ov-sep:#a9b7c9;
+    --ov-live:#e0483e;--ov-sched:#5aa9ff;--ov-final:#4ade80;--ov-lbl-lead:#f5a623;--ov-lbl-lead2:#a86e12;--ov-bdr:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;width:100%;height:100%;overflow:hidden;}
+  body{font-family:Arial,sans-serif;}
+
+  #card{width:100%;height:52px;overflow:hidden;position:relative;background:var(--ov-bg);border-top:1px solid var(--ov-bdr);border-bottom:1px solid var(--ov-bdr);box-shadow:0 4px 18px rgba(0,0,0,.4);}
+  #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
+
+  #lead{position:absolute;top:0;left:0;bottom:0;width:96px;background:linear-gradient(90deg,var(--ov-lbl-lead),var(--ov-lbl-lead2));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;letter-spacing:1px;color:#1a1200;text-transform:uppercase;z-index:2;box-shadow:4px 0 12px rgba(0,0,0,.35);text-align:center;line-height:1.15;padding:2px;}
+
+  #track-wrap{position:absolute;top:0;left:96px;right:0;bottom:0;overflow:hidden;}
+  #track{display:flex;align-items:center;height:100%;white-space:nowrap;will-change:transform;}
+  #track.paused{animation-play-state:paused!important;}
+
+  .mq-chip{display:inline-flex;align-items:center;gap:9px;padding:0 22px;height:100%;border-right:1px solid var(--ov-bdr);}
+  .mq-badge{font-size:9.5px;font-weight:800;letter-spacing:.4px;padding:2px 6px;border-radius:4px;color:#fff;flex:0 0 auto;}
+  .mq-badge.live{background:var(--ov-live);}
+  .mq-badge.sched{background:var(--ov-sched);}
+  .mq-badge.final{background:var(--ov-final);color:#0b1f12;}
+  .mq-badge.susp{background:#8a8f99;color:#111;}
+  .mq-team{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:800;color:var(--ov-team);}
+  .mq-logo{width:18px;height:18px;border-radius:4px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .mq-logo.ph{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0b1522;}
+  .mq-score{font-size:15px;font-weight:900;color:var(--ov-score);min-width:14px;text-align:center;}
+  .mq-sep{font-size:12px;color:var(--ov-sep);}
+  .mq-inn{font-size:10.5px;font-weight:700;color:var(--ov-sep);margin-left:2px;}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:12.5px;background:rgba(10,14,26,.85);padding:8px 14px;border-radius:8px;display:inline-block;}
+
+  #gear{position:fixed;top:12px;right:12px;width:30px;height:30px;border-radius:7px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;line-height:1;padding:0;z-index:51;box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  #gear:hover{background:rgba(0,0,0,.65);border-color:rgba(255,255,255,.6);}
+  #panel{position:fixed;top:48px;right:12px;width:270px;max-height:calc(100vh - 64px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-row input[type=number],.cf-row input[type=text]{width:80px;padding:5px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;font-size:12px;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar colores">&#9881;</button>
+<div id="panel">
+  <h3>&#127912; Colores de la Marquesina</h3>
+  <div class="cf-row"><label>Fondo</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Franja "En vivo hoy"</label><input type="color" id="cLead"></div>
+  <div class="cf-row"><label>Nombre de equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Marcador (numeros)</label><input type="color" id="cScore"></div>
+  <div class="cf-row"><label>Separadores/inning</label><input type="color" id="cSep"></div>
+  <div class="cf-row"><label>Etiqueta "EN VIVO"</label><input type="color" id="cLive"></div>
+  <div class="cf-row"><label>Etiqueta "Por jugar"</label><input type="color" id="cSched"></div>
+  <div class="cf-row"><label>Etiqueta "Final"</label><input type="color" id="cFinal"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-row"><label>Velocidad (px/seg)</label><input type="number" id="cSpeed" min="10" max="400" step="5"></div>
+  <label class="cf-chk"><input type="checkbox" id="cIncludeSelf"> Incluir este mismo juego en el recorrido</label>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">Se muestran los demas juegos del MISMO subtorneo y de la MISMA fecha que este juego.</div>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msgWrap" style="padding:10px"><div id="msg">Cargando...</div></div>
+<div id="card" style="display:none">
+  <div id="lead">EN VIVO<br>HOY</div>
+  <div id="track-wrap"><div id="track"></div></div>
+</div>
+<script>
+// ── Marcador del Dia (marquee.html) — cintillo con scroll continuo mostrando los demas juegos
+// del MISMO subtorneo y de la MISMA fecha que el juego de referencia. Autonomo: no depende de
+// sesion. ?game=<id> (obligatorio, referencia para saber fecha+subtorneo, y se excluye del
+// recorrido salvo que se pida lo contrario). Consulta la accion publica getDayScoreboard.
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||20000;
+
+var COLOR_KEYS=['bg','lead','team','score','sep','live','sched','final'];
+var DEFAULTS={bg:'#0d1b2e',lead:'#f5a623',team:'#f4f7fb',score:'#f5a623',sep:'#a9b7c9',live:'#e0483e',sched:'#5aa9ff',final:'#4ade80',transp:false,speed:70,includeSelf:false};
+var VARMAP={bg:'--ov-bg',lead:'--ov-lbl-lead',team:'--ov-team',score:'--ov-score',sep:'--ov-sep',live:'--ov-live',sched:'--ov-sched',final:'--ov-final'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_marquee_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  if(qs.get('speed')!=null){var sp=parseInt(qs.get('speed'));if(sp>0)s.speed=sp;}
+  if(qs.get('includeSelf')!=null)s.includeSelf=qs.get('includeSelf')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--ov-lbl-lead2',shade(SET.lead,-30));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_marquee_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cLead').value=SET.lead;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cScore').value=SET.score;
+  document.getElementById('cSep').value=SET.sep;
+  document.getElementById('cLive').value=SET.live;
+  document.getElementById('cSched').value=SET.sched;
+  document.getElementById('cFinal').value=SET.final;
+  document.getElementById('cTransp').checked=!!SET.transp;
+  document.getElementById('cSpeed').value=SET.speed;
+  document.getElementById('cIncludeSelf').checked=!!SET.includeSelf;
+}
+function wirePanel(){
+  var map={cBg:'bg',cLead:'lead',cTeam:'team',cScore:'score',cSep:'sep',cLive:'live',cSched:'sched',cFinal:'final'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('cSpeed').addEventListener('change',function(){
+    var v=parseInt(this.value);SET.speed=(v>0?v:DEFAULTS.speed);saveSettings();restartTrack();
+  });
+  document.getElementById('cIncludeSelf').addEventListener('change',function(){
+    SET.includeSelf=this.checked;saveSettings();rerenderFromCache();
+  });
+  document.getElementById('btnReset').addEventListener('click',function(){
+    SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();rerenderFromCache();
+  });
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('speed',SET.speed);
+    u.searchParams.set('includeSelf',SET.includeSelf?'1':'0');
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function abbr(team){
+  if(!team)return'?';
+  if(team.abbreviation)return team.abbreviation;
+  var w=(team.name||'?').trim().split(/\s+/);
+  if(w.length===1)return w[0].slice(0,3).toUpperCase();
+  return w.map(function(x){return x.charAt(0);}).join('').slice(0,3).toUpperCase();
+}
+function logoOrInitial(team){
+  var initial=esc((team&&team.name||'?').charAt(0));
+  if(team&&team.logoUrl){
+    return'<img class="mq-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;mq-logo ph&quot; style=&quot;background:'+esc(team.color||'#f5a623')+'&quot;>'+initial+'</div>\'">';
+  }
+  return'<div class="mq-logo ph" style="background:'+esc(team&&team.color||'#f5a623')+'">'+initial+'</div>';
+}
+function fmtTime(t){
+  if(!t)return'';
+  var m=/^(\d{1,2}):(\d{2})/.exec(t);
+  if(!m)return t;
+  var h=parseInt(m[1],10),min=m[2];
+  var ap=h>=12?'PM':'AM';
+  var h12=h%12;if(h12===0)h12=12;
+  return h12+':'+min+' '+ap;
+}
+function statusBadge(g){
+  if(g.status==='live'){
+    var arrow=g.currentHalf==='bottom'?'&#9660;':'&#9650;';
+    return'<span class="mq-badge live">'+(g.paused?'PAUSADO':'EN VIVO')+'</span><span class="mq-inn">'+arrow+(g.currentInning||1)+'</span>';
+  }
+  if(g.status==='final'){
+    return'<span class="mq-badge final">'+(g.official==='false'?'NO OFICIAL':'FINAL')+'</span>';
+  }
+  if(g.status==='suspended'){
+    return'<span class="mq-badge susp">SUSPENDIDO</span>';
+  }
+  return'<span class="mq-badge sched">'+esc(fmtTime(g.time)||'POR JUGAR')+'</span>';
+}
+function chipHtml(g){
+  var showScore=g.status==='live'||g.status==='final'||g.status==='suspended';
+  return'<div class="mq-chip">'
+    +statusBadge(g)
+    +'<span class="mq-team">'+logoOrInitial(g.awayTeam)+esc(abbr(g.awayTeam))+'</span>'
+    +(showScore?'<span class="mq-score">'+g.awayRuns+'</span><span class="mq-sep">-</span><span class="mq-score">'+g.homeRuns+'</span>':'<span class="mq-sep">vs</span>')
+    +'<span class="mq-team">'+logoOrInitial(g.homeTeam)+esc(abbr(g.homeTeam))+'</span>'
+    +'</div>';
+}
+var _lastKey=null,_lastGames=null;
+function rerenderFromCache(){
+  if(_lastGames)buildTrack(_lastGames);
+}
+function restartTrack(){
+  if(_lastGames)buildTrack(_lastGames,true);
+}
+function buildTrack(games,forceRestart){
+  var list=games.filter(function(g){return SET.includeSelf||!g.isRef;});
+  var track=document.getElementById('track');
+  if(!list.length){
+    track.classList.remove('paused');
+    track.style.animation='none';
+    track.innerHTML='<div class="mq-chip" style="border-right:none;color:var(--ov-sep);font-size:12.5px;font-weight:700">&#9918; No hay otros juegos programados hoy en este subtorneo</div>';
+    return;
+  }
+  var html=list.map(chipHtml).join('');
+  track.style.animation='none';
+  track.innerHTML=html+html; // contenido duplicado para el loop continuo
+  // Se espera un frame para que el navegador calcule el ancho real antes de animar.
+  requestAnimationFrame(function(){
+    var full=track.scrollWidth/2;
+    var dur=Math.max(6,full/Math.max(10,SET.speed));
+    track.style.setProperty('--mq-dist',(-full)+'px');
+    track.style.animation='mq-scroll '+dur+'s linear infinite';
+  });
+}
+// Keyframes dinamicos: la distancia depende del ancho real del contenido, asi que se define
+// la animacion via una variable CSS en vez de un @keyframes fijo.
+var styleEl=document.createElement('style');
+styleEl.textContent='@keyframes mq-scroll{from{transform:translateX(0)}to{transform:translateX(var(--mq-dist,-100%))}}';
+document.head.appendChild(styleEl);
+
+function render(data){
+  document.getElementById('msgWrap').style.display='none';
+  document.getElementById('card').style.display='block';
+  var key=JSON.stringify(data.games);
+  _lastGames=data.games;
+  if(key===_lastKey)return; // sin cambios: no se reinicia el scroll para que no salte
+  _lastKey=key;
+  buildTrack(data.games);
+  document.title='Marcador del Dia — '+data.games.length+' juego(s)';
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msgWrap').style.display='block';document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getDayScoreboard',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msgWrap').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('card').style.display='none';return;}
+    _errCount=0;
+    render(res.data);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('card').style.display==='none'){document.getElementById('msgWrap').style.display='block';document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>

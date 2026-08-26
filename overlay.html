@@ -77,6 +77,12 @@
   .sb-bs-num.b{color:var(--grn);}
   .sb-bs-num.s{color:var(--ov-bat);}
   .sb-bs-num.o{color:var(--red);}
+  /* Modo "Numeros" combinado (por defecto): en vez de BOLAS/STRIKES/OUTS por separado con
+     etiqueta, el conteo se lee como "0-0" (bolas-strikes) y los outs como "1 out" — igual
+     estructura compacta que un marcador tipo MLB. */
+  .sb-count-txt .sb-bs-num{font-size:15px;letter-spacing:.3px;}
+  .sb-count-txt .sb-bs-num.cnt{color:var(--ov-line);}
+  .sb-count-txt .sb-bs-num.outs{color:var(--red);}
   .sb-bs.sb-bs-inline{margin-top:3px;justify-content:flex-start;gap:9px;}
   .sb-bs.sb-bs-inline .sb-bs-grp{align-items:flex-start;}
   /* Modo "Junto a las bases" (side): Outs y Bolas/Strikes se apilan como 2 filas compactas
@@ -213,7 +219,7 @@ var _teamsCache=null; // {id: {name,logoUrl,color}} — se carga una vez, los eq
 // club, sin depender de localStorage de esa maquina). ?edit=0 en la URL
 // oculta el engranaje de personalizacion (para la captura final limpia).
 var COLOR_KEYS=['bg','navy','bar','bartext','run','team','bat','inning','text2','matchup','line'];
-var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'dots',countPos:'side'};
+var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'numbers',countPos:'side'};
 var VARMAP={bg:'--ov-bg',navy:'--ov-navy',bar:'--ov-bar',bartext:'--ov-bartext',run:'--ov-run',team:'--ov-team',bat:'--ov-bat',inning:'--ov-inning',text2:'--ov-text2',matchup:'--ov-matchup',line:'--ov-line'};
 
 function loadSettings(){
@@ -372,8 +378,12 @@ function logoHtml(team,wrapId){
   }
 }
 
-// ── Bolas / Strikes / Outs: el modo de visualizacion (bolitas o numeros) y la posicion son
-// ambos configurables desde el panel (SET.countMode / SET.countPos). Tres ubicaciones:
+// ── Bolas / Strikes / Outs: el modo de visualizacion y la posicion son ambos configurables
+// desde el panel (SET.countMode / SET.countPos).
+// Modo "Bolitas": BOLAS, STRIKES y OUTS por separado, cada uno con su etiqueta y sus bolitas.
+// Modo "Numeros" (por defecto): formato compacto tipo marcador — el conteo se lee junto como
+// "0-0" (bolas-strikes) y los outs como "1 out", sin etiquetas separadas.
+// Tres ubicaciones (SET.countPos):
 //  - 'batter'   Bolas/Strikes en una fila debajo del bateador/pitcher (Outs bajo las bases).
 //  - 'side'     Bolas/Strikes apiladas junto a las bases, debajo de Outs (ahorra alto vertical
 //               porque no agrega una fila nueva bajo el bateador).
@@ -382,20 +392,30 @@ function logoHtml(team,wrapId){
 // Se guarda el ultimo conteo recibido para poder re-renderizar al instante cuando el usuario
 // cambia estas opciones, sin esperar el proximo poll.
 var _lastCount={balls:0,strikes:0,outs:0};
-function bsGrp(lbl,val,max,cls,mode){
-  if(mode==='numbers'){
-    return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-num '+cls+'">'+val+'</div></div>';
-  }
+function bsDotsGrp(lbl,val,max,cls){
   var dots=[];
   for(var i=0;i<max;i++)dots.push('<div class="d '+(val>i?cls+'-on':'')+'"></div>');
   return'<div class="sb-bs-grp"><div class="lbl">'+lbl+'</div><div class="sb-bs-dots">'+dots.join('')+'</div></div>';
+}
+function countNumHtml(){
+  return'<div class="sb-bs-grp sb-count-txt"><div class="sb-bs-num cnt">'+_lastCount.balls+'-'+_lastCount.strikes+'</div></div>';
+}
+function outsNumHtml(){
+  var o=_lastCount.outs;
+  return'<div class="sb-bs-grp sb-count-txt"><div class="sb-bs-num outs">'+o+(o===1?' out':' outs')+'</div></div>';
 }
 function renderCounts(){
   var sideEl=document.getElementById('sbBsSide'),batEl=document.getElementById('sbBsBatter');
   if(!sideEl||!batEl)return;
   var mode=SET.countMode;
-  var outsHtml=bsGrp('OUTS',_lastCount.outs,2,'o',mode);
-  var bsHtml=bsGrp('BOLAS',_lastCount.balls,3,'b',mode)+bsGrp('STRIKES',_lastCount.strikes,2,'s',mode);
+  var outsHtml,bsHtml;
+  if(mode==='numbers'){
+    outsHtml=outsNumHtml();
+    bsHtml=countNumHtml();
+  } else {
+    outsHtml=bsDotsGrp('OUTS',_lastCount.outs,2,'o');
+    bsHtml=bsDotsGrp('BOLAS',_lastCount.balls,3,'b')+bsDotsGrp('STRIKES',_lastCount.strikes,2,'s');
+  }
   if(SET.countPos==='together'){
     batEl.innerHTML='';batEl.style.display='none';
     sideEl.className='sb-bs';
