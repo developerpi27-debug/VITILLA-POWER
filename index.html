@@ -4020,7 +4020,10 @@ function openTransmissionPanel(gameId){
     {label:'&#128203; Lineup Visitante',sub:'Alineacion actual del equipo visitante',page:'lineup.html',extra:{team:'away'}},
     {label:'&#128203; Lineup Local',sub:'Alineacion actual del equipo local',page:'lineup.html',extra:{team:'home'}},
     {label:'&#9918; Defensa Visitante',sub:'Posiciones defensivas del equipo visitante',page:'defense.html',extra:{team:'away'}},
-    {label:'&#9918; Defensa Local',sub:'Posiciones defensivas del equipo local',page:'defense.html',extra:{team:'home'}}
+    {label:'&#9918; Defensa Local',sub:'Posiciones defensivas del equipo local',page:'defense.html',extra:{team:'home'}},
+    {label:'&#9918; Pitcher Visitante',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual visitante',page:'pitcher.html',extra:{team:'away'}},
+    {label:'&#9918; Pitcher Local',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual local',page:'pitcher.html',extra:{team:'home'}},
+    {label:'&#9878; Comparacion de Pitcheo',sub:'Pitcher actual visitante vs local, lado a lado',page:'comparacionpitchers.html'}
   ];
   var rows=items.map(function(it,i){
     var r=abs(it.page,it.extra);
@@ -5016,35 +5019,62 @@ function openPBScoreM(){
 }
 function _pbAnswerScore(scored){
   var ctx=_pbCtx;
+  var wasOnly=ctx.occ.length===1; // era el UNICO corredor en base antes de esta jugada
   var leadBase=ctx.occ.pop();
   if(scored){
     ctx.scored.push(leadBase);
-  } else {
-    // No anotó: si no estaba ya en la ultima base, el passed ball igual lo
-    // adelanta una base (por defecto, sin preguntar — asi ocurre en la
-    // realidad: el descontrol del receptor siempre mueve al corredor mas
-    // expuesto). Si ya estaba en la ultima base, simplemente se queda.
-    var to=_pbNextMap(ctx.nb0)[leadBase];
-    ctx.advanced[leadBase]=to||'stay';
+    var remaining=ctx.occ;
+    if(!remaining.length){cM();_doPassBall();return;}
+    if(remaining.length===1)openPBSingleM(remaining[0]);
+    else openPBCountM();
+    return;
   }
-  var remaining=ctx.occ;
-  if(!remaining.length){cM();_doPassBall();return;}
-  if(remaining.length===1)openPBSingleM(remaining[0]);
+  if(wasOnly){
+    // Unico corredor en base y NO anotó: a diferencia del caso con mas corredores (donde el
+    // passed ball lo adelanta una base por defecto sin preguntar), aqui SI se pregunta
+    // explicitamente hasta que base llegó — es la unica jugada de la ronda, no hay corredores
+    // detras que resuelvan por defecto.
+    _pbAskSoleRunnerAdvance(leadBase);
+    return;
+  }
+  // Habia mas corredores detras de este: no anotó, pero el passed ball igual lo adelanta una
+  // base por defecto (sin preguntar) ya que no es el unico movimiento de la jugada.
+  var to=_pbNextMap(ctx.nb0)[leadBase];
+  ctx.advanced[leadBase]=to||'stay';
+  var remaining2=ctx.occ;
+  if(!remaining2.length){cM();_doPassBall();return;}
+  if(remaining2.length===1)openPBSingleM(remaining2[0]);
   else openPBCountM();
 }
-function openPBSingleM(base){
+function _pbAskSoleRunnerAdvance(base){
+  var ctx=_pbCtx;
+  var order=_pbOrder(ctx.nb0);
+  var aheadBases=order.slice(order.indexOf(base)+1);
+  if(!aheadBases.length){
+    // Ya estaba en la ultima base y no anotó: no hay a donde avanzar sin anotar (y eso ya se
+    // descartó), asi que simplemente se queda — nada que preguntar.
+    ctx.advanced[base]='stay';
+    cM();
+    _doPassBall();
+    return;
+  }
+  openPBSingleM(base,{allowScore:false});
+}
+function openPBSingleM(base,opts){
+  opts=opts||{};
+  var allowScore=opts.allowScore!==false;
   var ctx=_pbCtx;
   var p=playerOf(ctx.priorBases[base]);
   var order=_pbOrder(ctx.nb0);
   var aheadBases=order.slice(order.indexOf(base)+1);
-  var opts='<option value="stay">Se queda en '+_pbLabel(base,ctx.nb0)+'</option>'
+  var optsHtml='<option value="stay">Se queda en '+_pbLabel(base,ctx.nb0)+'</option>'
     +aheadBases.map(function(k){return'<option value="to:'+k+'">Avanza a '+_pbLabel(k,ctx.nb0)+'</option>';}).join('')
-    +'<option value="score">Anota (Home)</option>';
+    +(allowScore?'<option value="score">Anota (Home)</option>':'');
   showM('<div class="mhd"><div class="mtl">&#9889; Passed Ball &mdash; ¿El corredor avanzó?</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Indica qué pasó con el corredor restante y hasta qué base llegó.</div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Indica qué pasó con el corredor'+(allowScore?' restante':'')+' y hasta qué base llegó.</div>'
     +'<div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-bottom:8px">'
     +'<div style="font-weight:600;font-size:13px;margin-bottom:6px">'+_pbLabel(base,ctx.nb0)+' &mdash; '+(p?'#'+(p.number||'?')+' '+p.name:'Corredor')+'</div>'
-    +'<select class="fs" id="pb-single-sel" style="width:100%;padding:6px 8px;font-size:13px">'+opts+'</select>'
+    +'<select class="fs" id="pb-single-sel" style="width:100%;padding:6px 8px;font-size:13px">'+optsHtml+'</select>'
     +'</div></div>'
     +'<div class="mft"><button class="btn bp" onclick="_pbConfirmSingle(\''+base+'\')">Confirmar</button></div>');
 }
