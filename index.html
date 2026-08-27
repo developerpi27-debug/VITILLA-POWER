@@ -12784,7 +12784,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
