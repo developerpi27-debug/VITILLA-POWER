@@ -684,7 +684,7 @@ var LOGO_B64="data:image/webp;base64,UklGRihSAgBXRUJQVlA4WAoAAAAgAAAAnwUAnwUASUN
 
 // STATE
 var _curYear=new Date().getFullYear();
-var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5};
+var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5};
 
 // API — llama al Worker con el token
 async function api(action,data){
@@ -796,7 +796,7 @@ function idbGetAll(storeName){
 // Acciones de escritura que SI pueden encolarse offline (las unicas que usan
 // Calendario y Control de Juego). Cualquier otra escritura (usuarios, equipos,
 // torneos, config, etc.) NO se encola: esos modulos quedan bloqueados offline.
-var OFFLINE_ACTIONS={saveGame:1,saveLineup:1,saveEvent:1,savePitching:1,deletePitching:1,deleteEvent:1};
+var OFFLINE_ACTIONS={saveGame:1,saveLineup:1,saveEvent:1,savePitching:1,deletePitching:1,deleteEvent:1,saveDefensivePoints:1,deleteDefensivePoints:1};
 
 // Un solo registro pendiente por entidad: la key es estable por registro (no
 // por intento de guardado), asi que si el mismo evento/juego se edita varias
@@ -834,8 +834,8 @@ async function updatePendingBadge(){
 // actualiza el estado local de forma optimista antes de llamar) siga
 // funcionando exactamente igual online que offline.
 function synthOfflineResult(action,data){
-  if(action==='deletePitching'||action==='deleteEvent')return{ok:true,offline:true};
-  var item=data.game||data.event||data.lineup||null;
+  if(action==='deletePitching'||action==='deleteEvent'||action==='deleteDefensivePoints')return{ok:true,offline:true};
+  var item=data.game||data.event||data.lineup||data.item||null;
   return{ok:true,offline:true,item:item};
 }
 
@@ -1437,6 +1437,7 @@ async function loadAll(){
   S.lineups=d.lineups||[];S.events=d.events||[];
   S.pitching=d.pitching||[];S.profiles=d.profiles||[];S.users=d.users||[];S.awards=d.awards||[];S.visits=d.visits||{};S.channels=d.channels||[];
   S.sponsors=d.sponsors||[];
+  S.defensivePoints=d.defensivePoints||[];
   S.sponsorSeconds=Math.max(2,parseInt(d.config&&d.config.sponsorSeconds)||6);
   S.affiliateSeconds=Math.max(2,parseInt(d.config&&d.config.affiliateSeconds)||6);
   // Si el usuario tiene perfil restringido a un solo deporte, fijarlo automáticamente
@@ -3172,7 +3173,7 @@ function openPM(id,tid){
   // normal, donde se excluyen los jugadores que ya estan en ese subtorneo.
   var destIsAllstar=tid?teamIsAllstar(tid):false;
   var exMap={};
-  S.players.filter(function(pl){
+  var exFiltered=S.players.filter(function(pl){
     if(pl.id===id) return false;
     if(pl.teamId===tid) return false; // ya esta en este mismo equipo, no tiene sentido "importarlo"
     if(importSportPM){
@@ -3190,14 +3191,37 @@ function openPM(id,tid){
       if(plTm2&&plTm2.tournamentId===destTourIdPM) return false;
     }
     return true;
-  }).forEach(function(pl){
-    var root=careerRootId(String(pl.id));
-    if(!exMap[root]){exMap[root]={pl:pl,teams:[]};}
+  });
+  // Agrupar por identidad de carrera COMPLETA (careerInstances: cadena importedFrom + mismo
+  // nombre/deporte), no solo por careerRootId — asi dos registros del mismo jugador creados de
+  // forma independiente (sin cadena importedFrom entre ellos, ej. "ADONIS GARCIA" agregado por
+  // separado en dos equipos con # distinto) se agrupan en UNA sola entrada con ambos equipos
+  // entre parentesis, en vez de aparecer duplicado en la lista.
+  var exFilteredIds={};exFiltered.forEach(function(pl){exFilteredIds[pl.id]=true;});
+  var exGroupKeyById={};
+  exFiltered.forEach(function(pl){
+    if(exGroupKeyById[pl.id])return;
+    var instances=careerInstances(String(pl.id)).filter(function(iid){return exFilteredIds[iid];});
+    if(!instances.length)instances=[String(pl.id)];
+    var rootKey=instances.slice().sort()[0];
+    instances.forEach(function(iid){exGroupKeyById[iid]=rootKey;});
+  });
+  exFiltered.forEach(function(pl){
+    var root=exGroupKeyById[pl.id]||String(pl.id);
+    if(!exMap[root]){exMap[root]={pl:pl,teams:[],cands:[]};}
+    exMap[root].cands.push(pl);
     var tm=teamOf(pl.teamId);
     var tnm=tm?tm.name:null;
     if(tnm&&exMap[root].teams.indexOf(tnm)<0)exMap[root].teams.push(tnm);
-    // keep the entry with the most info (prefer ones with team)
-    if(tm&&!teamOf(exMap[root].pl.teamId))exMap[root].pl=pl;
+  });
+  // Jugador a mostrar por grupo (nombre/#/foto): se prefiere el registro que tenga equipo
+  // asignado; entre esos (o si ninguno tiene equipo), se usa el MAS RECIENTE — los IDs se
+  // generan con el timestamp de creacion codificado, asi que el mayor id es el ultimo creado.
+  Object.keys(exMap).forEach(function(root){
+    var cands=exMap[root].cands;
+    var withTeam=cands.filter(function(p){return!!teamOf(p.teamId);});
+    var pool=(withTeam.length?withTeam:cands).slice().sort(function(a,b){return String(a.id)<String(b.id)?1:-1;});
+    exMap[root].pl=pool[0];
   });
   var exOpts=Object.keys(exMap).sort(function(a,b){return exMap[a].pl.name<exMap[b].pl.name?-1:1;}).map(function(root){
     var entry=exMap[root];var pl=entry.pl;var teamStr=entry.teams.length?'('+entry.teams.join(', ')+')':'';
@@ -4024,7 +4048,8 @@ function openTransmissionPanel(gameId){
     {label:'&#9918; Pitcher Visitante',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual visitante',page:'pitcher.html',extra:{team:'away'}},
     {label:'&#9918; Pitcher Local',sub:'Foto y numeros (IP, EFE, K, BB, WHIP...) del pitcher actual local',page:'pitcher.html',extra:{team:'home'}},
     {label:'&#9878; Comparacion de Pitcheo',sub:'Pitcher actual visitante vs local, lado a lado',page:'comparacionpitchers.html'},
-    {label:'&#128240; Marcador del Dia',sub:'Cintillo con los resultados de los demas juegos de hoy en este subtorneo',page:'marquee.html'}
+    {label:'&#128240; Marcador del Dia',sub:'Cintillo con los resultados de los demas juegos de hoy en este subtorneo',page:'marquee.html'},
+    {label:'&#127916; Repeticion',sub:'Grafico animado de "REPETICION" para usar junto al Replay Buffer de tu software de transmision',page:'replay.html'}
   ];
   var rows=items.map(function(it,i){
     var r=abs(it.page,it.extra);
@@ -4189,6 +4214,7 @@ function pgGC(){
       +'<button class="btn bs bsm" onclick="openSubM(\'emergente\')">&#128100; Emergente</button>'
       +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Pitcher</button>'
       +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
+      +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.awayTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+aw.name+'</button>'
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
@@ -4517,6 +4543,11 @@ async function delEvent(eid,gid){
     if(ex)await applyPitchDelta(ex,negateDelta(delta));
   }
   S.events=S.events.filter(function(x){return x.id!==eid;});
+  // Si la jugada eliminada fue un Error con descuento de puntos asociado, revertir tambien
+  // ese descuento localmente (el servidor lo hace en cascada dentro de actionDeleteEvent).
+  if(e&&e.type==='E'&&S.defensivePoints&&S.defensivePoints.length){
+    S.defensivePoints=S.defensivePoints.filter(function(dp){return dp.relatedEventId!==eid;});
+  }
   // Recalculate
   var allEvs=S.events.filter(function(ev){return ev.gameId===gid;});
   var newScores={};var awayR=0,homeR=0,awayH=0,homeH=0,awayE=0,homeE=0;
@@ -5244,6 +5275,63 @@ function numPromptAsync(msg, defaultVal){
     inp.onkeydown=function(e){if(e.key==='Enter'){var v=parseInt(inp.value)||0;done(String(v));}};
   });
 }
+// Modal para pedir puntos (1 a 5) + comentario de justificacion — usado tanto para el descuento
+// de la jugada de Error como para el boton "Puntos por Jugada". mode='deduct' pinta en rojo
+// (se van a RESTAR puntos), mode='award' pinta en el color de acento (se van a OTORGAR).
+// Resuelve {points,comment} o null si el usuario cancela.
+function pointsCommentPromptAsync(title,subtitle,mode){
+  return new Promise(function(resolve){
+    var color=mode==='deduct'?'#e5484d':'var(--acc,#f5a623)';
+    var sel=3;
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="background:var(--bg2,#1a2233);border:1px solid var(--bdr,#2d3a50);border-radius:14px;padding:22px 20px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
+      +'<div style="font-size:15px;font-weight:800;color:var(--txt,#fff);margin-bottom:4px">'+title+'</div>'
+      +(subtitle?'<div style="font-size:12.5px;color:var(--t2,#b0b8c8);margin-bottom:14px;line-height:1.4">'+subtitle+'</div>':'<div style="margin-bottom:10px"></div>')
+      +'<div style="font-size:11.5px;font-weight:700;color:var(--t2,#b0b8c8);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase">'+(mode==='deduct'?'Puntos a restar':'Puntos a otorgar')+'</div>'
+      +'<div id="_pp_pts" style="display:flex;gap:6px;margin-bottom:14px">'
+      +[1,2,3,4,5].map(function(n){return '<button type="button" data-n="'+n+'" style="flex:1;padding:10px 0;border-radius:8px;border:1px solid '+(n===sel?color:'var(--bdr,#2d3a50)')+';background:'+(n===sel?color:'transparent')+';color:'+(n===sel?'#000':'var(--txt,#fff)')+';font-size:16px;font-weight:800;cursor:pointer">'+n+'</button>';}).join('')
+      +'</div>'
+      +'<div style="font-size:11.5px;font-weight:700;color:var(--t2,#b0b8c8);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase">Justificación</div>'
+      +'<textarea id="_pp_cmt" rows="3" placeholder="Explica brevemente el motivo..." style="width:100%;background:var(--bg3,#0d1420);border:1px solid var(--bdr,#2d3a50);border-radius:8px;padding:9px 10px;color:var(--txt,#fff);font-size:13.5px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>'
+      +'<div id="_pp_err" style="display:none;color:#e5484d;font-size:11.5px;margin-top:6px"></div>'
+      +'<div style="display:flex;gap:10px;margin-top:16px">'
+      +'<button id="_pp_cancel" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--bdr,#2d3a50);background:transparent;color:var(--t2,#b0b8c8);font-size:14px;cursor:pointer">Cancelar</button>'
+      +'<button id="_pp_ok" style="flex:2;padding:10px;border-radius:8px;border:none;background:'+color+';color:'+(mode==='deduct'?'#fff':'#000')+';font-size:15px;font-weight:700;cursor:pointer">'+(mode==='deduct'?'Descontar':'Otorgar')+'</button>'
+      +'</div></div>';
+    document.body.appendChild(ov);
+    var ptsWrap=document.getElementById('_pp_pts');
+    ptsWrap.querySelectorAll('button').forEach(function(b){
+      b.onclick=function(){
+        sel=parseInt(b.getAttribute('data-n'));
+        ptsWrap.querySelectorAll('button').forEach(function(bb){
+          var n=parseInt(bb.getAttribute('data-n'));
+          bb.style.borderColor=n===sel?color:'var(--bdr,#2d3a50)';
+          bb.style.background=n===sel?color:'transparent';
+          bb.style.color=n===sel?'#000':'var(--txt,#fff)';
+        });
+      };
+    });
+    var cmtInp=document.getElementById('_pp_cmt');
+    setTimeout(function(){try{cmtInp.focus();}catch(e){}},80);
+    function done(val){
+      document.body.removeChild(ov);
+      resolve(val);
+    }
+    document.getElementById('_pp_cancel').onclick=function(){done(null);};
+    document.getElementById('_pp_ok').onclick=function(){
+      var cmt=(cmtInp.value||'').trim();
+      if(!cmt){
+        var errEl=document.getElementById('_pp_err');
+        errEl.textContent='La justificación es obligatoria.';
+        errEl.style.display='block';
+        cmtInp.focus();
+        return;
+      }
+      done({points:sel,comment:cmt});
+    };
+  });
+}
 // ── Errores defensivos cometidos en una media entrada especifica ──────────────────────────
 // Se calcula EN VIVO contra S.events (fuente de verdad), igual criterio que usan
 // recomputeGameTotalsFromEvents/recomputePitchingCountsForGame para todo lo demas — asi nunca
@@ -5570,7 +5658,8 @@ async function rPlay(type){
       toast('Con las bases ocupadas, esta jugada fuerza minimo '+minFBB+' carrera(s). Se ajusto automaticamente.','info');
     }
   } else if(type==='E'){
-    // Helper: seleccionar el jugador defensivo que cometió el error
+    // Helper: seleccionar el jugador defensivo que cometió el error, y luego pedir cuántos
+    // puntos (1-5) descontarle en Guante de Oro + la justificación del descuento.
     var pickFielder=async function(){
       var fldTeamId=isTop?gm.homeTeamId:gm.awayTeamId;
       var fldLU=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===fldTeamId;})[0];
@@ -5588,7 +5677,15 @@ async function rPlay(type){
       var selIdx=await numPromptAsync('ERROR\n\nSelecciona el jugador que cometió el error:\n'+optList+'\n\nIngresa el numero (1-'+fldPlayers.length+'):','');
       if(selIdx===null) return false;
       var eidx=parseInt(selIdx)-1;
-      gm._errorFielderId=(eidx>=0&&eidx<fldPlayers.length)?fldPlayers[eidx].id:null;
+      var pickedFp=(eidx>=0&&eidx<fldPlayers.length)?fldPlayers[eidx]:null;
+      gm._errorFielderId=pickedFp?pickedFp.id:null;
+      gm._errorFielderTeamId=fldTeamId;
+      if(gm._errorFielderId){
+        var dedu=await pointsCommentPromptAsync('ERROR — '+pickedFp.label,'Puntos a descontar de cara al Guante de Oro por este error.','deduct');
+        if(dedu===null) return false;
+        gm._errorDeductPoints=dedu.points;
+        gm._errorDeductComment=dedu.comment;
+      }
       return true;
     }
     if(enBase>0){
@@ -6012,6 +6109,9 @@ async function rPlay(type){
     // FIX 5: Use the captured idx from before the increment to ensure correct batter
     var evId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     var errorFielderId=(type==='E'&&gm._errorFielderId)||null;
+    var errorFielderTeamId=(type==='E'&&gm._errorFielderTeamId)||null;
+    var errorDeductPoints=(type==='E'&&gm._errorDeductPoints)||0;
+    var errorDeductComment=(type==='E'&&gm._errorDeductComment)||'';
     // Registrar en gm.errorBases los jugadores que llegaron a base por error (sus carreras serán sucias)
     // IMPORTANTE: en un error de tipo 'throw' el bateador en turno NO completa su turno con esta
     // jugada (sigue bateando, ver "Advance batter index" mas abajo) — el unico afectado por el
@@ -6029,6 +6129,9 @@ async function rPlay(type){
     // Asi nunca se desincroniza con "Deshacer" ni con correcciones posteriores — no hace falta
     // mantener un contador manual en gm que haya que resetear/ajustar a mano.
     if(gm._errorFielderId)delete gm._errorFielderId;
+    if(gm._errorFielderTeamId)delete gm._errorFielderTeamId;
+    if(gm._errorDeductPoints!==undefined)delete gm._errorDeductPoints;
+    if(gm._errorDeductComment!==undefined)delete gm._errorDeductComment;
     // Guardar antes de limpiar (para el event record)
     gm._savedErrorType=gm._errorType||null;
     // Limpiar flags temporales del error vitilla (gm._savedErrorType se limpia mas abajo,
@@ -6126,6 +6229,16 @@ async function rPlay(type){
       if(er&&er.ok){
         S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{_saved:true}):x;});
       }
+    }
+    // Si esta jugada fue un Error con jugador y puntos a descontar, registrar el descuento
+    // (vinculado a este evento via relatedEventId, para poder revertirlo si la jugada se deshace).
+    if(type==='E'&&errorFielderId&&errorDeductPoints>0){
+      var dpItem={id:'dp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        tournamentId:gm.tournamentId,gameId:gm.id,teamId:errorFielderTeamId,playerId:errorFielderId,
+        points:-Math.abs(errorDeductPoints),source:'error',reason:errorDeductComment,
+        relatedEventId:evId,createdBy:(S.user&&S.user.username)||'',timestamp:new Date().toISOString()};
+      S.defensivePoints.push(dpItem);
+      api('saveDefensivePoints',{item:dpItem});
     }
     if(gameOver){
       var wt=parseInt(gm.awayRuns)>parseInt(gm.homeRuns)?teamOf(gm.awayTeamId):teamOf(gm.homeTeamId);
@@ -6634,6 +6747,11 @@ async function undoLastPlay(){
   // Remove event locally BEFORE recalcular el marcador y las estadisticas de pitcheo, para
   // que ambos recalculos ya no incluyan la jugada que se esta deshaciendo.
   S.events=S.events.filter(function(e){return e.id!==last.id;});
+  // Si la jugada deshecha fue un Error con descuento de puntos asociado, revertir tambien
+  // ese descuento localmente (el servidor lo hace en cascada dentro de actionDeleteEvent).
+  if(last.type==='E'&&S.defensivePoints&&S.defensivePoints.length){
+    S.defensivePoints=S.defensivePoints.filter(function(dp){return dp.relatedEventId!==last.id;});
+  }
   // BUG CORREGIDO #2: el marcador (carreras/hits/errores/inningScores) ya NO se revierte
   // restando deltas de forma incremental — se recalcula desde CERO sumando todos los eventos
   // reales restantes (mismo criterio que "Corregir/Eliminar jugada"). Esto es lo que garantiza
@@ -6817,6 +6935,9 @@ async function restartGame(gid){
   S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
   S.events=S.events.filter(function(e){return e.gameId!==gid;});
   S.pitching=S.pitching.filter(function(p){return p.gameId!==gid;});
+  if(S.defensivePoints&&S.defensivePoints.length){
+    S.defensivePoints=S.defensivePoints.filter(function(dp){return dp.gameId!==gid;});
+  }
   S.game=gid;
   goNav('gamecontrol');
   toast(lineupWarning?'Juego reiniciado 0-0. Nota: hubo cambios de pitcheo — verifica el lineup manualmente.':'Juego reiniciado — comienza desde 0-0','success');
@@ -7974,6 +8095,98 @@ async function applyDefenseChange(gid,tid){
       toast('Sustitución defensiva aplicada','success');
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PUNTOS POR JUGADA — el anotador puede otorgar 1 a 5 puntos a cualquier jugador defensivo
+// de ambos equipos (con justificación obligatoria) por una jugada destacada. Estos puntos,
+// sumados a los descuentos de la jugada de Error, alimentan el calculo de Guante de Oro en
+// Premiaciones (ver awardCandidates).
+// ═══════════════════════════════════════════════════════════════════
+function openDefensivePointsM(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  var aw=teamOf(gm.awayTeamId),hw=teamOf(gm.homeTeamId);
+  function fieldersOf(tid){
+    var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
+    if(!lu||!lu.players)return[];
+    return lu.players.filter(function(lp){return!lp.replacedBy;}).map(function(lp){
+      var p=playerOf(lp.playerId);
+      return p?{id:p.id,number:p.number||'?',name:p.name,position:lp.position||'?'}:null;
+    }).filter(Boolean);
+  }
+  var awPlayers=fieldersOf(gm.awayTeamId),hmPlayers=fieldersOf(gm.homeTeamId);
+  window._dpSelPlayer=null;window._dpSelTeam=null;
+  function teamListHtml(players,teamId,teamName){
+    if(!players.length)return'<div style="font-size:12px;color:var(--t2)">Sin lineup configurado</div>';
+    return players.map(function(p){
+      return'<div class="dp-prow" data-pid="'+p.id+'" data-tid="'+teamId+'" onclick="dpSelectPlayer(\''+p.id+'\',\''+teamId+'\')" '
+        +'style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px">'
+        +'<span style="font-weight:700;min-width:22px">#'+p.number+'</span>'
+        +'<span style="flex:1">'+p.name+'</span>'
+        +'<span class="chip" style="font-size:10px">'+p.position+'</span></div>';
+    }).join('');
+  }
+  showM('<div class="mhd"><div class="mtl">&#11088; Puntos por Jugada</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="alert ai" style="font-size:12px;margin-bottom:10px">Selecciona el jugador defensivo que hizo la jugada destacada, indica cuantos puntos otorgarle (1 a 5) y el motivo. Estos puntos se toman en cuenta para el Guante de Oro.</div>'
+    +'<div class="fr c2">'
+    +'<div><div class="fl" style="margin-bottom:6px">'+(aw?aw.name:'Visitante')+'</div><div id="dp-list-away">'+teamListHtml(awPlayers,gm.awayTeamId,aw&&aw.name)+'</div></div>'
+    +'<div><div class="fl" style="margin-bottom:6px">'+(hw?hw.name:'Local')+'</div><div id="dp-list-home">'+teamListHtml(hmPlayers,gm.homeTeamId,hw&&hw.name)+'</div></div>'
+    +'</div>'
+    +'<div id="dp-selected" style="display:none;margin-top:6px;padding:10px;border:1px solid var(--acc,#f5a623);border-radius:8px;background:rgba(245,166,35,.08)">'
+    +'<div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Seleccionado: <span id="dp-selected-name"></span></div>'
+    +'<div class="fl" style="margin-bottom:6px">Puntos a otorgar</div>'
+    +'<div id="dp-pts" style="display:flex;gap:6px;margin-bottom:10px">'
+    +[1,2,3,4,5].map(function(n){return'<button type="button" data-n="'+n+'" onclick="dpSelectPoints('+n+')" style="flex:1;padding:9px 0;border-radius:8px;border:1px solid '+(n===3?'var(--acc,#f5a623)':'var(--bdr)')+';background:'+(n===3?'var(--acc,#f5a623)':'transparent')+';color:'+(n===3?'#000':'var(--txt,#fff)')+';font-size:15px;font-weight:800;cursor:pointer">'+n+'</button>';}).join('')
+    +'</div>'
+    +'<div class="fl" style="margin-bottom:6px">Justificación</div>'
+    +'<textarea id="dp-comment" rows="2" placeholder="Explica brevemente el motivo..." style="width:100%;background:var(--bg3,#0d1420);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;color:var(--txt,#fff);font-size:13px;box-sizing:border-box;font-family:inherit"></textarea>'
+    +'</div>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bp" data-gid="'+gm.id+'" onclick="saveDefensivePointsFromModal(this.dataset.gid)">Guardar</button></div>');
+  window._dpSelPoints=3;
+}
+function dpSelectPlayer(pid,tid){
+  window._dpSelPlayer=pid;window._dpSelTeam=tid;
+  document.querySelectorAll('.dp-prow').forEach(function(r){
+    var on=r.getAttribute('data-pid')===pid&&r.getAttribute('data-tid')===tid;
+    r.style.borderColor=on?'var(--acc,#f5a623)':'var(--bdr)';
+    r.style.background=on?'rgba(245,166,35,.12)':'transparent';
+  });
+  var p=playerOf(pid);
+  var nameEl=document.getElementById('dp-selected-name');
+  if(nameEl)nameEl.textContent=p?('#'+(p.number||'?')+' '+p.name):'?';
+  var box=document.getElementById('dp-selected');
+  if(box)box.style.display='block';
+}
+function dpSelectPoints(n){
+  window._dpSelPoints=n;
+  var wrap=document.getElementById('dp-pts');if(!wrap)return;
+  wrap.querySelectorAll('button').forEach(function(b){
+    var bn=parseInt(b.getAttribute('data-n'));
+    b.style.borderColor=bn===n?'var(--acc,#f5a623)':'var(--bdr)';
+    b.style.background=bn===n?'var(--acc,#f5a623)':'transparent';
+    b.style.color=bn===n?'#000':'var(--txt,#fff)';
+  });
+}
+async function saveDefensivePointsFromModal(gid){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0];if(!gm)return;
+  if(!window._dpSelPlayer||!window._dpSelTeam){toast('Selecciona un jugador','error');return;}
+  var pts=parseInt(window._dpSelPoints)||0;
+  if(pts<1||pts>5){toast('Selecciona los puntos a otorgar (1 a 5)','error');return;}
+  var comment=(fv('dp-comment')||'').trim();
+  if(!comment){toast('La justificación es obligatoria','error');return;}
+  var dpItem={id:'dp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    tournamentId:gm.tournamentId,gameId:gm.id,teamId:window._dpSelTeam,playerId:window._dpSelPlayer,
+    points:pts,source:'manual',reason:comment,relatedEventId:null,
+    createdBy:(S.user&&S.user.username)||'',timestamp:new Date().toISOString()};
+  S.defensivePoints=S.defensivePoints||[];
+  S.defensivePoints.push(dpItem);
+  await api('saveDefensivePoints',{item:dpItem});
+  cM();
+  var p=playerOf(window._dpSelPlayer);
+  toast((p?p.name:'Jugador')+' recibió '+pts+' punto(s)','success');
 }
 function openAdjM(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
@@ -10997,9 +11210,17 @@ function awardCandidates(tourId,divFilter){
       var pitchingPts=pk*P.kPit+pOuts*P.outPit+pOuts*P.ipThird+w*P.wPit+sv*P.svPit-er*P.erPit-pbb*P.bbPit-l*P.lPit;
       var errEvs=evs.filter(function(e){return e.errorFielderId&&ids.indexOf(e.errorFielderId)>=0;});
       var errs=errEvs.length;
+      // Puntos por Jugada (otorgados) + descuento de la jugada de Error, netos, acotados a
+      // los MISMOS juegos de esta fase/subtorneo (gids) para que MVP Serie Final no mezcle
+      // puntos de la Serie Regular con los suyos, igual criterio que el resto de esta funcion.
+      var dpRecords=(S.defensivePoints||[]).filter(function(dp){return gids.indexOf(dp.gameId)>=0&&ids.indexOf(dp.playerId)>=0;});
+      var defPoints=dpRecords.reduce(function(s,dp){return s+(parseInt(dp.points)||0);},0);
+      // Posicion principal y juegos jugados en ESA posicion: solo se cuentan lineups de
+      // juegos de esta misma fase (gids) — para Guante de Oro esto siempre corresponde a
+      // Serie Regular, que es el criterio que se pidio (la posicion mas jugada en fase regular).
       var posCount={};
       S.lineups.forEach(function(lu){
-        if(!lu.players)return;
+        if(!lu.players||gids.indexOf(lu.gameId)<0)return;
         lu.players.forEach(function(x){if(ids.indexOf(x.playerId)>=0){var ps=(x.position||'').toUpperCase();if(ps)posCount[ps]=(posCount[ps]||0)+1;}});
       });
       var mainPos=Object.keys(posCount).sort(function(a,b){return posCount[b]-posCount[a];})[0]||(p.position||'');
@@ -11010,7 +11231,7 @@ function awardCandidates(tourId,divFilter){
         avg:avg,obp:obp,slg:slg,ops:ops,
         ip:ip,pOuts:pOuts,ph:ph,er:er,pbb:pbb,pk:pk,w:w,l:l,sv:sv,era:era,whip:whip,
         battingPts:battingPts,pitchingPts:pitchingPts,
-        errs:errs,mainPos:mainPos,defGames:defGames,rookie:(p.rookie==='true'||p.rookie===true)};
+        errs:errs,defPoints:defPoints,mainPos:mainPos,defGames:defGames,rookie:(p.rookie==='true'||p.rookie===true)};
     });
   }
   var _divFAw=divFilter||'';var regular=buildPool('regular',_divFAw);
@@ -11040,7 +11261,9 @@ function awardCandidates(tourId,divFilter){
   var cyYoung=regular.filter(function(x){return x.ip>=minIP;}).slice().sort(function(a,b){return cyScore(b)-cyScore(a);}).slice(0,5);
   // ── Novato del Año: puntos totales combinados entre novatos ──
   var novato=regular.filter(function(x){return x.rookie;}).slice().sort(function(a,b){return mvpScore(b)-mvpScore(a);}).slice(0,5);
-  // ── Guante de Oro: menos errores por posicion (sin cambios) ──
+  // ── Guante de Oro: mayor cantidad de puntos netos (Puntos por Jugada otorgados - puntos
+  // descontados por Error) por posicion, con el minimo de juegos en esa posicion configurado
+  // en el torneo. Empate: mas juegos jugados en la posicion. ──
   var byPos={};
   regular.forEach(function(x){
     var pos=x.mainPos;
@@ -11051,7 +11274,7 @@ function awardCandidates(tourId,divFilter){
   var guante={};
   Object.keys(byPos).forEach(function(pos){
     guante[pos]=byPos[pos].filter(function(x){return x.defGames>=minGG;}).sort(function(a,b){
-      if(a.errs!==b.errs)return a.errs-b.errs;
+      if(b.defPoints!==a.defPoints)return b.defPoints-a.defPoints;
       return b.defGames-a.defGames;
     }).slice(0,3);
   });
@@ -11262,7 +11485,7 @@ function pgAwardCandidates(tourId,divFilter){
     if(_rPit&&x.ip>0)detail.push('<span style="font-size:10px;color:var(--t3)">Pit: '+pit.toFixed(2)+'</span>');
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+total.toFixed(2)+'</span><div style="font-size:9px;color:var(--t3)">pts</div>'+(detail.length?'<div style="font-size:9px;color:var(--t3)">'+detail.join(' ')+'</div>':'');
   }
-  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en el sistema de puntos configurado (Serie Regular). Bate de Oro y Bate de Plata requieren mín. '+minVB+' VB; Cy Young requiere mín. '+minIP+' IP; MVP y Novato del Año no tienen mínimo de VB/IP. Mín. '+minGG+' juego(s) en posición para Guante de Oro. Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
+  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en el sistema de puntos configurado (Serie Regular). Bate de Oro y Bate de Plata requieren mín. '+minVB+' VB; Cy Young requiere mín. '+minIP+' IP; MVP y Novato del Año no tienen mínimo de VB/IP. Guante de Oro requiere mín. '+minGG+' juego(s) en la posición (la más jugada en Serie Regular) y se ordena por puntos netos de "Puntos por Jugada" (otorgados menos descontados por Error). Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
   html+='<div class="g2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   // ── MVP: puntos combinados bateo+pitcheo ──
   html+=candList('Candidatos a MVP (bateo y/o pitcheo)','&#127942;',cand.mvp,function(x){return ptsHtml(x);});
@@ -11291,7 +11514,7 @@ function pgAwardCandidates(tourId,divFilter){
     posKeys.forEach(function(pos){
       var list=cand.guante[pos];
       html+='<div style="border:1px solid var(--bdr);border-radius:8px;padding:8px"><div style="font-size:11px;color:var(--t3);font-weight:700;margin-bottom:4px">POS: '+pos+'</div>'
-        +(list.length?list.map(function(x){return candRow(x,x.errs+' E · '+x.defGames+' JJ');}).join(''):'<div style="font-size:11px;color:var(--t3);padding:6px 0">Sin candidatos (mín. '+minGG+' juego(s) en la posición)</div>')
+        +(list.length?list.map(function(x){return candRow(x,(x.defPoints>0?'+':'')+x.defPoints+' pts · '+x.errs+' E · '+x.defGames+' JJ');}).join(''):'<div style="font-size:11px;color:var(--t3);padding:6px 0">Sin candidatos (mín. '+minGG+' juego(s) en la posición)</div>')
         +'</div>';
     });
     html+='</div>';
