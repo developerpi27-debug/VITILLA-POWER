@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Repeticion</title>
+<style>
+  :root{
+    --rp-bg:#8a1f2b;--rp-bg2:#c62d3a;--rp-accent:#f5a623;--rp-text:#ffffff;--rp-sub:#ffe3b3;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+
+  #scaleWrap{display:inline-block;transform-origin:left center;}
+  #badge{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:12px;
+    padding:12px 26px;border-radius:12px;border:2px solid var(--rp-accent);
+    background:linear-gradient(135deg,var(--rp-bg),var(--rp-bg2));
+    box-shadow:0 10px 28px rgba(0,0,0,.5);
+    animation:rp-enter .55s cubic-bezier(.2,.8,.2,1) both;}
+  #badge.static .icon{animation:none;}
+  #badge.static .shine{display:none;}
+
+  .icon{font-size:30px;line-height:1;color:var(--rp-accent);flex:0 0 auto;
+    animation:rp-spin 1.7s linear infinite;filter:drop-shadow(0 0 4px rgba(0,0,0,.4));}
+
+  .txt{display:flex;flex-direction:column;gap:1px;white-space:nowrap;}
+  .txt .main{font-size:22px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--rp-text);line-height:1;}
+  .txt .sub{font-size:11.5px;font-weight:700;letter-spacing:.5px;color:var(--rp-sub);line-height:1;display:none;}
+
+  .shine{position:absolute;top:0;bottom:0;width:35%;
+    background:linear-gradient(115deg,transparent,rgba(255,255,255,.35),transparent);
+    transform:translateX(-160%) skewX(-18deg);
+    animation:rp-shine 3.4s ease-in-out infinite;}
+
+  @keyframes rp-enter{0%{opacity:0;transform:translateX(-46px) scale(.88);}100%{opacity:1;transform:translateX(0) scale(1);}}
+  @keyframes rp-spin{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
+  @keyframes rp-shine{0%{transform:translateX(-160%) skewX(-18deg);}35%{transform:translateX(260%) skewX(-18deg);}100%{transform:translateX(260%) skewX(-18deg);}}
+
+  #gear{position:fixed;top:12px;right:12px;width:30px;height:30px;border-radius:7px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;line-height:1;padding:0;z-index:51;box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  #gear:hover{background:rgba(0,0,0,.65);border-color:rgba(255,255,255,.6);}
+  #panel{position:fixed;top:48px;right:12px;width:280px;max-height:calc(100vh - 64px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;color:#e6edf5;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-row input[type=text]{width:140px;padding:5px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;font-size:12px;}
+  .cf-row input[type=range]{width:130px;}
+  .cf-row select{padding:5px 7px;border-radius:6px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;font-size:12px;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<button id="gear" title="Personalizar">&#9881;</button>
+<div id="panel">
+  <h3>&#127916; Repeticion</h3>
+  <div class="cf-row"><label>Texto principal</label><input type="text" id="cText" maxlength="24"></div>
+  <div class="cf-row"><label>Subtexto (opcional)</label><input type="text" id="cSub" maxlength="30" placeholder="ej. Camara 2"></div>
+  <div class="cf-row"><label>Fondo (izquierda)</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Fondo (derecha)</label><input type="color" id="cBg2"></div>
+  <div class="cf-row"><label>Acento / icono</label><input type="color" id="cAccent"></div>
+  <div class="cf-row"><label>Texto principal (color)</label><input type="color" id="cTextColor"></div>
+  <div class="cf-row"><label>Subtexto (color)</label><input type="color" id="cSubColor"></div>
+  <div class="cf-row"><label>Tamano</label><input type="range" id="cScale" min="70" max="160" step="5"></div>
+  <div class="cf-row"><label>Animacion</label><select id="cAnim">
+    <option value="loop">En bucle (brillo + icono girando)</option>
+    <option value="static">Solo entrada (una vez)</option>
+  </select></div>
+  <div style="font-size:10.5px;color:#8a97ab;margin:-4px 0 8px;line-height:1.4">"En bucle" se ve vivo todo el tiempo que la fuente este visible. "Solo entrada" conviene si tu software recarga la fuente cada vez que la muestras (asi la animacion de entrada se repite sola).</div>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Esta pagina NO reproduce video — es solo el grafico animado de "Repeticion". El video en si lo maneja el Replay Buffer de tu software de transmision (en Prism: Configuracion &gt; Salida &gt; Avanzado &gt; Replay Buffer). Agrega esta pagina como fuente aparte, y muestrala/ocultala justo cuando reproduzcas el clip.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="scaleWrap">
+<div id="badge">
+  <div class="shine"></div>
+  <div class="icon">&#10227;</div>
+  <div class="txt">
+    <div class="main" id="mainText">REPETICION</div>
+    <div class="sub" id="subText"></div>
+  </div>
+</div>
+</div>
+<script>
+// ── Repeticion — banner grafico animado (sin video) para usar junto al Replay Buffer nativo
+// de tu software de transmision. No consulta ningun dato del juego; es un grafico autonomo.
+var qs=new URLSearchParams(location.search);
+var COLOR_KEYS=['bg','bg2','accent','textcolor','subcolor'];
+var DEFAULTS={bg:'#8a1f2b',bg2:'#c62d3a',accent:'#f5a623',textcolor:'#ffffff',subcolor:'#ffe3b3',
+  text:'REPETICION',sub:'',scale:100,anim:'loop'};
+var VARMAP={bg:'--rp-bg',bg2:'--rp-bg2',accent:'--rp-accent',textcolor:'--rp-text',subcolor:'--rp-sub'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_replay_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('text')!=null)s.text=qs.get('text');
+  if(qs.get('sub')!=null)s.sub=qs.get('sub');
+  if(qs.get('scale')!=null){var sc=parseInt(qs.get('scale'));if(sc>0)s.scale=sc;}
+  if(qs.get('anim')==='loop'||qs.get('anim')==='static')s.anim=qs.get('anim');
+  return s;
+}
+var SET=loadSettings();
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.getElementById('mainText').textContent=SET.text||'REPETICION';
+  var subEl=document.getElementById('subText');
+  if(SET.sub){subEl.textContent=SET.sub;subEl.style.display='block';}
+  else{subEl.textContent='';subEl.style.display='none';}
+  document.getElementById('scaleWrap').style.transform='scale('+(SET.scale/100)+')';
+  document.getElementById('badge').classList.toggle('static',SET.anim==='static');
+}
+function saveSettings(){localStorage.setItem('vp_replay_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cText').value=SET.text;
+  document.getElementById('cSub').value=SET.sub;
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cBg2').value=SET.bg2;
+  document.getElementById('cAccent').value=SET.accent;
+  document.getElementById('cTextColor').value=SET.textcolor;
+  document.getElementById('cSubColor').value=SET.subcolor;
+  document.getElementById('cScale').value=SET.scale;
+  document.getElementById('cAnim').value=SET.anim;
+}
+function replayEntrance(){
+  var b=document.getElementById('badge');
+  b.style.animation='none';
+  void b.offsetWidth; // fuerza reflow para poder reiniciar la animacion de entrada
+  b.style.animation='';
+}
+function wirePanel(){
+  var colorMap={cBg:'bg',cBg2:'bg2',cAccent:'accent',cTextColor:'textcolor',cSubColor:'subcolor'};
+  Object.keys(colorMap).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[colorMap[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cText').addEventListener('input',function(){SET.text=this.value;applySettings();saveSettings();});
+  document.getElementById('cSub').addEventListener('input',function(){SET.sub=this.value;applySettings();saveSettings();});
+  document.getElementById('cScale').addEventListener('input',function(){SET.scale=parseInt(this.value);applySettings();saveSettings();});
+  document.getElementById('cAnim').addEventListener('change',function(){SET.anim=this.value;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){
+    SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();
+  });
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('text',SET.text);
+    u.searchParams.set('sub',SET.sub);
+    u.searchParams.set('scale',SET.scale);
+    u.searchParams.set('anim',SET.anim);
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+  // Clic sobre el propio grafico (fuera del panel) repite la animacion de entrada — util para
+  // probar el efecto sin tener que recargar la pagina entera.
+  document.getElementById('badge').addEventListener('click',replayEntrance);
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+</script>
+</body>
+</html>
