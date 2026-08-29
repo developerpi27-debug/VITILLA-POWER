@@ -4627,6 +4627,9 @@ async function _doOutEnJugada(forcedBase){
     var btId=isTop?gm.awayTeamId:gm.homeTeamId;
     var evInning=parseInt(gm.currentInning)||1;
     var evHalf=gm.currentHalf;
+    // Outs ANTES de este out en jugada — se guarda en el evento (igual que en rPlay) para que
+    // "Deshacer" pueda restaurarlo de forma autoritativa.
+    var outsBeforePlay=parseInt(gm.outs)||0;
     gm.outs=(parseInt(gm.outs)||0)+1;
     // OJ = out on a baserunner, NOT a completed at-bat.
     // Remove ONE runner from the bases. Si el anotador especifico la base (forcedBase),
@@ -4673,6 +4676,7 @@ async function _doOutEnJugada(forcedBase){
     var ojFacedPitcherId=await autoUpdatePitcher(gm,'OJ',0,evHalf);
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
       type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,pitcherId:ojFacedPitcherId||null,
+      outs:outsBeforePlay,
       priorBases:{first:b2.first||null,second:b2.second||null,third:b2.third||null},
       timestamp:new Date().toISOString()};
     S.events.push(Object.assign({},ojEv));
@@ -5360,9 +5364,17 @@ async function rPlay(type){
   gm.inningScores=gm.inningScores||{};gm.bases=gm.bases||{first:null,second:null,third:null};
   gm.errorBases=gm.errorBases||[];
   // Outs ANTES de procesar esta jugada (situacion en la que el bateador entro a batear).
-  // Se guarda en el evento para poder calcular despues estadisticas como "AVG con 2 outs".
+  // Se guarda en el evento para poder calcular despues estadisticas como "AVG con 2 outs" Y
+  // (ver mas abajo, ev.outs) para que "Deshacer" pueda restaurar los outs de forma AUTORITATIVA
+  // (leyendo el valor real guardado) en vez de restar deltas sobre el gm.outs actual, que es lo
+  // que causaba que outs/turno al bate se fueran desincronizando tras varios "Deshacer" seguidos.
   var outsBeforePlay=parseInt(gm.outs)||0;
   var isTop=gm.currentHalf==='top';
+  // Igual que outsBeforePlay: el indice de bateador del equipo al bate ANTES de esta jugada,
+  // guardado en el evento (ev.batterIdxBefore) para que "Deshacer" restaure el turno al bate de
+  // forma autoritativa en vez de decrementar el indice actual (que arrastra el mismo riesgo de
+  // desincronizacion que tenian los outs).
+  var battingIdxBefore=isTop?(parseInt(gm.awayBatterIdx)||0):(parseInt(gm.homeBatterIdx)||0);
   var btId=isTop?gm.awayTeamId:gm.homeTeamId;
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===btId;})[0];
   if(!lu||!lu.players||!lu.players.length){toast('Sin lineup configurado','error');return;}
@@ -6159,7 +6171,7 @@ async function rPlay(type){
     if(gm._savedErrorType!==undefined)delete gm._savedErrorType;
     var ev={id:evId,gameId:gm.id,batterId:biPlayerId,battingTeamId:btId,
       type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
-      scorerIds:scorerIds,outs:outsBeforePlay,
+      scorerIds:scorerIds,outs:outsBeforePlay,batterIdxBefore:battingIdxBefore,
       errorSubtype:_errSubtype||undefined,throwCorrId:_throwCorrId||undefined,
       priorBases:{first:bases?bases.first:null,second:bases?bases.second:null,third:bases?bases.third:null},
       timestamp:new Date().toISOString()};
@@ -6701,11 +6713,19 @@ async function undoLastPlay(){
   if(causedInnChange){
     gm.currentInning=wasInning;
     gm.currentHalf=last.half;
-    // Restore outs to whatever they were BEFORE the 3rd out (= 2 outs after revert of outsAdded)
-    var isOut2=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
-    var outsAdded2=last.type==='DP'?2:isOut2?1:0;
-    // After inning flip outs were reset to 0; restore to pre-out value minus what we're undoing
-    gm.outs=Math.max(0,3-outsAdded2);
+    // Restaurar outs de forma AUTORITATIVA: ev.outs guarda los outs que HABIA justo antes de
+    // que se jugara esta jugada (ver outsBeforePlay en rPlay/_doOutEnJugada), asi que basta con
+    // restaurar ese valor directo — SIN restar deltas sobre gm.outs, que es lo que permitia que
+    // el conteo de outs se fuera desincronizando tras varios "Deshacer" seguidos (el mismo tipo
+    // de bug ya corregido para el marcador, ver BUG CORREGIDO #2/#3 mas abajo). Fallback al
+    // calculo anterior SOLO para eventos historicos guardados antes de este fix (sin ev.outs).
+    if(last.outs!==undefined&&last.outs!==null){
+      gm.outs=parseInt(last.outs)||0;
+    } else {
+      var isOut2=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
+      var outsAdded2=last.type==='DP'?2:isOut2?1:0;
+      gm.outs=Math.max(0,3-outsAdded2);
+    }
     // Restaurar bases desde priorBases si disponible, sino limpiar
     if(last.priorBases){
       gm.bases={first:last.priorBases.first||null,second:last.priorBases.second||null,third:last.priorBases.third||null};
@@ -6713,10 +6733,14 @@ async function undoLastPlay(){
       gm.bases={first:null,second:null,third:null};
     }
   } else {
-    // No inning change: just revert outs normally
-    var isOut=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
-    var outsAdded=last.type==='DP'?2:isOut?1:0;
-    if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
+    // No inning change: restaurar outs de forma AUTORITATIVA igual que arriba (ver comentario).
+    if(last.outs!==undefined&&last.outs!==null){
+      gm.outs=parseInt(last.outs)||0;
+    } else {
+      var isOut=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
+      var outsAdded=last.type==='DP'?2:isOut?1:0;
+      if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
+    }
     // Restaurar bases desde priorBases guardado en el evento (preciso para DP, FO, K, OUT, E...)
     if(last.priorBases){
       gm.bases={
@@ -6740,7 +6764,14 @@ async function undoLastPlay(){
   }
   // OJ, SB (base robada), WP (wild pitch), BK (balk), PB (passed ball) y error en tiro no consumen turno (el bateador sigue)
   if(last.type!=='OJ'&&last.type!=='SB'&&last.type!=='WP'&&last.type!=='BK'&&last.type!=='PB'&&!(last.type==='E'&&last.errorSubtype==='throw')){
-    if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
+    // Restaurar el indice de bateador de forma AUTORITATIVA con ev.batterIdxBefore (el indice
+    // que HABIA justo antes de esta jugada), en vez de decrementar el indice actual — mismo
+    // criterio que con los outs, para que tampoco se desincronice tras varios "Deshacer" seguidos.
+    // Fallback al decremento anterior SOLO para eventos historicos sin ev.batterIdxBefore.
+    if(last.batterIdxBefore!==undefined&&last.batterIdxBefore!==null){
+      if(wasTop)gm.awayBatterIdx=parseInt(last.batterIdxBefore)||0;
+      else gm.homeBatterIdx=parseInt(last.batterIdxBefore)||0;
+    } else if(wasTop)gm.awayBatterIdx=Math.max(0,(parseInt(gm.awayBatterIdx)||0)-1);
     else gm.homeBatterIdx=Math.max(0,(parseInt(gm.homeBatterIdx)||0)-1);
   }
   var runs=parseInt(last.runs)||0;
