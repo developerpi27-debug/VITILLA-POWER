@@ -139,10 +139,35 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 #sscr{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;}
 .sbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:36px;width:min(520px,calc(100vw - 32px));max-height:90vh;overflow-y:auto;}
 .step{display:none;}.step.on{display:block;}
-#lscr{position:fixed;inset:0;background:var(--bg);z-index:9998;display:none;align-items:center;justify-content:center;}
-.lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:min(380px,calc(100vw - 32px));}
+#lscr{position:fixed;inset:0;background:
+    radial-gradient(circle at 18% 15%,rgba(245,166,35,.10),transparent 42%),
+    radial-gradient(circle at 84% 82%,rgba(59,130,246,.10),transparent 45%),
+    var(--bg);
+  z-index:9998;display:none;align-items:center;justify-content:center;padding:20px;}
+.lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:min(400px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(0,0,0,.45);}
 .llogo{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--acc);text-align:center;}
 .lsub{font-size:12px;letter-spacing:3px;color:var(--t3);margin-bottom:26px;font-family:'Barlow Condensed',sans-serif;text-align:center;}
+.lgate-hint{font-size:13px;color:var(--t2);text-align:center;margin-bottom:22px;}
+.lgate-btn{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:16px 16px;border-radius:12px;cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif;}
+.lgate-btn+.lgate-btn{margin-top:12px;}
+.lgate-btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:1px solid var(--acc);}
+.lgate-btn-pri:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 8px 22px rgba(245,166,35,.3);}
+.lgate-btn-sec{background:var(--card2);border:1px solid var(--bdr2);}
+.lgate-btn-sec:hover{background:var(--bg3);border-color:var(--acc);transform:translateY(-1px);}
+.lgate-ic{font-size:22px;flex-shrink:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(0,0,0,.15);}
+.lgate-btn-sec .lgate-ic{background:rgba(245,166,35,.12);}
+.lgate-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.lgate-t1{font-size:14.5px;font-weight:700;}
+.lgate-btn-pri .lgate-t1{color:#1a1200;}
+.lgate-btn-sec .lgate-t1{color:var(--txt);}
+.lgate-t2{font-size:11px;}
+.lgate-btn-pri .lgate-t2{color:rgba(26,18,0,.65);}
+.lgate-btn-sec .lgate-t2{color:var(--t3);}
+.lgate-arrow{font-size:14px;flex-shrink:0;opacity:.55;}
+.lgate-btn-pri .lgate-arrow{color:#1a1200;}
+.lgate-btn-sec .lgate-arrow{color:var(--t2);}
+.lback{background:none;border:none;color:var(--t2);font-size:12.5px;font-family:'Barlow',sans-serif;cursor:pointer;display:flex;align-items:center;gap:5px;padding:0 0 20px 0;transition:color .15s;}
+.lback:hover{color:var(--acc);}
 .spin{width:26px;height:26px;border:3px solid var(--bdr2);border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto;}
 @keyframes sp{to{transform:rotate(360deg);}}
 
@@ -520,23 +545,39 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   <div class="lbox">
     <div class="llogo" style="display:flex;align-items:center;justify-content:center;gap:10px"><img src="" id="login-logo-img" style="width:48px;height:48px;object-fit:contain" alt="Vitilla Power"> <span id="brandWordLogin">VITILLA</span></div>
     <div class="lsub">Power</div>
-    <div id="lerr" class="alert ae" style="display:none"></div>
-    <div id="lfrm">
-      <div class="fg"><label class="fl">Usuario</label>
-        <input class="fi" id="lu" autocorrect="off" autocapitalize="none" placeholder="Tu usuario">
-      </div>
-      <div class="fg"><label class="fl">Contrasena</label>
-        <input class="fi" type="password" id="lp" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
-      </div>
-      <button class="btn bp blg wf" onclick="doLogin()">Iniciar Sesion</button>
-      <div style="margin-top:10px;text-align:center">
-        <button class="btn bs wf" onclick="guestLogin()">&#128065; Acceder como visitante</button>
-      </div>
 
+    <!-- PUERTA DE ENTRADA: elegir como acceder -->
+    <div id="lgate">
+      <div class="lgate-hint">Elige cómo deseas continuar</div>
+      <button type="button" class="lgate-btn lgate-btn-pri" onclick="showLoginForm()">
+        <span class="lgate-ic">&#128100;</span>
+        <span class="lgate-txt"><span class="lgate-t1">Iniciar Sesión</span><span class="lgate-t2">Anotadores, administradores y staff</span></span>
+        <span class="lgate-arrow">&#10132;</span>
+      </button>
+      <button type="button" class="lgate-btn lgate-btn-sec" onclick="guestLogin()">
+        <span class="lgate-ic">&#128065;</span>
+        <span class="lgate-txt"><span class="lgate-t1">Acceder como Visitante</span><span class="lgate-t2">Solo consultar resultados y estadísticas</span></span>
+        <span class="lgate-arrow">&#10132;</span>
+      </button>
     </div>
-    <div id="llod" style="display:none;padding:20px 0;text-align:center">
-      <div class="spin"></div>
-      <div id="lmsg" style="font-size:13px;color:var(--t2);margin-top:10px">Verificando...</div>
+
+    <!-- CREDENCIALES -->
+    <div id="lcreds" style="display:none">
+      <button type="button" class="lback" onclick="showLoginGate()">&#8592; Volver</button>
+      <div id="lerr" class="alert ae" style="display:none"></div>
+      <div id="lfrm">
+        <div class="fg"><label class="fl">Usuario</label>
+          <input class="fi" id="lu" autocorrect="off" autocapitalize="none" placeholder="Tu usuario">
+        </div>
+        <div class="fg"><label class="fl">Contrasena</label>
+          <input class="fi" type="password" id="lp" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
+        </div>
+        <button class="btn bp blg wf" onclick="doLogin()">Iniciar Sesion</button>
+      </div>
+      <div id="llod" style="display:none;padding:20px 0;text-align:center">
+        <div class="spin"></div>
+        <div id="lmsg" style="font-size:13px;color:var(--t2);margin-top:10px">Verificando...</div>
+      </div>
     </div>
   </div>
 </div>
@@ -684,7 +725,7 @@ var LOGO_B64="data:image/webp;base64,UklGRihSAgBXRUJQVlA4WAoAAAAgAAAAnwUAnwUASUN
 
 // STATE
 var _curYear=new Date().getFullYear();
-var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5};
+var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0};
 
 // API — llama al Worker con el token
 async function api(action,data){
@@ -717,11 +758,11 @@ async function api(action,data){
 }
 async function pingUrl(url){
   try{
-    var r=await fetch(url,{
+    var r=await fetchWithTimeout(url,{
       method:'POST',
       headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},
       body:JSON.stringify({action:'ping'})
-    });
+    },8000);
     if(!r.ok)return false;
     var j=await r.json();return j.ok===true;
   }catch(e){return false;}
@@ -842,14 +883,34 @@ function synthOfflineResult(action,data){
 // Llamada de red "cruda", sin logica de cola offline — la usa tanto api()
 // como el motor de sincronizacion (que necesita reintentar contra el
 // servidor real, no volver a encolar).
+// Todo request al worker pasa por AQUI. IMPORTANTE: fetch() del navegador NO tiene timeout
+// propio — en una conexion mala/intermitente (muy comun en un terreno de pelota) una peticion
+// puede quedarse "colgada" muchos segundos (a veces mas de un minuto) sin resolver ni fallar.
+// Como rPlay()/undoLastPlay() mantienen _rPlayBusy/_saving en true mientras esperan esta
+// respuesta, un fetch colgado se traduce en que TODOS los botones de "Registrar Jugada" quedan
+// bloqueados ("Procesando jugada anterior...") por ese mismo tiempo — exactamente la sensacion
+// de que "el juego se congela/se vuelve loco" que se reporto. El fix: forzar un limite de
+// tiempo con AbortController; si el servidor no responde a tiempo, se trata como una falla de
+// red normal (que api() YA sabe manejar: para jugadas la encola en el outbox offline y libera
+// los botones de inmediato, sin perder la jugada).
+var API_TIMEOUT_MS=15000;
+function fetchWithTimeout(url,opts,timeoutMs){
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=null;
+  if(ctrl){
+    opts=Object.assign({},opts,{signal:ctrl.signal});
+    timer=setTimeout(function(){ctrl.abort();},timeoutMs);
+  }
+  return fetch(url,opts).finally(function(){ if(timer) clearTimeout(timer); });
+}
 async function apiRaw(action,data){
   var hdrs={'Content-Type':'application/json','X-App-Token':CFG.appToken};
   if(S.authToken) hdrs['Authorization']='Bearer '+S.authToken;
-  var r=await fetch(CFG.workerUrl,{
+  var r=await fetchWithTimeout(CFG.workerUrl,{
     method:'POST',
     headers:hdrs,
     body:JSON.stringify(Object.assign({action:action},data||{}))
-  });
+  },API_TIMEOUT_MS);
   if(!r.ok)throw new Error('HTTP '+r.status);
   return await r.json();
 }
@@ -1081,7 +1142,30 @@ async function loadOfflineCache(){
 // [runSetup eliminado]
 
 // LOGIN
-function showLoginScreen(){document.getElementById('lscr').style.display='flex';setTimeout(function(){document.getElementById('lu').focus();},100);}
+// Pantalla de acceso con dos pasos: primero una "puerta" con dos botones (Iniciar Sesion /
+// Acceder como Visitante), y solo al elegir "Iniciar Sesion" se revela el formulario de
+// usuario/contrasena (que ya NO muestra la opcion de visitante). Vuelve a la puerta cada vez
+// que la sesion se cierra o se inactiva.
+function showLoginScreen(){
+  document.getElementById('lscr').style.display='flex';
+  showLoginGate();
+}
+function showLoginGate(){
+  var g=document.getElementById('lgate'),c=document.getElementById('lcreds'),lod=document.getElementById('llod'),frm=document.getElementById('lfrm');
+  if(g)g.style.display='block';
+  if(c)c.style.display='none';
+  if(lod)lod.style.display='none';
+  if(frm)frm.style.display='block';
+  var errEl=document.getElementById('lerr');if(errEl)errEl.style.display='none';
+  var lu=document.getElementById('lu'),lp=document.getElementById('lp');
+  if(lu)lu.value='';if(lp)lp.value='';
+}
+function showLoginForm(){
+  var g=document.getElementById('lgate'),c=document.getElementById('lcreds');
+  if(g)g.style.display='none';
+  if(c)c.style.display='block';
+  setTimeout(function(){var lu=document.getElementById('lu');if(lu)lu.focus();},100);
+}
 function resetModuleState(){
   curP='';
   S.tourFilter='';
@@ -1234,8 +1318,7 @@ function doLogout(){
   S.user=null;S.profile=null;S.game=null;S.authToken='';
   document.getElementById('app').style.display='none';
   document.getElementById('lscr').style.display='flex';
-  document.getElementById('lu').value='';document.getElementById('lp').value='';
-  document.getElementById('lerr').style.display='none';
+  showLoginGate();
 }
 
 // SESSION — persistida en IndexedDB (nunca localStorage/sessionStorage). Solo
@@ -1425,6 +1508,8 @@ async function loadAll(){
   S.loginMaxAttempts=parseInt(d.config&&d.config.loginMaxAttempts)||5;
   S.loginWindowMinutes=parseInt(d.config&&d.config.loginWindowMinutes)||1;
   S.loginLockoutMinutes=parseInt(d.config&&d.config.loginLockoutMinutes)||5;
+  // 0 = sin limite (muestra todas las jugadas del juego en la pestaña "Jugadas" del Box Score)
+  S.playLogLimit=parseInt(d.config&&d.config.playLogLimit)||0;
   S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   var pendingGameIds=await outboxPendingGameIds();
   if(Object.keys(pendingGameIds).length>0){
@@ -1503,6 +1588,7 @@ async function loadGameSliceOnly(gameId){
 var _poll=null;
 var _saving=false;
 var _curPollMs=30000;
+var _pollBusy=false;
 function startPolling(){
   if(_poll)clearInterval(_poll);
   _curPollMs=Math.max(10,(S.pollInterval||30))*1000;
@@ -1510,6 +1596,15 @@ function startPolling(){
 }
 async function _doPoll(){
   if(!S.user||document.hidden||_saving||_rPlayBusy)return;
+  // Reentrancy guard: setInterval NO espera a que el ciclo anterior termine. En una conexion
+  // lenta, un ciclo de poll (loadAll/loadGameSliceOnly) puede tardar mas que el intervalo
+  // configurado; sin este guard, los ciclos se van APILANDO uno sobre otro (cada uno pidiendo
+  // datos de nuevo), multiplicando el trafico/consumo del worker justo cuando la conexion ya
+  // esta mal, y ademas una respuesta vieja podria llegar DESPUES de una mas nueva y "revertir"
+  // el estado por un instante. Con el guard, un ciclo lento simplemente se salta los siguientes
+  // disparos del timer hasta que termina, en vez de correr en paralelo con ellos.
+  if(_pollBusy)return;
+  _pollBusy=true;
   var prevPoll=S.pollInterval||30;
   try{
     // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de recargar,
@@ -1629,6 +1724,7 @@ async function _doPoll(){
 
     if((S.pollInterval||30)!==prevPoll) startPolling();
   }catch(e){console.warn('Poll error:',e);}
+  finally{_pollBusy=false;}
 }
 function stopPolling(){if(_poll){clearInterval(_poll);_poll=null;}}
 document.addEventListener('visibilitychange',function(){
@@ -4218,7 +4314,7 @@ function pgGC(){
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.awayTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+aw.name+'</button>'
       +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
-    +'<button class="btn bd bsm" onclick="undoLastPlay()" title="Elimina la ultima jugada y devuelve el turno al bateador anterior">&#8630; Deshacer</button>'
+    +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
     +(hasModuleAccess('transmissionpanel')?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>':'')
       +'</div>':'')
     +'</div>'
@@ -4373,8 +4469,14 @@ function playLog(gid){
   var canEdit=isAdmin&&gm&&gm.status==='final';
   var undoLabel={'H1':'Sencillo','H2':'Doble','H3':'Triple','HR':'Jonron','K':'Ponche','OUT':'Out','DP':'Doble Play','BB':'Base por Bolas','HBP':'HBP','E':'Error','SB':'Robo','SAC':'Sacrificio','OJ':'Out en Jugada','WP':'Wild Pitch','BK':'Balk','PB':'Passed Ball'};
   if(!evs.length)return'<div class="empty"><div>Sin jugadas registradas</div></div>';
-  return (canEdit?'<div class="alert ai" style="font-size:12px;margin-bottom:8px">&#128274; Modo edicion: Puedes corregir RBI, carreras o eliminar jugadas incorrectas.</div>':'')+
-  evs.slice(0,100).map(function(e){
+  // Limite configurable por el admin (Configuracion > Sesion y Actualizacion). 0/vacio = sin
+  // limite, se muestran TODAS las jugadas desde el 1er inning.
+  var totalEvs=evs.length;
+  var lim=parseInt(S.playLogLimit)||0;
+  var evsShown=lim>0?evs.slice(0,lim):evs;
+  var truncNote=(lim>0&&totalEvs>lim)?'<div class="alert aw" style="font-size:12px;margin-bottom:8px">&#9888; Mostrando las '+lim+' jugadas mas recientes de '+totalEvs+'. '+(isAdmin?'Puedes ajustar este limite en Configuracion.':'Pide a un administrador que ajuste el limite en Configuracion si necesitas ver jugadas anteriores.')+'</div>':'';
+  return truncNote+(canEdit?'<div class="alert ai" style="font-size:12px;margin-bottom:8px">&#128274; Modo edicion: Puedes corregir RBI, carreras o eliminar jugadas incorrectas.</div>':'')+
+  evsShown.map(function(e){
     // ── UNDO informational entry ──────────────────────────────────────────────
     if(e.type==='UNDO'){
       var uLbl=undoLabel[e.undoneType]||e.undoneType||'?';
@@ -6817,7 +6919,14 @@ async function undoLastPlay(){
     for(var pri=0;pri<countsChanged.length;pri++){ await api('savePitching',{event:countsChanged[pri]}); }
     await api('saveEvent',{event:undoLogEv});
   }finally{_saving=false;}
-  }finally{_undoBusy=false;}
+  }finally{
+    _undoBusy=false;
+    // Re-renderizar SOLO si el usuario sigue en Control de Juego (si navego a otro modulo
+    // mientras el guardado seguia en curso, no queremos "jalarlo de vuelta" a esta pantalla).
+    // Esto reactiva visualmente el boton "Deshacer" (vuelve a mostrarse habilitado) apenas
+    // termina de confirmarse el guardado — ver btnUndoHtml() para el estado deshabilitado.
+    if(curP==='gamecontrol') pgGC();
+  }
 }
 // Recalcula EXCLUSIVAMENTE los conteos de H/HR/BB/K, IP (outs) y R/ER de TODOS los pitchers de
 // un juego, directamente desde el registro real de jugadas (S.events) -- en vez de ir sumando o
@@ -13602,6 +13711,11 @@ function pgSet(){
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; La actualización automática refresca todos los módulos de datos (posiciones, estadísticas, calendario, etc.) sin interrumpir al usuario. Mínimo 10 segundos. Los visitantes y otros usuarios verán los cambios en el próximo ciclo automáticamente.</div>'
       +'<button class="btn bp" onclick="saveSessParams()">Guardar Parametros</button>'
       +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128221; Registro de Jugadas (Control de Juego)</div></div>'
+      +'<div class="fg"><label class="fl">Maximo de jugadas a mostrar en la pestaña "Jugadas"</label><input class="fi" id="splaylim" type="number" min="0" max="5000" value="'+(S.playLogLimit||0)+'" placeholder="0 = sin limite"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Controla cuantas jugadas recientes se listan en la pestaña "Jugadas" del Box Score dentro de Control de Juego. Deja en <b>0</b> (o vacio) para mostrar TODAS las jugadas del juego sin limite, desde el 1er inning. Si estableces un numero, solo se mostraran las jugadas mas recientes hasta ese limite (util si tienes equipos con conexiones muy lentas y prefieres una carga mas liviana).</div>'
+      +'<button class="btn bp" onclick="savePlayLogLimit()">Guardar Limite</button>'
+      +'</div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128274; Seguridad de Inicio de Sesion</div></div>'
       +'<div class="fr c3"><div class="fg"><label class="fl">Intentos maximos permitidos</label><input class="fi" id="lgmax" type="number" min="1" max="50" value="'+(S.loginMaxAttempts||5)+'"></div>'
       +'<div class="fg"><label class="fl">Ventana de tiempo (minutos)</label><input class="fi" id="lgwin" type="number" min="1" max="60" value="'+(S.loginWindowMinutes||1)+'"></div>'
@@ -13643,6 +13757,17 @@ async function saveSessParams(){
     startSessionTimer(); startPolling();
     toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s','success');
   } else toast('Error al guardar parametros','error');
+}
+async function savePlayLogLimit(){
+  var raw=fv('splaylim');
+  var lim=raw===''?0:(parseInt(raw)||0);
+  if(lim<0||lim>5000){toast('El limite debe ser entre 0 (sin limite) y 5000','error');return;}
+  _saving=true;
+  S.playLogLimit=lim;
+  var r=await api('saveConfig',{key:'playLogLimit',value:String(lim)});
+  _saving=false;
+  if(r&&r.ok){toast(lim>0?'Limite guardado: '+lim+' jugadas':'Limite eliminado: se mostraran todas las jugadas','success');}
+  else toast('Error al guardar el limite','error');
 }
 async function saveLoginSecurityParams(){
   var mx=parseInt(fv('lgmax'))||5;
@@ -14023,6 +14148,8 @@ function initResponsive(){
 // INIT
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&document.getElementById('lscr').style.display==='flex'){
+    var credsEl=document.getElementById('lcreds');
+    if(!credsEl||credsEl.style.display==='none')return; // en la puerta (gate), Enter no hace nada
     var focused=document.activeElement;
     if(focused&&focused.id==='lu')document.getElementById('lp').focus();
     else doLogin();
@@ -14377,8 +14504,11 @@ window.onload=function(){
     if(rs&&rs.mode==='relogin'){
       // Ventana corta (90 min) vencida pero la larga (8h) sigue vigente: pedir
       // usuario/clave de nuevo (funciona online o, dentro de la ventana larga,
-      // también offline vía tryOfflineLogin dentro de doLogin).
+      // también offline vía tryOfflineLogin dentro de doLogin). Va directo al
+      // formulario de credenciales (no a la puerta de "Iniciar Sesion"/"Visitante")
+      // porque ya sabemos quien es — solo falta reconfirmar la contrasena.
       showLoginScreen();
+      showLoginForm();
       var luEl=document.getElementById('lu');if(luEl)luEl.value=rs.username||'';
       return;
     }
