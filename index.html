@@ -725,7 +725,7 @@ var LOGO_B64="data:image/webp;base64,UklGRihSAgBXRUJQVlA4WAoAAAAgAAAAnwUAnwUASUN
 
 // STATE
 var _curYear=new Date().getFullYear();
-var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0};
+var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0,undoCooldownSec:0};
 
 // API — llama al Worker con el token
 async function api(action,data){
@@ -960,6 +960,23 @@ async function syncOutbox(){
           break;
         }
         if(!res||!res.ok){
+          // ── Rechazo PERMANENTE: jugada duplicada (ver guardia anti-duplicado en
+          // actionSaveEvent, worker.js) — otro anotador/dispositivo ya registro una jugada
+          // para ese mismo turno al bate antes de que esta, encolada offline, pudiera llegar.
+          // Reintentarla en el proximo ciclo NUNCA va a funcionar (la condicion no cambia con
+          // el tiempo), asi que a diferencia de un rechazo comun se descarta del outbox de una
+          // vez, se limpia el evento fantasma de S.events si sigue ahi, y se resincroniza el
+          // juego afectado para que el anotador vea el estado real en vez de quedar con un
+          // aviso de "no se pudo sincronizar" repitiendose para siempre.
+          if(res&&res.duplicate&&it.action==='saveEvent'){
+            await idbDelete('outbox',it.key);
+            var dupEvId=it.data&&it.data.event&&it.data.event.id;
+            var dupGameId=it.data&&it.data.event&&it.data.event.gameId;
+            if(dupEvId) S.events=S.events.filter(function(x){return x.id!==dupEvId;});
+            if(dupGameId){ try{ await loadGameSliceOnly(dupGameId); }catch(e3){} if(curP==='gamecontrol'&&S.game===dupGameId) pgGC(); }
+            toast('Una jugada encolada sin conexion ya habia sido registrada por otro anotador — se descarto y se sincronizo el juego.','error');
+            continue;
+          }
           // El servidor SI respondio (no fue un problema de red) pero rechazo
           // la escritura por algun otro motivo (validacion, permisos, etc).
           // Antes esto se borraba igual del outbox como si hubiera tenido
@@ -1510,6 +1527,10 @@ async function loadAll(){
   S.loginLockoutMinutes=parseInt(d.config&&d.config.loginLockoutMinutes)||5;
   // 0 = sin limite (muestra todas las jugadas del juego en la pestaña "Jugadas" del Box Score)
   S.playLogLimit=parseInt(d.config&&d.config.playLogLimit)||0;
+  // Segundos de espera adicional ANTES de rehabilitar el boton "Deshacer" luego de pulsarlo,
+  // por encima del tiempo que ya tarda el guardado en confirmarse con el servidor. 0 = sin
+  // espera extra (se rehabilita apenas se confirma el guardado, comportamiento de siempre).
+  S.undoCooldownSec=Math.max(0,parseInt(d.config&&d.config.undoCooldownSec)||0);
   S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   var pendingGameIds=await outboxPendingGameIds();
   if(Object.keys(pendingGameIds).length>0){
@@ -4873,9 +4894,15 @@ async function _doStealBase(basesArr){
     });
     gm.bases=b;
     if(!runnersStolen.length){toast('No se pudo procesar el robo','error');_rPlayBusy=false;_saving=false;return;}
-    // Cargar la(s) carrera(s) por robo de home al pitcher responsable (earned,
-    // no es un error) — autoUpdatePitcher ya guarda el/los registro(s) de pitcheo.
-    var facedPitcherId=await autoUpdatePitcher(gm,'SB',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
+    // ── Renderizar YA, ANTES de las llamadas de red (mismo criterio aplicado a rPlay()) ──────
+    // El pitcher actual se puede saber de forma SINCRONA (findCurrentPitcherRecord ya es una
+    // simple lectura del lineup/pitcheo local, sin red) — no hace falta esperar el guardado de
+    // red de autoUpdatePitcher() solo para saber su id y poder armar/mostrar los eventos de
+    // robo. Antes, ese await bloqueaba la actualizacion de bases/marcador en pantalla hasta que
+    // el guardado de pitcheo terminara — en una conexion lenta, el robo parecia "no registrarse"
+    // aunque ya estuviera aplicado localmente.
+    var ftId0=isTop?gm.homeTeamId:gm.awayTeamId;
+    var quickPitcherId=(findCurrentPitcherRecord(gm,ftId0)||{}).pitcherId||null;
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     var newEvs=[];
     runnersStolen.forEach(function(runnerId){
@@ -4883,13 +4910,26 @@ async function _doStealBase(basesArr){
       var sbId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)+Math.floor(Math.random()*90+10);
       var sbEv={id:sbId,gameId:gm.id,batterId:runnerId,battingTeamId:btId,
         type:'SB',inning:evInning,half:evHalf,rbi:0,runs:didScore?1:0,
-        scorerIds:didScore?[runnerId]:[],pitcherId:facedPitcherId||null,
+        scorerIds:didScore?[runnerId]:[],pitcherId:quickPitcherId,
         priorBases:priorBasesSnap,timestamp:new Date().toISOString()};
       S.events.push(Object.assign({},sbEv));
       newEvs.push(sbEv);
     });
     pgGC();
     _lastEvTs=Date.now();
+    // Cargar la(s) carrera(s) por robo de home al pitcher responsable (earned, no es un
+    // error) — autoUpdatePitcher ya guarda el/los registro(s) de pitcheo. Corre DESPUES del
+    // render de arriba; si el pitcherId "real" que confirma difiere del quickPitcherId (no
+    // deberia, es la misma lectura, pero por seguridad), se corrige en S.events sin forzar
+    // otro render (igual que hace rPlay() con ev.pitcherId).
+    var facedPitcherId=await autoUpdatePitcher(gm,'SB',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
+    if(facedPitcherId&&facedPitcherId!==quickPitcherId){
+      newEvs.forEach(function(e){e.pitcherId=facedPitcherId;});
+      S.events=S.events.map(function(x){
+        var m=newEvs.filter(function(e){return e.id===x.id;})[0];
+        return m?Object.assign({},x,{pitcherId:facedPitcherId}):x;
+      });
+    }
     await api('saveGame',{game:gm});
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(newEvs.length>1?'Doble robo registrado':'Base robada registrada','success');
@@ -6280,6 +6320,17 @@ async function rPlay(type){
     // Push event IMMEDIATELY so box score reflects it before save
     S.events.push(Object.assign({},ev));
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+    // ── Re-renderizar YA, ANTES de las llamadas de red ──────────────────────────────────────
+    // gm ya tiene el bateador/outs/entrada/marcador correctos en este punto (todo lo anterior
+    // es calculo local, sin await). Antes, el primer pgGC() de esta jugada ocurria DESPUES de
+    // esperar autoUpdatePitcher() (que hace su propio guardado de red, savePitching) — en una
+    // conexion lenta, eso dejaba la pantalla mostrando el bateador/outs VIEJOS varios segundos
+    // aunque el dato local ya estuviera actualizado, dando la sensacion de que el turno al bate
+    // "no cambia". Renderizar aqui, de inmediato, hace que la pantalla siga el mismo principio
+    // ya usado en el resto de la app: los datos se ven al instante, y el guardado en el
+    // servidor pasa despues en segundo plano.
+    if(gameOver) S.game=null;
+    pgGC();
     // Update pitcher stats BEFORE rendering (uses evHalf which is pre-flip)
     // Se guarda el pitcherId que realmente enfrento esta jugada DENTRO del evento, para que
     // si mas adelante se edita o elimina esta jugada (juego ya finalizado), el sistema sepa
@@ -6332,18 +6383,33 @@ async function rPlay(type){
     if(scorerIds.length&&gm.runnerPitcher){
       scorerIds.forEach(function(sid){if(gm.runnerPitcher[sid])delete gm.runnerPitcher[sid];});
     }
-    if(gameOver) S.game=null;
-    pgGC();
-    // Save game FIRST (has updated scores), then event
-    await api('saveGame',{game:gm});
-    // Validate no duplicate before saving (guard against double-tap)
+    // ── Guardar el EVENTO primero (antes que el juego) ──────────────────────────────────────
+    // El servidor valida en saveEvent que este turno al bate no se haya registrado ya (ver
+    // guardia anti-duplicado en actionSaveEvent, worker.js) — si detecta que otro anotador/
+    // dispositivo ya registro una jugada para este mismo bateador+entrada+outs, la rechaza. Por
+    // eso el evento se guarda ANTES que el marcador del juego: si el servidor la rechaza,
+    // abortamos sin haber sobrescrito el juego compartido con nuestro estado (que resultaria
+    // invalido si perdimos la carrera contra el otro anotador).
     var alreadySaved=S.events.filter(function(x){return x.id===evId&&x._saved;}).length>0;
     if(!alreadySaved){
       var er=await api('saveEvent',{event:ev});
       if(er&&er.ok){
         S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{_saved:true}):x;});
+      } else if(er&&er.duplicate){
+        // Otro anotador/dispositivo ya registro una jugada para este mismo turno al bate antes
+        // que nosotros — nuestra version optimista local (bateador, outs, marcador que ya
+        // habiamos aplicado en pantalla) es "fantasma": nadie mas la tiene. Descartarla y
+        // sincronizar este juego con el servidor para reflejar lo que realmente paso, en vez de
+        // dejar al anotador viendo un estado que solo existe en su pantalla.
+        S.events=S.events.filter(function(x){return x.id!==evId;});
+        toast('Esta jugada ya fue registrada por otro anotador — se descarto y se sincronizo el juego.','error');
+        try{ await loadGameSliceOnly(gm.id); }catch(e2){}
+        if(curP==='gamecontrol') pgGC();
+        return;
       }
     }
+    // Ahora si, guardar el marcador/estado del juego (ya confirmado que el evento fue aceptado)
+    await api('saveGame',{game:gm});
     // Si esta jugada fue un Error con jugador y puntos a descontar, registrar el descuento
     // (vinculado a este evento via relatedEventId, para poder revertirlo si la jugada se deshace).
     if(type==='E'&&errorFielderId&&errorDeductPoints>0){
@@ -6776,6 +6842,10 @@ async function undoLastPlay(){
     :'Deshacer la ultima jugada? El bateador volvera al turno.';
   if(!confirm(confirmMsg))return;
   _undoBusy=true;
+  // Solo se activa el cooldown configurable (S.undoCooldownSec) si en verdad se ejecuta un
+  // deshacer real — las salidas tempranas de abajo (sin jugadas que deshacer, juego bloqueado,
+  // etc.) no deben dejar el boton en "espera" sin haber hecho nada.
+  var _cooldownApplies=false;
   try{
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm){_undoBusy=false;return;}
   var gEvs=S.events.filter(function(e){return e.gameId===gm.id;}).slice().sort(function(a,b){
@@ -6795,13 +6865,13 @@ async function undoLastPlay(){
     last=e;break;
   }
   if(!last){toast('No hay jugadas reales para deshacer','info');_undoBusy=false;return;}
+  _cooldownApplies=true; // a partir de aqui SI se va a ejecutar un deshacer real
   // ── Deshacer un CAMBIO DE JUGADOR (pitcher/emergente/defensa) — rama totalmente separada de
   // las jugadas de bateo: no toca bases/outs/entrada/marcador (un cambio no los modifica),
   // solo restaura el lineup y pitcheo del equipo afectado tal cual estaban antes del cambio.
   if(last.type==='SUB'){
     await undoSubAction(gm,last);
-    _undoBusy=false;
-    return;
+    return; // _undoBusy (y el cooldown si aplica) se maneja en el finally exterior
   }
   var wasTop=last.half==='top';
   var wasInning=parseInt(last.inning)||1;
@@ -6918,14 +6988,32 @@ async function undoLastPlay(){
     await api('saveGame',{game:gm});
     for(var pri=0;pri<countsChanged.length;pri++){ await api('savePitching',{event:countsChanged[pri]}); }
     await api('saveEvent',{event:undoLogEv});
-  }finally{_saving=false;}
   }finally{
-    _undoBusy=false;
-    // Re-renderizar SOLO si el usuario sigue en Control de Juego (si navego a otro modulo
-    // mientras el guardado seguia en curso, no queremos "jalarlo de vuelta" a esta pantalla).
-    // Esto reactiva visualmente el boton "Deshacer" (vuelve a mostrarse habilitado) apenas
-    // termina de confirmarse el guardado — ver btnUndoHtml() para el estado deshabilitado.
-    if(curP==='gamecontrol') pgGC();
+    _saving=false;
+  }
+  }finally{
+    // Segundos de espera ADICIONAL configurables en Configuracion (S.undoCooldownSec), por
+    // encima del tiempo que ya tardo el guardado en confirmarse — para dar mas margen a que un
+    // anotador con dedos rapidos no vuelva a pulsar "Deshacer" antes de asimilar el cambio.
+    // Solo se aplica si de verdad se ejecuto un deshacer (_cooldownApplies) — no en las salidas
+    // tempranas de arriba (nada que deshacer, juego bloqueado, etc.) donde no hay nada que
+    // "enfriar". El boton usa la MISMA bandera _undoBusy para el bloqueo visual/de clics durante
+    // esta espera extra, asi que reutiliza toda la logica ya existente (ver btnUndoHtml()).
+    var cooldownMs=_cooldownApplies?Math.max(0,parseInt(S.undoCooldownSec)||0)*1000:0;
+    if(cooldownMs>0){
+      setTimeout(function(){
+        _undoBusy=false;
+        if(curP==='gamecontrol') pgGC();
+      },cooldownMs);
+      // Re-renderizar de una vez para reflejar el estado "Deshaciendo..." tambien durante el
+      // cooldown (por si el guardado fue muy rapido y aun no se habia re-renderizado).
+      if(curP==='gamecontrol') pgGC();
+    } else {
+      _undoBusy=false;
+      // Re-renderizar SOLO si el usuario sigue en Control de Juego (si navego a otro modulo
+      // mientras el guardado seguia en curso, no queremos "jalarlo de vuelta" a esta pantalla).
+      if(curP==='gamecontrol') pgGC();
+    }
   }
 }
 // Recalcula EXCLUSIVAMENTE los conteos de H/HR/BB/K, IP (outs) y R/ER de TODOS los pitchers de
@@ -13715,6 +13803,9 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Maximo de jugadas a mostrar en la pestaña "Jugadas"</label><input class="fi" id="splaylim" type="number" min="0" max="5000" value="'+(S.playLogLimit||0)+'" placeholder="0 = sin limite"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Controla cuantas jugadas recientes se listan en la pestaña "Jugadas" del Box Score dentro de Control de Juego. Deja en <b>0</b> (o vacio) para mostrar TODAS las jugadas del juego sin limite, desde el 1er inning. Si estableces un numero, solo se mostraran las jugadas mas recientes hasta ese limite (util si tienes equipos con conexiones muy lentas y prefieres una carga mas liviana).</div>'
       +'<button class="btn bp" onclick="savePlayLogLimit()">Guardar Limite</button>'
+      +'<div class="fg" style="margin-top:16px;border-top:1px solid var(--bdr2);padding-top:14px"><label class="fl">Espera adicional para rehabilitar el botón "Deshacer" (segundos)</label><input class="fi" id="sundocd" type="number" min="0" max="60" value="'+(S.undoCooldownSec||0)+'" placeholder="0 = sin espera adicional"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Tras pulsar "Deshacer" y confirmarse el cambio con el servidor, el boton se mantiene deshabilitado ("Deshaciendo...") esta cantidad de segundos EXTRA antes de volver a habilitarse — para dar tiempo al anotador a notar el cambio antes de poder pulsarlo de nuevo. Deja en <b>0</b> para que se habilite apenas se confirme el guardado (comportamiento de siempre).</div>'
+      +'<button class="btn bp" onclick="saveUndoCooldown()">Guardar Espera</button>'
       +'</div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128274; Seguridad de Inicio de Sesion</div></div>'
       +'<div class="fr c3"><div class="fg"><label class="fl">Intentos maximos permitidos</label><input class="fi" id="lgmax" type="number" min="1" max="50" value="'+(S.loginMaxAttempts||5)+'"></div>'
@@ -13768,6 +13859,17 @@ async function savePlayLogLimit(){
   _saving=false;
   if(r&&r.ok){toast(lim>0?'Limite guardado: '+lim+' jugadas':'Limite eliminado: se mostraran todas las jugadas','success');}
   else toast('Error al guardar el limite','error');
+}
+async function saveUndoCooldown(){
+  var raw=fv('sundocd');
+  var sec=raw===''?0:(parseInt(raw)||0);
+  if(sec<0||sec>60){toast('La espera debe ser entre 0 y 60 segundos','error');return;}
+  _saving=true;
+  S.undoCooldownSec=sec;
+  var r=await api('saveConfig',{key:'undoCooldownSec',value:String(sec)});
+  _saving=false;
+  if(r&&r.ok){toast(sec>0?'Espera guardada: '+sec+' segundo(s) adicionales':'Espera eliminada: el boton se habilita apenas se confirme','success');}
+  else toast('Error al guardar la espera','error');
 }
 async function saveLoginSecurityParams(){
   var mx=parseInt(fv('lgmax'))||5;
