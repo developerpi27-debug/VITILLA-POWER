@@ -4793,10 +4793,13 @@ async function _doOutEnJugada(forcedBase){
     }
     }
     var ojId='ev'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    // Update pitcher IP BEFORE rendering — capturar el pitcherId para que este out cuente
-    // correctamente en calculos que dependen de "quien enfrento esta jugada" (ej. rachas de
-    // IP sin carreras, que antes perdian estos outs por completo al no tener pitcherId).
-    var ojFacedPitcherId=await autoUpdatePitcher(gm,'OJ',0,evHalf);
+    // Update pitcher IP — capturar el pitcherId para que este out cuente correctamente en
+    // calculos que dependen de "quien enfrento esta jugada" (ej. rachas de IP sin carreras).
+    // Se usa la parte SINCRONA (computePitcherUpdate) para poder renderizar de inmediato, sin
+    // esperar el guardado de red — ese guardado (savePitcherRecords) pasa despues, en segundo
+    // plano, igual que en rPlay().
+    var ojPitRes=computePitcherUpdate(gm,'OJ',0,evHalf);
+    var ojFacedPitcherId=ojPitRes?ojPitRes.pitcherId:null;
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
       type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,pitcherId:ojFacedPitcherId||null,
       outs:outsBeforePlay,
@@ -4807,6 +4810,7 @@ async function _doOutEnJugada(forcedBase){
     pgGC();
     _lastEvTs=Date.now();
     await api('saveGame',{game:gm});
+    if(ojPitRes) await savePitcherRecords(ojPitRes.touched);
     await api('saveEvent',{event:ojEv});
     toast('Out en jugada registrado','success');
   }finally{_rPlayBusy=false;_saving=false;}
@@ -4895,14 +4899,15 @@ async function _doStealBase(basesArr){
     gm.bases=b;
     if(!runnersStolen.length){toast('No se pudo procesar el robo','error');_rPlayBusy=false;_saving=false;return;}
     // ── Renderizar YA, ANTES de las llamadas de red (mismo criterio aplicado a rPlay()) ──────
-    // El pitcher actual se puede saber de forma SINCRONA (findCurrentPitcherRecord ya es una
-    // simple lectura del lineup/pitcheo local, sin red) — no hace falta esperar el guardado de
-    // red de autoUpdatePitcher() solo para saber su id y poder armar/mostrar los eventos de
-    // robo. Antes, ese await bloqueaba la actualizacion de bases/marcador en pantalla hasta que
-    // el guardado de pitcheo terminara — en una conexion lenta, el robo parecia "no registrarse"
-    // aunque ya estuviera aplicado localmente.
+    // computePitcherUpdate() es la parte SINCRONA (sin red) de la actualizacion del pitcher:
+    // determina el pitcher actual y, si algun corredor anoto por home robado, le carga la
+    // carrera (limpia) de una vez — todo esto sin esperar el guardado en el servidor. Antes,
+    // ese guardado bloqueaba tanto la actualizacion de bases/marcador en pantalla como la
+    // carrera del pitcher hasta que la red respondiera — en una conexion lenta, el robo (y una
+    // eventual carrera por home robado) parecian "no registrarse" hasta la jugada siguiente.
     var ftId0=isTop?gm.homeTeamId:gm.awayTeamId;
-    var quickPitcherId=(findCurrentPitcherRecord(gm,ftId0)||{}).pitcherId||null;
+    var sbPitRes=computePitcherUpdate(gm,'SB',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
+    var quickPitcherId=sbPitRes?sbPitRes.pitcherId:((findCurrentPitcherRecord(gm,ftId0)||{}).pitcherId||null);
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     var newEvs=[];
     runnersStolen.forEach(function(runnerId){
@@ -4917,20 +4922,8 @@ async function _doStealBase(basesArr){
     });
     pgGC();
     _lastEvTs=Date.now();
-    // Cargar la(s) carrera(s) por robo de home al pitcher responsable (earned, no es un
-    // error) — autoUpdatePitcher ya guarda el/los registro(s) de pitcheo. Corre DESPUES del
-    // render de arriba; si el pitcherId "real" que confirma difiere del quickPitcherId (no
-    // deberia, es la misma lectura, pero por seguridad), se corrige en S.events sin forzar
-    // otro render (igual que hace rPlay() con ev.pitcherId).
-    var facedPitcherId=await autoUpdatePitcher(gm,'SB',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
-    if(facedPitcherId&&facedPitcherId!==quickPitcherId){
-      newEvs.forEach(function(e){e.pitcherId=facedPitcherId;});
-      S.events=S.events.map(function(x){
-        var m=newEvs.filter(function(e){return e.id===x.id;})[0];
-        return m?Object.assign({},x,{pitcherId:facedPitcherId}):x;
-      });
-    }
     await api('saveGame',{game:gm});
+    if(sbPitRes) await savePitcherRecords(sbPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(newEvs.length>1?'Doble robo registrado':'Base robada registrada','success');
   } finally{_rPlayBusy=false;_saving=false;}
@@ -5047,7 +5040,10 @@ async function _doWildPitch(choices){
     if(!movedRunners.length){toast('Ningun corredor se movio','info');_rPlayBusy=false;_saving=false;return;}
     // El wild pitch en si no es un error de fildeo: isError=false. La carrera es
     // limpia salvo que el corredor especifico este marcado como sucio (dirtyIds).
-    var facedPitcherId=await autoUpdatePitcher(gm,'WP',scorerIds.length,evHalf,false,scorerIds.length-dirtyIds.length,scorerIds,dirtyIds);
+    // computePitcherUpdate() = parte SINCRONA (sin red), para poder renderizar de inmediato;
+    // el guardado real (savePitcherRecords) pasa despues, en segundo plano.
+    var wpPitRes=computePitcherUpdate(gm,'WP',scorerIds.length,evHalf,false,scorerIds.length-dirtyIds.length,scorerIds,dirtyIds);
+    var facedPitcherId=wpPitRes?wpPitRes.pitcherId:null;
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     var newEvs=[];
     movedRunners.forEach(function(mr){
@@ -5062,6 +5058,7 @@ async function _doWildPitch(choices){
     pgGC();
     _lastEvTs=Date.now();
     await api('saveGame',{game:gm});
+    if(wpPitRes) await savePitcherRecords(wpPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Wild pitch registrado — anotaron '+scorerIds.length+' carrera(s)':'Wild pitch registrado','success');
   } finally{_rPlayBusy=false;_saving=false;}
@@ -5133,7 +5130,10 @@ async function _doBalk(){
       gm.errorBases=gm.errorBases.filter(function(sid){return scorerIds.indexOf(sid)<0;});
     }
     if(!movedRunners.length){toast('No se pudo procesar el balk','error');_rPlayBusy=false;_saving=false;return;}
-    var facedPitcherId=await autoUpdatePitcher(gm,'BK',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
+    // computePitcherUpdate() = parte SINCRONA (sin red), para poder renderizar de inmediato;
+    // el guardado real (savePitcherRecords) pasa despues, en segundo plano.
+    var bkPitRes=computePitcherUpdate(gm,'BK',scorerIds.length,evHalf,false,scorerIds.length,scorerIds,[]);
+    var facedPitcherId=bkPitRes?bkPitRes.pitcherId:null;
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     var newEvs=[];
     movedRunners.forEach(function(mr){
@@ -5148,6 +5148,7 @@ async function _doBalk(){
     pgGC();
     _lastEvTs=Date.now();
     await api('saveGame',{game:gm});
+    if(bkPitRes) await savePitcherRecords(bkPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Balk registrado — anotaron '+scorerIds.length+' carrera(s)':'Balk registrado — corredores avanzaron','success');
   } finally{_rPlayBusy=false;_saving=false;}
@@ -5366,7 +5367,10 @@ async function _doPassBall(){
     // El passed ball, igual que el wild pitch, no es un error de fildeo (isError=false).
     // La carrera es limpia salvo que el corredor especifico se hubiera embasado antes
     // por error (dirtyIds) — mismo criterio ya usado en Wild Pitch.
-    var facedPitcherId=await autoUpdatePitcher(gm,'PB',scorerIds.length,evHalf,false,scorerIds.length-dirtyIds.length,scorerIds,dirtyIds);
+    // computePitcherUpdate() = parte SINCRONA (sin red), para poder renderizar de inmediato;
+    // el guardado real (savePitcherRecords) pasa despues, en segundo plano.
+    var pbPitRes=computePitcherUpdate(gm,'PB',scorerIds.length,evHalf,false,scorerIds.length-dirtyIds.length,scorerIds,dirtyIds);
+    var facedPitcherId=pbPitRes?pbPitRes.pitcherId:null;
     S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
     var newEvs=[];
     movedRunners.forEach(function(mr){
@@ -5381,6 +5385,7 @@ async function _doPassBall(){
     pgGC();
     _lastEvTs=Date.now();
     await api('saveGame',{game:gm});
+    if(pbPitRes) await savePitcherRecords(pbPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Passed ball registrado — anotaron '+scorerIds.length+' carrera(s)':'Passed ball registrado — corredor(es) avanzaron','success');
   } finally{_rPlayBusy=false;_saving=false;}
@@ -6317,24 +6322,16 @@ async function rPlay(type){
       errorSubtype:_errSubtype||undefined,throwCorrId:_throwCorrId||undefined,
       priorBases:{first:bases?bases.first:null,second:bases?bases.second:null,third:bases?bases.third:null},
       timestamp:new Date().toISOString()};
-    // Push event IMMEDIATELY so box score reflects it before save
-    S.events.push(Object.assign({},ev));
-    S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
-    // ── Re-renderizar YA, ANTES de las llamadas de red ──────────────────────────────────────
-    // gm ya tiene el bateador/outs/entrada/marcador correctos en este punto (todo lo anterior
-    // es calculo local, sin await). Antes, el primer pgGC() de esta jugada ocurria DESPUES de
-    // esperar autoUpdatePitcher() (que hace su propio guardado de red, savePitching) — en una
-    // conexion lenta, eso dejaba la pantalla mostrando el bateador/outs VIEJOS varios segundos
-    // aunque el dato local ya estuviera actualizado, dando la sensacion de que el turno al bate
-    // "no cambia". Renderizar aqui, de inmediato, hace que la pantalla siga el mismo principio
-    // ya usado en el resto de la app: los datos se ven al instante, y el guardado en el
-    // servidor pasa despues en segundo plano.
-    if(gameOver) S.game=null;
-    pgGC();
-    // Update pitcher stats BEFORE rendering (uses evHalf which is pre-flip)
-    // Se guarda el pitcherId que realmente enfrento esta jugada DENTRO del evento, para que
-    // si mas adelante se edita o elimina esta jugada (juego ya finalizado), el sistema sepa
-    // exactamente a cual pitcher corregirle las estadisticas (y no solo al "pitcher actual").
+    // ── Todo lo de abajo (carreras limpias/sucias, estadisticas del pitcher, "quien embaso a
+    // quien") es calculo 100% LOCAL — no depende de ninguna llamada de red — asi que se hace
+    // ANTES de renderizar, para que pgGC() (mas abajo) ya muestre el estado final completo
+    // (bateador, outs, marcador Y estadisticas del pitcher) desde el primer render de esta
+    // jugada. Antes, autoUpdatePitcher() corria DESPUES del render (y encima mezclaba su
+    // calculo local con su propio guardado de red), asi que un ponche u otra jugada no se
+    // reflejaba en la linea del pitcher hasta la SIGUIENTE jugada — quedaba siempre "un turno
+    // atrasado". Se guarda el pitcherId que realmente enfrento esta jugada DENTRO del evento,
+    // para que si mas adelante se edita o elimina esta jugada (juego ya finalizado), el sistema
+    // sepa exactamente a cual pitcher corregirle las estadisticas (y no solo al "pitcher actual").
     // Determinar si la carrera es sucia (earned=false) basado en:
     // 1. La jugada misma es un error (type==='E')
     // 2. Alguno de los que anotaron (scorerIds) llegó a base por error anteriormente (gm.errorBases)
@@ -6361,16 +6358,16 @@ async function rPlay(type){
       gm.errorBases=_errBaseIds.filter(function(sid){return scorerIds.indexOf(sid)<0;});
     }
     // Si la entrada ya deberia haber terminado, TODOS los que anotaron en esta jugada se pasan
-    // como "sucios" a autoUpdatePitcher (sin importar si estaban en errorBases o no), para que
-    // cada pitcher responsable (el actual o uno heredado via runnerPitcher) reciba la carrera
+    // como "sucios" a computePitcherUpdate (sin importar si estaban en errorBases o no), para
+    // que cada pitcher responsable (el actual o uno heredado via runnerPitcher) reciba la carrera
     // como NO limpia. Esto tambien cubre exactamente el caso pedido: un relevista que entra
     // con la entrada "ya terminada" (outs+errores>=3 del pitcher anterior) solo debe recibir
     // carreras limpias por hits que el MISMO permita de ahi en adelante — cualquier corredor
     // heredado que anote sigue siendo sucio.
     var _dirtyIdsForPitcher=_inningShouldHaveEnded?scorerIds.slice():_errBaseIds;
-    var facedPitcherId=await autoUpdatePitcher(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_dirtyIdsForPitcher);
+    var _pitRes=computePitcherUpdate(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_dirtyIdsForPitcher);
+    var facedPitcherId=_pitRes?_pitRes.pitcherId:null;
     ev.pitcherId=facedPitcherId||null;
-    S.events=S.events.map(function(x){return x.id===evId?Object.assign({},x,{pitcherId:facedPitcherId||null,earnedRuns:_earnedRuns}):x;});
     // ── Registrar quien "embasó" a este corredor (para corredores heredados) ──
     // Si el bateador de esta jugada llegó a base, queda tirado con el pitcher que lo enfrentó
     // — asi, si mas adelante entra un relevista y este corredor anota, la carrera se le sigue
@@ -6383,6 +6380,16 @@ async function rPlay(type){
     if(scorerIds.length&&gm.runnerPitcher){
       scorerIds.forEach(function(sid){if(gm.runnerPitcher[sid])delete gm.runnerPitcher[sid];});
     }
+    // Push event IMMEDIATELY so box score reflects it before save
+    S.events.push(Object.assign({},ev));
+    S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
+    // ── Re-renderizar YA, ANTES de las llamadas de red ──────────────────────────────────────
+    // gm y ev ya tienen el bateador/outs/entrada/marcador/estadisticas de pitcher correctos en
+    // este punto (todo lo anterior es calculo local, sin await). Renderizar aqui, de inmediato,
+    // hace que la pantalla siga el mismo principio ya usado en el resto de la app: los datos se
+    // ven al instante, y el guardado en el servidor pasa despues en segundo plano.
+    if(gameOver) S.game=null;
+    pgGC();
     // ── Guardar el EVENTO primero (antes que el juego) ──────────────────────────────────────
     // El servidor valida en saveEvent que este turno al bate no se haya registrado ya (ver
     // guardia anti-duplicado en actionSaveEvent, worker.js) — si detecta que otro anotador/
@@ -6410,6 +6417,9 @@ async function rPlay(type){
     }
     // Ahora si, guardar el marcador/estado del juego (ya confirmado que el evento fue aceptado)
     await api('saveGame',{game:gm});
+    // Guardar en el servidor las estadisticas de pitcher YA aplicadas localmente arriba (antes
+    // del render) — esto es solo la parte de RED, en segundo plano.
+    if(_pitRes) await savePitcherRecords(_pitRes.touched);
     // Si esta jugada fue un Error con jugador y puntos a descontar, registrar el descuento
     // (vinculado a este evento via relatedEventId, para poder revertirlo si la jugada se deshace).
     if(type==='E'&&errorFielderId&&errorDeductPoints>0){
@@ -6596,11 +6606,17 @@ function findPitcherRecordById(gm,ftId,pitcherId){
   var recs=S.pitching.filter(function(p){return p.gameId===gm.id&&p.teamId===ftId&&p.pitcherId===pitcherId;});
   return recs.length?recs[recs.length-1]:null;
 }
-async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds){
-  // Use passed half (captured BEFORE potential inning flip) not gm.currentHalf
+// ── Parte SINCRONA de autoUpdatePitcher: calcula y aplica LOCALMENTE los cambios de
+// estadisticas del pitcher (K, H, BB, carreras heredadas, IP) sin tocar la red — separada de
+// la parte que guarda en el servidor (ver savePitcherRecords) para que la pantalla pueda
+// reflejar el cambio DE INMEDIATO (llamando esto ANTES de pgGC()), y el guardado real en el
+// servidor pase despues, en segundo plano. Antes, ambas partes estaban mezcladas en una sola
+// funcion async (autoUpdatePitcher) que se llamaba DESPUES de renderizar — eso hacia que las
+// estadisticas del pitcher (ej. un ponche) no se vieran en pantalla hasta la SIGUIENTE jugada,
+// porque el calculo que las actualiza corria despues del render de la jugada actual.
+function computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds){
   var h=half||gm.currentHalf;
   var isTop=h==='top';
-  // Fielding team is OPPOSITE of batting team for that half
   var ftId=isTop?gm.homeTeamId:gm.awayTeamId;
   var ex=findCurrentPitcherRecord(gm,ftId);
   if(!ex)return null;
@@ -6659,15 +6675,34 @@ async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,
   var outsAdded=type==='DP'?2:(['K','OUT','FO','SAC','OJ'].indexOf(type)>=0?1:0);
   if(outsAdded>0){var ip=parseFloat(ex.ip)||0;var parts=String(ip).split('.');var full=parseInt(parts[0])||0;var part=parseInt(parts[1])||0;var thirds=full*3+part+outsAdded;ex.ip=parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));}
 
-  // Guardar TODOS los registros de pitcheo que se hayan modificado (puede ser solo el actual,
-  // o tambien el/los pitcher(s) anterior(es) que se llevaron una carrera heredada).
+  // Reflejar YA en S.pitching (sincrono, sin red) los registros tocados — asi el proximo
+  // pgGC() ya muestra las estadisticas al dia, sin esperar el guardado en el servidor.
+  var pids0=Object.keys(touched);
+  pids0.forEach(function(pid){
+    var rec=touched[pid];
+    S.pitching=S.pitching.map(function(p){return(p.gameId===rec.gameId&&p.teamId===rec.teamId&&p.pitcherId===rec.pitcherId)?rec:p;});
+  });
+  return {pitcherId:ex.pitcherId,touched:touched};
+}
+// ── Parte ASINCRONA: guarda en el servidor los registros de pitcheo YA actualizados
+// localmente por computePitcherUpdate(). Se llama DESPUES de renderizar (pgGC()), en segundo
+// plano, para que la velocidad de la conexion no retrase lo que se ve en pantalla.
+async function savePitcherRecords(touched){
+  if(!touched)return;
   var pids=Object.keys(touched);
   for(var ti=0;ti<pids.length;ti++){
     var rec=touched[pids[ti]];
-    S.pitching=S.pitching.map(function(p){return(p.gameId===rec.gameId&&p.teamId===rec.teamId&&p.pitcherId===rec.pitcherId)?rec:p;});
-    var rr=await api('savePitching',{event:rec});if(rr&&rr.ok&&rr.item&&!rec.id)rec.id=rr.item.id;
+    var rr=await api('savePitching',{event:rec});
+    if(rr&&rr.ok&&rr.item&&!rec.id)rec.id=rr.item.id;
   }
-  return ex.pitcherId;
+}
+// Wrapper de compatibilidad (calcula + guarda, en ese orden) para cualquier llamada que
+// todavia necesite el comportamiento "todo junto" de antes.
+async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds){
+  var res=computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds);
+  if(!res)return null;
+  await savePitcherRecords(res.touched);
+  return res.pitcherId;
 }
 function rBSO(type){
   if(_rPlayBusy)return;
