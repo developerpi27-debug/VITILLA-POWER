@@ -6,14 +6,23 @@
 <title id="pageTitle">Vitilla Power</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;}
+:root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;
+  --info-txt:#93c5fd;--warn-txt:#fbbf24;--succ-txt:#4ade80;--err-txt:#f87171;
+  --mq-g1:#0a1020;--mq-g2:#0f1a2e;}
 /* ── Tema claro (opcional, boton en la barra superior junto al zoom de tablas) ──────────────
    Redefine las MISMAS variables CSS que usa toda la app (fondos, texto, bordes, acento), asi
    que todo lo que ya esta construido con var(--bg)/var(--txt)/var(--t2)/etc. se ajusta solo,
    sin tener que tocar cada componente uno por uno. Los colores se eligieron para mantener buen
    contraste de texto sobre fondo blanco (el naranja de acento se oscurece un poco para que siga
-   siendo legible como texto, no solo como fondo de boton). */
-:root[data-theme="light"]{--bg:#f3f5f9;--bg2:#ffffff;--bg3:#eef1f6;--card:#ffffff;--card2:#eef1f6;--acc:#c66a00;--acc2:#a85900;--grn:#15803d;--red:#dc2626;--blu:#2563eb;--txt:#0f172a;--t2:#475569;--t3:#64748b;--bdr:rgba(15,23,42,.10);--bdr2:rgba(15,23,42,.18);}
+   siendo legible como texto, no solo como fondo de boton).
+   --info-txt/--warn-txt/--succ-txt/--err-txt: color de TEXTO de los recuadros .alert (.ai/.aw/
+   .as/.ae) — los tonos pastel originales (pensados para resaltar sobre fondo oscuro) se ven muy
+   poco legibles sobre el fondo casi blanco del tema claro, asi que aqui se oscurecen.
+   --mq-g1/--mq-g2: colores del degradado de fondo del marquee "AHORA" (#mq-bar) y de la barra
+   de Patrocinadores (.spg-bar-wrap) — antes eran un azul-marino fijo sin importar el tema. */
+:root[data-theme="light"]{--bg:#f3f5f9;--bg2:#ffffff;--bg3:#eef1f6;--card:#ffffff;--card2:#eef1f6;--acc:#c66a00;--acc2:#a85900;--grn:#15803d;--red:#dc2626;--blu:#2563eb;--txt:#0f172a;--t2:#475569;--t3:#64748b;--bdr:rgba(15,23,42,.10);--bdr2:rgba(15,23,42,.18);
+  --info-txt:#1d4ed8;--warn-txt:#b45309;--succ-txt:#15803d;--err-txt:#b91c1c;
+  --mq-g1:#ffffff;--mq-g2:#eef1f6;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
 button{font-family:'Barlow',sans-serif;cursor:pointer;}
@@ -97,10 +106,10 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .tab{flex:1;padding:8px;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--t2);transition:all .15s;}
 .tab.on{background:var(--card);color:var(--txt);}
 .alert{padding:11px 15px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.6;}
-.ai{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#93c5fd;}
-.aw{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#fbbf24;}
-.as{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;}
-.ae{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+.ai{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:var(--info-txt);}
+.aw{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--warn-txt);}
+.as{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--succ-txt);}
+.ae{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--err-txt);}
 .scoreboard{background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:16px;}
 .tscore{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;}
 .tbox{text-align:center;}
@@ -207,7 +216,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 #slogan-bar .sl-main{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #slogan-bar .sl-sub{font-size:11px;color:var(--t2);font-style:italic;}
 /* ── FOOTER ── */
-.spg-bar-wrap{background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);padding:8px 14px 12px;flex-shrink:0;}
+.spg-bar-wrap{background:linear-gradient(90deg,var(--mq-g1),var(--mq-g2),var(--mq-g1));border-bottom:1px solid rgba(245,166,35,.2);padding:8px 14px 12px;flex-shrink:0;}
 .spg-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--acc);text-align:center;margin-bottom:6px;text-transform:uppercase;}
 .spg-stage{position:relative;display:flex;align-items:center;justify-content:center;height:100px;margin:0 auto;max-width:520px;}
 .spg-item{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .6s ease;pointer-events:none;}
@@ -643,7 +652,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
     <!-- GALERIA DE PATROCINADORES (solo visitantes) — encima del marquee -->
     <div id="sp-bar" style="display:none"></div>
     <!-- MARQUEE GLOBAL -->
-    <div id="mq-bar" style="display:none;background:linear-gradient(90deg,#0a1020,#0f1a2e,#0a1020);border-bottom:1px solid rgba(245,166,35,.2);overflow:hidden;height:28px;flex-shrink:0">
+    <div id="mq-bar" style="display:none;background:linear-gradient(90deg,var(--mq-g1),var(--mq-g2),var(--mq-g1));border-bottom:1px solid rgba(245,166,35,.2);overflow:hidden;height:28px;flex-shrink:0">
       <div style="display:flex;align-items:center;height:100%">
         <div style="background:var(--acc);color:#000;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:900;padding:0 10px;height:100%;display:flex;align-items:center;letter-spacing:1px;white-space:nowrap;flex-shrink:0">🔥 AHORA</div>
         <div style="overflow:hidden;flex:1;height:100%;position:relative">
@@ -2359,6 +2368,16 @@ function applyTheme(){
   if(btn){
     btn.innerHTML=_THEME==='light'?'&#9728;&#65039;':'&#127769;';
     btn.title=_THEME==='light'?'Cambiar a fondo oscuro':'Cambiar a fondo claro';
+  }
+  // El marquee "AHORA" y las galerias de Patrocinadores/Afiliados usan colores de texto
+  // fijados en JS (no solo CSS) para mantener contraste sobre su propio fondo, que ahora
+  // tambien cambia con el tema — hay que reconstruirlos para que tomen la paleta correcta
+  // de inmediato, sin esperar al proximo refresco de datos.
+  if(document.getElementById('mq-bar')&&document.getElementById('mq-bar').style.display!=='none'){
+    startMarquee();
+  }
+  if(typeof restartPublicGalleries==='function'&&S.user&&S.user.role==='public'){
+    restartPublicGalleries();
   }
 }
 function toggleTheme(){
@@ -14337,6 +14356,21 @@ var _mqAnim=null, _mqItems=[], _mqIdx=0, _mqX=0, _mqPx=0, _mqLast=null, _mqPendi
 
 function buildMqItems(){
   var items=[];
+  // Paleta de colores del ticker "AHORA" — se ajusta segun el tema activo (los tonos pastel
+  // originales estaban pensados para el fondo azul-marino oscuro del ticker; con el tema claro
+  // ese fondo ahora tambien puede ser claro, asi que aqui se usan tonos mas oscuros/saturados
+  // para mantener buen contraste sobre un fondo blanco).
+  var _mqLight=document.documentElement.getAttribute('data-theme')==='light';
+  var MQC=_mqLight?{
+    streak:'#b56b00',pit:'#0277bd',pitwin:'#7b1fa2',tm:'#2e7d32',
+    liveHdr:'#c62828',liveScore:'#946200',livePaused:'#64748b',
+    tourHdr:'var(--acc)',game:'#334155',sep:'rgba(198,106,0,.5)'
+  }:{
+    streak:'#f5a623',pit:'#4fc3f7',pitwin:'#ba68c8',tm:'#81c784',
+    liveHdr:'#ef4444',liveScore:'#fbbf24',livePaused:'#94a3b8',
+    tourHdr:'var(--acc)',game:'#e0e0e0',sep:'rgba(245,166,35,.4)'
+  };
+  _mqPalette=MQC; // usado tambien por mqSep()
   // Alcance por deporte: si hay un filtro de deporte activo (bloqueado para
   // visitantes segun el subdominio, o elegido manualmente por un admin), el
   // marquee SOLO debe mostrar informacion de torneos de ESE deporte. Sin
@@ -14348,19 +14382,19 @@ function buildMqItems(){
   if(batStr){
     (batStr.activeBat||[]).forEach(function(e){
       if(!e.p) return;
-      items.push({type:'bat',text:'🔥 '+e.p.name+' — '+e.streak+' hits consecutivos'+(e.tm?' ('+e.tm.name+')':''),color:'#f5a623'});
+      items.push({type:'bat',text:'🔥 '+e.p.name+' — '+e.streak+' hits consecutivos'+(e.tm?' ('+e.tm.name+')':''),color:MQC.streak});
     });
     (batStr.activePit||[]).forEach(function(e){
       if(!e.p) return;
-      items.push({type:'pit',text:'⚡ '+e.p.name+' — '+e.streak.toFixed(1)+' IP sin carreras'+(e.tm?' ('+e.tm.name+')':''),color:'#4fc3f7'});
+      items.push({type:'pit',text:'⚡ '+e.p.name+' — '+e.streak.toFixed(1)+' IP sin carreras'+(e.tm?' ('+e.tm.name+')':''),color:MQC.pit});
     });
     (batStr.activePitWin||[]).forEach(function(e){
       if(!e.p) return;
-      items.push({type:'pitwin',text:'🏅 '+e.p.name+' — '+e.streak+' victorias consecutivas'+(e.tm?' ('+e.tm.name+')':''),color:'#ba68c8'});
+      items.push({type:'pitwin',text:'🏅 '+e.p.name+' — '+e.streak+' victorias consecutivas'+(e.tm?' ('+e.tm.name+')':''),color:MQC.pitwin});
     });
     (batStr.activeTm||[]).forEach(function(e){
       if(!e.tm) return;
-      items.push({type:'tm',text:'🏆 '+e.tm.name+' — '+e.streak+' victorias consecutivas',color:'#81c784'});
+      items.push({type:'tm',text:'🏆 '+e.tm.name+' — '+e.streak+' victorias consecutivas',color:MQC.tm});
     });
   }
   // ── Juegos en vivo (primero, con marcador) agrupados por torneo
@@ -14375,14 +14409,14 @@ function buildMqItems(){
     Object.keys(byTourLive).forEach(function(tid){
       var tour=S.tournaments.filter(function(t){return t.id===tid;})[0];
       var tName=tour?tour.name:'Torneo';
-      items.push({type:'tour-hdr',text:(byTourLive[tid][0].paused?'⏸':'🔴')+' '+tName.toUpperCase(),color:'#ef4444'});
+      items.push({type:'tour-hdr',text:(byTourLive[tid][0].paused?'⏸':'🔴')+' '+tName.toUpperCase(),color:MQC.liveHdr});
       byTourLive[tid].forEach(function(g){
         var aw=teamOf(g.awayTeamId),hw=teamOf(g.homeTeamId);
         var awN=aw?aw.name:'?',hwN=hw?hw.name:'?';
         var ar=parseInt(g.awayRuns)||0,hr2=parseInt(g.homeRuns)||0;
         var inn=(g.currentInning||1)+(g.currentHalf==='top'?'▲':'▼');
         var scoreText=awN+' '+ar+' - '+hr2+' '+hwN+' | Inn '+inn;
-        items.push({type:'live',text:'⚾ '+scoreText+(g.paused?' [PAUSADO]':''),color:g.paused?'#94a3b8':'#fbbf24'});
+        items.push({type:'live',text:'⚾ '+scoreText+(g.paused?' [PAUSADO]':''),color:g.paused?MQC.livePaused:MQC.liveScore});
       });
     });
   }
@@ -14409,21 +14443,22 @@ function buildMqItems(){
   Object.keys(byTour).forEach(function(tid){
     var tour=S.tournaments.filter(function(t){return t.id===tid;})[0];
     var tName=tour?tour.name:'Torneo';
-    items.push({type:'tour-hdr',text:'📅 '+tName.toUpperCase(),color:'var(--acc)'});
+    items.push({type:'tour-hdr',text:'📅 '+tName.toUpperCase(),color:MQC.tourHdr});
     byTour[tid].slice(0,6).forEach(function(g){
       var aw=teamOf(g.awayTeamId),hw=teamOf(g.homeTeamId);
       var awN=aw?aw.name:'?', hwN=hw?hw.name:'?';
       var dateStr=g.date?g.date.slice(5).replace('-','/'):'';
       var timeStr=g.time&&g.time.indexOf('1899')<0&&g.time.indexOf('1900')<0?g.time.slice(0,5):'';
       var when=(dateStr&&timeStr)?dateStr+' '+timeStr:dateStr||timeStr||'';
-      items.push({type:'game',text:'⚾ '+awN+' vs '+hwN+(when?' — '+when:''),color:'#e0e0e0'});
+      items.push({type:'game',text:'⚾ '+awN+' vs '+hwN+(when?' — '+when:''),color:MQC.game});
     });
   });
   return items;
 }
 
+var _mqPalette=null;
 function mqSep(){
-  return{type:'sep',text:'     ✦     ',color:'rgba(245,166,35,.4)'};
+  return{type:'sep',text:'     ✦     ',color:(_mqPalette&&_mqPalette.sep)||'rgba(245,166,35,.4)'};
 }
 
 // ═══════════════════════════════════════════════════════════
