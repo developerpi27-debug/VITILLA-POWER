@@ -7,6 +7,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;}
+/* ── Tema claro (opcional, boton en la barra superior junto al zoom de tablas) ──────────────
+   Redefine las MISMAS variables CSS que usa toda la app (fondos, texto, bordes, acento), asi
+   que todo lo que ya esta construido con var(--bg)/var(--txt)/var(--t2)/etc. se ajusta solo,
+   sin tener que tocar cada componente uno por uno. Los colores se eligieron para mantener buen
+   contraste de texto sobre fondo blanco (el naranja de acento se oscurece un poco para que siga
+   siendo legible como texto, no solo como fondo de boton). */
+:root[data-theme="light"]{--bg:#f3f5f9;--bg2:#ffffff;--bg3:#eef1f6;--card:#ffffff;--card2:#eef1f6;--acc:#c66a00;--acc2:#a85900;--grn:#15803d;--red:#dc2626;--blu:#2563eb;--txt:#0f172a;--t2:#475569;--t3:#64748b;--bdr:rgba(15,23,42,.10);--bdr2:rgba(15,23,42,.18);}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
 button{font-family:'Barlow',sans-serif;cursor:pointer;}
@@ -68,6 +75,8 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .tz-ctrl button{width:24px;height:24px;border:none;background:transparent;color:var(--t2);font-size:15px;font-weight:700;border-radius:6px;line-height:1;cursor:pointer;}
 .tz-ctrl button:hover{background:var(--card2);color:var(--txt);}
 .tz-ctrl .tzv{font-size:11px;color:var(--t3);min-width:34px;text-align:center;user-select:none;}
+#theme-toggle{width:28px;height:28px;border:1px solid var(--bdr);background:var(--bg3);color:var(--t2);border-radius:8px;font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;transition:background .15s,color .15s;}
+#theme-toggle:hover{background:var(--card2);color:var(--acc);}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{background:var(--bg3);color:var(--t2);font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:10px 14px;text-align:left;white-space:nowrap;}
 td{padding:9px 14px;border-bottom:1px solid var(--bdr);}
@@ -605,6 +614,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
           <span class="tzv" id="tzv" onclick="tzReset()" title="Restablecer" style="cursor:pointer">100%</span>
           <button onclick="tzStep(0.1)">&#43;</button>
         </div>
+        <button id="theme-toggle" onclick="toggleTheme()" title="Cambiar a fondo claro/oscuro">&#127762;</button>
       </div>
       <div class="ub">
         <div style="text-align:right">
@@ -2329,6 +2339,33 @@ function tzStep(delta){
   localStorage.setItem('vp_tzoom',_TZ);
 }
 function tzReset(){_TZ=1;applyTZoom();localStorage.setItem('vp_tzoom',_TZ);}
+
+// ── Tema claro/oscuro ────────────────────────────────────────────────────────────────────
+// Alterna la variable data-theme en <html>, que activa el bloque de variables CSS de tema
+// claro definido junto a :root arriba (mismos nombres de variable que ya usa toda la app, asi
+// que fondos/textos/bordes/botones se ajustan solos). Preferencia guardada en localStorage,
+// igual que el zoom de tablas.
+var _THEME='dark';
+function initTheme(){
+  var saved=null;
+  try{ saved=localStorage.getItem('vp_theme'); }catch(e){}
+  _THEME=(saved==='light')?'light':'dark';
+  applyTheme();
+}
+function applyTheme(){
+  if(_THEME==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  var btn=document.getElementById('theme-toggle');
+  if(btn){
+    btn.innerHTML=_THEME==='light'?'&#9728;&#65039;':'&#127769;';
+    btn.title=_THEME==='light'?'Cambiar a fondo oscuro':'Cambiar a fondo claro';
+  }
+}
+function toggleTheme(){
+  _THEME=(_THEME==='light')?'dark':'light';
+  applyTheme();
+  try{ localStorage.setItem('vp_theme',_THEME); }catch(e){}
+}
 function goNav(page){
   if(!S_isOnline&&!OFFLINE_ALLOWED_PAGES[page]){
     toast('Sin conexión: solo Calendario y Control de Juego están disponibles.','error');
@@ -14582,6 +14619,10 @@ window.onload=function(){
   // en localStorage y se aplica a TODOS los modulos via la variable CSS
   // --tzoom, controlada desde el boton fijo en la barra superior (#tb).
   initTZoom();
+  // Tema claro/oscuro: preferencia guardada en localStorage, controlada desde el boton junto
+  // al zoom de tablas en la barra superior (#tb). Debe aplicarse temprano (antes del login)
+  // para que la pantalla de acceso tambien respete la eleccion del usuario.
+  initTheme();
   // App shell offline: cachea solo el HTML/JS propio (network-first), nunca
   // intercepta llamadas al backend. Ver sw.js — debe subirse al mismo
   // origen/raiz que este archivo.
