@@ -1635,7 +1635,7 @@ function startPolling(){
   _poll=setInterval(_doPoll, _curPollMs);
 }
 async function _doPoll(){
-  if(!S.user||document.hidden||_saving||_rPlayBusy)return;
+  if(!S.user||document.hidden||_saving||_rPlayBusy||_undoBusy)return;
   // Reentrancy guard: setInterval NO espera a que el ciclo anterior termine. En una conexion
   // lenta, un ciclo de poll (loadAll/loadGameSliceOnly) puede tardar mas que el intervalo
   // configurado; sin este guard, los ciclos se van APILANDO uno sobre otro (cada uno pidiendo
@@ -1652,12 +1652,18 @@ async function _doPoll(){
     // escritura (eventual consistency) justo despues de guardar una jugada O de deshacer una
     // (el indice de bateador puede moverse hacia adelante en una jugada normal, o hacia atras
     // al deshacer — ambos son movimientos legitimos que esta proteccion debe respetar).
-    var savedGameId=null,savedLocalGame=null;
+    // Se guarda TAMBIEN la lista de eventos de este juego (no solo el juego/marcador): un
+    // "Deshacer" borra un evento en el servidor, pero si el poll llega justo antes de que ese
+    // borrado se replique del todo (lag de escritura), el evento "deshecho" podia reaparecer
+    // fantasma en S.events — quedando la pizarra/bateador visualmente descuadrados con lo que
+    // el anotador acaba de hacer, aunque el juego (S.games) si se protegiera correctamente.
+    var savedGameId=null,savedLocalGame=null,savedLocalEvents=null;
     if(S.game){
       var liveGm=S.games.filter(function(x){return x.id===S.game&&x.status==='live';})[0];
       if(liveGm){
         savedGameId=liveGm.id;
         savedLocalGame=Object.assign({},liveGm);
+        savedLocalEvents=S.events.filter(function(e){return e.gameId===liveGm.id;});
       }
     }
 
@@ -1692,6 +1698,9 @@ async function _doPoll(){
     // que el indice haya avanzado (jugada) o retrocedido (deshacer), es igual de legitimo.
     if(savedGameId&&savedLocalGame&&_lastEvTs&&(Date.now()-_lastEvTs)<60000){
       S.games=S.games.map(function(x){return x.id===savedGameId?savedLocalGame:x;});
+      if(savedLocalEvents){
+        S.events=S.events.filter(function(e){return e.gameId!==savedGameId;}).concat(savedLocalEvents);
+      }
     }
 
     // Actualizar badge de licencia (solo si no es visitante) — se salta durante el poll
@@ -4758,7 +4767,7 @@ var _lastEvTs=0;
 async function outEnJugada(){
   // Out en jugada: add an out for a baserunner (or batter put out on the bases)
   // Advances the batter order since this terminates the at-bat
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -4793,7 +4802,7 @@ function openOJBaseM(gid,priorBases){
 }
 function fv2(radioName){var r=document.querySelector('input[name="'+radioName+'"]:checked');return r?r.value:null;}
 async function _doOutEnJugada(forcedBase){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -4876,7 +4885,7 @@ async function _doOutEnJugada(forcedBase){
 // hay 2+ corredores en base, pregunta cual(es) se robaron (uno o varios a la
 // vez, para soportar doble robo).
 async function stealBase(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -4913,7 +4922,7 @@ function _confirmStealBase(){
   _doStealBase(checked);
 }
 async function _doStealBase(basesArr){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -4992,7 +5001,7 @@ async function _doStealBase(basesArr){
 // base, o 2+ corredores) pregunta que paso con cada uno: se quedo, avanzo una
 // base, o anoto.
 async function wildPitch(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -5043,7 +5052,7 @@ function _confirmWildPitch(){
   _doWildPitch(choices);
 }
 async function _doWildPitch(choices){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -5126,7 +5135,7 @@ async function _doWildPitch(choices){
 // el balk, esa carrera SIEMPRE es limpia (culpa exclusiva del pitcher), sin
 // importar si ese corredor se habia embasado por error anteriormente.
 async function balk(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -5138,7 +5147,7 @@ async function balk(){
   await _doBalk();
 }
 async function _doBalk(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -5228,7 +5237,7 @@ function _pbOrder(nb0){return nb0>=3?['first','second','third']:['first','second
 function _pbNextMap(nb0){return nb0>=3?{first:'second',second:'third',third:null}:{first:'second',second:null};}
 function _pbLabel(k,nb0){return k==='first'?'1ra Base':(k==='second'?('2da Base'+(nb0<3?' (Home)':'')):'3ra Base (Home)');}
 function passBall(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
@@ -5371,7 +5380,7 @@ function _pbConfirmWhich(){
   openPBSingleM(chosen);
 }
 async function _doPassBall(){
-  if(_rPlayBusy){toast('Procesando...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var ctx=_pbCtx;
   if(!ctx)return;
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
@@ -5561,7 +5570,7 @@ function inningErrorsSoFar(gid,inning,half,excludeEvId){
   }).length;
 }
 async function rPlay(type){
-  if(_rPlayBusy){toast('Procesando jugada anterior...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando jugada anterior...','info');return;}
   // Guard against double-tap (same play within 400ms)
   var now=Date.now();
   if(now-_lastEvTs<400){return;}
@@ -5618,7 +5627,7 @@ async function rPlay(type){
   var rbi=0, runs=0;
   var bName=bi&&playerOf(bi.playerId)?'#'+( playerOf(bi.playerId).number||'?')+' '+playerOf(bi.playerId).name:'Bateador';
   // FIX 5: Block concurrent calls BEFORE prompts to prevent double-registration
-  if(_rPlayBusy){toast('Procesando jugada anterior...','info');return;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando jugada anterior...','info');return;}
   _rPlayBusy=true;
   var nbForce=parseInt(gm.numBases)||2;
   // ── Carreras MINIMAS forzadas segun el avance de corredores ya codificado mas abajo ──
@@ -6768,7 +6777,7 @@ async function autoUpdatePitcher(gm,type,runs,half,isError,earnedRuns,scorerIds,
   return res.pitcherId;
 }
 function rBSO(type){
-  if(_rPlayBusy)return;
+  if(_rPlayBusy||_pollBusy)return;
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
   if(!canScoreNow(gm)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
   var terminal=false;
@@ -6916,7 +6925,7 @@ async function undoSubAction(gm,last){
   } finally { _saving=false; }
 }
 async function undoLastPlay(){
-  if(_undoBusy){toast('Procesando deshacer anterior...','info');return;}
+  if(_undoBusy||_pollBusy){toast('Procesando deshacer anterior...','info');return;}
   var gmCheck=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmCheck||!canScoreNow(gmCheck)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
   // Encontrar la accion mas reciente SIN CONFIRMAR (jugada de bateo O cambio de jugador — ver
