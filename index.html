@@ -2996,23 +2996,74 @@ function exportAllRostersPDF(){
   if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},400);}
 }
 
+// Texto del buscador de "Equipos > Jugadores" (persiste mientras se navega, igual que S.tourFilter)
+var _plSearch='';
+function buildPlayersRows(){
+  // Extraido de pgTeams() para poder re-renderizar SOLO la tabla de jugadores al escribir en
+  // el buscador (ver renderPlayersTable), sin reconstruir toda la pagina — si el buscador
+  // disparara pgTeams() completo en cada tecla, el input perderia el foco a cada letra.
+  var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
+  var tf=(S.tourFilter?vt.filter(function(t){return t.tournamentId===S.tourFilter;}):vt);
+  var filteredTeamIds=tf.map(function(t){return t.id;});
+  var profileVisibleTeamIds=(S.user&&S.user.role==='public')?S.teams.map(function(t){return t.id;}):visibleTeams().map(function(t){return t.id;});
+  var spSource=S.tourFilter
+    ? S.players.filter(function(p){return filteredTeamIds.indexOf(p.teamId)>=0;})
+    : (S.user&&S.user.role==='admin')
+      ? S.players
+      : S.players.filter(function(p){return profileVisibleTeamIds.indexOf(p.teamId)>=0;});
+  // Orden ascendente por Equipo y, dentro de cada equipo, por Nombre de jugador.
+  var sp=spSource.slice().sort(function(a,b){
+    var ta=teamOf(a.teamId),tb=teamOf(b.teamId);
+    var na=ta?ta.name:'';var nb=tb?tb.name:'';
+    var tc=na.localeCompare(nb,'es',{sensitivity:'base'});
+    if(tc!==0)return tc;
+    return (a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});
+  });
+  // Búsqueda por jugador o equipo, sobre la lista YA ordenada — solo filtra que se muestra,
+  // no cambia el orden (asi el resultado se sigue viendo ascendente por equipo y jugador).
+  var plq=(_plSearch||'').trim().toLowerCase();
+  if(plq){
+    sp=sp.filter(function(p){
+      var tm=teamOf(p.teamId);
+      var hay=((p.name||'')+' '+(tm?tm.name:'')).toLowerCase();
+      return hay.indexOf(plq)>=0;
+    });
+  }
+  var prows=sp.map(function(p){
+    var tm=teamOf(p.teamId);
+    var isAct=p.active!=='false'&&p.active!==false&&p.active!=='0'&&p.active!==undefined;
+    var isRef=p.isReinforcement==='true';
+    return'<tr style="'+(isAct?'':'opacity:.55')+'">'+'<td><b>#'+(p.number||'?')+'</b></td>'
+      +'<td>'+p.name+(isAct?'':'<span class="chip" style="font-size:9px;margin-left:4px;color:var(--t3)">Inactivo</span>')+(isRef?' <span class="chip" style="font-size:9px;margin-left:4px;border-color:var(--grn);color:var(--grn)" title="Refuerzo draftado de otro equipo para Playoffs/Serie Final">&#127919; Refuerzo</span>':'')+'</td>'
+      +'<td><span class="chip">'+(p.position||'OF')+'</span></td>'
+      +'<td>'+(tm?tm.name:'—')+'</td><td>'+(p.bats||'R')+'</td><td>'+(p.throws||'R')+'</td>'
+      +((canDo('edit','teams')||canDo('delete','teams'))?'<td><div style="display:flex;gap:4px;flex-wrap:wrap">'
+        +(canDo('edit','teams')?'<button class="btn bs bsm" data-pid="'+p.id+'" onclick="openPM(this.dataset.pid,\'\')" >Editar</button>':'')
+        +(canDo('edit','teams')&&isAct?'<button class="btn bs bsm" style="border-color:var(--blu);color:var(--blu)" data-pid="'+p.id+'" onclick="openTransferM(this.dataset.pid)">&#8646; Transferir</button>':'')
+        +(canDo('edit','teams')?'<button class="btn '+(isAct?'bd':'bg2')+'  bsm" data-pid="'+p.id+'" onclick="togPlayer(this.dataset.pid)">'+(isAct?'Inact.':'Activ.')+'</button>':'')
+        +(canDo('delete','teams')?'<button class="btn bd bsm" data-pid="'+p.id+'" onclick="delPlayer(this.dataset.pid)">&#10005;</button>':'')
+        +'</div></td>':'')+'</tr>';
+  }).join('');
+  return{sp:sp,prows:prows,plq:plq};
+}
+// Actualiza SOLO el <tbody> (y el contador de la pestaña) de la tabla de Jugadores — usado por
+// el buscador para no perder el foco del campo de texto en cada tecla.
+function renderPlayersTable(){
+  var body=document.getElementById('tb-pl-tbody');
+  if(!body)return;
+  var r=buildPlayersRows();
+  body.innerHTML=r.prows||'<tr><td colspan="7"><div class="empty">'+(r.plq?'Sin resultados para "'+r.plq+'"':'Sin jugadores')+'</div></td></tr>';
+  var cnt=document.getElementById('tb-pl-count');
+  if(cnt) cnt.textContent='Jugadores ('+r.sp.length+')';
+}
 function pgTeams(){
   var isA=S.user&&S.user.role==='admin';
   var isPub=S.user&&S.user.role==='public';
   var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
   var tf=(S.tourFilter?vt.filter(function(t){return t.tournamentId===S.tourFilter;}):vt).slice().sort(function(a,b){return (a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
   var tOpts='<option value="">Todos los torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  // Players: only show players from teams in the filtered tournament
-  var filteredTeamIds = tf.map(function(t){return t.id;});
-  var allTeamIds = S.teams.map(function(t){return t.id;});
-  // For non-admin non-public: filter players by profile-visible teams
-  var profileVisibleTeamIds = (S.user&&S.user.role==='public') ? S.teams.map(function(t){return t.id;}) : visibleTeams().map(function(t){return t.id;});
-  var spSource = S.tourFilter
-    ? S.players.filter(function(p){return filteredTeamIds.indexOf(p.teamId)>=0;})
-    : (S.user&&S.user.role==='admin')
-      ? S.players
-      : S.players.filter(function(p){return profileVisibleTeamIds.indexOf(p.teamId)>=0;});
-  var sp=spSource.slice().sort(function(a,b){var ta=teamOf(a.teamId),tb=teamOf(b.teamId);var na=ta?ta.name:'';var nb=tb?tb.name:'';return na<nb?-1:na>nb?1:0;});
+  var plr=buildPlayersRows();
+  var sp=plr.sp,prows=plr.prows,plq=plr.plq;
   var cards=tf.map(function(t){
     var pls=S.players.filter(function(p){return p.teamId===t.id;});
     var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];
@@ -3032,21 +3083,6 @@ function pgTeams(){
         +(canDo('edit','teams')?'<button class="btn '+(t.active==='false'?'bg2':'bd')+' bsm" data-tid="'+t.id+'" onclick="togTeam(this.dataset.tid)">'+(t.active==='false'?'Activar':'Inact.')+'</button>':'')
         +(canDo('delete','teams')?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>':'')
         +'</div></div>';
-  }).join('');
-  var prows=sp.map(function(p){
-    var tm=teamOf(p.teamId);
-    var isAct=p.active!=='false'&&p.active!==false&&p.active!=='0'&&p.active!==undefined;
-    var isRef=p.isReinforcement==='true';
-    return'<tr style="'+(isAct?'':'opacity:.55')+'">'+'<td><b>#'+(p.number||'?')+'</b></td>'
-      +'<td>'+p.name+(isAct?'':'<span class="chip" style="font-size:9px;margin-left:4px;color:var(--t3)">Inactivo</span>')+(isRef?' <span class="chip" style="font-size:9px;margin-left:4px;border-color:var(--grn);color:var(--grn)" title="Refuerzo draftado de otro equipo para Playoffs/Serie Final">&#127919; Refuerzo</span>':'')+'</td>'
-      +'<td><span class="chip">'+(p.position||'OF')+'</span></td>'
-      +'<td>'+(tm?tm.name:'—')+'</td><td>'+(p.bats||'R')+'</td><td>'+(p.throws||'R')+'</td>'
-      +((canDo('edit','teams')||canDo('delete','teams'))?'<td><div style="display:flex;gap:4px;flex-wrap:wrap">'
-        +(canDo('edit','teams')?'<button class="btn bs bsm" data-pid="'+p.id+'" onclick="openPM(this.dataset.pid,\'\')" >Editar</button>':'')
-        +(canDo('edit','teams')&&isAct?'<button class="btn bs bsm" style="border-color:var(--blu);color:var(--blu)" data-pid="'+p.id+'" onclick="openTransferM(this.dataset.pid)">&#8646; Transferir</button>':'')
-        +(canDo('edit','teams')?'<button class="btn '+(isAct?'bd':'bg2')+'  bsm" data-pid="'+p.id+'" onclick="togPlayer(this.dataset.pid)">'+(isAct?'Inact.':'Activ.')+'</button>':'')
-        +(canDo('delete','teams')?'<button class="btn bd bsm" data-pid="'+p.id+'" onclick="delPlayer(this.dataset.pid)">&#10005;</button>':'')
-        +'</div></td>':'')+'</tr>';
   }).join('');
   if(isPub){
     // Visitantes: solo filtros (deporte/torneo/año/subtorneo via yearBar()+selector de
@@ -3071,10 +3107,12 @@ function pgTeams(){
     +(canDo('create','teams')?'<button class="btn bs" onclick="openPM(\'\',\'\')">+ Jugador</button>':'')
     +'<button class="btn bs" onclick="exportAllRostersPDF()" title="Exportar PDF con todos los rosters">&#128196; Rosters PDF<\/button>'
     +'</div></div>'
-    +'<div class="tabs"><div class="tab on" onclick="showTab(this,\'tb-eq\')">Equipos ('+tf.length+')</div><div class="tab" onclick="showTab(this,\'tb-pl\')">Jugadores ('+sp.length+')</div></div>'
+    +'<div class="tabs"><div class="tab on" onclick="showTab(this,\'tb-eq\')">Equipos ('+tf.length+')</div><div class="tab" onclick="showTab(this,\'tb-pl\')"><span id="tb-pl-count">Jugadores ('+sp.length+')</span></div></div>'
     +'<div id="tb-eq"><div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128101;</div><div>Sin equipos</div></div>')+'</div></div>'
-    +'<div id="tb-pl" style="display:none"><div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Nombre</th><th>Pos</th><th>Equipo</th><th>B</th><th>L</th>'+((isA||canDo('edit','teams'))?'<th>Acciones</th>':'')+'</tr></thead>'
-    +'<tbody>'+(prows||'<tr><td colspan="7"><div class="empty">Sin jugadores</div></td></tr>')+'</tbody></table></div></div></div>');
+    +'<div id="tb-pl" style="display:none"><div class="card">'
+    +'<input class="fi" id="pl-search" placeholder="&#128269; Buscar por jugador o equipo..." value="'+(_plSearch||'').replace(/"/g,'&quot;')+'" style="width:100%;margin-bottom:12px" oninput="_plSearch=this.value;renderPlayersTable()">'
+    +'<div class="tw"><table><thead><tr><th>#</th><th>Nombre</th><th>Pos</th><th>Equipo</th><th>B</th><th>L</th>'+((isA||canDo('edit','teams'))?'<th>Acciones</th>':'')+'</tr></thead>'
+    +'<tbody id="tb-pl-tbody">'+(prows||'<tr><td colspan="7"><div class="empty">'+(plq?'Sin resultados para "'+plq+'"':'Sin jugadores')+'</div></td></tr>')+'</tbody></table></div></div></div>');
 }
 function openEM(id){
   var t=id?S.teams.filter(function(x){return x.id===id;})[0]:{};if(!t)t={};
