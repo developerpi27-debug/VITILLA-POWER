@@ -18,7 +18,7 @@ on:
   schedule:
     # Corre 2 veces al dia (06:00 y 18:00 UTC). Ajusta si quieres otra
     # frecuencia — cron usa hora UTC, no hora de Rep. Dominicana (UTC-4).
-    - cron: '0 18,4 * * *'
+    - cron: '0 19,4 * * *'
   workflow_dispatch: {}   # permite correrlo manualmente desde GitHub
 
 jobs:
