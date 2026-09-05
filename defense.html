@@ -23,8 +23,8 @@
   .df-tname{font-size:16px;font-weight:800;color:var(--ov-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .df-sub{background:var(--ov-sub);color:var(--ov-subtext);font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;}
 
-  .df-field{position:relative;width:100%;height:300px;background:var(--ov-field);transition:height .15s;}
-  #card.df-2base .df-field{height:225px;}
+  .df-field{position:relative;width:100%;height:330px;background:var(--ov-field);transition:height .15s;}
+  #card.df-2base .df-field{height:250px;}
   #card.df-2base .df-arc{display:none;}
   .df-diamond{position:absolute;top:56%;left:50%;width:150px;height:150px;transform:translate(-50%,-50%) rotate(45deg);border:3px solid var(--ov-fieldln);border-radius:4px;}
   .df-arc{position:absolute;top:8%;left:50%;width:340px;height:340px;transform:translateX(-50%);border:3px solid var(--ov-fieldln);border-radius:50%;clip-path:inset(0 0 58% 0);}
@@ -33,6 +33,7 @@
   .df-photo{width:30px;height:30px;border-radius:50%;overflow:hidden;margin:0 auto 3px;border:2px solid var(--ov-hdr);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:none;}
   .df-photo.show{display:block;}
   .df-photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .df-photo.err{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;background:var(--ov-hdr);border-color:#c0392b;}
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
 
@@ -91,7 +92,7 @@
     <div class="df-pos" id="p3B" style="top:64%;left:20%"><span class="lbl">3B</span>—</div>
     <div class="df-pos" id="pP"  style="top:64%;left:50%"><span class="lbl">P</span>—</div>
     <div class="df-pos" id="p1B" style="top:64%;left:80%"><span class="lbl">1B</span>—</div>
-    <div class="df-pos" id="pC"  style="top:88%;left:50%"><span class="lbl">C</span>—</div>
+    <div class="df-pos" id="pC"  style="top:83%;left:50%"><span class="lbl">C</span>—</div>
   </div>
 </div>
 <script>
@@ -109,10 +110,15 @@ var POS_CODES=['P','C','1B','2B','3B','SS','LF','CF','RF'];
 // ── Layout original (juego de 3 bases / completo) — se guarda para poder restaurarlo si el
 // juego cambia de modo, ya que en modo vitilla (2 bases) reposicionamos algunos marcadores
 // con JS (inline style, que pesa mas que una regla CSS).
+// NOTA: la posicion de "C" se subio de 88% a 83% (y la altura del campo crecio de 300 a 330px,
+// ver .df-field arriba) porque con la foto del jugador (30px + margen) el nombre quedaba
+// recortado por el borde inferior redondeado de la tarjeta (#card tiene overflow:hidden) —
+// antes de agregar fotos el bloque de texto era mas bajo y cabia justo, pero con la foto ya
+// no alcanzaba el espacio que quedaba hasta el borde.
 var ORIG_LAYOUT={
   CF:{top:'12%',left:'50%'},LF:{top:'26%',left:'14%'},RF:{top:'26%',left:'86%'},
   SS:{top:'46%',left:'33%'},'2B':{top:'46%',left:'67%'},'3B':{top:'64%',left:'20%'},
-  P:{top:'64%',left:'50%'},'1B':{top:'64%',left:'80%'},C:{top:'88%',left:'50%'}
+  P:{top:'64%',left:'50%'},'1B':{top:'64%',left:'80%'},C:{top:'83%',left:'50%'}
 };
 // ── Layout modo Vitilla (2 bases): solo posiciones de diamante, sin OF fuera del cuadro.
 // El slot visual donde esta la 2da base (posicion "2B" en el diamante) muestra al jugador
@@ -120,8 +126,9 @@ var ORIG_LAYOUT={
 // 3ra base (posicion "3B" en el diamante) muestra al jugador que fue puesto como 2B en el
 // lineup (etiquetado "2B"). El slot original de CF (fuera del diamante, en el arco) y las
 // posiciones SS/LF/RF no se muestran en este modo.
+// NOTA: "C" subio de 92% a 84% por la misma razon explicada arriba en ORIG_LAYOUT.
 var LAYOUT_2B={
-  P:{top:'70%',left:'50%'},C:{top:'92%',left:'50%'},
+  P:{top:'70%',left:'50%'},C:{top:'84%',left:'50%'},
   '1B':{top:'50%',left:'78%'},'3B':{top:'50%',left:'22%'},'2B':{top:'16%',left:'50%'}
 };
 // slot DOM (id) -> {label a mostrar, codigo de posicion del que se toma el jugador}, por modo
@@ -255,8 +262,13 @@ function render(gm,teams,players,lineups){
     if(pos){el.style.top=pos.top;el.style.left=pos.left;}
     var pid=byPos[sd.src];
     var p=pid?players[pid]:null;
+    // Si photoUrl existe pero la imagen no carga (URL rota/vencida), se muestra un circulo
+    // con la inicial del jugador EN VEZ DE ocultar el circulo por completo — antes, un error
+    // de carga dejaba la posicion visualmente IDENTICA a "sin foto configurada", asi que no
+    // habia forma de distinguir, con solo mirar el overlay, un error real de carga de una
+    // foto que nunca se guardo. Con la inicial visible se nota la diferencia de un vistazo.
     var photoHtml=(p&&p.photoUrl)
-      ?'<div class="df-photo show"><img src="'+esc(p.photoUrl)+'" alt="" onerror="this.parentNode.classList.remove(\'show\')"></div>'
+      ?'<div class="df-photo show" id="ph-'+sd.code+'"><img src="'+esc(p.photoUrl)+'" alt="" onerror="this.parentNode.innerHTML=\''+esc((p.name||'?').charAt(0))+'\';this.parentNode.classList.add(\'err\')"></div>'
       :'';
     el.innerHTML=photoHtml+'<span class="lbl">'+sd.label+'</span>'+esc(p?p.name:'—');
   });
