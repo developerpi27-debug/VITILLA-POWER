@@ -713,6 +713,14 @@ var BRAND=(function(){
 })();
 var BRAND_LABELS={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'};
 var BRAND_CREATOR={vitilla:'vitillero',baseball:'beisbolero',softball:'softbolista'};
+// La app nativa de Android accede siempre por el dominio PRINCIPAL (sin subdominio de
+// deporte especifico), a diferencia de la web que sigue entrando por subdominios propios de
+// cada deporte (vitilla./baseball./softball.). Por eso, SOLO dentro de la app nativa, el
+// visitante no debe quedar bloqueado a un unico deporte (ver guestLogin/resumeSession mas
+// abajo, donde se usa esta bandera) — en la web, el comportamiento por subdominio no cambia.
+var IS_NATIVE_APP=(function(){
+  try{ return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()); }catch(e){ return false; }
+})();
 function brandLbl(){ return BRAND_LABELS[BRAND]||'Vitilla'; }
 function brandName(){ return brandLbl()+' Power'; }
 function brandUpper(){ return brandLbl().toUpperCase(); }
@@ -1317,10 +1325,13 @@ function warnIfLicenseNearExpiry(){
 }
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
-  // El visitante entra siempre con el deporte del subdominio de origen (BRAND),
-  // bloqueado — no puede cambiarlo, y no ve torneos de otros deportes.
+  // El visitante entra siempre con el deporte del subdominio de origen (BRAND), bloqueado —
+  // no puede cambiarlo, y no ve torneos de otros deportes. EXCEPTO en la app nativa de
+  // Android: como ahi siempre se entra por el dominio principal (sin subdominio propio de
+  // deporte), el visitante puede elegir entre Vitilla/Baseball/Softball libremente — se le
+  // muestra Vitilla de entrada (mismo default que la web), pero sin quedar bloqueado.
   S.sportFilter=BRAND;
-  S._sportLocked=true;
+  if(!IS_NATIVE_APP) S._sportLocked=true;
   resetActivity();
   saveGuestSession();
   loadAll().catch(function(){}).finally(function(){
@@ -1403,7 +1414,10 @@ async function restoreSession(){
       var maxMs=(S.sessionTimeout||30)*60000;
       if(!rec.ts||(Date.now()-rec.ts)>maxMs){ await clearSession(); return false; }
       S.user=rec.user;S.profile=null;
-      S.sportFilter=BRAND;S._sportLocked=true;
+      // Mismo criterio que en guestLogin(): en la app nativa de Android no se bloquea el
+      // deporte del visitante, ya que ahi no hay subdominio propio de deporte.
+      S.sportFilter=BRAND;
+      if(!IS_NATIVE_APP) S._sportLocked=true;
       resetActivity();
       return {mode:'resumeGuest'};
     }
@@ -14716,6 +14730,25 @@ window.onload=function(){
   // al zoom de tablas en la barra superior (#tb). Debe aplicarse temprano (antes del login)
   // para que la pantalla de acceso tambien respete la eleccion del usuario.
   initTheme();
+  // ── App movil nativa (Capacitor/Android) — boton "Atras" del telefono ──────────────────
+  // Esta pagina es una SPA sin rutas de URL reales (la navegacion entre modulos/pantallas se
+  // maneja por estado interno, no por history.pushState) — sin este manejo, el boton Atras
+  // del telefono no tiene ningun historial que recorrer y Android simplemente CIERRA la app
+  // de inmediato en cualquier pantalla. Con este listener: si hay un modal abierto lo cierra
+  // primero; si no, y no estamos en el Dashboard, vuelve al Dashboard; y solo si ya estamos
+  // en el Dashboard sin nada abierto, deja que Android minimice/cierre la app normalmente.
+  // No hace nada cuando la pagina corre en un navegador comun (fuera de la app nativa).
+  (function(){
+    if(!window.Capacitor||!window.Capacitor.isNativePlatform||!window.Capacitor.isNativePlatform())return;
+    var CapApp=window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+    if(!CapApp||!CapApp.addListener)return;
+    CapApp.addListener('backButton',function(){
+      var modalsEl=document.getElementById('modals');
+      if(modalsEl&&modalsEl.innerHTML.trim()!==''){cM();return;}
+      if(typeof curP!=='undefined'&&curP&&curP!=='dashboard'&&S.user){goNav('dashboard');return;}
+      CapApp.exitApp();
+    });
+  })();
   // App shell offline: cachea solo el HTML/JS propio (network-first), nunca
   // intercepta llamadas al backend. Ver sw.js — debe subirse al mismo
   // origen/raiz que este archivo.
