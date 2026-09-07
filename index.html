@@ -86,6 +86,12 @@ input,select,textarea{font-family:'Barlow',sans-serif;}
 .tz-ctrl .tzv{font-size:11px;color:var(--t3);min-width:34px;text-align:center;user-select:none;}
 #theme-toggle{width:28px;height:28px;border:1px solid var(--bdr);background:var(--bg3);color:var(--t2);border-radius:8px;font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;transition:background .15s,color .15s;}
 #theme-toggle:hover{background:var(--card2);color:var(--acc);}
+#push-toggle{width:28px;height:28px;border:1px solid var(--bdr);background:var(--bg3);color:var(--t2);border-radius:8px;font-size:14px;line-height:1;cursor:pointer;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;transition:background .15s,color .15s;}
+#push-toggle:hover{background:var(--card2);color:var(--acc);}
+#push-toggle.on{background:var(--acc);color:#000;border-color:var(--acc);}
+.follow-bell{width:30px;height:30px;flex-shrink:0;border:1px solid var(--bdr);background:var(--bg3);color:var(--t2);border-radius:8px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
+.follow-bell:hover{background:var(--card2);color:var(--acc);}
+.follow-bell.on{background:var(--acc);color:#000;border-color:var(--acc);}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{background:var(--bg3);color:var(--t2);font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:10px 14px;text-align:left;white-space:nowrap;}
 td{padding:9px 14px;border-bottom:1px solid var(--bdr);}
@@ -624,6 +630,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
           <button onclick="tzStep(0.1)">&#43;</button>
         </div>
         <button id="theme-toggle" onclick="toggleTheme()" title="Cambiar a fondo claro/oscuro">&#127762;</button>
+        <button id="push-toggle" onclick="togglePushToggleUI()" title="Avisarme cuando comience un juego en vivo" style="display:none">&#128276;</button>
       </div>
       <div class="ub">
         <div style="text-align:right">
@@ -713,11 +720,177 @@ var BRAND=(function(){
 })();
 var BRAND_LABELS={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'};
 var BRAND_CREATOR={vitilla:'vitillero',baseball:'beisbolero',softball:'softbolista'};
+// La app nativa de Android accede siempre por el dominio PRINCIPAL (sin subdominio de
+// deporte especifico), a diferencia de la web que sigue entrando por subdominios propios de
+// cada deporte (vitilla./baseball./softball.). Por eso, SOLO dentro de la app nativa, el
+// visitante no debe quedar bloqueado a un unico deporte (ver guestLogin/resumeSession mas
+// abajo, donde se usa esta bandera) — en la web, el comportamiento por subdominio no cambia.
+var IS_NATIVE_APP=(function(){
+  try{ return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()); }catch(e){ return false; }
+})();
 function brandLbl(){ return BRAND_LABELS[BRAND]||'Vitilla'; }
 function brandName(){ return brandLbl()+' Power'; }
 function brandUpper(){ return brandLbl().toUpperCase(); }
 function brandCreator(){ return BRAND_CREATOR[BRAND]||'vitillero'; }
 function brandTagline(){ return brandLbl()+', más que un juego es pasión, hermandad y competitividad al límite.'; }
+
+// ── Notificaciones push (solo dentro de la app nativa de Android) ─────────────────────────
+// Le avisa al usuario (con o sin sesion — funciona para visitantes tambien, es una
+// preferencia del dispositivo, no de la cuenta) cuando un juego pasa a estado "en vivo".
+// El token del dispositivo se guarda en el servidor (accion savePushToken) para que el
+// worker pueda enviarle la notificacion via Firebase Cloud Messaging cuando corresponda.
+var _lastPushToken=null;
+function pushIsEnabled(){
+  try{ return localStorage.getItem('vp_push_enabled')==='1'; }catch(e){ return false; }
+}
+function updatePushBtnUI(on){
+  var btn=document.getElementById('push-toggle');
+  if(!btn)return;
+  btn.classList.toggle('on',!!on);
+  btn.innerHTML=on?'&#128276;':'&#128277;';
+  btn.title=on?'Notificaciones activadas — toca para desactivar':'Avisarme cuando comience un juego en vivo';
+}
+function wirePushListeners(){
+  var CapPush=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.PushNotifications;
+  if(!CapPush||!CapPush.addListener)return;
+  CapPush.addListener('registration',function(token){
+    _lastPushToken=token&&token.value;
+    if(_lastPushToken){
+      try{ localStorage.setItem('vp_push_token',_lastPushToken); }catch(e){}
+      api('savePushToken',{token:_lastPushToken,platform:'android',enabled:true});
+    }
+  });
+  CapPush.addListener('registrationError',function(err){
+    console.warn('Push registration error',err);
+  });
+  CapPush.addListener('pushNotificationReceived',function(notification){
+    // Con la app abierta en primer plano, Android NO muestra la notificacion del sistema
+    // automaticamente — se muestra un toast propio de la app en su lugar.
+    var msg=(notification&&notification.title)?(notification.title+(notification.body?': '+notification.body:'')):(notification&&notification.body)||'Nueva notificación';
+    toast(msg,'info');
+  });
+}
+async function registerPush(){
+  if(!IS_NATIVE_APP)return false;
+  var CapPush=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.PushNotifications;
+  if(!CapPush)return false;
+  try{
+    var perm=await CapPush.checkPermissions();
+    if(perm.receive!=='granted'){
+      perm=await CapPush.requestPermissions();
+    }
+    if(perm.receive!=='granted'){
+      toast('Activa las notificaciones para esta app en Ajustes del teléfono','error');
+      return false;
+    }
+    await CapPush.register();
+    return true;
+  }catch(e){ console.warn('registerPush error',e); return false; }
+}
+async function togglePushToggleUI(){
+  if(pushIsEnabled()){
+    try{ localStorage.setItem('vp_push_enabled','0'); }catch(e){}
+    var savedToken=null; try{ savedToken=localStorage.getItem('vp_push_token'); }catch(e){}
+    if(savedToken) api('savePushToken',{token:savedToken,platform:'android',enabled:false});
+    updatePushBtnUI(false);
+    toast('Notificaciones desactivadas','info');
+  } else {
+    var ok=await registerPush();
+    if(ok){
+      try{ localStorage.setItem('vp_push_enabled','1'); }catch(e){}
+      updatePushBtnUI(true);
+      toast('Listo — te avisaremos cuando comience un juego en vivo','success');
+    }
+  }
+}
+function initPushUI(){
+  var btn=document.getElementById('push-toggle');
+  if(!IS_NATIVE_APP){ if(btn)btn.style.display='none'; return; }
+  if(btn)btn.style.display='inline-flex';
+  wirePushListeners();
+  // Si ya estaba activado en una sesion anterior, re-registrar en silencio (sin volver a
+  // pedir permiso si ya fue concedido) para refrescar el token de este dispositivo.
+  if(pushIsEnabled()){
+    updatePushBtnUI(true);
+    registerPush();
+  } else {
+    updatePushBtnUI(false);
+  }
+  syncPushFollowsFromServer();
+}
+// ── Seguir equipo/torneo especifico (independiente de la campana general de arriba) ───────
+// El dispositivo puede seguir cualquier cantidad de equipos y/o subtorneos a la vez; cuando
+// cualquiera de ellos tenga un juego que pase a "en vivo", el servidor le manda el push.
+// El estado local (localStorage) es solo para pintar las campanitas al instante — la fuente
+// de verdad es el servidor (ver syncPushFollowsFromServer, que la corrige si hay diferencia,
+// por ejemplo tras reinstalar la app).
+var _followedTeams={},_followedTournaments={};
+function loadFollowsFromLocal(){
+  try{ _followedTeams=JSON.parse(localStorage.getItem('vp_followed_teams')||'{}')||{}; }catch(e){ _followedTeams={}; }
+  try{ _followedTournaments=JSON.parse(localStorage.getItem('vp_followed_tournaments')||'{}')||{}; }catch(e){ _followedTournaments={}; }
+}
+loadFollowsFromLocal();
+function saveFollowsToLocal(){
+  try{ localStorage.setItem('vp_followed_teams',JSON.stringify(_followedTeams)); }catch(e){}
+  try{ localStorage.setItem('vp_followed_tournaments',JSON.stringify(_followedTournaments)); }catch(e){}
+}
+function isFollowingTeam(teamId){ return !!_followedTeams[teamId]; }
+function isFollowingTournament(tourId){ return !!_followedTournaments[tourId]; }
+// Al abrir la app, se le pregunta al servidor que sigue este dispositivo (por su token) y se
+// corrige el estado local si hace falta — asi, si reinstalaste la app o cambiaste de celular,
+// las campanitas no quedan mostrando "siguiendo" algo que el servidor ya no tiene registrado.
+async function syncPushFollowsFromServer(){
+  if(!IS_NATIVE_APP)return;
+  var token=null; try{ token=localStorage.getItem('vp_push_token'); }catch(e){}
+  if(!token)return;
+  try{
+    var r=await api('getPushFollows',{token:token});
+    if(!r||!r.ok)return;
+    var teams={},tours={};
+    (r.follows||[]).forEach(function(f){
+      if(f.scopeType==='team')teams[f.scopeId]=true;
+      else if(f.scopeType==='tournament')tours[f.scopeId]=true;
+    });
+    _followedTeams=teams;_followedTournaments=tours;
+    saveFollowsToLocal();
+  }catch(e){ console.warn('syncPushFollowsFromServer error',e); }
+}
+// Alterna seguir/dejar de seguir un equipo o torneo. Si el dispositivo todavia no tiene
+// notificaciones activadas (no ha tocado la campana general ni seguido nada antes), primero
+// le pide el permiso/registro — igual que hace el boton de campana del header.
+async function toggleFollow(scopeType,scopeId,btnEl){
+  if(!IS_NATIVE_APP)return;
+  var token=null; try{ token=localStorage.getItem('vp_push_token'); }catch(e){}
+  if(!token){
+    var ok=await registerPush();
+    if(!ok)return;
+    // El listener 'registration' es asincrono; esperar un instante a que _lastPushToken
+    // quede seteado antes de continuar.
+    for(var i=0;i<20&&!_lastPushToken;i++){ await new Promise(function(res){setTimeout(res,150);}); }
+    token=_lastPushToken; try{ if(token)localStorage.setItem('vp_push_token',token); }catch(e){}
+    if(!token){ toast('No se pudo activar las notificaciones, intenta de nuevo','error'); return; }
+  }
+  var store=scopeType==='team'?_followedTeams:_followedTournaments;
+  var nowFollowing=!store[scopeId];
+  store[scopeId]=nowFollowing?true:undefined;
+  if(!nowFollowing)delete store[scopeId];
+  saveFollowsToLocal();
+  if(btnEl){
+    btnEl.classList.toggle('on',nowFollowing);
+    btnEl.innerHTML=nowFollowing?'&#128276;':'&#128277;';
+  }
+  var r=await api('savePushFollow',{token:token,scopeType:scopeType,scopeId:scopeId,follow:nowFollowing});
+  if(r&&r.ok){
+    toast(nowFollowing?'Te avisaremos cuando este '+(scopeType==='team'?'equipo':'torneo')+' juegue en vivo':'Dejaste de seguir este '+(scopeType==='team'?'equipo':'torneo'),'success');
+  } else {
+    // Revertir si el servidor no pudo guardarlo
+    if(nowFollowing)delete store[scopeId]; else store[scopeId]=true;
+    saveFollowsToLocal();
+    if(btnEl){ btnEl.classList.toggle('on',!nowFollowing); btnEl.innerHTML=!nowFollowing?'&#128276;':'&#128277;'; }
+    toast('No se pudo guardar, intenta de nuevo','error');
+  }
+}
+
 // Aplica la marca a los pocos elementos de HTML estatico que no se
 // re-renderizan dinamicamente (titulo de pestaña, logo/login, sidebar,
 // tagline, credito del pie de pagina). Se llama una vez al cargar.
@@ -1317,10 +1490,13 @@ function warnIfLicenseNearExpiry(){
 }
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
-  // El visitante entra siempre con el deporte del subdominio de origen (BRAND),
-  // bloqueado — no puede cambiarlo, y no ve torneos de otros deportes.
+  // El visitante entra siempre con el deporte del subdominio de origen (BRAND), bloqueado —
+  // no puede cambiarlo, y no ve torneos de otros deportes. EXCEPTO en la app nativa de
+  // Android: como ahi siempre se entra por el dominio principal (sin subdominio propio de
+  // deporte), el visitante puede elegir entre Vitilla/Baseball/Softball libremente — se le
+  // muestra Vitilla de entrada (mismo default que la web), pero sin quedar bloqueado.
   S.sportFilter=BRAND;
-  S._sportLocked=true;
+  if(!IS_NATIVE_APP) S._sportLocked=true;
   resetActivity();
   saveGuestSession();
   loadAll().catch(function(){}).finally(function(){
@@ -1403,7 +1579,10 @@ async function restoreSession(){
       var maxMs=(S.sessionTimeout||30)*60000;
       if(!rec.ts||(Date.now()-rec.ts)>maxMs){ await clearSession(); return false; }
       S.user=rec.user;S.profile=null;
-      S.sportFilter=BRAND;S._sportLocked=true;
+      // Mismo criterio que en guestLogin(): en la app nativa de Android no se bloquea el
+      // deporte del visitante, ya que ahi no hay subdominio propio de deporte.
+      S.sportFilter=BRAND;
+      if(!IS_NATIVE_APP) S._sportLocked=true;
       resetActivity();
       return {mode:'resumeGuest'};
     }
@@ -3067,10 +3246,13 @@ function pgTeams(){
   var cards=tf.map(function(t){
     var pls=S.players.filter(function(p){return p.teamId===t.id;});
     var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];
+    var followingTeam=IS_NATIVE_APP&&isFollowingTeam(t.id);
     return'<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
       +teamLogoHtml(t,40,8)
-      +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:700">'+t.name+'</div>'
-      +'<div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+'</div></div></div>'
+      +'<div style="flex:1;min-width:0"><div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:700">'+t.name+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+'</div></div>'
+      +(IS_NATIVE_APP?'<button class="follow-bell'+(followingTeam?' on':'')+'" data-tid="'+t.id+'" onclick="toggleFollow(\'team\',this.dataset.tid,this)" title="'+(followingTeam?'Siguiendo — toca para dejar de seguir':'Seguir este equipo (avisarme cuando juegue en vivo)')+'">'+(followingTeam?'&#128276;':'&#128277;')+'</button>':'')
+      +'</div>'
       +'<div style="display:flex;gap:16px;margin-bottom:12px">'
       +'<div><div style="font-size:20px;font-weight:700;font-family:Barlow Condensed,sans-serif">'+pls.length+'</div><div style="font-size:11px;color:var(--t3)">Jugadores</div></div>'
       +'<div><div style="font-size:13px;font-weight:600">'+(t.manager||'—')+'</div><div style="font-size:11px;color:var(--t3)">Manager</div></div>'
@@ -3084,6 +3266,10 @@ function pgTeams(){
         +(canDo('delete','teams')?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>':'')
         +'</div></div>';
   }).join('');
+  var followingTour=IS_NATIVE_APP&&S.tourFilter&&isFollowingTournament(S.tourFilter);
+  var tourFollowBtn=(IS_NATIVE_APP&&S.tourFilter)
+    ?'<button class="follow-bell'+(followingTour?' on':'')+'" data-tourid="'+S.tourFilter+'" onclick="toggleFollow(\'tournament\',this.dataset.tourid,this)" title="'+(followingTour?'Siguiendo este torneo — toca para dejar de seguir':'Seguir este torneo (avisarme de todos sus juegos en vivo)')+'">'+(followingTour?'&#128276;':'&#128277;')+'</button>'
+    :'';
   if(isPub){
     // Visitantes: solo filtros (deporte/torneo/año/subtorneo via yearBar()+selector de
     // subtorneo) y, en la tarjeta del equipo, unicamente el boton "Jugadores" (roster de
@@ -3093,6 +3279,7 @@ function pgTeams(){
       +'<div style="display:flex;gap:8px;align-items:center">'
       +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
       +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value;pgTeams()">'+tOpts+'</select>'
+      +tourFollowBtn
       +'</div></div>'
       +'<div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128101;</div><div>Sin equipos</div></div>')+'</div>');
     return;
@@ -3102,6 +3289,7 @@ function pgTeams(){
     +'<div style="display:flex;gap:8px;align-items:center">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
     +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value;pgTeams()">'+tOpts+'</select>'
+    +tourFollowBtn
     +(canDo('create','teams')?'<button class="btn bp" onclick="openEM(\'\')">+ Equipo</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openImportTeamM()">&#128228; Importar Equipo</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openPM(\'\',\'\')">+ Jugador</button>':'')
@@ -14716,6 +14904,28 @@ window.onload=function(){
   // al zoom de tablas en la barra superior (#tb). Debe aplicarse temprano (antes del login)
   // para que la pantalla de acceso tambien respete la eleccion del usuario.
   initTheme();
+  // Notificaciones push (solo dentro de la app nativa) — muestra/oculta el boton de
+  // campana y re-registra el dispositivo si ya estaban activadas en una sesion anterior.
+  initPushUI();
+  // ── App movil nativa (Capacitor/Android) — boton "Atras" del telefono ──────────────────
+  // Esta pagina es una SPA sin rutas de URL reales (la navegacion entre modulos/pantallas se
+  // maneja por estado interno, no por history.pushState) — sin este manejo, el boton Atras
+  // del telefono no tiene ningun historial que recorrer y Android simplemente CIERRA la app
+  // de inmediato en cualquier pantalla. Con este listener: si hay un modal abierto lo cierra
+  // primero; si no, y no estamos en el Dashboard, vuelve al Dashboard; y solo si ya estamos
+  // en el Dashboard sin nada abierto, deja que Android minimice/cierre la app normalmente.
+  // No hace nada cuando la pagina corre en un navegador comun (fuera de la app nativa).
+  (function(){
+    if(!window.Capacitor||!window.Capacitor.isNativePlatform||!window.Capacitor.isNativePlatform())return;
+    var CapApp=window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+    if(!CapApp||!CapApp.addListener)return;
+    CapApp.addListener('backButton',function(){
+      var modalsEl=document.getElementById('modals');
+      if(modalsEl&&modalsEl.innerHTML.trim()!==''){cM();return;}
+      if(typeof curP!=='undefined'&&curP&&curP!=='dashboard'&&S.user){goNav('dashboard');return;}
+      CapApp.exitApp();
+    });
+  })();
   // App shell offline: cachea solo el HTML/JS propio (network-first), nunca
   // intercepta llamadas al backend. Ver sw.js — debe subirse al mismo
   // origen/raiz que este archivo.
