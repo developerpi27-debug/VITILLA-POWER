@@ -597,6 +597,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
           <input class="fi" type="password" id="lp" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
         </div>
         <button class="btn bp blg wf" onclick="doLogin()">Iniciar Sesion</button>
+        <div id="reqAccessWrap" style="text-align:center;margin-top:12px;display:none">
+          <a href="#" onclick="openRequestAccessM();return false;" style="font-size:12px;color:var(--t3);text-decoration:underline">&#191;Solicitar acceso?</a>
+        </div>
       </div>
       <div id="llod" style="display:none;padding:20px 0;text-align:center">
         <div class="spin"></div>
@@ -1387,6 +1390,37 @@ function showLoginForm(){
   if(c)c.style.display='block';
   setTimeout(function(){var lu=document.getElementById('lu');if(lu)lu.focus();},100);
 }
+// "¿Solicitar acceso?" (debajo del boton Iniciar Sesion): permite a quien no tiene cuenta
+// contactar al administrador por WhatsApp o Correo, usando los datos de contacto que el admin
+// configura en Configuracion > Solicitud de Acceso (S.contactWhatsapp/S.contactEmail). Se
+// llama una sola vez al cargar la pantalla de login (ver window.onload), ANTES de que el
+// visitante elija Iniciar Sesion o Acceder como Visitante, via la accion publica
+// getPublicConfig (no requiere sesion — ver actionGetPublicConfig en worker.js).
+async function loadPublicContactConfig(){
+  try{
+    var r=await api('getPublicConfig',{keys:['contactWhatsapp','contactEmail']});
+    if(r&&r.ok&&r.data){
+      S.contactWhatsapp=r.data.contactWhatsapp||'';
+      S.contactEmail=r.data.contactEmail||'';
+    }
+  }catch(e){}
+  var wrap=document.getElementById('reqAccessWrap');
+  if(wrap)wrap.style.display=(S.contactWhatsapp||S.contactEmail)?'block':'none';
+}
+function openRequestAccessM(){
+  var wa=(S.contactWhatsapp||'').trim();
+  var email=(S.contactEmail||'').trim();
+  if(!wa&&!email){toast('El administrador aun no ha configurado un medio de contacto','info');return;}
+  var waDigits=wa.replace(/[^0-9]/g,'');
+  showM('<div class="mhd"><div class="mtl">Solicitar acceso</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);margin-bottom:16px">Elige por donde deseas contactar al administrador para solicitar tu usuario y contrasena.</div>'
+    +(wa?'<a href="https://wa.me/'+waDigits+'" target="_blank" class="btn bp wf" style="margin-bottom:10px;justify-content:center;text-decoration:none">&#128241; Escribir por WhatsApp</a>':'')
+    +(email?'<a href="mailto:'+email+'" class="btn bs wf" style="justify-content:center;text-decoration:none">&#9993; Enviar Correo</a>':'')
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button></div>'
+  );
+}
 function resetModuleState(){
   curP='';
   S.tourFilter='';
@@ -1782,6 +1816,11 @@ async function loadAll(){
   // por encima del tiempo que ya tarda el guardado en confirmarse con el servidor. 0 = sin
   // espera extra (se rehabilita apenas se confirma el guardado, comportamiento de siempre).
   S.undoCooldownSec=Math.max(0,parseInt(d.config&&d.config.undoCooldownSec)||0);
+  // Datos de contacto para el enlace "¿Solicitar acceso?" de la pantalla de login (ver
+  // openRequestAccessM/loadPublicContactConfig) — se refrescan aqui tambien tras iniciar
+  // sesion para que Configuracion > Solicitud de Acceso siempre muestre el valor mas reciente.
+  S.contactWhatsapp=(d.config&&d.config.contactWhatsapp)||'';
+  S.contactEmail=(d.config&&d.config.contactEmail)||'';
   S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
   var pendingGameIds=await outboxPendingGameIds();
   if(Object.keys(pendingGameIds).length>0){
@@ -14194,6 +14233,12 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Bloqueo al exceder (minutos)</label><input class="fi" id="lglock" type="number" min="1" max="1440" value="'+(S.loginLockoutMinutes||5)+'"></div></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9888; Protege contra ataques de fuerza bruta / DDoS al login. Si una IP supera el numero de intentos maximos dentro de la ventana de tiempo, se bloqueara temporalmente por el tiempo de bloqueo indicado.</div>'
       +'<button class="btn bp" onclick="saveLoginSecurityParams()">Guardar Seguridad de Login</button>'
+      +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128222; Solicitud de Acceso</div></div>'
+      +'<div class="fg"><label class="fl">WhatsApp de contacto (con codigo de pais, solo numeros)</label><input class="fi" id="scwa" type="text" value="'+(S.contactWhatsapp||'')+'" placeholder="Ej: 18096393540"></div>'
+      +'<div class="fg"><label class="fl">Correo de contacto</label><input class="fi" id="scemail" type="email" value="'+(S.contactEmail||'')+'" placeholder="Ej: contacto@midominio.com"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Estos datos se usan en el enlace "&#191;Solicitar acceso?" debajo del boton Iniciar Sesion, para que quien no tiene cuenta pueda escribirte por WhatsApp o Correo y pedirte un usuario. Deja un campo vacio para no ofrecer esa via (si dejas ambos vacios, el enlace no se muestra).</div>'
+      +'<button class="btn bp" onclick="saveContactInfo()">Guardar Datos de Contacto</button>'
       +'</div>':'')
     +'<div class="card"><div class="chd"><div class="ctl">&#128202; Datos del sistema</div></div>'
     +'<div class="g4">'
@@ -14267,6 +14312,19 @@ async function saveLoginSecurityParams(){
   _saving=false;
   if(r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok){toast('Seguridad de login guardada: '+mx+' intentos / '+wn+'min / bloqueo '+lk+'min','success');}
   else toast('Error al guardar parametros de seguridad','error');
+}
+async function saveContactInfo(){
+  var wa=fv('scwa').trim();
+  var email=fv('scemail').trim();
+  if(wa&&!/^[0-9]{7,15}$/.test(wa)){toast('El WhatsApp debe contener solo numeros (con codigo de pais), sin +, espacios ni guiones','error');return;}
+  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('Correo invalido','error');return;}
+  _saving=true;
+  S.contactWhatsapp=wa; S.contactEmail=email;
+  var r1=await api('saveConfig',{key:'contactWhatsapp',value:wa});
+  var r2=await api('saveConfig',{key:'contactEmail',value:email});
+  _saving=false;
+  if(r1&&r1.ok&&r2&&r2.ok){toast('Datos de contacto guardados','success');}
+  else toast('Error al guardar los datos de contacto','error');
 }
 
 // MY PROFILE
@@ -14947,6 +15005,9 @@ window.onload=function(){
   // Notificaciones push (solo dentro de la app nativa) — muestra/oculta el boton de
   // campana y re-registra el dispositivo si ya estaban activadas en una sesion anterior.
   initPushUI();
+  // Info de contacto para el enlace "¿Solicitar acceso?" de la pantalla de login (ver
+  // openRequestAccessM) — carga publica, no requiere sesion, no bloquea el resto del arranque.
+  loadPublicContactConfig();
   // ── App movil nativa (Capacitor/Android) — boton "Atras" del telefono ──────────────────
   // Esta pagina es una SPA sin rutas de URL reales (la navegacion entre modulos/pantallas se
   // maneja por estado interno, no por history.pushState) — sin este manejo, el boton Atras
