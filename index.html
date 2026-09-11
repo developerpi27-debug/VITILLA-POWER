@@ -96,7 +96,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 th{background:var(--bg3);color:var(--t2);font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:10px 14px;text-align:left;white-space:nowrap;}
 td{padding:9px 14px;border-bottom:1px solid var(--bdr);}
 tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:none;}
-.mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;}
 .modal{background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.5);}
 .mlg{max-width:820px;}
 .mhd{padding:18px 22px 14px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg2);z-index:1;}
@@ -156,7 +156,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .stl{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;margin-bottom:4px;}
 .ssb{font-size:13px;color:var(--t3);margin-bottom:18px;}
 .sep{border:none;border-top:1px solid var(--bdr);margin:14px 0;}
-#toast{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+#toast{position:fixed;bottom:22px;right:22px;z-index:10001;display:flex;flex-direction:column;gap:8px;}
 .ti{background:var(--bg2);border:1px solid var(--bdr2);border-radius:10px;padding:11px 16px;font-size:13px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);animation:sli .25s;min-width:220px;}
 .tis{border-left:3px solid var(--grn);}.tie{border-left:3px solid var(--red);}.tii{border-left:3px solid var(--blu);}
 @keyframes sli{from{transform:translateX(60px);opacity:0;}to{transform:translateX(0);opacity:1;}}
@@ -583,6 +583,11 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <span class="lgate-txt"><span class="lgate-t1">Acceder como Visitante</span><span class="lgate-t2">Solo consultar resultados y estadísticas</span></span>
         <span class="lgate-arrow">&#10132;</span>
       </button>
+      <button type="button" id="lgateGoogleBtn" class="lgate-btn lgate-btn-sec" style="display:none" onclick="googleSignIn()">
+        <span class="lgate-ic">&#127760;</span>
+        <span class="lgate-txt"><span class="lgate-t1">Continuar con Google</span><span class="lgate-t2">Crea y administra tu propio torneo</span></span>
+        <span class="lgate-arrow">&#10132;</span>
+      </button>
     </div>
 
     <!-- CREDENCIALES -->
@@ -643,6 +648,13 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <div class="uav" id="uav">U</div>
         <button class="btn bs bsm" onclick="doLogout()">Salir</button>
       </div>
+    </div>
+
+    <!-- Banner "version paga" — SOLO visible para usuarios que entraron con cuenta de Google
+    (ver renderApp). Al tocarlo abre el mismo modal de "Solicitar acceso" (WhatsApp/Correo) que
+    ya existe para la pantalla de login. -->
+    <div id="adUpgradeBanner" style="display:none;background:linear-gradient(90deg,#2d1e00 0%,#1a1005 50%,#2d1e00 100%);border-bottom:2px solid var(--acc);padding:8px 16px;text-align:center;cursor:pointer" onclick="openRequestAccessM()">
+      <span style="font-size:13px;font-weight:600;color:var(--acc)">&#11088; Accede a la versión paga: evita anuncios y obtén más funciones</span>
     </div>
 
     <!-- SLOGAN -->
@@ -951,6 +963,7 @@ async function api(action,data){
       doLogout();
     }
     if(!S_isOnline) setOnlineState(true); // esta llamada SI tuvo respuesta real del servidor
+    if(res&&res.ok&&action.indexOf('save')===0) maybeInterstitial('save');
     return res;
   }catch(e){
     if(OFFLINE_ACTIONS[action]){
@@ -1392,20 +1405,36 @@ function showLoginForm(){
 }
 // "¿Solicitar acceso?" (debajo del boton Iniciar Sesion): permite a quien no tiene cuenta
 // contactar al administrador por WhatsApp o Correo, usando los datos de contacto que el admin
-// configura en Configuracion > Solicitud de Acceso (S.contactWhatsapp/S.contactEmail). Se
-// llama una sola vez al cargar la pantalla de login (ver window.onload), ANTES de que el
-// visitante elija Iniciar Sesion o Acceder como Visitante, via la accion publica
-// getPublicConfig (no requiere sesion — ver actionGetPublicConfig en worker.js).
+// configura en Configuracion > Solicitud de Acceso (S.contactWhatsapp/S.contactEmail). Tambien
+// trae aqui el Google Web Client ID (Configuracion > Acceso con Google) para poder inicializar
+// el boton "Continuar con Google" ANTES de loguearse. Se llama una sola vez al cargar la
+// pantalla de login (ver window.onload), via la accion publica getPublicConfig (no requiere
+// sesion — ver actionGetPublicConfig en worker.js).
 async function loadPublicContactConfig(){
   try{
-    var r=await api('getPublicConfig',{keys:['contactWhatsapp','contactEmail']});
+    var r=await api('getPublicConfig',{keys:['contactWhatsapp','contactEmail','googleWebClientId']});
     if(r&&r.ok&&r.data){
       S.contactWhatsapp=r.data.contactWhatsapp||'';
       S.contactEmail=r.data.contactEmail||'';
+      S.googleWebClientId=r.data.googleWebClientId||'';
     }
   }catch(e){}
   var wrap=document.getElementById('reqAccessWrap');
   if(wrap)wrap.style.display=(S.contactWhatsapp||S.contactEmail)?'block':'none';
+  await initGoogleSignInIfAvailable();
+}
+// Inicializa el plugin nativo de acceso con Google (SocialLogin) con el Web Client ID que el
+// admin configuro (Configuracion > Acceso con Google > Google Web Client ID) y, solo si todo
+// esta presente, muestra el boton "Continuar con Google" en la puerta de login. Sin plugin o
+// sin Client ID configurado, el boton sencillamente no aparece — no es un error.
+async function initGoogleSignInIfAvailable(){
+  var SocialLogin=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SocialLogin;
+  if(!SocialLogin||!S.googleWebClientId)return;
+  try{
+    await SocialLogin.initialize({google:{webClientId:S.googleWebClientId}});
+    var gBtn=document.getElementById('lgateGoogleBtn');
+    if(gBtn)gBtn.style.display='flex';
+  }catch(e){}
 }
 function openRequestAccessM(){
   var wa=(S.contactWhatsapp||'').trim();
@@ -1534,6 +1563,64 @@ function warnIfLicenseNearExpiry(){
     +'<div class="mbd"><div class="alert ae" style="font-size:13px;line-height:1.6">Tu licencia de acceso vence '+whenTxt+'. Muy pronto no podrás acceder con tu usuario. Por favor comunícate con el administrador para renovarla.</div></div>'
     +'<div class="mft"><button class="btn bp" onclick="cM()">Entendido</button></div>');
 }
+// Acceso con cuenta de Google (solo app nativa de Android — ver lgateGoogleBtn, mostrado
+// solo cuando el plugin SocialLogin esta presente Y el admin configuro un Google Web Client
+// ID — ver initGoogleSignInIfAvailable). El plugin nativo hace todo el flujo de autenticacion
+// con Google (Credential Manager) y devuelve un idToken firmado por Google; ese token se manda
+// tal cual al Worker (accion googleLogin), que lo verifica el mismo contra Google antes de
+// emitir la sesion — este cliente nunca decide por si mismo quien es el usuario.
+async function googleSignIn(){
+  var SocialLogin=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SocialLogin;
+  if(!SocialLogin){toast('Acceso con Google no esta disponible en este dispositivo','error');return;}
+  document.getElementById('lgate').style.display='none';
+  document.getElementById('lcreds').style.display='block';
+  document.getElementById('lfrm').style.display='none';
+  document.getElementById('llod').style.display='block';
+  document.getElementById('lmsg').textContent='Conectando con Google...';
+  var gRes=null;
+  try{ gRes=await SocialLogin.login({provider:'google',options:{scopes:['email','profile']}}); }
+  catch(e){
+    document.getElementById('llod').style.display='none';
+    showLoginGate();
+    if(!(e&&/cancel/i.test(e.message||''))) toast('No se pudo conectar con Google','error');
+    return;
+  }
+  var idToken=gRes&&gRes.result&&gRes.result.idToken;
+  if(!idToken){
+    document.getElementById('llod').style.display='none';
+    showLoginGate();
+    toast('Google no devolvió un token válido','error');
+    return;
+  }
+  document.getElementById('lmsg').textContent='Verificando...';
+  var res=null;
+  try{ res=await apiRaw('googleLogin',{idToken:idToken}); }
+  catch(e){
+    document.getElementById('llod').style.display='none';
+    showLoginGate();
+    toast('Sin conexión. Intenta de nuevo.','error');
+    return;
+  }
+  if(!res||!res.ok){
+    document.getElementById('llod').style.display='none';
+    showLoginGate();
+    toast(res&&res.error?res.error:'No se pudo iniciar sesión con Google','error');
+    return;
+  }
+  document.getElementById('lmsg').textContent='Cargando datos...';
+  S.user=res.user;S.profile=res.profile||null;S.authToken=res.token||'';
+  setOnlineState(true);
+  try{await loadAll();}catch(e){console.warn('loadAll:',e);}
+  document.getElementById('llod').style.display='none';
+  await saveSession();
+  document.getElementById('lscr').style.display='none';
+  document.getElementById('app').style.display='flex';
+  resetModuleState();
+  renderApp();startPolling();startSessionTimer();
+  applyAdsUI();
+  maybeInterstitial('login');
+  toast('Bienvenido, '+res.user.name+'!','success');
+}
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
   // El visitante entra siempre con el deporte del subdominio de origen (BRAND), bloqueado —
@@ -1550,6 +1637,7 @@ function guestLogin(){
     document.getElementById('app').style.display='flex';
     resetModuleState();
     renderApp();goNav('standings');
+    maybeInterstitial('login');
     startPolling();
     startSessionTimer();
     trackVisit();
@@ -1592,6 +1680,11 @@ async function saveSession(plainPassword){
     var username=S.user?(S.user.username||''):'';
     var rec={
       key:'current',user:S.user,profile:S.profile,token:S.authToken,username:username,
+      // Marca las sesiones de cuenta de Google para que, si el token expira, restoreSession()
+      // no intente mostrar el formulario de usuario/contraseña (esa cuenta no tiene una) —
+      // en vez de eso, simplemente vuelve a la puerta de acceso para tocar "Continuar con
+      // Google" de nuevo (normalmente instantaneo, Google ya lo recuerda en el dispositivo).
+      isGoogle:!!(S.user&&S.user.role==='google'),
       loginCfg:{maxAttempts:S.loginMaxAttempts,windowMinutes:S.loginWindowMinutes,lockoutMinutes:S.loginLockoutMinutes},
       ts:Date.now()
     };
@@ -1637,7 +1730,13 @@ async function restoreSession(){
     if(!payload){ await clearSession(); return false; } // firma invalida/payload alterado
     var nowSec=Math.floor(Date.now()/1000);
     if(payload.exp&&nowSec>payload.exp){ await clearSession(); return false; } // ventana larga vencida
-    if(payload.softExp&&nowSec>payload.softExp){ return {mode:'relogin',username:rec.username}; }
+    if(payload.softExp&&nowSec>payload.softExp){
+      // Una sesion de Google no puede reanudarse pidiendo usuario/contrasena (no tiene) —
+      // se descarta y se vuelve a la puerta de acceso para tocar "Continuar con Google" otra
+      // vez en vez de mostrar un formulario que esa cuenta no puede completar.
+      if(rec.isGoogle){ await clearSession(); return false; }
+      return {mode:'relogin',username:rec.username};
+    }
     S.user=rec.user;S.profile=rec.profile||null;S.authToken=rec.token;
     return {mode:'resume'};
   }catch(e){ return false; }
@@ -1706,6 +1805,7 @@ function vpPrintWindow(w){
 // Fuera de la app nativa (web, iOS) se conserva el comportamiento de siempre: abrir una ventana
 // con el reporte y llamar a w.print().
 function vpExportReport(html){
+  maybeInterstitial('pdfExport');
   if(IS_NATIVE_APP&&window.AndroidExport&&typeof window.AndroidExport.printHtml==='function'){
     toast('Generando PDF...','success');
     window.AndroidExport.printHtml(html);
@@ -1714,6 +1814,70 @@ function vpExportReport(html){
   var w=window.open('','_blank','width=900,height=700');
   if(w){w.document.write(html);w.document.close();setTimeout(function(){vpPrintWindow(w);},500);}
 }
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// ANUNCIOS (Google AdMob) — banner + intersticial, SOLO dentro de la app nativa de Android.
+//
+// Se muestran a visitantes y a usuarios que entraron con su cuenta de Google — NUNCA a
+// usuario/contrasena (admin/anotadores), cuyos accesos a modulos/torneos/permisos siguen
+// definidos exactamente igual que siempre por el admin en Perfiles de Acceso.
+//
+// Todo lo que se ve aqui (donde aparece el banner, que acciones disparan el intersticial) lo
+// decide el admin en Configuracion > Anuncios (AdMob) — ver saveAdsConfig/applyAdsUI.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+function shouldShowAds(){
+  if(!IS_NATIVE_APP)return false;
+  if(!S.config||S.config.adsEnabled!=='true')return false;
+  if(!S.user||(S.user.role!=='google'&&S.user.role!=='public'))return false;
+  return !!(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob);
+}
+// Se llama al iniciar sesion (googleSignIn/guestLogin) y cada vez que se navega de modulo
+// (goNav): decide si el banner debe estar visible para el modulo actualmente abierto, y lo
+// posiciona segun Configuracion > Anuncios > "Ubicacion del banner". El SDK de AdMob dibuja el
+// banner como una vista nativa superpuesta (no es parte del HTML), asi que solo puede anclarse
+// arriba o abajo de la pantalla — "Cuerpo" se interpreta como "abajo, solo mientras se ve uno
+// de los modulos elegidos" en vez de "encabezado"/"pie de pagina", que quedan siempre fijos
+// mientras el modulo actual este en la lista.
+var _adBannerShown=false;
+function applyAdsUI(){
+  var AdMob=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob;
+  if(!AdMob)return;
+  var show=shouldShowAds();
+  var mods=safeAdsList(S.config&&S.config.adBannerModules);
+  var here=mods.length===0||mods.indexOf(curP)>=0;
+  var unitId=S.config&&S.config.admobBannerUnitId;
+  if(show&&here&&unitId){
+    if(!_adBannerShown){
+      var placement=(S.config&&S.config.adBannerPlacement)||'footer';
+      AdMob.showBanner({
+        adId:unitId,
+        adSize:'ADAPTIVE_BANNER',
+        position:placement==='header'?'TOP_CENTER':'BOTTOM_CENTER',
+        margin:0,
+        isTesting:false,
+      }).catch(function(){});
+      _adBannerShown=true;
+    }
+  } else if(_adBannerShown){
+    AdMob.hideBanner().catch(function(){});
+    _adBannerShown=false;
+  }
+}
+// Dispara un intersticial (pantalla completa) para el "gatillo" indicado (ver la lista de
+// checkboxes en Configuracion > Anuncios), solo si esta habilitado, el admin lo marco, y hay
+// un ID de unidad de anuncio configurado. triggerKey debe ser uno de: login, gameFinish,
+// viewFinishedGame, pdfExport, save, moduleEnter.
+function maybeInterstitial(triggerKey){
+  if(!shouldShowAds())return;
+  var triggers=safeAdsList(S.config&&S.config.adInterstitialTriggers);
+  if(triggers.indexOf(triggerKey)<0)return;
+  var unitId=S.config&&S.config.admobInterstitialUnitId;
+  if(!unitId)return;
+  var AdMob=window.Capacitor.Plugins.AdMob;
+  AdMob.prepareInterstitial({adId:unitId,isTesting:false}).then(function(){
+    return AdMob.showInterstitial();
+  }).catch(function(){});
+}
+
 var VP_PDF_STYLE=`
   /* App color palette */
   :root { --bg-dark:#0a0e1a; --bg-mid:#162032; --acc:#f5a623; --blu:#3b82f6; --grn:#22c55e; --red:#ef4444; --txt:#fff; }
@@ -2397,6 +2561,10 @@ function getUserMods(u){
 // Chequeo de acceso a un modulo/permiso puntual (incluye pseudo-modulos como
 // "transmissionpanel" que no son paginas navegables, solo un permiso booleano).
 function hasModuleAccess(moduleId){
+  // Seguro adicional: un usuario con cuenta de Google jamas ve el Panel de Transmision,
+  // incluso si el perfil que el admin le asigno (Configuracion > Acceso con Google) lo
+  // incluyera por error — este boton no es parte de lo que se le ofrece a esa via de acceso.
+  if(moduleId==='transmissionpanel'&&S.user&&S.user.role==='google')return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -2567,6 +2735,11 @@ function renderApp(){
   var isPublic=S.user&&S.user.role==='public';
   document.getElementById('lici').innerHTML=isPublic?'':licHtml;
   document.getElementById('coni').innerHTML=isPublic?'':'<span style="color:var(--grn)">&#9679; Supabase</span>';
+  // Banner "version paga": solo para usuarios que entraron con cuenta de Google (ver
+  // openRequestAccessM/adUpgradeBanner) — nunca para admin/anotadores (usuario y contraseña)
+  // ni para visitantes (a ellos se les ofrece de otra forma, ver ads).
+  var adBanner=document.getElementById('adUpgradeBanner');
+  if(adBanner)adBanner.style.display=(u.role==='google')?'block':'none';
   // "transmissionpanel" es un permiso, no una pagina navegable — no debe salir en el menu
   // lateral (solo controla si el boton "Panel Transmisión" se muestra dentro de Control de
   // Juego). Se excluye aqui pero SI se mantiene en ALL_MOD para que aparezca en el checklist
@@ -2681,6 +2854,9 @@ function goNav(page){
   document.getElementById('ptl').textContent=TITLES[page]||page;
   initPGS();if(PGS[page])PGS[page]();
   else ct('<div class="empty"><div style="font-size:36px">&#128679;</div><div>En construccion</div></div>');
+  applyAdsUI();
+  var moduleTriggerMods=safeAdsList(S.config&&S.config.adInterstitialModules);
+  if(moduleTriggerMods.indexOf(page)>=0) maybeInterstitial('moduleEnter');
   // Al cambiar de modulo, reanudar el auto-scroll de la galeria de afiliados
   // si estaba pausada manualmente.
   if(typeof setAfgPaused==='function') setAfgPaused(false);
@@ -4043,6 +4219,7 @@ function pgSched(){
 }
 function openGM(id){
   var g=id?S.games.filter(function(x){return x.id===id;})[0]:{};if(!g)g={};
+  if(id&&g.status==='final') maybeInterstitial('viewFinishedGame');
   // Determine parent tournament from existing game or from current filter
   var curTourId=g.tournamentId||S.tourFilter||'';
   var curTour=curTourId?S.tournaments.filter(function(t){return t.id===curTourId;})[0]:null;
@@ -7646,6 +7823,7 @@ async function endGame(){
   gm.lockedBy='';gm.lockedByName='';gm.lockedAt=''; // liberar bloqueo de anotacion al finalizar
   await api('saveGame',{game:gm});S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});
   pgGC();toast('Juego finalizado','success');
+  maybeInterstitial('gameFinish');
   setTimeout(function(){openPitDecisionM(gm.id,gm.awayTeamId,gm.homeTeamId);},300);
   S.game=null;
 }
@@ -14239,6 +14417,55 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Correo de contacto</label><input class="fi" id="scemail" type="email" value="'+(S.contactEmail||'')+'" placeholder="Ej: contacto@midominio.com"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Estos datos se usan en el enlace "&#191;Solicitar acceso?" debajo del boton Iniciar Sesion, para que quien no tiene cuenta pueda escribirte por WhatsApp o Correo y pedirte un usuario. Deja un campo vacio para no ofrecer esa via (si dejas ambos vacios, el enlace no se muestra).</div>'
       +'<button class="btn bp" onclick="saveContactInfo()">Guardar Datos de Contacto</button>'
+      +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127760; Acceso con Google</div></div>'
+      +'<div class="fg"><label class="fl">Google Web Client ID (OAuth 2.0)</label><input class="fi" id="gAccWebClientId" type="text" value="'+(S.config&&S.config.googleWebClientId||'')+'" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"></div>'
+      +'<div class="fg"><label class="fl">Perfil para usuarios de Google</label><select class="fi" id="gAccProfile">'
+      +'<option value="">(Por defecto: Torneos, Equipos, Calendario, Control de Juego, Posiciones, Estadisticas, Lideres, Rankings)</option>'
+      +S.profiles.map(function(p){return '<option value="'+p.id+'"'+(S.config&&S.config.googleProfileId===p.id?' selected':'')+'>'+p.name+'</option>';}).join('')
+      +'</select></div>'
+      +'<div class="fr c2">'
+      +'<div class="fg"><label class="fl">Dias de espera entre torneos propios</label><input class="fi" id="gAccCooldown" type="number" min="0" value="'+(S.config&&S.config.googleTourCooldownDays||60)+'"></div>'
+      +'<div class="fg"><label class="fl">Limite de juegos calendarizados por torneo (0 = sin limite)</label><input class="fi" id="gAccMaxGames" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerTournament||0)+'"></div>'
+      +'</div>'
+      +'<div class="fg"><label class="fl">Limite de juegos calendarizados por dia, dentro de un mismo subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxGamesPerDay" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerDay||0)+'"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo.</div>'
+      +'<button class="btn bp" onclick="saveGoogleAccessConfig()">Guardar Acceso con Google</button>'
+      +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128241; Anuncios (AdMob)</div></div>'
+      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabled" '+(S.config&&S.config.adsEnabled==='true'?'checked':'')+'> Mostrar anuncios a visitantes y usuarios de Google (nunca a usuario/contraseña)</label></div>'
+      +'<div class="fg"><label class="fl">Modulos donde se muestra el banner</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel';}).map(function(m){
+        var sel=safeAdsList(S.config&&S.config.adBannerModules).indexOf(m.id)>=0;
+        return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adBannerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
+      }).join('')+'</div></div>'
+      +'<div class="fg"><label class="fl">Ubicacion del banner</label>'
+      +'<select class="fi" id="adBannerPlacement">'
+      +['header','body','footer'].map(function(p){var lbl={header:'Encabezado',body:'Cuerpo',footer:'Pie de pagina'}[p];return '<option value="'+p+'"'+((S.config&&S.config.adBannerPlacement||'footer')===p?' selected':'')+'>'+lbl+'</option>';}).join('')
+      +'</select></div>'
+      +'<div class="fg"><label class="fl">Mostrar anuncio intersticial (pantalla completa) al...</label>'
+      +'<div style="display:flex;flex-direction:column;gap:6px">'+[
+        ['login','Autenticarse con Google o acceder como visitante'],
+        ['gameFinish','Finalizar un partido'],
+        ['viewFinishedGame','Entrar a los resultados de un partido finalizado'],
+        ['pdfExport','Hacer clic en un boton de exportar PDF'],
+        ['save','Hacer clic en un boton de guardado'],
+        ['moduleEnter','Acceder a un modulo especifico (elegir abajo)'],
+      ].map(function(t){
+        var sel=safeAdsList(S.config&&S.config.adInterstitialTriggers).indexOf(t[0])>=0;
+        return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTrigger" value="'+t[0]+'" '+(sel?'checked':'')+'>'+t[1]+'</label>';
+      }).join('')+'</div></div>'
+      +'<div class="fg"><label class="fl">Modulos que disparan el intersticial al entrar (solo si "Acceder a un modulo especifico" esta marcado arriba)</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel';}).map(function(m){
+        var sel=safeAdsList(S.config&&S.config.adInterstitialModules).indexOf(m.id)>=0;
+        return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTriggerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
+      }).join('')+'</div></div>'
+      +'<div class="fr c2">'
+      +'<div class="fg"><label class="fl">ID de unidad de anuncio — Banner</label><input class="fi" id="admobBannerUnitId" type="text" value="'+(S.config&&S.config.admobBannerUnitId||'')+'" placeholder="ca-app-pub-xxxxxxxx/xxxxxxxx"></div>'
+      +'<div class="fg"><label class="fl">ID de unidad de anuncio — Intersticial</label><input class="fi" id="admobInterstitialUnitId" type="text" value="'+(S.config&&S.config.admobInterstitialUnitId||'')+'" placeholder="ca-app-pub-xxxxxxxx/xxxxxxxx"></div>'
+      +'</div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Los IDs de unidad de anuncio se pueden cambiar aqui sin recompilar la app. El App ID de AdMob (a nivel de toda la app) se configura una sola vez en el proyecto de Android y si requiere recompilar.</div>'
+      +'<button class="btn bp" onclick="saveAdsConfig()">Guardar Configuracion de Anuncios</button>'
       +'</div>':'')
     +'<div class="card"><div class="chd"><div class="ctl">&#128202; Datos del sistema</div></div>'
     +'<div class="g4">'
@@ -14325,6 +14552,64 @@ async function saveContactInfo(){
   _saving=false;
   if(r1&&r1.ok&&r2&&r2.ok){toast('Datos de contacto guardados','success');}
   else toast('Error al guardar los datos de contacto','error');
+}
+// Convierte un valor de config (guardado como JSON string) en un arreglo de forma segura —
+// usado por todas las listas de seleccion multiple de Configuracion > Anuncios (AdMob).
+function safeAdsList(jsonStr){
+  if(!jsonStr)return[];
+  try{var v=JSON.parse(jsonStr);return Array.isArray(v)?v:[];}catch(e){return[];}
+}
+async function saveGoogleAccessConfig(){
+  var webClientId=fv('gAccWebClientId').trim();
+  var profileId=fv('gAccProfile');
+  var cooldown=parseInt(fv('gAccCooldown'))||0;
+  var maxGames=parseInt(fv('gAccMaxGames'))||0;
+  var maxGamesPerDay=parseInt(fv('gAccMaxGamesPerDay'))||0;
+  _saving=true;
+  var r0=await api('saveConfig',{key:'googleWebClientId',value:webClientId});
+  var r1=await api('saveConfig',{key:'googleProfileId',value:profileId});
+  var r2=await api('saveConfig',{key:'googleTourCooldownDays',value:cooldown});
+  var r3=await api('saveConfig',{key:'googleMaxGamesPerTournament',value:maxGames});
+  var r4=await api('saveConfig',{key:'googleMaxGamesPerDay',value:maxGamesPerDay});
+  _saving=false;
+  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok){
+    S.config=S.config||{};
+    S.config.googleWebClientId=webClientId;
+    S.config.googleProfileId=profileId;S.config.googleTourCooldownDays=String(cooldown);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);
+    toast('Acceso con Google guardado','success');
+  } else toast('Error al guardar el acceso con Google','error');
+}
+async function saveAdsConfig(){
+  var enabled=document.getElementById('adsEnabled').checked;
+  var bannerMods=Array.prototype.slice.call(document.querySelectorAll('.adBannerMod:checked')).map(function(el){return el.value;});
+  var placement=fv('adBannerPlacement');
+  var triggers=Array.prototype.slice.call(document.querySelectorAll('.adTrigger:checked')).map(function(el){return el.value;});
+  var triggerMods=Array.prototype.slice.call(document.querySelectorAll('.adTriggerMod:checked')).map(function(el){return el.value;});
+  var bannerUnit=fv('admobBannerUnitId').trim();
+  var interUnit=fv('admobInterstitialUnitId').trim();
+  _saving=true;
+  var results=await Promise.all([
+    api('saveConfig',{key:'adsEnabled',value:enabled?'true':'false'}),
+    api('saveConfig',{key:'adBannerModules',value:JSON.stringify(bannerMods)}),
+    api('saveConfig',{key:'adBannerPlacement',value:placement}),
+    api('saveConfig',{key:'adInterstitialTriggers',value:JSON.stringify(triggers)}),
+    api('saveConfig',{key:'adInterstitialModules',value:JSON.stringify(triggerMods)}),
+    api('saveConfig',{key:'admobBannerUnitId',value:bannerUnit}),
+    api('saveConfig',{key:'admobInterstitialUnitId',value:interUnit}),
+  ]);
+  _saving=false;
+  if(results.every(function(r){return r&&r.ok;})){
+    S.config=S.config||{};
+    S.config.adsEnabled=enabled?'true':'false';
+    S.config.adBannerModules=JSON.stringify(bannerMods);
+    S.config.adBannerPlacement=placement;
+    S.config.adInterstitialTriggers=JSON.stringify(triggers);
+    S.config.adInterstitialModules=JSON.stringify(triggerMods);
+    S.config.admobBannerUnitId=bannerUnit;
+    S.config.admobInterstitialUnitId=interUnit;
+    applyAdsUI();
+    toast('Configuracion de anuncios guardada','success');
+  } else toast('Error al guardar la configuracion de anuncios','error');
 }
 
 // MY PROFILE
@@ -15005,9 +15290,16 @@ window.onload=function(){
   // Notificaciones push (solo dentro de la app nativa) — muestra/oculta el boton de
   // campana y re-registra el dispositivo si ya estaban activadas en una sesion anterior.
   initPushUI();
-  // Info de contacto para el enlace "¿Solicitar acceso?" de la pantalla de login (ver
-  // openRequestAccessM) — carga publica, no requiere sesion, no bloquea el resto del arranque.
+  // Info de contacto para el enlace "¿Solicitar acceso?" y el Google Web Client ID para el
+  // boton "Continuar con Google" (ver loadPublicContactConfig/initGoogleSignInIfAvailable) —
+  // carga publica, no requiere sesion, no bloquea el resto del arranque.
   loadPublicContactConfig();
+  // Inicializa el SDK de AdMob una sola vez al arrancar (no muestra nada por si solo — ver
+  // shouldShowAds/applyAdsUI/maybeInterstitial, que deciden segun el rol del usuario y lo que
+  // el admin configuro en Configuracion > Anuncios, una vez cargados los datos tras el login).
+  if(IS_NATIVE_APP&&window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob){
+    window.Capacitor.Plugins.AdMob.initialize().catch(function(){});
+  }
   // ── App movil nativa (Capacitor/Android) — boton "Atras" del telefono ──────────────────
   // Esta pagina es una SPA sin rutas de URL reales (la navegacion entre modulos/pantallas se
   // maneja por estado interno, no por history.pushState) — sin este manejo, el boton Atras
