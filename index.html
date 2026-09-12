@@ -1582,7 +1582,9 @@ async function googleSignIn(){
   catch(e){
     document.getElementById('llod').style.display='none';
     showLoginGate();
-    if(!(e&&/cancel/i.test(e.message||''))) toast('No se pudo conectar con Google','error');
+    console.error('SocialLogin.login error:',e);
+    var emsg=(e&&(e.message||e.errorMessage||e.code||JSON.stringify(e)))||'error desconocido';
+    if(!/cancel/i.test(emsg)) toast('Google: '+emsg,'error');
     return;
   }
   var idToken=gRes&&gRes.result&&gRes.result.idToken;
