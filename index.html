@@ -1626,6 +1626,37 @@ async function googleSignIn(){
   applyAdsUI();
   maybeInterstitial('login');
   toast('Bienvenido, '+res.user.name+'!','success');
+  openGoogleFreeTierInfoM(res.user.id);
+}
+// Ventana informativa mostrada al entrar con cuenta de Google: explica las limitaciones del
+// modo gratuito y que incluye anuncios (AdMob) que ayudan a mantener la app operativa. Se
+// puede desactivar por usuario (checkbox "No volver a mostrar"), guardado en localStorage —
+// es solo una preferencia de UI, no algo que necesite viajar al servidor.
+function openGoogleFreeTierInfoM(userId){
+  var dismissKey='gfti_dismissed_'+userId;
+  try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
+  showM('<div class="mhd"><div class="mtl">&#127760; Cuenta de Google — Version gratuita</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">'
+    +'Estas usando '+brandName()+' con tu cuenta de Google, en la <b>version gratuita</b>. Esto incluye:'
+    +'</div>'
+    +'<ul style="font-size:13px;color:var(--t2);line-height:1.8;margin:0 0 14px 18px;padding:0">'
+    +'<li>Solo puedes crear y administrar <b>tu propio torneo</b> (con sus subtorneos, equipos, jugadores y calendario) — no ves ni editas los de otros usuarios ni los del staff.</li>'
+    +'<li>Hay <b>limites</b> de cuanto puedes calendarizar y con que frecuencia puedes crear un torneo nuevo (el administrador los define).</li>'
+    +'<li>Esta version incluye <b>anuncios</b> (banner e intersticiales) — nos ayudan a cubrir el costo de mantener la app funcionando.</li>'
+    +'</ul>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">Si prefieres una experiencia sin anuncios y con mas funciones, puedes solicitar acceso a la version paga desde el boton en la parte superior de la app.</div>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer"><input type="checkbox" id="gftiDismiss"> No volver a mostrar este mensaje</label>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="closeGoogleFreeTierInfoM(\''+userId+'\')">Entendido</button></div>'
+  );
+}
+function closeGoogleFreeTierInfoM(userId){
+  var chk=document.getElementById('gftiDismiss');
+  if(chk&&chk.checked){
+    try{ localStorage.setItem('gfti_dismissed_'+userId,'1'); }catch(e){}
+  }
+  cM();
 }
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
@@ -1832,8 +1863,14 @@ function vpExportReport(html){
 // ═══════════════════════════════════════════════════════════════════════════════════════
 function shouldShowAds(){
   if(!IS_NATIVE_APP)return false;
-  if(!S.config||S.config.adsEnabled!=='true')return false;
-  if(!S.user||(S.user.role!=='google'&&S.user.role!=='public'))return false;
+  if(!S.user)return false;
+  // Cada publico tiene su propio interruptor (Configuracion > Anuncios): admin puede decidir
+  // mostrarle a uno y no al otro. Nunca se muestran a usuario/contrasena (staff/anotadores).
+  if(S.user.role==='public')return !!(S.config&&S.config.adsEnabledVisitors==='true')&&adMobReady();
+  if(S.user.role==='google')return !!(S.config&&S.config.adsEnabledGoogle==='true')&&adMobReady();
+  return false;
+}
+function adMobReady(){
   return !!(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob);
 }
 // Se llama al iniciar sesion (googleSignIn/guestLogin) y cada vez que se navega de modulo
@@ -3624,22 +3661,24 @@ async function saveE(id){
   }
   else toast(r&&r.error||'Error','error');
 }
-// Helper: otorgar visibilidad de un equipo específico a un perfil, sin dar acceso a todo el torneo
+// Helper: otorgar visibilidad de un equipo específico a un perfil, sin dar acceso a todo el
+// torneo. Usa la accion grantOwnExtraTeam (el usuario se otorga acceso a SI MISMO sobre el
+// equipo que acaba de crear) — antes llamaba a saveProfile, pero esa accion es exclusiva de
+// administradores y el guardado fallaba en silencio para cualquier otro rol: el cambio se veia
+// reflejado en la sesion actual (actualizacion optimista de S.profile) pero nunca llegaba a
+// guardarse en la base de datos, asi que se perdia el acceso al equipo en el siguiente login.
 async function grantTeamAccessToProfile(profileId,teamId){
-  var prf=(S.profiles||[]).filter(function(x){return x.id===profileId;})[0];
+  var r=await api('grantOwnExtraTeam',{teamId:teamId});
+  if(!r||!r.ok)return;
+  var prf=r.profile;
   if(!prf)return;
-  if(!prf.extraTeams)prf.extraTeams=[];
-  if(prf.extraTeams.indexOf(teamId)<0){
-    prf.extraTeams.push(teamId);
-    await api('saveProfile',{profile:prf});
-    S.profiles=S.profiles.map(function(x){return x.id===prf.id?prf:x;});
-    // CRITICO: visibleTeams() usa S.profile (el perfil de la sesión activa), no S.profiles.
-    // Si el perfil que se actualiza es el del usuario actualmente conectado, hay que
-    // sincronizar S.profile tambien, o el equipo recien otorgado no se vera hasta
-    // que el usuario cierre sesion y vuelva a entrar.
-    if(S.profile&&S.profile.id===profileId){
-      S.profile=prf;
-    }
+  S.profiles=S.profiles.map(function(x){return x.id===prf.id?prf:x;});
+  // CRITICO: visibleTeams() usa S.profile (el perfil de la sesión activa), no S.profiles.
+  // Si el perfil que se actualiza es el del usuario actualmente conectado, hay que
+  // sincronizar S.profile tambien, o el equipo recien otorgado no se vera hasta
+  // que el usuario cierre sesion y vuelva a entrar.
+  if(S.profile&&S.profile.id===prf.id){
+    S.profile=prf;
   }
 }
 function tourSportType(tour){
@@ -14435,11 +14474,14 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Limite de juegos calendarizados por torneo (0 = sin limite)</label><input class="fi" id="gAccMaxGames" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerTournament||0)+'"></div>'
       +'</div>'
       +'<div class="fg"><label class="fl">Limite de juegos calendarizados por dia, dentro de un mismo subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxGamesPerDay" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerDay||0)+'"></div>'
+      +'<div class="fg"><label class="fl">Limite de equipos que puede crear por subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxTeams" type="number" min="0" value="'+(S.config&&S.config.googleMaxTeamsPerTournament||0)+'"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo.</div>'
       +'<button class="btn bp" onclick="saveGoogleAccessConfig()">Guardar Acceso con Google</button>'
       +'</div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128241; Anuncios (AdMob)</div></div>'
-      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabled" '+(S.config&&S.config.adsEnabled==='true'?'checked':'')+'> Mostrar anuncios a visitantes y usuarios de Google (nunca a usuario/contraseña)</label></div>'
+      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledVisitors" '+(S.config&&S.config.adsEnabledVisitors==='true'?'checked':'')+'> Mostrar anuncios a Visitantes</label></div>'
+      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledGoogle" '+(S.config&&S.config.adsEnabledGoogle==='true'?'checked':'')+'> Mostrar anuncios a usuarios de Google</label></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Nunca se muestran a usuarios con usuario/contraseña (staff/anotadores), sin importar estos interruptores.</div>'
       +'<div class="fg"><label class="fl">Modulos donde se muestra el banner</label>'
       +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel';}).map(function(m){
         var sel=safeAdsList(S.config&&S.config.adBannerModules).indexOf(m.id)>=0;
@@ -14571,22 +14613,25 @@ async function saveGoogleAccessConfig(){
   var cooldown=parseInt(fv('gAccCooldown'))||0;
   var maxGames=parseInt(fv('gAccMaxGames'))||0;
   var maxGamesPerDay=parseInt(fv('gAccMaxGamesPerDay'))||0;
+  var maxTeams=parseInt(fv('gAccMaxTeams'))||0;
   _saving=true;
   var r0=await api('saveConfig',{key:'googleWebClientId',value:webClientId});
   var r1=await api('saveConfig',{key:'googleProfileId',value:profileId});
   var r2=await api('saveConfig',{key:'googleTourCooldownDays',value:cooldown});
   var r3=await api('saveConfig',{key:'googleMaxGamesPerTournament',value:maxGames});
   var r4=await api('saveConfig',{key:'googleMaxGamesPerDay',value:maxGamesPerDay});
+  var r5=await api('saveConfig',{key:'googleMaxTeamsPerTournament',value:maxTeams});
   _saving=false;
-  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok){
+  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok){
     S.config=S.config||{};
     S.config.googleWebClientId=webClientId;
-    S.config.googleProfileId=profileId;S.config.googleTourCooldownDays=String(cooldown);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);
+    S.config.googleProfileId=profileId;S.config.googleTourCooldownDays=String(cooldown);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxTeamsPerTournament=String(maxTeams);
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
 }
 async function saveAdsConfig(){
-  var enabled=document.getElementById('adsEnabled').checked;
+  var enabledVisitors=document.getElementById('adsEnabledVisitors').checked;
+  var enabledGoogle=document.getElementById('adsEnabledGoogle').checked;
   var bannerMods=Array.prototype.slice.call(document.querySelectorAll('.adBannerMod:checked')).map(function(el){return el.value;});
   var placement=fv('adBannerPlacement');
   var triggers=Array.prototype.slice.call(document.querySelectorAll('.adTrigger:checked')).map(function(el){return el.value;});
@@ -14595,7 +14640,8 @@ async function saveAdsConfig(){
   var interUnit=fv('admobInterstitialUnitId').trim();
   _saving=true;
   var results=await Promise.all([
-    api('saveConfig',{key:'adsEnabled',value:enabled?'true':'false'}),
+    api('saveConfig',{key:'adsEnabledVisitors',value:enabledVisitors?'true':'false'}),
+    api('saveConfig',{key:'adsEnabledGoogle',value:enabledGoogle?'true':'false'}),
     api('saveConfig',{key:'adBannerModules',value:JSON.stringify(bannerMods)}),
     api('saveConfig',{key:'adBannerPlacement',value:placement}),
     api('saveConfig',{key:'adInterstitialTriggers',value:JSON.stringify(triggers)}),
@@ -14606,7 +14652,8 @@ async function saveAdsConfig(){
   _saving=false;
   if(results.every(function(r){return r&&r.ok;})){
     S.config=S.config||{};
-    S.config.adsEnabled=enabled?'true':'false';
+    S.config.adsEnabledVisitors=enabledVisitors?'true':'false';
+    S.config.adsEnabledGoogle=enabledGoogle?'true':'false';
     S.config.adBannerModules=JSON.stringify(bannerMods);
     S.config.adBannerPlacement=placement;
     S.config.adInterstitialTriggers=JSON.stringify(triggers);
