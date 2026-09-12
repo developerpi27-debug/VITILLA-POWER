@@ -1578,7 +1578,11 @@ async function googleSignIn(){
   document.getElementById('llod').style.display='block';
   document.getElementById('lmsg').textContent='Conectando con Google...';
   var gRes=null;
-  try{ gRes=await SocialLogin.login({provider:'google',options:{scopes:['email','profile']}}); }
+  // Nota: NO se piden scopes personalizados aqui a proposito — el plugin ya incluye
+  // email/profile/openid por defecto SIEMPRE, y pedir scopes explicitos exige ademas
+  // modificar MainActivity.java (ver GoogleProvider.java del plugin, "ModifiedMainActivityFor
+  // SocialLoginPlugin"), lo cual no es necesario para lo que esta app necesita.
+  try{ gRes=await SocialLogin.login({provider:'google',options:{}}); }
   catch(e){
     document.getElementById('llod').style.display='none';
     showLoginGate();
