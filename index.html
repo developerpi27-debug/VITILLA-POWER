@@ -3089,14 +3089,31 @@ async function pgDash(){
 // TOURNAMENTS
 function pgTour(){
   var isA=S.user&&S.user.role==='admin';
+  // Para usuarios de Google: si ya tienen un torneo padre propio y aun estan dentro del
+  // periodo de espera configurado (Configuracion > Acceso con Google), no tiene sentido
+  // mostrarles el boton de crear otro — mejor explicarles cuanto falta de una vez, en vez de
+  // dejar que llenen el formulario y les rechace el guardado (esa validacion real sigue
+  // ocurriendo en el servidor de todas formas — esto es solo para no hacerles perder el tiempo).
+  var googleCooldownDaysLeft=0;
+  if(S.user&&S.user.role==='google'&&(S.parentTournaments||[]).length){
+    var cooldownDays=parseInt(S.config&&S.config.googleTourCooldownDays)||60;
+    var mostRecent=(S.parentTournaments||[]).reduce(function(max,pt){
+      var t=pt.createdAt?new Date(pt.createdAt).getTime():0;
+      return t>max?t:max;
+    },0);
+    if(mostRecent){
+      var nextAllowed=mostRecent+cooldownDays*24*3600*1000;
+      googleCooldownDaysLeft=Math.max(0,Math.ceil((nextAllowed-Date.now())/(24*3600*1000)));
+    }
+  }
   // ── Sección Torneos Padre ─────────────────────────────────────
   var ptRows=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
     var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
     var spLbl={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[pt.type]||'Vitilla';
     return'<tr><td><b>'+pt.name+'</b></td><td><span class="badge bb">'+spLbl+'</span></td><td>'+subCount+' subtorneo(s)</td>'
-      +(isA?'<td><div style="display:flex;gap:5px">'
+      +((isA||canDo('edit','tournaments'))?'<td><div style="display:flex;gap:5px">'
         +'<button class="btn bs bsm" data-ptid="'+pt.id+'" onclick="openParentTM(this.dataset.ptid)">Editar</button>'
-        +'<button class="btn bd bsm" data-ptid="'+pt.id+'" onclick="delParentT(this.dataset.ptid)">&#10005;</button>'
+        +(isA?'<button class="btn bd bsm" data-ptid="'+pt.id+'" onclick="delParentT(this.dataset.ptid)">&#10005;</button>':'')
         +'</div></td>':'')+'</tr>';
   }).join('');
   // ── Sección Subtorneos ────────────────────────────────────────
@@ -3116,7 +3133,7 @@ function pgTour(){
   ct(yearBar()
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     +'<div><div class="stl">Torneos Padre</div><div class="ssb">Agrupadores de subtorneos por edición</div></div>'
-    +(isA?'<button class="btn bp" onclick="openParentTM(\'\')">+ Crear Torneo Padre</button>':'')+'</div>'
+    +((isA||canDo('create','tournaments'))?(googleCooldownDaysLeft>0?'<span class="badge bo" style="padding:8px 14px">&#9203; Podrás crear otro torneo en '+googleCooldownDaysLeft+' día(s)</span>':'<button class="btn bp" onclick="openParentTM(\'\')">+ Crear Torneo Padre</button>'):'')+'</div>'
     +'<div class="card" style="margin-bottom:20px"><div class="tw"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Subtorneos</th>'
     +((isA||canDo('edit','tournaments'))?'<th>Acciones</th>':'')+'</tr></thead>'
     +'<tbody>'+(ptRows||'<tr><td colspan="4"><div class="empty"><div>Sin torneos padre creados</div></div></td></tr>')+'</tbody></table></div></div>'
