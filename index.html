@@ -3002,7 +3002,7 @@ function gcH(g){
       +(!_canReopen&&!_canRestart&&!_isAdmin?'<span class="badge bg">FINAL</span>':'')
       +'</div>';
   }
-  else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div></div>';
+  else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div>'+(_isAdmin?'<button class="reopen-btn" style="margin-top:4px;background:#7a1220" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)">&#128465; Eliminar</button>':'')+'</div>';
   else if(g.status==='live')rgt='<div style="text-align:right"><span class="badge '+(g.paused?'bo':'br')+'">'+(g.paused?'&#9646;&#9646; PAUSADO':'&#128308; EN VIVO')+'</span><div style="font-size:16px;font-weight:700">'+(+g.awayRuns||0)+' - '+(+g.homeRuns||0)+'</div></div>';
   else rgt='<div style="text-align:right"><span class="badge bb">PROG.</span><div style="font-size:12px;color:var(--t3)">'+(g.time&&g.time.indexOf&&g.time.indexOf('1899')<0&&g.time.indexOf('1900')<0?g.time:'TBD')+'</div></div>';
   return'<div class="gcrd" onclick="openGD(\''+g.id+'\')"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div><div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+' &middot; '+tmNm(g.tournamentId)+'</div></div>'+rgt+'</div>';
@@ -4975,6 +4975,7 @@ function pgGC(){
         +'<div style="font-size:20px;font-weight:700;margin-top:8px">'+(parseInt(gm.awayRuns)||0)+' – '+(parseInt(gm.homeRuns)||0)+'</div>'
         +'<div style="font-size:13px;color:var(--t2);margin-top:4px">'+aw.name+' vs '+hw.name+'</div>'
         +((S.user&&S.user.role==='admin')||(S.user&&S.user.role!=='public'&&(gm.lockedBy===S.user.id||gm.lastScorerId===S.user.id))?'<button class="btn bs bsm" style="margin-top:12px" data-gid="'+gm.id+'" data-aw="'+gm.awayTeamId+'" data-hm="'+gm.homeTeamId+'" onclick="openPitDecisionM(this.dataset.gid,this.dataset.aw,this.dataset.hm)">&#9918; Editar Decisiones de Pitcheo</button>':'')
+        +(S.user&&S.user.role==='admin'?'<button class="btn bs bsm" style="margin-top:8px;margin-left:6px" data-gid="'+gm.id+'" data-aw="'+gm.awayTeamId+'" data-hm="'+gm.homeTeamId+'" onclick="openPitStatsEditM(this.dataset.gid,this.dataset.aw,this.dataset.hm)">&#9999;&#65039; Editar Números de Pitcheo</button>':'')
         +'</div></div>'
       :(lockedByOther
         ?'<div class="card"><div style="text-align:center;padding:18px 12px">'
@@ -7821,7 +7822,7 @@ async function restartGame(gid){
 function delGame(id){
   var g=S.games.filter(function(x){return x.id===id;})[0];if(!g)return;
   if(!S.user||S.user.role!=='admin'){toast('Solo un administrador puede eliminar juegos','error');return;}
-  if(g.status!=='final'){toast('Solo se pueden eliminar juegos finalizados','error');return;}
+  if(g.status!=='final'&&g.status!=='suspended'){toast('Solo se pueden eliminar juegos finalizados o suspendidos/no oficiales','error');return;}
   var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);
   var evCount=S.events.filter(function(e){return e.gameId===id;}).length;
   var pitCount=S.pitching.filter(function(p){return p.gameId===id;}).length;
@@ -8409,6 +8410,67 @@ async function savePitDecision(gid){
   if(updates.length){await Promise.all(updates);await loadAll();}
   cM();toast('Decisiones guardadas','success');
   if(curP==='gamecontrol'&&S.game===gid){try{pgGC();}catch(e3){}}
+}
+// Edicion manual (solo admin) de los NUMEROS de una linea de pitcheo (IP/H/R/ER/BB/K/HR) de un
+// juego ya finalizado — para corregir errores de digitacion detectados despues del hecho. Cada
+// "entrada" (stint) del pitcher es su propio registro en S.pitching/tabla pitcheo; se edita cada
+// una por separado (normalmente solo hay una por pitcher, salvo que haya reingresado al juego).
+function openPitStatsEditM(gid,awT,hmT){
+  var evs=S.pitching.filter(function(e){return e.gameId===gid;});
+  function teamRows(tid){
+    var team=teamOf(tid);
+    var te=evs.filter(function(e){return e.teamId===tid;});
+    if(!te.length)return'';
+    return'<div style="font-family:Barlow Condensed,sans-serif;font-weight:700;margin:14px 0 8px">'+(team?team.name:'Equipo')+'</div>'
+      +te.map(function(e){
+        var p=playerOf(e.pitcherId);
+        return'<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)">'
+          +'<div style="font-size:13px;font-weight:600;margin-bottom:6px">'+(p?('#'+(p.number||'?')+' '+p.name):'Pitcher desconocido')+'</div>'
+          +'<div class="g4">'
+          +'<div class="fg"><label class="fl">IP</label><input class="fi" type="number" step="0.1" min="0" data-pid="'+e.id+'" data-f="ip" value="'+(e.ip||0)+'"></div>'
+          +'<div class="fg"><label class="fl">H</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="h" value="'+(e.h||0)+'"></div>'
+          +'<div class="fg"><label class="fl">R</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="r" value="'+(e.r||0)+'"></div>'
+          +'<div class="fg"><label class="fl">ER</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="er" value="'+(e.er||0)+'"></div>'
+          +'</div>'
+          +'<div class="g3" style="margin-top:10px">'
+          +'<div class="fg"><label class="fl">BB</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="bb" value="'+(e.bb||0)+'"></div>'
+          +'<div class="fg"><label class="fl">K</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="k" value="'+(e.k||0)+'"></div>'
+          +'<div class="fg"><label class="fl">HR</label><input class="fi" type="number" min="0" data-pid="'+e.id+'" data-f="hr" value="'+(e.hr||0)+'"></div>'
+          +'</div></div>';
+      }).join('');
+  }
+  var body=teamRows(awT)+teamRows(hmT);
+  if(!body)body='<div class="empty">Sin registros de pitcheo para este juego.</div>';
+  showM('<div class="mhd"><div class="mtl">&#9999;&#65039; Editar Números de Pitcheo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd" style="max-height:65vh;overflow-y:auto">'
+    +'<div class="alert ai" style="font-size:12px;margin-bottom:10px">&#9654; Corrige manualmente los números de un pitcher para este juego ya finalizado. Las estadísticas de temporada/carrera se recalculan automáticamente al guardar.</div>'
+    +body+'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bp" data-gid="'+gid+'" onclick="savePitStatsEdit(this.dataset.gid)">Guardar Cambios</button></div>');
+}
+async function savePitStatsEdit(gid){
+  var inputs=document.querySelectorAll('#modals input[data-pid]');
+  var byId={};
+  inputs.forEach(function(inp){
+    var pid=inp.dataset.pid,f=inp.dataset.f;
+    if(!byId[pid])byId[pid]={};
+    byId[pid][f]=f==='ip'?(parseFloat(inp.value)||0):(parseInt(inp.value)||0);
+  });
+  var updates=[];
+  Object.keys(byId).forEach(function(pid){
+    var e=S.pitching.filter(function(x){return x.id===pid;})[0];
+    if(!e)return;
+    var changed=false;
+    ['ip','h','r','er','bb','k','hr'].forEach(function(f){
+      if(byId[pid][f]!==undefined&&byId[pid][f]!==e[f]){e[f]=byId[pid][f];changed=true;}
+    });
+    if(changed)updates.push(api('savePitching',{event:e}));
+  });
+  if(!updates.length){cM();toast('No hubo cambios','info');return;}
+  await Promise.all(updates);
+  await loadAll();
+  cM();toast('Números de pitcheo actualizados','success');
+  if(curP==='gamecontrol'&&S.game===gid){try{pgGC();}catch(e){}}
 }
 function openSubM(type,runnerSubMode){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
