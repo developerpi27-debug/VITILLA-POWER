@@ -560,6 +560,31 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   .tz-ctrl .tzv{display:none;}
   .tz-ctrl button{width:20px;height:20px;font-size:13px;}
 }
+/* ── Animación de jugada para visitantes viendo un juego en vivo (Control de Juego) ──
+   Se dispara automaticamente cuando el poll detecta una jugada NUEVA de hit/out/ponche — ver
+   checkForNewPlaysAndFlash/showPlayFlashAnimation. Puramente decorativa (no bloquea nada),
+   se retira sola del DOM. */
+#playFlashOverlay{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(5,8,15,.55);opacity:0;pointer-events:none;animation:pfFadeIn .25s ease-out forwards;}
+#playFlashOverlay.pf-out{animation:pfFadeOut .5s ease-in forwards;}
+.pf-stage{position:relative;width:280px;height:170px;display:flex;align-items:center;justify-content:center;}
+.pf-pitcher{position:absolute;left:6px;font-size:40px;animation:pfPitcherWind .5s ease-in-out;}
+.pf-batter{position:absolute;right:14px;font-size:40px;transform-origin:70% 90%;animation:pfBatterSwing 1.4s ease-in-out .55s 1 both;}
+.pf-ball{position:absolute;left:44px;top:48%;font-size:20px;opacity:0;animation:pfBallTravel .5s linear .35s 1 forwards;}
+.pf-contact{position:absolute;right:60px;top:40%;font-size:34px;opacity:0;animation:pfContactPop .5s ease-out 1.7s 1 forwards;}
+.pf-runner{position:absolute;right:40px;bottom:6px;font-size:28px;opacity:0;animation:pfRunnerGo 1.1s ease-out 2.1s 1 forwards;}
+.pf-label{position:absolute;bottom:-6px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;letter-spacing:1px;text-shadow:0 2px 10px rgba(0,0,0,.6);opacity:0;transform:scale(.4);animation:pfLabelPop .5s cubic-bezier(.34,1.56,.64,1) 2.3s 1 forwards;}
+.pf-label.pf-hit{color:var(--acc,#f5a623);}
+.pf-label.pf-out{color:var(--red,#ef4444);}
+.pf-out-x{position:absolute;right:56px;top:38%;font-size:40px;opacity:0;animation:pfOutShake .6s ease-out 1.7s 1 forwards;}
+@keyframes pfFadeIn{to{opacity:1;}}
+@keyframes pfFadeOut{to{opacity:0;}}
+@keyframes pfPitcherWind{0%{transform:translateY(0) rotate(0deg);}40%{transform:translateY(-4px) rotate(-8deg);}100%{transform:translateY(0) rotate(0deg);}}
+@keyframes pfBallTravel{0%{opacity:1;left:44px;transform:scale(1);}90%{opacity:1;}100%{opacity:1;left:196px;transform:scale(.9);}}
+@keyframes pfBatterSwing{0%,35%{transform:rotate(0deg);}50%{transform:rotate(-55deg);}65%{transform:rotate(15deg);}100%{transform:rotate(0deg);}}
+@keyframes pfContactPop{0%{opacity:0;transform:scale(.3);}30%{opacity:1;transform:scale(1.3);}100%{opacity:0;transform:scale(1.6);}}
+@keyframes pfOutShake{0%{opacity:0;transform:scale(.3) rotate(0deg);}25%{opacity:1;transform:scale(1.2) rotate(-8deg);}50%{transform:scale(1.1) rotate(8deg);}100%{opacity:1;transform:scale(1) rotate(0deg);}}
+@keyframes pfRunnerGo{0%{opacity:1;right:40px;}80%{opacity:1;right:230px;}100%{opacity:0;right:250px;}}
+@keyframes pfLabelPop{0%{opacity:0;transform:scale(.4);}100%{opacity:1;transform:scale(1);}}
 </style>
 </head>
 <body>
@@ -944,7 +969,7 @@ var LOGO_B64="data:image/webp;base64,UklGRihSAgBXRUJQVlA4WAoAAAAgAAAAnwUAnwUASUN
 
 // STATE
 var _curYear=new Date().getFullYear();
-var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0,undoCooldownSec:0};
+var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0,undoCooldownSec:0,importablePlayersGlobal:[]};
 
 // API — llama al Worker con el token
 async function api(action,data){
@@ -1634,7 +1659,7 @@ async function googleSignIn(){
 // es solo una preferencia de UI, no algo que necesite viajar al servidor.
 function openGoogleFreeTierInfoM(userId){
   var dismissKey='gfti_dismissed_'+userId;
-  try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
+  try{ if(localStorage.getItem(dismissKey)==='1'){openGoogleFirstStepsM(userId);return;} }catch(e){}
   showM('<div class="mhd"><div class="mtl">&#127760; Cuenta de Google — Version gratuita</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">'
@@ -1655,6 +1680,36 @@ function closeGoogleFreeTierInfoM(userId){
   var chk=document.getElementById('gftiDismiss');
   if(chk&&chk.checked){
     try{ localStorage.setItem('gfti_dismissed_'+userId,'1'); }catch(e){}
+  }
+  cM();
+  openGoogleFirstStepsM(userId);
+}
+// Segunda ventana, mostrada justo despues de cerrar la de limitaciones (ver
+// openGoogleFreeTierInfoM/closeGoogleFreeTierInfoM): explica el orden de los primeros pasos
+// para un usuario de Google nuevo. Mismo mecanismo de "No volver a mostrar" (localStorage,
+// por usuario), independiente del checkbox de la ventana anterior.
+function openGoogleFirstStepsM(userId){
+  var dismissKey='gfsi_dismissed_'+userId;
+  try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
+  showM('<div class="mhd"><div class="mtl">&#128640; Primeros pasos</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">Para empezar a usar '+brandName()+', sigue este orden:</div>'
+    +'<ol style="font-size:13px;color:var(--t2);line-height:2;margin:0 0 14px 18px;padding:0">'
+    +'<li>Ve al módulo <b>Torneos</b> (menú superior) y crea tu <b>Torneo Padre</b>.</li>'
+    +'<li>Dentro de Torneos, crea un <b>Subtorneo</b> y asócialo al Torneo Padre que acabas de crear.</li>'
+    +'<li>Ve al módulo <b>Equipos</b> (menú superior) y crea los equipos de tu subtorneo.</li>'
+    +'<li>Dentro de cada equipo, arma su <b>roster</b> agregando los jugadores.</li>'
+    +'<li>Ve al módulo <b>Calendario</b> y calendariza los juegos — desde ahí mismo podrás <b>iniciarlos</b> una vez llegue la fecha.</li>'
+    +'</ol>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer"><input type="checkbox" id="gfsiDismiss"> No volver a mostrar este mensaje</label>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="closeGoogleFirstStepsM(\''+userId+'\')">Entendido</button></div>'
+  );
+}
+function closeGoogleFirstStepsM(userId){
+  var chk=document.getElementById('gfsiDismiss');
+  if(chk&&chk.checked){
+    try{ localStorage.setItem('gfsi_dismissed_'+userId,'1'); }catch(e){}
   }
   cM();
 }
@@ -2050,6 +2105,16 @@ async function loadAll(){
     if(avail.length===1) S.sportFilter=avail[0];
   }
   saveOfflineCache();
+  // Usuarios de Google: cargar la lista liviana de jugadores de TODO el sistema, para que
+  // "Importar Existente" (en el formulario de jugador) pueda encontrar jugadores que ya
+  // jugaron en otros torneos (de otros organizadores o del staff local) — unica excepcion al
+  // aislamiento de datos, ver actionGetImportablePlayers en worker.js. No bloquea el resto de
+  // la carga si falla.
+  if(S.user&&S.user.role==='google'){
+    api('getImportablePlayers').then(function(r){
+      S.importablePlayersGlobal=(r&&r.ok&&r.data)?r.data:[];
+    }).catch(function(){S.importablePlayersGlobal=[];});
+  }
   return true;
 }
 
@@ -2107,6 +2172,58 @@ var _poll=null;
 var _saving=false;
 var _curPollMs=30000;
 var _pollBusy=false;
+// ── Animación de jugada para visitantes viendo un juego en vivo (ver CSS #playFlashOverlay) ──
+// Se llama en cada poll mientras un VISITANTE esta viendo un juego EN VIVO en Control de Juego
+// (sin controles de anotacion en pantalla). Compara los eventos del juego contra la ultima
+// vez que se revisó (_pfSeenEventIds) para detectar jugadas nuevas sin volver a mostrar la
+// animación de jugadas ya vistas (ej. al cambiar de pestaña y volver).
+var _pfSeenEventIds={};
+function checkForNewPlaysAndFlash(gameId){
+  if(!gameId)return;
+  var evs=S.events.filter(function(e){return e.gameId===gameId;});
+  var seen=_pfSeenEventIds[gameId];
+  if(!seen){
+    // Primera vez que se revisa este juego en esta sesion: solo se registran los eventos ya
+    // existentes como "vistos", sin animar nada (evita un chorro de animaciones al entrar a
+    // un juego que ya lleva varias entradas jugadas).
+    _pfSeenEventIds[gameId]={};
+    evs.forEach(function(e){_pfSeenEventIds[gameId][e.id]=true;});
+    return;
+  }
+  var newPlay=null;
+  evs.forEach(function(e){
+    if(!seen[e.id]){
+      seen[e.id]=true;
+      if(!e.undoneType && ['H1','H2','H3','HR','K','OUT'].indexOf(e.type)>=0) newPlay=e;
+    }
+  });
+  if(newPlay) showPlayFlashAnimation(newPlay.type);
+}
+function showPlayFlashAnimation(type){
+  var old=document.getElementById('playFlashOverlay');
+  if(old)old.remove();
+  var isHit=['H1','H2','H3','HR'].indexOf(type)>=0;
+  var labels={H1:'&#161;SENCILLO!',H2:'&#161;DOBLE!',H3:'&#161;TRIPLE!',HR:'&#161;JONR&Oacute;N!',K:'&#161;PONCHE!',OUT:'&#161;OUT!'};
+  var html='<div class="pf-stage">'
+    +'<div class="pf-pitcher">&#129342;</div>'
+    +'<div class="pf-ball">&#9918;</div>'
+    +'<div class="pf-batter">&#129341;</div>'
+    +(isHit
+      ?('<div class="pf-contact">&#128165;</div><div class="pf-runner">&#127939;</div>')
+      :'<div class="pf-out-x">&#10060;</div>')
+    +'<div class="pf-label '+(isHit?'pf-hit':'pf-out')+'">'+(labels[type]||type)+'</div>'
+    +'</div>';
+  var div=document.createElement('div');
+  div.id='playFlashOverlay';
+  div.innerHTML=html;
+  document.body.appendChild(div);
+  setTimeout(function(){
+    var el=document.getElementById('playFlashOverlay');
+    if(!el)return;
+    el.classList.add('pf-out');
+    setTimeout(function(){var el2=document.getElementById('playFlashOverlay');if(el2)el2.remove();},550);
+  },4200);
+}
 function startPolling(){
   if(_poll)clearInterval(_poll);
   _curPollMs=Math.max(10,(S.pollInterval||30))*1000;
@@ -2230,6 +2347,11 @@ async function _doPoll(){
       if(!_hasScoreControls){
         // Es visitante o juego no en vivo — refrescar libremente, preservando pestaña y scroll
         try{
+          // Detectar jugadas nuevas ANTES de re-renderizar, solo para visitantes viendo un
+          // juego EN VIVO (ver checkForNewPlaysAndFlash/showPlayFlashAnimation).
+          if(S.user&&S.user.role==='public'&&_pollGm&&_pollGm.status==='live'){
+            try{ checkForNewPlaysAndFlash(S.game); }catch(e4){}
+          }
           var _savedTab=_gcTab||'bs-a';
           var _logEl=document.getElementById('bs-l');
           var _savedScroll=_logEl?_logEl.scrollTop:0;
@@ -2794,7 +2916,7 @@ function renderApp(){
     var isSub=subMods.indexOf(p.id)>=0;
     nm+='<div class="ni'+(isSub?' ni-sub':'')+'" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'" style="'+(isSub?'padding-left:28px;font-size:12px;':'')+'"><span style="font-size:'+(isSub?'13':'15')+'px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
   });
-  if(u.role!=='public'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
+  if(u.role!=='public'&&u.role!=='google'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
   document.getElementById('snav').innerHTML=nm;
   goNav(u.role==='public'?'standings':(mods[0]?mods[0].id:'dashboard'));
 }
@@ -3106,6 +3228,21 @@ function pgTour(){
       googleCooldownDaysLeft=Math.max(0,Math.ceil((nextAllowed-Date.now())/(24*3600*1000)));
     }
   }
+  // Mismo periodo de espera, pero contado desde el ULTIMO SUBTORNEO propio creado (en
+  // cualquiera de sus torneos padre) — el Worker aplica exactamente esta misma regla al
+  // guardar (ver enforceGoogleOwnership), esto solo evita que llenen el formulario en vano.
+  var googleSubCooldownDaysLeft=0;
+  if(S.user&&S.user.role==='google'&&(S.tournaments||[]).length){
+    var cooldownDays2=parseInt(S.config&&S.config.googleTourCooldownDays)||60;
+    var mostRecentSub=(S.tournaments||[]).reduce(function(max,t){
+      var d=t.createdAt?new Date(t.createdAt).getTime():0;
+      return d>max?d:max;
+    },0);
+    if(mostRecentSub){
+      var nextAllowedSub=mostRecentSub+cooldownDays2*24*3600*1000;
+      googleSubCooldownDaysLeft=Math.max(0,Math.ceil((nextAllowedSub-Date.now())/(24*3600*1000)));
+    }
+  }
   // ── Sección Torneos Padre ─────────────────────────────────────
   var ptRows=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
     var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
@@ -3126,8 +3263,9 @@ function pgTour(){
     return'<tr><td><b>'+t.name+'</b></td><td>'+(pt?pt.name:'-')+'</td><td>'+(t.year||'-')+'</td><td>'+(t.category||'-')+'</td>'
       +'<td>'+tc+'</td><td>'+gc+'</td><td>'+ph+'</td>'
       +'<td><span class="badge '+cls+'">'+{draft:'Borrador',active:'Activo',completed:'Completado'}[t.status]+'</span></td>'
-      +((isA||canDo('edit','tournaments'))?'<td><div style="display:flex;gap:5px">'
-        +'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openTM(this.dataset.tid)">Editar</button>'
+      +((isA||canDo('edit','tournaments')||canDo('delete','tournaments'))?'<td><div style="display:flex;gap:5px">'
+        +((isA||canDo('edit','tournaments'))?'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openTM(this.dataset.tid)">Editar</button>':'')
+        +((isA||canDo('delete','tournaments'))?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTournament(this.dataset.tid)">&#10005;</button>':'')
         +'</div></td>':'')+'</tr>';
   }).join('');
   ct(yearBar()
@@ -3139,9 +3277,9 @@ function pgTour(){
     +'<tbody>'+(ptRows||'<tr><td colspan="4"><div class="empty"><div>Sin torneos padre creados</div></div></td></tr>')+'</tbody></table></div></div>'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
     +'<div><div class="stl">Subtorneos</div><div class="ssb">Ediciones por año de cada torneo padre</div></div>'
-    +((isA||canDo('create','tournaments'))?'<button class="btn bp" onclick="openTM(\'\')">+ Nuevo Subtorneo</button>':'')+'</div>'
+    +((isA||canDo('create','tournaments'))?(googleSubCooldownDaysLeft>0?'<span class="badge bo" style="padding:8px 14px">&#9203; Podrás crear otro subtorneo en '+googleSubCooldownDaysLeft+' día(s)</span>':'<button class="btn bp" onclick="openTM(\'\')">+ Nuevo Subtorneo</button>'):'')+'</div>'
     +'<div class="card"><div class="tw"><table><thead><tr><th>Nombre</th><th>Torneo Padre</th><th>Año</th><th>Categoria</th><th>Equipos</th><th>Juegos</th><th>Fase</th><th>Estado</th>'
-    +((isA||canDo('edit','tournaments'))?'<th>Acciones</th>':'')+'</tr></thead>'
+    +((isA||canDo('edit','tournaments')||canDo('delete','tournaments'))?'<th>Acciones</th>':'')+'</tr></thead>'
     +'<tbody>'+(rows||'<tr><td colspan="9"><div class="empty"><div>Sin subtorneos</div></div></td></tr>')+'</tbody></table></div></div>');
 }
 // ── Modal Torneo Padre ─────────────────────────────────────────
@@ -3174,6 +3312,22 @@ async function delParentT(id){
   var r=await api('deleteRow',{sheet:'TorneoPadre',id:id});
   if(r&&r.ok){S.parentTournaments=S.parentTournaments.filter(function(x){return x.id!==id;});pgTour();toast('Eliminado','info');}
   else toast(r&&r.error||'Error','error');
+}
+// Borrado en cascada de un SUBTORNEO: arrastra equipos, jugadores, juegos, lineups, jugadas,
+// pitcheo, premiaciones y puntos defensivos de ese subtorneo (ver actionDeleteTournamentCascade
+// en worker.js). Disponible para admin siempre, y para cualquier otro usuario (incluidos los
+// de Google) si su perfil tiene permiso de "eliminar" en el modulo Torneos — para un usuario
+// de Google, ademas se verifica en el servidor que el subtorneo sea suyo.
+async function delTournament(id){
+  var t=(S.tournaments||[]).filter(function(x){return x.id===id;})[0];
+  var tc=S.teams.filter(function(x){return x.tournamentId===id;}).length;
+  var gc=S.games.filter(function(x){return x.tournamentId===id;}).length;
+  if(!confirm('¿Eliminar el subtorneo "'+(t?t.name:id)+'"? Esto borrará también sus '+tc+' equipo(s), '+gc+' juego(s), y todas las jugadas/estadísticas asociadas. Esta acción no se puede deshacer.'))return;
+  var r=await api('deleteTournamentCascade',{tournamentId:id});
+  if(r&&r.ok){
+    await loadAll();
+    pgTour();toast('Subtorneo eliminado','info');
+  } else toast(r&&r.error||'Error al eliminar el subtorneo','error');
 }
 function openTM(id){
   var t=id?S.tournaments.filter(function(x){return x.id===id;})[0]:{};
@@ -3908,21 +4062,34 @@ function openPM(id,tid){
   // MISMO subtorneo (de los equipos regulares de ese subtorneo) — es lo opuesto al caso
   // normal, donde se excluyen los jugadores que ya estan en ese subtorneo.
   var destIsAllstar=tid?teamIsAllstar(tid):false;
+  // Usuarios de Google: sumar al universo de busqueda la lista global liviana (ver
+  // loadAll/actionGetImportablePlayers) para poder encontrar/enlazar jugadores que ya jugaron
+  // en OTROS torneos (de otro organizador o del staff local) — sin esto, "Importar Existente"
+  // quedaria vacio para ellos, ya que S.players solo trae sus propios torneos. Cada entrada
+  // extra se marca con _external:true para no requerir teamOf()/S.teams (que no las tiene).
+  var sourcePM=S.players;
+  if(S.user&&S.user.role==='google'&&S.importablePlayersGlobal&&S.importablePlayersGlobal.length){
+    var localIdsPM={};S.players.forEach(function(pl){localIdsPM[String(pl.id)]=true;});
+    var extrasPM=S.importablePlayersGlobal.filter(function(pl){return!localIdsPM[String(pl.id)];}).map(function(pl){
+      return Object.assign({},pl,{_external:true,active:'true'});
+    });
+    sourcePM=S.players.concat(extrasPM);
+  }
   var exMap={};
-  var exFiltered=S.players.filter(function(pl){
+  var exFiltered=sourcePM.filter(function(pl){
     if(pl.id===id) return false;
     if(pl.teamId===tid) return false; // ya esta en este mismo equipo, no tiene sentido "importarlo"
     if(importSportPM){
-      var plTm=teamOf(pl.teamId);
-      var spType=plTm?teamSportType(plTm):'';
+      var spType=pl._external?pl.sportType:(function(){var plTm=teamOf(pl.teamId);return plTm?teamSportType(plTm):'';})();
       if(spType&&spType!==importSportPM) return false;
     }
     if(destIsAllstar){
+      if(pl._external) return false; // el roster de Juego de Estrellas solo se arma con jugadores DEL MISMO subtorneo
       var plTmAS=teamOf(pl.teamId);
       if(!destTourIdPM||!plTmAS||plTmAS.tournamentId!==destTourIdPM) return false;
       return true;
     }
-    if(destTourIdPM){
+    if(destTourIdPM&&!pl._external){
       var plTm2=teamOf(pl.teamId);
       if(plTm2&&plTm2.tournamentId===destTourIdPM) return false;
     }
@@ -3946,8 +4113,7 @@ function openPM(id,tid){
     var root=exGroupKeyById[pl.id]||String(pl.id);
     if(!exMap[root]){exMap[root]={pl:pl,teams:[],cands:[]};}
     exMap[root].cands.push(pl);
-    var tm=teamOf(pl.teamId);
-    var tnm=tm?tm.name:null;
+    var tnm=pl._external?(pl.teamName||null):(function(){var tm=teamOf(pl.teamId);return tm?tm.name:null;})();
     if(tnm&&exMap[root].teams.indexOf(tnm)<0)exMap[root].teams.push(tnm);
   });
   // Jugador a mostrar por grupo (nombre/#/foto): se prefiere el registro que tenga equipo
@@ -3977,7 +4143,7 @@ function openPM(id,tid){
     +'<div style="'+((p.photoUrl)?'':'display:none;')+'width:52px;height:52px;border-radius:8px;background:var(--acc);overflow:hidden;flex-shrink:0" id="pphoto-prev">'+(p.photoUrl?'<img src="'+p.photoUrl+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.display=\'none\'">':'')+'</div>'
     +'<input class="fi" id="pphoto" value="'+(p.photoUrl||'')+'" placeholder="https://... (opcional)" oninput="previewPlayerPhoto(this.value)" style="flex:1"></div></div>'
     +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;font-size:13px"><input type="checkbox" id="prook" '+((p.rookie==='true'||p.rookie===true)?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> &#127881; Novato (elegible a Novato del Año)</label>'
-    +(!id?'<div class="alert ai" style="font-size:11px;margin-top:10px">&#128161; Antes de crear desde cero el jugador, valide si el jugador ya existe en otro equipo e importelo de la pestaña de la derecha &quot;Importar Existente&quot;.</div>':'')
+    +(!id?'<div class="alert ai" style="font-size:11px;margin-top:10px">&#128161; Si este jugador ya ha jugado antes en un torneo de VBS Power (con cualquier equipo), no lo crees desde cero — búscalo en la pestaña de la derecha &quot;Importar Existente&quot; e impórtalo, así se conserva su historial y estadísticas de carrera.</div>':'')
     +'</div>'
     +(!id&&exOpts?'<div id="pm-exist" style="display:none"><div class="alert ai" style="font-size:12px">Sus stats anteriores se mantienen separadas bajo el equipo original.</div>'
       +'<div class="fg"><label class="fl">Jugador existente *</label><select class="fs" id="pexist" size="8" multiple style="height:180px" onchange="pmExistSelChange()"><option value="">-- Seleccionar --</option>'+exOpts+'</select></div>'
@@ -4097,6 +4263,11 @@ async function importPlayer(destTeamId){
   var errors=[]; var imported=0;
   for(var i=0;i<selectedIds.length;i++){
     var src=S.players.filter(function(p){return p.id===selectedIds[i];})[0];
+    // Si no esta en S.players (jugador de otro torneo/organizador), buscarlo en la lista
+    // liviana global — ver sourcePM en openPM/actionGetImportablePlayers en worker.js.
+    if(!src&&S.importablePlayersGlobal){
+      src=S.importablePlayersGlobal.filter(function(p){return String(p.id)===String(selectedIds[i]);})[0];
+    }
     if(!src){errors.push('ID '+selectedIds[i]);continue;}
     // Check not already in this team
     var already=S.players.filter(function(p){return p.importedFrom===src.id&&p.teamId===destTeamId;});
