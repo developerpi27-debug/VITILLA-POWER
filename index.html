@@ -4095,16 +4095,52 @@ function openPM(id,tid){
     }
     return true;
   });
-  // Agrupar por identidad de carrera COMPLETA (careerInstances: cadena importedFrom + mismo
-  // nombre/deporte), no solo por careerRootId — asi dos registros del mismo jugador creados de
-  // forma independiente (sin cadena importedFrom entre ellos, ej. "ADONIS GARCIA" agregado por
-  // separado en dos equipos con # distinto) se agrupan en UNA sola entrada con ambos equipos
-  // entre parentesis, en vez de aparecer duplicado en la lista.
+  // Agrupar por identidad de carrera COMPLETA (cadena importedFrom + mismo nombre/deporte), no
+  // solo por careerRootId — asi dos registros del mismo jugador creados de forma independiente
+  // (sin cadena importedFrom entre ellos, ej. "ADONIS GARCIA" agregado por separado en dos
+  // equipos con # distinto) se agrupan en UNA sola entrada con ambos equipos entre parentesis,
+  // en vez de aparecer duplicado en la lista.
+  //
+  // IMPORTANTE: no se usa el careerInstances() global aqui, porque ese solo conoce S.players —
+  // para usuarios de Google, sourcePM tambien incluye jugadores "externos" (de otros
+  // organizadores, via S.importablePlayersGlobal — ver mas arriba) que careerInstances() no
+  // puede ver, y quedarian sin agrupar (duplicados) aunque sean la misma cadena de carrera. Se
+  // recalcula la misma logica (cadena + nombre/deporte) pero sobre sourcePM completo.
   var exFilteredIds={};exFiltered.forEach(function(pl){exFilteredIds[pl.id]=true;});
+  var poolByIdPM={};sourcePM.forEach(function(p){poolByIdPM[String(p.id)]=p;});
+  function pmSportOf(p){return p?(p._external?p.sportType:(function(){var tm=teamOf(p.teamId);return tm?teamSportType(tm):'';})()):'';}
+  function pmRootId(pid){
+    var visited={};var current=String(pid);
+    while(true){
+      if(visited[current])break;
+      visited[current]=true;
+      var p=poolByIdPM[current];
+      if(!p||!p.importedFrom||String(p.importedFrom)===''||String(p.importedFrom)===current)break;
+      current=String(p.importedFrom);
+    }
+    return current;
+  }
+  function pmCareerInstances(pid){
+    var p0=poolByIdPM[String(pid)];
+    var root=pmRootId(pid);
+    var p0Sport=pmSportOf(p0);
+    var ids={};
+    sourcePM.forEach(function(p){if(pmRootId(String(p.id))===root)ids[String(p.id)]=true;});
+    if(p0&&p0.name){
+      var key=p0.name.trim().toLowerCase();
+      sourcePM.forEach(function(p){
+        if((p.name||'').trim().toLowerCase()!==key)return;
+        var pSport=pmSportOf(p);
+        if(p0Sport&&pSport&&pSport!==p0Sport)return;
+        ids[String(p.id)]=true;
+      });
+    }
+    return Object.keys(ids);
+  }
   var exGroupKeyById={};
   exFiltered.forEach(function(pl){
     if(exGroupKeyById[pl.id])return;
-    var instances=careerInstances(String(pl.id)).filter(function(iid){return exFilteredIds[iid];});
+    var instances=pmCareerInstances(String(pl.id)).filter(function(iid){return exFilteredIds[iid];});
     if(!instances.length)instances=[String(pl.id)];
     var rootKey=instances.slice().sort()[0];
     instances.forEach(function(iid){exGroupKeyById[iid]=rootKey;});
