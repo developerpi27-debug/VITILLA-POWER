@@ -1884,6 +1884,26 @@ function vpPrintWindow(w){
   if(w.AndroidPrint&&typeof w.AndroidPrint.print==='function'){w.AndroidPrint.print();}
   else{w.print();}
 }
+// Extrae el nombre de archivo sugerido para un reporte a partir del <title> que cada funcion
+// export*PDF ya arma dentro de su propio HTML (ej: "Roster — Los Tigres", "Calendario —
+// Liga X 2026"). Del lado web esto ya funciona solo: el navegador usa el <title> del
+// documento como nombre sugerido en el dialogo de "Guardar como PDF" — por eso ahi el PDF
+// baja con el nombre correcto sin hacer nada especial. Del lado nativo de Android eso no
+// pasa: PdfExportBridge.java recibe el HTML crudo, no el <title>, y hasta ahora generaba el
+// PDF con un nombre generico fijo ("VBS POWER") — ver vpExportReport de abajo, que le pasa
+// este nombre ya calculado como segundo argumento para que lo use como nombre del archivo.
+function vpReportFileName(html){
+  var m=/<title>([^<]*)<\/title>/i.exec(html);
+  var raw=m&&m[1]?m[1]:brandName();
+  // Sanitizar: sin acentos/caracteres especiales (algunos generadores de PDF en Android no
+  // los manejan bien en el nombre del archivo), sin caracteres invalidos de sistema de
+  // archivos, espacios colapsados y con un limite razonable de longitud.
+  var clean=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[\\/:*?"<>|]/g,'-')
+    .replace(/\s+/g,' ').trim();
+  if(!clean)clean=brandName();
+  return clean.slice(0,120);
+}
 // Punto unico de salida para todas las funciones export*PDF de mas abajo: recibe el HTML ya
 // armado del reporte y lo convierte en PDF.
 //
@@ -1900,7 +1920,15 @@ function vpExportReport(html){
   maybeInterstitial('pdfExport');
   if(IS_NATIVE_APP&&window.AndroidExport&&typeof window.AndroidExport.printHtml==='function'){
     toast('Generando PDF...','success');
-    window.AndroidExport.printHtml(html);
+    var fileName=vpReportFileName(html);
+    // Se intenta primero con el nombre de archivo como segundo argumento (requiere la
+    // version actualizada de PdfExportBridge.java, que debe agregar ese parametro a
+    // printHtml y usarlo al nombrar el PDF en vez del nombre generico fijo). Si la app
+    // instalada todavia trae el puente viejo (un solo parametro), la llamada de 2
+    // argumentos falla silenciosamente contra esa interfaz nativa y se cae al llamado de
+    // siempre — el PDF se sigue generando, solo que con el nombre generico de antes.
+    try{ window.AndroidExport.printHtml(html,fileName); }
+    catch(e){ window.AndroidExport.printHtml(html); }
     return;
   }
   var w=window.open('','_blank','width=900,height=700');
@@ -2506,7 +2534,17 @@ function setSportFilter(val){
 function visibleParentTournaments(){
   var u=S.user;
   var list;
-  if(!u||u.role==='admin') list=S.parentTournaments.slice();
+  // Los usuarios de Google NUNCA deben filtrarse aqui por el perfil (prof.parentTournaments/
+  // tournaments): ese perfil es COMPARTIDO por todos los usuarios de Google (ver
+  // googleLogin en worker.js) y su lista de torneos, si el admin llegara a configurarle
+  // alguno, es estatica — nunca podria incluir el ID de un torneo padre o subtorneo que el
+  // usuario de Google acaba de crear. El aislamiento de datos real para este rol ya ocurre
+  // en el Worker (actionGetAll filtra S.parentTournaments/S.tournaments a solo lo que el
+  // usuario posee — ver enforceGoogleOwnership/googleOwnedParentTournaments), asi que aqui
+  // alcanza con mostrar TODO lo que el cliente ya recibio, igual que a un admin. Sin este
+  // caso especial, un usuario de Google que recien creaba un subtorneo no lo veia hasta que
+  // el admin se lo habilitaba a mano en el perfil compartido (bug reportado).
+  if(!u||u.role==='admin'||u.role==='google') list=S.parentTournaments.slice();
   else {
     var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
     if(prof&&prof.parentTournaments&&prof.parentTournaments.length){
@@ -2735,7 +2773,10 @@ function hasModuleAccess(moduleId){
 function visibleTournaments(){
   var u=S.user;
   var tours;
-  if(!u||u.role==='admin'){
+  // Ver el comentario en visibleParentTournaments(): mismo caso especial para role==='google'
+  // y el mismo motivo (el aislamiento real ya ocurre en el Worker; filtrar aqui ademas por el
+  // perfil compartido de Google impedia ver un subtorneo recien creado).
+  if(!u||u.role==='admin'||u.role==='google'){
     tours=S.tournaments.slice();
   } else {
     var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
@@ -2760,7 +2801,7 @@ function visibleTournaments(){
   });
 }
 function visibleTeams(){
-  var u=S.user;if(!u||u.role==='admin')return S.teams;
+  var u=S.user;if(!u||u.role==='admin'||u.role==='google')return S.teams;
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
   var extraIds=(prof&&prof.extraTeams)?prof.extraTeams.map(function(x){return String(x);}):[];
   if(prof&&prof.teams&&prof.teams.length){
@@ -3218,7 +3259,7 @@ function pgTour(){
   // ocurriendo en el servidor de todas formas — esto es solo para no hacerles perder el tiempo).
   var googleCooldownDaysLeft=0;
   if(S.user&&S.user.role==='google'&&(S.parentTournaments||[]).length){
-    var cooldownDays=parseInt(S.config&&S.config.googleTourCooldownDays)||60;
+    var cooldownDays=parseInt(S.config&&(S.config.googleTourCooldownDaysParent||S.config.googleTourCooldownDays))||60;
     var mostRecent=(S.parentTournaments||[]).reduce(function(max,pt){
       var t=pt.createdAt?new Date(pt.createdAt).getTime():0;
       return t>max?t:max;
@@ -3228,12 +3269,13 @@ function pgTour(){
       googleCooldownDaysLeft=Math.max(0,Math.ceil((nextAllowed-Date.now())/(24*3600*1000)));
     }
   }
-  // Mismo periodo de espera, pero contado desde el ULTIMO SUBTORNEO propio creado (en
+  // Periodo de espera INDEPENDIENTE (Configuracion > Acceso con Google > "Dias de espera
+  // entre subtorneos propios"), contado desde el ULTIMO SUBTORNEO propio creado (en
   // cualquiera de sus torneos padre) — el Worker aplica exactamente esta misma regla al
   // guardar (ver enforceGoogleOwnership), esto solo evita que llenen el formulario en vano.
   var googleSubCooldownDaysLeft=0;
   if(S.user&&S.user.role==='google'&&(S.tournaments||[]).length){
-    var cooldownDays2=parseInt(S.config&&S.config.googleTourCooldownDays)||60;
+    var cooldownDays2=parseInt(S.config&&(S.config.googleTourCooldownDaysSub||S.config.googleTourCooldownDays))||60;
     var mostRecentSub=(S.tournaments||[]).reduce(function(max,t){
       var d=t.createdAt?new Date(t.createdAt).getTime():0;
       return d>max?d:max;
@@ -3824,8 +3866,17 @@ async function saveE(id){
   var r=await api('saveTeam',{team:t});
   if(r&&r.ok){
     if(isNew)S.teams.push(r.item);else S.teams=S.teams.map(function(x){return x.id===id?r.item:x;});
-    // Auto-otorgar visibilidad del EQUIPO (no del torneo) al perfil del usuario que lo creó
-    if(isNew&&S.user&&S.user.profileId&&S.user.role!=='admin'){
+    // Auto-otorgar visibilidad del EQUIPO (no del torneo) al perfil del usuario que lo creó.
+    // Los usuarios de Google quedan afuera a propósito: para ellos la visibilidad de sus
+    // equipos NUNCA depende del perfil (que es uno solo, compartido por todos los usuarios
+    // de Google — ver comentario en visibleTeams()), sino de que el equipo cuelgue de un
+    // torneo que ellos mismos crearon. Eso ya lo resuelve el Worker en cada carga
+    // (actionGetAll) y visibleTeams() en el cliente, así que el equipo recién creado se ve
+    // de inmediato sin necesitar ningún permiso adicional — llamar aquí a
+    // grantTeamAccessToProfile para un usuario de Google no haría nada (el Worker la
+    // rechaza explícitamente para ese rol, ver actionGrantOwnExtraTeam) y solo generaría un
+    // llamado de red innecesario.
+    if(isNew&&S.user&&S.user.profileId&&S.user.role!=='admin'&&S.user.role!=='google'){
       await grantTeamAccessToProfile(S.user.profileId,r.item.id);
     }
     cM();pgTeams();toast('Equipo guardado','success');
@@ -3946,8 +3997,10 @@ async function doImportTeams(){
   cM();
   if(imported>0){
     // Otorgar visibilidad de los equipos importados (NO del torneo destino) al perfil del usuario,
-    // ANTES de refrescar pgTeams() para que el equipo aparezca de inmediato.
-    if(S.user&&S.user.profileId&&S.user.role!=='admin'){
+    // ANTES de refrescar pgTeams() para que el equipo aparezca de inmediato. Mismo caso especial
+    // que en saveE(): los usuarios de Google no pasan por aquí, su visibilidad de equipos ya es
+    // automática (ver visibleTeams()).
+    if(S.user&&S.user.profileId&&S.user.role!=='admin'&&S.user.role!=='google'){
       for(var k=0;k<importedTeamIds.length;k++){
         await grantTeamAccessToProfile(S.user.profileId,importedTeamIds[k]);
       }
@@ -4168,7 +4221,9 @@ function openPM(id,tid){
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Agregar')+' Jugador</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +(!id?'<div class="tabs"><div class="tab on" onclick="pmTab(this,0)">&#10000; Nuevo</div><div class="tab" onclick="pmTab(this,1)">&#128203; Importar Existente</div></div>':'')
-    +'<div id="pm-new"><div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="pn" value="'+(p.name||'')+'" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
+    +'<div id="pm-new">'
+    +(!id?'<div class="alert ai" style="font-size:11px;margin-bottom:10px">&#128161; Si este jugador ya ha jugado antes en un torneo de VBS Power (con cualquier equipo), no lo crees desde cero — búscalo en la pestaña de la derecha &quot;Importar Existente&quot; e impórtalo, así se conserva su historial y estadísticas de carrera.</div>':'')
+    +'<div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="pn" value="'+(p.name||'')+'" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
     +'<div class="fg"><label class="fl"># Dorsal</label><input class="fi" id="pnum" type="number" value="'+(p.number||'')+'"></div></div>'
     +'<div class="fr c3"><div class="fg"><label class="fl">Posicion</label><select class="fs" id="ppos">'+pOpts+'</select></div>'
     +'<div class="fg"><label class="fl">Batea</label><select class="fs" id="pb"><option value="R" '+(p.bats==="R"?"selected":"")+'>Der.</option><option value="L" '+(p.bats==="L"?"selected":"")+'>Zur.</option><option value="S" '+(p.bats==="S"?"selected":"")+'>Switch</option></select></div>'
@@ -4179,7 +4234,6 @@ function openPM(id,tid){
     +'<div style="'+((p.photoUrl)?'':'display:none;')+'width:52px;height:52px;border-radius:8px;background:var(--acc);overflow:hidden;flex-shrink:0" id="pphoto-prev">'+(p.photoUrl?'<img src="'+p.photoUrl+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.display=\'none\'">':'')+'</div>'
     +'<input class="fi" id="pphoto" value="'+(p.photoUrl||'')+'" placeholder="https://... (opcional)" oninput="previewPlayerPhoto(this.value)" style="flex:1"></div></div>'
     +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;font-size:13px"><input type="checkbox" id="prook" '+((p.rookie==='true'||p.rookie===true)?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> &#127881; Novato (elegible a Novato del Año)</label>'
-    +(!id?'<div class="alert ai" style="font-size:11px;margin-top:10px">&#128161; Si este jugador ya ha jugado antes en un torneo de VBS Power (con cualquier equipo), no lo crees desde cero — búscalo en la pestaña de la derecha &quot;Importar Existente&quot; e impórtalo, así se conserva su historial y estadísticas de carrera.</div>':'')
     +'</div>'
     +(!id&&exOpts?'<div id="pm-exist" style="display:none"><div class="alert ai" style="font-size:12px">Sus stats anteriores se mantienen separadas bajo el equipo original.</div>'
       +'<div class="fg"><label class="fl">Jugador existente *</label><select class="fs" id="pexist" size="8" multiple style="height:180px" onchange="pmExistSelChange()"><option value="">-- Seleccionar --</option>'+exOpts+'</select></div>'
@@ -14756,12 +14810,19 @@ function pgSet(){
       +S.profiles.map(function(p){return '<option value="'+p.id+'"'+(S.config&&S.config.googleProfileId===p.id?' selected':'')+'>'+p.name+'</option>';}).join('')
       +'</select></div>'
       +'<div class="fr c2">'
-      +'<div class="fg"><label class="fl">Dias de espera entre torneos propios</label><input class="fi" id="gAccCooldown" type="number" min="0" value="'+(S.config&&S.config.googleTourCooldownDays||60)+'"></div>'
-      +'<div class="fg"><label class="fl">Limite de juegos calendarizados por torneo (0 = sin limite)</label><input class="fi" id="gAccMaxGames" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerTournament||0)+'"></div>'
+      +'<div class="fg"><label class="fl">Dias de espera entre torneos padre propios</label><input class="fi" id="gAccCooldownParent" type="number" min="0" value="'+(S.config&&(S.config.googleTourCooldownDaysParent||S.config.googleTourCooldownDays)||60)+'"></div>'
+      +'<div class="fg"><label class="fl">Dias de espera entre subtorneos propios</label><input class="fi" id="gAccCooldownSub" type="number" min="0" value="'+(S.config&&(S.config.googleTourCooldownDaysSub||S.config.googleTourCooldownDays)||60)+'"></div>'
       +'</div>'
+      +'<div class="fr c2">'
+      +'<div class="fg"><label class="fl">Limite de juegos calendarizados por torneo (0 = sin limite)</label><input class="fi" id="gAccMaxGames" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerTournament||0)+'"></div>'
       +'<div class="fg"><label class="fl">Limite de juegos calendarizados por dia, dentro de un mismo subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxGamesPerDay" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerDay||0)+'"></div>'
+      +'</div>'
       +'<div class="fg"><label class="fl">Limite de equipos que puede crear por subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxTeams" type="number" min="0" value="'+(S.config&&S.config.googleMaxTeamsPerTournament||0)+'"></div>'
-      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo.</div>'
+      +'<div class="fg"><label class="fl">Importar Existente (módulo Equipos) — jugadores que ve</label><select class="fs" id="gAccImportScope">'
+      +'<option value="sport" '+((!S.config||!S.config.googleImportScope||S.config.googleImportScope==='sport')?'selected':'')+'>Todos los del mismo deporte (cualquier organizador)</option>'
+      +'<option value="parent" '+(S.config&&S.config.googleImportScope==='parent'?'selected':'')+'>Solo los de su propio torneo padre</option>'
+      +'</select></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo. En cualquier caso, un jugador que ya pertenezca a un equipo del subtorneo actual nunca aparece para "importar" (ya esta ahi).</div>'
       +'<button class="btn bp" onclick="saveGoogleAccessConfig()">Guardar Acceso con Google</button>'
       +'</div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128241; Anuncios (AdMob)</div></div>'
@@ -14896,22 +14957,26 @@ function safeAdsList(jsonStr){
 async function saveGoogleAccessConfig(){
   var webClientId=fv('gAccWebClientId').trim();
   var profileId=fv('gAccProfile');
-  var cooldown=parseInt(fv('gAccCooldown'))||0;
+  var cooldownParent=parseInt(fv('gAccCooldownParent'))||0;
+  var cooldownSub=parseInt(fv('gAccCooldownSub'))||0;
   var maxGames=parseInt(fv('gAccMaxGames'))||0;
   var maxGamesPerDay=parseInt(fv('gAccMaxGamesPerDay'))||0;
   var maxTeams=parseInt(fv('gAccMaxTeams'))||0;
+  var importScope=fv('gAccImportScope')||'sport';
   _saving=true;
   var r0=await api('saveConfig',{key:'googleWebClientId',value:webClientId});
   var r1=await api('saveConfig',{key:'googleProfileId',value:profileId});
-  var r2=await api('saveConfig',{key:'googleTourCooldownDays',value:cooldown});
+  var r2=await api('saveConfig',{key:'googleTourCooldownDaysParent',value:cooldownParent});
+  var r2b=await api('saveConfig',{key:'googleTourCooldownDaysSub',value:cooldownSub});
   var r3=await api('saveConfig',{key:'googleMaxGamesPerTournament',value:maxGames});
   var r4=await api('saveConfig',{key:'googleMaxGamesPerDay',value:maxGamesPerDay});
   var r5=await api('saveConfig',{key:'googleMaxTeamsPerTournament',value:maxTeams});
+  var r6=await api('saveConfig',{key:'googleImportScope',value:importScope});
   _saving=false;
-  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok){
+  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r2b&&r2b.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok&&r6&&r6.ok){
     S.config=S.config||{};
     S.config.googleWebClientId=webClientId;
-    S.config.googleProfileId=profileId;S.config.googleTourCooldownDays=String(cooldown);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxTeamsPerTournament=String(maxTeams);
+    S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleImportScope=importScope;
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
 }
