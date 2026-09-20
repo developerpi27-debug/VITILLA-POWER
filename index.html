@@ -4811,7 +4811,7 @@ function computeGameFeatured(gid){
     var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
     var bb=pe.filter(function(e){return e.type==='BB';}).length;
     var kb=pe.filter(function(e){return e.type==='K';}).length;
-    var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+    var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
     var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];return s+(sids.indexOf(pid)>=0?1:0);},0);
     var h=h1+h2+h3+hr;
     var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
@@ -5303,6 +5303,7 @@ function pgGC(){
     +'<div class="pbtn pout" data-t="OUT" onclick="rPlay(this.dataset.t)">OUT<br><span style="font-size:10px">CAMPO</span></div>'
     +'<div class="pbtn pout" data-t="DP" onclick="rPlay(this.dataset.t)" style="'+(parseInt(gm.outs)>=2?'opacity:.35;pointer-events:none;':'')+'" title="'+(parseInt(gm.outs)>=2?'No disponible con 2 outs':'')+'">DP<br><span style="font-size:10px">DOBLE PL.</span></div>'
     +'<div class="pbtn pout" data-t="FO" onclick="rPlay(this.dataset.t)" title="Out forzado a un corredor en base; el bateador llega safe a 1ra">FO<br><span style="font-size:10px">OUT FORZADO</span></div>'
+    +'<div class="pbtn pout" data-t="FC" onclick="rPlay(this.dataset.t)" style="'+((bases.first||bases.second||bases.third)?'':'opacity:.35;pointer-events:none;')+'" title="'+((bases.first||bases.second||bases.third)?'Eleccion del fielder: el bateador llega safe y un corredor en base es eliminado; se pregunta a cual corredor y hasta donde llegaron los demas, incluyendo el bateador':'Requiere al menos un corredor en base')+'">FC<br><span style="font-size:10px">FIELDER CH.</span></div>'
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)" onclick="outEnJugada()">OJ<br><span style="font-size:10px">OUT EN JUG.</span></div>'
     +'<div class="pbtn" data-t="BB" onclick="rPlay(this.dataset.t)">BB<br><span style="font-size:10px">BASE x BOLAS</span></div>'
     +'<div class="pbtn" data-t="HBP" onclick="rPlay(this.dataset.t)">HBP<br><span style="font-size:10px">GOLPEADO</span></div>'
@@ -5443,7 +5444,7 @@ function playLog(gid){
   var gm=S.games.filter(function(x){return x.id===gid;})[0];
   var isAdmin=S.user&&S.user.role==='admin';
   var canEdit=isAdmin&&gm&&gm.status==='final';
-  var undoLabel={'H1':'Sencillo','H2':'Doble','H3':'Triple','HR':'Jonron','K':'Ponche','OUT':'Out','DP':'Doble Play','BB':'Base por Bolas','HBP':'HBP','E':'Error','SB':'Robo','SAC':'Sacrificio','OJ':'Out en Jugada','WP':'Wild Pitch','BK':'Balk','PB':'Passed Ball'};
+  var undoLabel={'H1':'Sencillo','H2':'Doble','H3':'Triple','HR':'Jonron','K':'Ponche','OUT':'Out','FO':'Out Forzado','FC':'Eleccion Fielder','DP':'Doble Play','BB':'Base por Bolas','HBP':'HBP','E':'Error','SB':'Robo','SAC':'Sacrificio','OJ':'Out en Jugada','WP':'Wild Pitch','BK':'Balk','PB':'Passed Ball'};
   if(!evs.length)return'<div class="empty"><div>Sin jugadas registradas</div></div>';
   // Limite configurable por el admin (Configuracion > Sesion y Actualizacion). 0/vacio = sin
   // limite, se muestran TODAS las jugadas desde el 1er inning.
@@ -5473,7 +5474,7 @@ function playLog(gid){
     }
     // ── Normal play entry ─────────────────────────────────────────────────────
     var p=playerOf(e.batterId);var tm=teamOf(e.battingTeamId);
-    var isH=['H1','H2','H3','HR'].indexOf(e.type)>=0;var isO=['K','OUT','FO','DP','OJ'].indexOf(e.type)>=0;
+    var isH=['H1','H2','H3','HR'].indexOf(e.type)>=0;var isO=['K','OUT','FO','FC','DP','OJ'].indexOf(e.type)>=0;
     var scorerNames=(e.scorerIds||[]).map(function(sid){var sp=playerOf(sid);return sp?sp.name:null;}).filter(Boolean);
     // Label especial para error en tiro luego de hit
     var _isThrow=(e.type==='E'&&e.errorSubtype==='throw');
@@ -5492,7 +5493,7 @@ function playLog(gid){
   }).join('');
 }
 
-var EVENT_TYPES=['H1','H2','H3','HR','K','OUT','FO','DP','BB','HBP','E','SB','SAC','WP','BK','PB'];
+var EVENT_TYPES=['H1','H2','H3','HR','K','OUT','FO','FC','DP','BB','HBP','E','SB','SAC','WP','BK','PB'];
 
 function openEditEventM(eid,gid){
   var e=S.events.filter(function(x){return x.id===eid;})[0];if(!e)return;
@@ -6767,6 +6768,76 @@ async function rPlay(type){
       var _foBatSelNum=parseInt(foBatSel)||1;
       gm._foBatterDest=(nbForce>=3&&_foBatSelNum===3)?'third':(_foBatSelNum===2?'second':'first');
     }
+  } else if(type==='FC'){
+    // Eleccion del Fielder (Fielder's Choice): un corredor en base es eliminado (el fielder
+    // elige sacarlo a el en vez de tirar a primera), y el bateador llega safe. A diferencia de
+    // OUT FORZADO (FO) — que asume el avance en cadena automaticamente — aqui se le pregunta al
+    // anotador, corredor por corredor, hasta donde llego cada uno de los que sobrevivieron, y
+    // tambien hasta donde llego el bateador (no se asume 1ra por defecto). Esto permite anotar
+    // jugadas donde un corredor avanza mas de una base, se queda quieto, o el bateador llega
+    // mas lejos de lo usual — cosas que el force automatico de FO no puede representar.
+    if(!bases.first&&!bases.second&&!bases.third){
+      toast('Eleccion del Fielder requiere al menos un corredor en base. Usa OUT normal.','error');
+      _rPlayBusy=false;return;
+    }
+    // 1) ¿A cual corredor le hicieron el out?
+    var _fcOutBase=bases.first?'first':(bases.second?'second':'third');
+    if(enBase>=2){
+      var _fcOpts=[];
+      if(bases.third)_fcOpts.push({base:'third',label:'3ra base'+(playerOf(bases.third)?(' - #'+(playerOf(bases.third).number||'?')+' '+playerOf(bases.third).name):'')});
+      if(bases.second)_fcOpts.push({base:'second',label:'2da base'+(playerOf(bases.second)?(' - #'+(playerOf(bases.second).number||'?')+' '+playerOf(bases.second).name):'')});
+      if(bases.first)_fcOpts.push({base:'first',label:'1ra base'+(playerOf(bases.first)?(' - #'+(playerOf(bases.first).number||'?')+' '+playerOf(bases.first).name):'')});
+      var _fcOptStr=_fcOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n');
+      var _fcSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n¿A qué corredor le hicieron el out?\n'+_fcOptStr+'\n\nIngresa el número (1-'+_fcOpts.length+'):','1');
+      if(_fcSel===null){_rPlayBusy=false;return;}
+      var _fcIdx=parseInt(_fcSel)-1;
+      if(_fcIdx>=0&&_fcIdx<_fcOpts.length) _fcOutBase=_fcOpts[_fcIdx].base;
+    }
+    gm._fcOutBase=_fcOutBase;
+    // 2) Para cada corredor que SOBREVIVIO (no fue el out), preguntar hasta donde llego —
+    // en orden de 3ra hacia 1ra (el mas cercano a home primero, igual que en FO).
+    var _fcDest={};
+    var _fcBaseLabel={first:'1ra',second:'2da',third:'3ra'};
+    var _fcOrder=['third','second','first'];
+    for(var _fi=0;_fi<_fcOrder.length;_fi++){
+      var _fb=_fcOrder[_fi];
+      if(_fb===_fcOutBase)continue; // este fue el eliminado, no se pregunta
+      if(!bases[_fb])continue; // no habia corredor en esta base
+      var _fcRunnerName=playerOf(bases[_fb])?('#'+(playerOf(bases[_fb]).number||'?')+' '+playerOf(bases[_fb]).name):('Corredor en '+_fcBaseLabel[_fb]);
+      var _fcDestOpts=[];
+      if(_fb==='third'){
+        _fcDestOpts=[{v:'stay',label:'Se quedo en 3ra'},{v:'score',label:'Anoto'}];
+      } else if(_fb==='second'){
+        _fcDestOpts=[{v:'stay',label:'Se quedo en 2da'}];
+        if(nbForce>=3)_fcDestOpts.push({v:'third',label:'Avanzo a 3ra'});
+        _fcDestOpts.push({v:'score',label:'Anoto'});
+      } else {
+        _fcDestOpts=[{v:'stay',label:'Se quedo en 1ra'},{v:'second',label:'Avanzo a 2da'}];
+        if(nbForce>=3)_fcDestOpts.push({v:'third',label:'Avanzo a 3ra'});
+        _fcDestOpts.push({v:'score',label:'Anoto'});
+      }
+      var _fcDestOptStr=_fcDestOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n');
+      var _fcDestSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n'+_fcRunnerName+' (en '+_fcBaseLabel[_fb]+') &mdash; ¿hasta donde llego?\n'+_fcDestOptStr+'\n\nIngresa el número (1-'+_fcDestOpts.length+'):','1');
+      if(_fcDestSel===null){_rPlayBusy=false;return;}
+      var _fcDestIdx=parseInt(_fcDestSel)-1;
+      _fcDest[_fb]=(_fcDestIdx>=0&&_fcDestIdx<_fcDestOpts.length)?_fcDestOpts[_fcDestIdx].v:'stay';
+    }
+    gm._fcDest=_fcDest;
+    // 3) ¿Hasta donde llego el bateador? Siempre se pregunta (a diferencia de FO, que asume
+    // 1ra salvo el caso ambiguo) porque en un FC el bateador puede terminar en cualquier base.
+    var _fcBatOpts=[{v:'first',label:'1ra base'},{v:'second',label:'2da base'}];
+    if(nbForce>=3)_fcBatOpts.push({v:'third',label:'3ra base'});
+    _fcBatOpts.push({v:'score',label:'Anoto (carrera sucia)'});
+    var _fcBatOptStr=_fcBatOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n');
+    var _fcBatSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n¿Hasta donde llego el bateador?\n'+_fcBatOptStr+'\n\nIngresa el número (1-'+_fcBatOpts.length+'):','1');
+    if(_fcBatSel===null){_rPlayBusy=false;return;}
+    var _fcBatIdx=parseInt(_fcBatSel)-1;
+    gm._fcBatterDest=(_fcBatIdx>=0&&_fcBatIdx<_fcBatOpts.length)?_fcBatOpts[_fcBatIdx].v:'first';
+    // Las carreras se DERIVAN de las respuestas de arriba (cuantos "Anoto" hubo entre los
+    // corredores + el bateador) — no se preguntan aparte, para que nunca queden inconsistentes
+    // con las bases que el anotador acaba de indicar.
+    runs=Object.keys(_fcDest).filter(function(k){return _fcDest[k]==='score';}).length+(gm._fcBatterDest==='score'?1:0);
+    rbi=runs;
   } else if(type==='BB'||type==='HBP'){
     var minFBB=minForcedRunsBB(); // BB/HBP solo fuerza carrera con bases llenas
     var rb5=await numPromptAsync(({BB:'BASE POR BOLAS',HBP:'GOLPEADO POR PITCHEO'}[type])+' - '+bName
@@ -6894,7 +6965,7 @@ async function rPlay(type){
   _saving=true;
   try{
     var isHit=['H1','H2','H3','HR'].indexOf(type)>=0;
-    var isOut=['K','OUT','FO','DP','SAC'].indexOf(type)>=0;
+    var isOut=['K','OUT','FO','FC','DP','SAC'].indexOf(type)>=0;
     // Update hits
     if(isHit){
       if(isTop)gm.awayHits=(parseInt(gm.awayHits)||0)+1;
@@ -6918,7 +6989,17 @@ async function rPlay(type){
     // Orden de anotacion: el corredor mas cercano a home anota primero (3ra, luego 2da, luego 1ra).
     // El bateador anota solo en HR, o en H3 dentro de un juego de 2 bases (donde "tercera" = home).
     var scorerIds=[];
-    if(runs>0){
+    if(type==='FC'){
+      // Con Eleccion del Fielder ya se sabe EXACTAMENTE quien anoto (el anotador lo indico
+      // explicitamente, corredor por corredor, en las preguntas de arriba) — no hace falta la
+      // heuristica generica de "tomar los N corredores mas cercanos a home" que usan las demas
+      // jugadas; se usa directo lo que se respondio.
+      var _fcDestScored=gm._fcDest||{};
+      ['third','second','first'].forEach(function(fb){
+        if(_fcDestScored[fb]==='score'&&bases[fb]) scorerIds.push(bases[fb]);
+      });
+      if(gm._fcBatterDest==='score'&&bi) scorerIds.push(bi.playerId);
+    } else if(runs>0){
       var bPrev=bases||{first:null,second:null,third:null};
       var runnerOrder=[];
       if(nbForce>=3){ runnerOrder=[bPrev.third,bPrev.second,bPrev.first]; }
@@ -7172,6 +7253,28 @@ async function rPlay(type){
       // Colocar al bateador en su destino final (1ra por defecto, o el indicado)
       foNewBases[foBatDest]=batter;
       gm.bases=foNewBases;
+    } else if(type==='FC'){
+      // Eleccion del Fielder: a diferencia de FO, aqui NO se asume cascada automatica — cada
+      // corredor que sobrevivio ya tiene su destino EXPLICITO (gm._fcDest, preguntado arriba),
+      // y el bateador tambien (gm._fcBatterDest). Simplemente se coloca a cada quien en la
+      // base que el anotador indico; el que "anoto" sale de las bases (no ocupa ninguna).
+      var fcOutBase=gm._fcOutBase||'first';
+      if(gm._fcOutBase) delete gm._fcOutBase;
+      var fcDest=gm._fcDest||{};
+      if(gm._fcDest) delete gm._fcDest;
+      var fcBatDest=gm._fcBatterDest||'first';
+      if(gm._fcBatterDest) delete gm._fcBatterDest;
+      var fcNewBases={first:null,second:null,third:null};
+      ['third','second','first'].forEach(function(fromBase){
+        if(fromBase===fcOutBase)return; // eliminado, no ocupa base
+        if(!b[fromBase])return; // no habia corredor ahi
+        var d=fcDest[fromBase]||'stay';
+        if(d==='score')return; // anoto, sale de las bases
+        var toBase=(d==='stay')?fromBase:d;
+        fcNewBases[toBase]=b[fromBase];
+      });
+      if(fcBatDest!=='score') fcNewBases[fcBatDest]=batter;
+      gm.bases=fcNewBases;
     } else if(type==='DP'){
       // Double play: clear one runner from base if any (estimacion inicial; el anotador
       // podra corregir con el modal de bases del DP). Tambien se limpian los corredores
@@ -7334,7 +7437,7 @@ async function rPlay(type){
     // Si el bateador de esta jugada llegó a base, queda tirado con el pitcher que lo enfrentó
     // — asi, si mas adelante entra un relevista y este corredor anota, la carrera se le sigue
     // cargando al pitcher que lo puso en base, no al que esta pichando cuando anota.
-    if(facedPitcherId&&ev.batterId&&['H1','H2','H3','BB','HBP','E','FO'].indexOf(type)>=0){
+    if(facedPitcherId&&ev.batterId&&['H1','H2','H3','BB','HBP','E','FO','FC'].indexOf(type)>=0){
       gm.runnerPitcher=gm.runnerPitcher||{};
       gm.runnerPitcher[ev.batterId]=facedPitcherId;
     }
@@ -7534,7 +7637,7 @@ function pitchDeltaForEvent(ev){
   if(['BB','HBP'].indexOf(type)>=0)d.bb=1;
   if(runs>0)d.runs=runs;
   if(type==='E')d.isError=true;
-  d.outs=type==='DP'?2:(['K','OUT','FO','SAC','OJ'].indexOf(type)>=0?1:0);
+  d.outs=type==='DP'?2:(['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0?1:0);
   return d;
 }
 function negateDelta(d){return{h:-d.h,hr:-d.hr,bb:-d.bb,k:-d.k,runs:-d.runs,outs:-d.outs};}
@@ -7634,7 +7737,7 @@ function computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dir
       if(er>0) ex.er=(parseInt(ex.er)||0)+er;
     }
   }
-  var outsAdded=type==='DP'?2:(['K','OUT','FO','SAC','OJ'].indexOf(type)>=0?1:0);
+  var outsAdded=type==='DP'?2:(['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0?1:0);
   if(outsAdded>0){var ip=parseFloat(ex.ip)||0;var parts=String(ip).split('.');var full=parseInt(parts[0])||0;var part=parseInt(parts[1])||0;var thirds=full*3+part+outsAdded;ex.ip=parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));}
 
   // Reflejar YA en S.pitching (sincrono, sin red) los registros tocados — asi el proximo
@@ -7891,7 +7994,7 @@ async function undoLastPlay(){
     if(last.outs!==undefined&&last.outs!==null){
       gm.outs=parseInt(last.outs)||0;
     } else {
-      var isOut2=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
+      var isOut2=['K','OUT','FO','FC','DP','SAC','OJ'].indexOf(last.type)>=0;
       var outsAdded2=last.type==='DP'?2:isOut2?1:0;
       gm.outs=Math.max(0,3-outsAdded2);
     }
@@ -7906,7 +8009,7 @@ async function undoLastPlay(){
     if(last.outs!==undefined&&last.outs!==null){
       gm.outs=parseInt(last.outs)||0;
     } else {
-      var isOut=['K','OUT','FO','DP','SAC','OJ'].indexOf(last.type)>=0;
+      var isOut=['K','OUT','FO','FC','DP','SAC','OJ'].indexOf(last.type)>=0;
       var outsAdded=last.type==='DP'?2:isOut?1:0;
       if(outsAdded>0) gm.outs=Math.max(0,(parseInt(gm.outs)||0)-outsAdded);
     }
@@ -8459,7 +8562,7 @@ function openSendToBaseM(){
   // Buscar en eventos del juego los últimos outs en orden inverso
   var gmEvs=S.events.filter(function(e){
     // Solo outs del equipo al bate (no del equipo contrario)
-    return e.gameId===gm.id&&e.battingTeamId===btId&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
+    return e.gameId===gm.id&&e.battingTeamId===btId&&['K','OUT','FO','FC','DP','SAC','OJ'].indexOf(e.type)>=0;
   }).sort(function(a,b){return(a.timestamp||'').localeCompare(b.timestamp||'');});
   // El más reciente es el "último que se hizo out"
   var lastOuts=[];
@@ -8503,7 +8606,7 @@ async function applySendToBase(){
   var _btId2=gm.currentHalf==='top'?gm.awayTeamId:gm.homeTeamId;
   var gmEvs2=S.events.filter(function(e){
     // Solo outs del equipo al bate (no del contrario)
-    return e.gameId===gm.id&&e.battingTeamId===_btId2&&['K','OUT','FO','DP','SAC','OJ'].indexOf(e.type)>=0;
+    return e.gameId===gm.id&&e.battingTeamId===_btId2&&['K','OUT','FO','FC','DP','SAC','OJ'].indexOf(e.type)>=0;
   }).sort(function(a,b){return(a.timestamp||'').localeCompare(b.timestamp||'');});
   var lastOuts2=[];
   gmEvs2.slice().reverse().forEach(function(e){if(e.batterId&&lastOuts2.indexOf(e.batterId)<0)lastOuts2.push(e.batterId);});
@@ -11293,7 +11396,7 @@ function pgStats(tid,sBy,pSBy){
     var thh3=tEvs.filter(function(e){return e.type==='H3';}).length;
     var tBBOnly=tEvs.filter(function(e){return e.type==='BB';}).length;
     var tR=tEvs.reduce(function(s,e){return s+((e.scorerIds||[]).length);},0);
-    var tOutBat=tEvs.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+    var tOutBat=tEvs.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
     var battingPtsTm=th1*PP.h1+thh2*PP.h2+thh3*PP.h3+thr*PP.hr+tBBOnly*PP.bb+trbi*PP.rbi+tR*PP.r-tOutBat*PP.outBat-tk*PP.kBat;
     var tPOuts=tPevs.reduce(function(s,e){var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;return s+full*3+third;},0);
     var tPk=tPevs.reduce(function(s,e){return s+(parseInt(e.k)||0);},0);
@@ -12019,7 +12122,7 @@ function pgFeaturedByDate(){
       var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
       var bb=pe.filter(function(e){return e.type==='BB';}).length;
       var kb=pe.filter(function(e){return e.type==='K';}).length;
-      var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+      var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
       var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];var cnt=0;ids.forEach(function(pid){sids.forEach(function(sid){if(sid===pid)cnt++;});});return s+cnt;},0);
       var h=h1+h2+h3+hr;
       var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
@@ -12128,7 +12231,7 @@ function buildRankingLists(){
       var rbi=pe.reduce(function(s,e){return s+(parseInt(e.rbi)||0);},0);
       var bb=pe.filter(function(e){return e.type==='BB';}).length;
       var kb=pe.filter(function(e){return e.type==='K';}).length;
-      var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
+      var outBat=pe.reduce(function(s,e){if(e.type==='DP')return s+2;if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;return s;},0);
       var r=evs.reduce(function(s,e){var sids=e.scorerIds||[];var cnt=0;ids.forEach(function(pid){sids.forEach(function(sid){if(sid===pid)cnt++;});});return s+cnt;},0);
       var h=h1+h2+h3+hr;
       var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
@@ -12466,7 +12569,7 @@ function awardCandidates(tourId,divFilter){
       var kb=pe.filter(function(e){return e.type==='K';}).length;
       var outBat=pe.reduce(function(s,e){
         if(e.type==='DP')return s+2;
-        if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;
+        if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;
         return s;
       },0);
       var r=evs.reduce(function(s,e){
@@ -12648,7 +12751,7 @@ function allStarCandidates(tourId,divFilter){
     var kBat=pe.filter(function(e){return e.type==='K';}).length;
     var outBat=pe.reduce(function(s,e){
       if(e.type==='DP')return s+2;
-      if(['K','OUT','FO','SAC'].indexOf(e.type)>=0)return s+1;
+      if(['K','OUT','FO','FC','SAC'].indexOf(e.type)>=0)return s+1;
       return s;
     },0);
     var pp=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});
@@ -13298,7 +13401,7 @@ function doExportPlayerPDF(){
     var hbp=pe.filter(function(e){return e.type==='HBP';}).length;
     var k=pe.filter(function(e){return e.type==='K';}).length;
     var sb=pe.filter(function(e){return e.type==='SB';}).length;
-    var out=pe.filter(function(e){return['K','OUT','FO','DP'].indexOf(e.type)>=0;}).length;
+    var out=pe.filter(function(e){return['K','OUT','FO','FC','DP'].indexOf(e.type)>=0;}).length;
     var avg=vb>0?h/vb:0;var obp=(vb+bb+hbp)>0?(h+bb+hbp)/(vb+bb+hbp):0;
     var slg=vb>0?(h1+h2b*2+h3b*3+hr*4)/vb:0;var ops=obp+slg;
     var gp=[...new Set(pe.map(function(e){return e.gameId;}))].length;
