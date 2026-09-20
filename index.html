@@ -2556,12 +2556,15 @@ function tourMatchesSport(t){
   return pt?(pt.type||'vitilla')===sportScope():true;
 }
 var SPORT_TYPES=[{id:'vitilla',lbl:'Vitilla',ico:'&#9918;'},{id:'baseball',lbl:'Baseball',ico:'&#9918;'},{id:'softball',lbl:'Softball',ico:'&#127944;'}];
-// Deportes que el usuario actual puede elegir. Solo Admin y Visitante pueden ver/elegir los 3;
-// un usuario con perfil solo ve el/los deporte(s) de los torneos padre atados a su perfil.
+// Deportes que el usuario actual puede elegir. Solo Admin, Visitante y usuarios de Google
+// pueden ver/elegir los 3 (para Google, mismo motivo que en visibleTeams(): el perfil
+// compartido es estatico y no debe restringir el deporte del torneo que el usuario recien
+// creo); un usuario con perfil (staff/anotador) solo ve el/los deporte(s) de los torneos
+// padre atados a su perfil.
 function availableSports(){
   var u=S.user;
   if(S._sportLocked) return [S.sportFilter||BRAND];
-  if(!u||u.role==='admin'||u.role==='public') return SPORT_TYPES.map(function(s){return s.id;});
+  if(!u||u.role==='admin'||u.role==='public'||u.role==='google') return SPORT_TYPES.map(function(s){return s.id;});
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
   if(!prof||!prof.parentTournaments||!prof.parentTournaments.length) return SPORT_TYPES.map(function(s){return s.id;});
   var sports=[];
@@ -2959,6 +2962,16 @@ function canScore(gm){
   if(S.user.role==='admin')return true;
   var mods=getUserMods(S.user).map(function(m){return m.id;});
   if(mods.indexOf('gamecontrol')<0)return false;
+  // Los usuarios de Google NUNCA se filtran aqui por prof.teams — mismo motivo que en
+  // visibleTeams()/visibleTournaments()/visibleParentTournaments(): el perfil de Google es
+  // COMPARTIDO y estatico, nunca podria incluir el ID de un equipo que el usuario acaba de
+  // crear. El aislamiento real ya lo garantiza el Worker (S.games/S.teams solo trae lo que
+  // este usuario posee — ver enforceGoogleOwnership); si el juego aparece en su Calendario,
+  // es suyo y puede anotarlo. Sin este caso especial, un usuario de Google podia VER su
+  // propio juego recien creado (gracias al fix de visibleTournaments/visibleTeams) pero el
+  // boton le seguia saliendo como "Ver" (solo lectura) en vez de "Iniciar" — mismo bug,
+  // en una funcion distinta que quedo afuera de ese fix.
+  if(S.user.role==='google')return true;
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===S.user.profileId;})[0];
   if(!prof||!prof.teams||!prof.teams.length)return true;
   return prof.teams.indexOf(gm.awayTeamId)>=0||prof.teams.indexOf(gm.homeTeamId)>=0;
