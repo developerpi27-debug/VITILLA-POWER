@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Posiciones</title>
+<style>
+  :root{
+    --st-bg:#0d1b2e;--st-hdr:#0f1e33;--st-hdr2:#13253d;--st-sub:#050b14;
+    --st-label:#a9b7c9;--st-team:#f4f7fb;--st-cell:#f4f7fb;--st-hi:#f5a623;
+    --st-bdr:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--st-team);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro (mismo patron que lineup.html/pizarra.html). */
+
+  #card{width:400px;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--st-bg);}
+  #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
+
+  .st-hdr{padding:10px 14px;background:linear-gradient(180deg,var(--st-hdr2),var(--st-hdr));border-bottom:1px solid var(--st-bdr);}
+  .st-tname{font-size:15px;font-weight:800;color:var(--st-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .st-phase{font-size:10.5px;font-weight:700;color:var(--st-label);letter-spacing:.5px;text-transform:uppercase;margin-top:1px;}
+
+  table.st{border-collapse:collapse;width:100%;}
+  .st thead th{background:var(--st-sub);color:var(--st-label);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:6px 6px;text-align:center;border-bottom:1px solid var(--st-bdr);white-space:nowrap;}
+  .st thead th:nth-child(2){text-align:left;padding-left:12px;}
+  .st tbody td{padding:7px 6px;text-align:center;font-family:'Barlow Condensed',Arial,sans-serif;font-size:14px;font-weight:700;color:var(--st-cell);border-bottom:1px solid var(--st-bdr);}
+  .st tbody tr:last-child td{border-bottom:none;}
+  .st tbody tr.leader td{color:var(--st-hi);}
+  .st-rk{width:20px;color:var(--st-label) !important;font-size:12px;}
+  .st-team-cell{text-align:left !important;padding-left:12px !important;}
+  .st-team-inner{display:flex;align-items:center;gap:7px;}
+  .st-logo{width:19px;height:19px;border-radius:4px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .st-logo.ph{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0b1522;}
+  .st-tn{font-size:13px;font-weight:700;color:var(--st-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;}
+  tr.leader .st-tn{color:var(--st-hi);}
+  .st-clz{font-weight:800;}
+  .st-clz.y{color:var(--st-hi);}
+  .st-clz.n{color:var(--st-label);opacity:.5;}
+  .st-empty{padding:16px;text-align:center;font-size:12.5px;color:var(--st-label);}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{position:absolute;top:6px;right:6px;width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--st-label);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;z-index:5;}
+  #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
+  #cardWrap{position:relative;}
+  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<div id="panel">
+  <h3>&#127912; Colores de posiciones</h3>
+  <div class="cf-row"><label>Fondo de la tarjeta</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Encabezado (torneo)</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Etiquetas de columnas</label><input type="color" id="cLabel"></div>
+  <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Numeros (JJ, G, P, PCT...)</label><input type="color" id="cCell"></div>
+  <div class="cf-row"><label>Destacado (lider / clasificado)</label><input type="color" id="cHi"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="cardWrap" style="display:none">
+  <div id="card">
+    <div class="st-hdr">
+      <div class="st-tname" id="stTourName">Torneo</div>
+      <div class="st-phase" id="stPhase">Fase</div>
+    </div>
+    <table class="st">
+      <thead><tr><th>#</th><th>Equipo</th><th>JJ</th><th>G</th><th>P</th><th>PCT</th><th>DIF</th><th>JD</th><th>RACHA</th></tr></thead>
+      <tbody id="stBody"></tbody>
+    </table>
+  </div>
+  <button id="gear" title="Personalizar colores">&#9881;</button>
+</div>
+<script>
+// ── Posiciones — overlay independiente para transmision en vivo ───────────
+// Autonomo: no depende de sesion. ?game=<id>. Consulta getStandings (accion
+// publica) que calcula, del lado del servidor, la tabla de posiciones del
+// MISMO subtorneo y la MISMA fase (regular/playin/playoff/final/allstar) del
+// juego que se esta transmitiendo — automatico, sin selector manual. Mismos
+// desempates que el modulo Posiciones de la app (juegos sobre .500, PCT,
+// Serie Particular H2H, DIF en el H2H, DIF general). Mismo patron de
+// configuracion de color / enlace copiable que lineup.html y pizarra.html.
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||15000;
+
+var COLOR_KEYS=['bg','hdr','label','team','cell','hi'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',label:'#a9b7c9',team:'#f4f7fb',cell:'#f4f7fb',hi:'#f5a623',transp:false};
+var VARMAP={bg:'--st-bg',hdr:'--st-hdr',label:'--st-label',team:'--st-team',cell:'--st-cell',hi:'--st-hi'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_standing_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--st-hdr2',shade(SET.hdr,10));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_standing_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cLabel').value=SET.label;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cCell').value=SET.cell;
+  document.getElementById('cHi').value=SET.hi;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cBg:'bg',cHdr:'hdr',cLabel:'label',cTeam:'team',cCell:'cell',cHi:'hi'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+var PHASE_LABEL={regular:'Serie Regular',playin:'Play In',playoff:'Playoffs',final:'Serie Final',allstar:'Juego de Estrellas'};
+function logoHtml(team){
+  var initial=esc((team&&team.name||'?').charAt(0));
+  var color=esc(team&&team.color||'#f5a623');
+  return team&&team.logoUrl
+    ?'<img class="st-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;st-logo ph&quot; style=&quot;background:'+color+'&quot;>'+initial+'</div>\'">'
+    :'<div class="st-logo ph" style="background:'+color+'">'+initial+'</div>';
+}
+function render(data){
+  document.getElementById('msg').style.display='none';
+  document.getElementById('cardWrap').style.display='block';
+  document.getElementById('stTourName').textContent=data.tournamentName||'Torneo';
+  document.getElementById('stPhase').textContent=PHASE_LABEL[data.phase]||'Serie Regular';
+  if(!data.hasGames||!data.rows||!data.rows.length){
+    document.getElementById('stBody').innerHTML='<tr><td colspan="9" class="st-empty">Aun no hay juegos jugados en esta fase</td></tr>';
+    return;
+  }
+  document.getElementById('stBody').innerHTML=data.rows.map(function(r){
+    var difStr=(r.dif>0?'+':'')+r.dif;
+    var clz=r.clinched===null?'':('<span class="st-clz '+(r.clinched?'y':'n')+'">'+(r.clinched?'&#10003;':'&#10007;')+'</span>');
+    return'<tr class="'+(r.rank===1?'leader':'')+'">'
+      +'<td class="st-rk">'+r.rank+'</td>'
+      +'<td class="st-team-cell"><div class="st-team-inner">'+logoHtml(r.team)+'<span class="st-tn">'+esc(r.team.name)+'</span></div></td>'
+      +'<td>'+r.gp+'</td><td>'+r.w+'</td><td>'+r.l+'</td><td>'+r.pct+'</td>'
+      +'<td>'+difStr+'</td><td>'+r.gb+'</td><td>'+esc(r.streak)+(clz?' '+clz:'')+'</td>'
+      +'</tr>';
+  }).join('');
+  document.title='Posiciones — '+(data.tournamentName||'Torneo');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var res=await apiCall('getStandings',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('cardWrap').style.display='none';return;}
+    _errCount=0;
+    render(res.data);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('cardWrap').style.display==='none'){document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>

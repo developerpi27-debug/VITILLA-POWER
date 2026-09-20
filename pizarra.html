@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pizarra</title>
+<style>
+  :root{
+    --pz-bg:#0d1b2e;--pz-hdr:#0f1e33;--pz-hdr2:#13253d;
+    --pz-label:#a9b7c9;--pz-team:#f4f7fb;--pz-cell:#f4f7fb;--pz-hi:#f5a623;
+    --pz-bdr:rgba(255,255,255,.10);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:transparent;}
+  body{font-family:Arial,sans-serif;color:var(--pz-team);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
+  /* Sin padding ni fondo en el body: solo se muestra el recuadro (igual que lineup.html). */
+
+  #card{border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--pz-bg);}
+  #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
+
+  table.pz{border-collapse:collapse;}
+  .pz thead th{background:linear-gradient(180deg,var(--pz-hdr2),var(--pz-hdr));color:var(--pz-label);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:9px 14px;text-align:center;border-bottom:1px solid var(--pz-bdr);white-space:nowrap;}
+  .pz thead th:first-child{text-align:left;}
+  .pz thead th.tot{border-left:1px solid var(--pz-bdr);}
+  .pz tbody td{padding:9px 14px;text-align:center;font-family:'Barlow Condensed',Arial,sans-serif;font-size:19px;font-weight:800;color:var(--pz-cell);border-bottom:1px solid var(--pz-bdr);}
+  .pz tbody tr:last-child td{border-bottom:none;}
+  .pz tbody td.hi{color:var(--pz-hi);}
+  .pz tbody td.tot{border-left:1px solid var(--pz-bdr);}
+  .pz tbody td.tot.r{color:var(--pz-hi);}
+  .pz-team-cell{text-align:left !important;}
+  .pz-team-inner{display:flex;align-items:center;gap:9px;}
+  .pz-logo{width:24px;height:24px;border-radius:5px;object-fit:cover;background:#fff;flex:0 0 auto;}
+  .pz-logo.ph{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0b1522;}
+  .pz-tname{font-size:14.5px;font-weight:800;color:var(--pz-team);letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}
+
+  #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}
+
+  #gear{position:absolute;top:6px;right:6px;width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:var(--pz-label);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;padding:0;z-index:5;}
+  #gear:hover{background:rgba(255,255,255,.18);color:#fff;}
+  #cardWrap{position:relative;}
+  #panel{position:fixed;top:16px;right:16px;width:270px;max-height:calc(100vh - 32px);overflow-y:auto;background:#111a28;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px;z-index:50;font-family:Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;}
+  #panel.open{display:block;}
+  #panel h3{font-size:13px;color:#f5a623;margin-bottom:10px;letter-spacing:.3px;}
+  .cf-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+  .cf-row label{font-size:12px;color:#c7d2e0;}
+  .cf-row input[type=color]{width:36px;height:26px;border:none;border-radius:5px;cursor:pointer;background:none;padding:0;}
+  .cf-chk{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px;color:#c7d2e0;}
+  .cf-btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cf-btns button{flex:1;min-width:74px;font-size:11px;font-weight:700;padding:7px 6px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:#1a2536;color:#e6edf5;cursor:pointer;}
+  .cf-btns button:hover{background:#233145;}
+  .cf-btns button.pri{background:#f5a623;border-color:#f5a623;color:#1a1200;}
+  .cf-btns button.pri:hover{background:#e8901a;}
+  #copyMsg{font-size:11px;color:#4ade80;margin-top:6px;display:none;text-align:center;}
+</style>
+</head>
+<body>
+<div id="panel">
+  <h3>&#127912; Colores de la pizarra</h3>
+  <div class="cf-row"><label>Fondo de la tarjeta</label><input type="color" id="cBg"></div>
+  <div class="cf-row"><label>Encabezado (fila de entradas)</label><input type="color" id="cHdr"></div>
+  <div class="cf-row"><label>Texto del encabezado</label><input type="color" id="cLabel"></div>
+  <div class="cf-row"><label>Nombre del equipo</label><input type="color" id="cTeam"></div>
+  <div class="cf-row"><label>Numeros (entradas sin anotar)</label><input type="color" id="cCell"></div>
+  <div class="cf-row"><label>Numeros destacados (anoto / R)</label><input type="color" id="cHi"></div>
+  <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <div class="cf-btns">
+    <button class="pri" id="btnCopy">&#128279; Copiar enlace</button>
+    <button id="btnReset">&#8635; Restablecer</button>
+    <button id="btnClose">Cerrar</button>
+  </div>
+  <div style="font-size:10.5px;color:#8a97ab;margin-top:10px;line-height:1.4;border-top:1px solid rgba(255,255,255,.1);padding-top:10px">&#9888; Los colores se guardan en ESTE navegador. Para que se vean en tu app de transmision (Prism, OBS, vMix...), usa el boton "Copiar enlace" de arriba y pega ESE link ahi -- no el enlace base.</div>
+  <div id="copyMsg">&#10003; Enlace copiado — pegalo en OBS/vMix.</div>
+</div>
+
+<div id="msg">Cargando...</div>
+<div id="cardWrap" style="display:none">
+  <div id="card">
+    <table class="pz">
+      <thead><tr id="pzHeadRow"></tr></thead>
+      <tbody id="pzBody"></tbody>
+    </table>
+  </div>
+  <button id="gear" title="Personalizar colores">&#9881;</button>
+</div>
+<script>
+// ── Pizarra — overlay independiente para transmision en vivo ──────────────
+// Autonomo: no depende de sesion. ?game=<id>. Consulta getGameSlice (accion
+// publica) y muestra el marcador entrada-por-entrada (linescore) con R/H/E y
+// el logo de cada equipo — se extiende solo mas alla de las entradas
+// reglamentarias si el juego llega a entradas extra. Mismo patron de
+// configuracion de color / enlace copiable que lineup.html.
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var qs=new URLSearchParams(location.search);
+var GAME_ID=qs.get('game')||qs.get('gid')||'';
+var POLL_MS=parseInt(qs.get('ms'))||6000;
+var _teamsCache=null;
+
+var COLOR_KEYS=['bg','hdr','label','team','cell','hi'];
+var DEFAULTS={bg:'#0d1b2e',hdr:'#0f1e33',label:'#a9b7c9',team:'#f4f7fb',cell:'#f4f7fb',hi:'#f5a623',transp:false};
+var VARMAP={bg:'--pz-bg',hdr:'--pz-hdr',label:'--pz-label',team:'--pz-team',cell:'--pz-cell',hi:'--pz-hi'};
+function loadSettings(){
+  var s=Object.assign({},DEFAULTS);
+  try{ Object.assign(s,JSON.parse(localStorage.getItem('vp_pizarra_colors')||'{}')); }catch(e){}
+  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
+  return s;
+}
+var SET=loadSettings();
+function shade(hex,percent){
+  hex=(hex||'#000').replace('#','');if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var num=parseInt(hex,16),r=(num>>16)+Math.round(255*(percent/100)),g=((num>>8)&0xff)+Math.round(255*(percent/100)),b=(num&0xff)+Math.round(255*(percent/100));
+  r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+  return'#'+(r<<16|g<<8|b).toString(16).padStart(6,'0');
+}
+function applySettings(){
+  COLOR_KEYS.forEach(function(k){document.documentElement.style.setProperty(VARMAP[k],SET[k]);});
+  document.documentElement.style.setProperty('--pz-hdr2',shade(SET.hdr,10));
+  document.getElementById('card').classList.toggle('transp',!!SET.transp);
+}
+function saveSettings(){localStorage.setItem('vp_pizarra_colors',JSON.stringify(SET));}
+function syncPanelInputs(){
+  document.getElementById('cBg').value=SET.bg;
+  document.getElementById('cHdr').value=SET.hdr;
+  document.getElementById('cLabel').value=SET.label;
+  document.getElementById('cTeam').value=SET.team;
+  document.getElementById('cCell').value=SET.cell;
+  document.getElementById('cHi').value=SET.hi;
+  document.getElementById('cTransp').checked=!!SET.transp;
+}
+function wirePanel(){
+  var map={cBg:'bg',cHdr:'hdr',cLabel:'label',cTeam:'team',cCell:'cell',cHi:'hi'};
+  Object.keys(map).forEach(function(id){
+    document.getElementById(id).addEventListener('input',function(){SET[map[id]]=this.value;applySettings();saveSettings();});
+  });
+  document.getElementById('cTransp').addEventListener('change',function(){SET.transp=this.checked;applySettings();saveSettings();});
+  document.getElementById('btnReset').addEventListener('click',function(){SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();});
+  document.getElementById('btnCopy').addEventListener('click',function(){
+    var u=new URL(location.href);
+    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    u.searchParams.set('transp',SET.transp?'1':'0');
+    u.searchParams.set('edit','0');
+    navigator.clipboard.writeText(u.href).then(function(){
+      var m=document.getElementById('copyMsg');m.style.display='block';setTimeout(function(){m.style.display='none';},2500);
+    });
+  });
+  document.getElementById('btnClose').addEventListener('click',function(){document.getElementById('panel').classList.remove('open');});
+  document.getElementById('gear').addEventListener('click',function(){document.getElementById('panel').classList.toggle('open');});
+}
+applySettings();
+if(qs.get('edit')==='0'){document.getElementById('gear').style.display='none';}
+else{syncPanelInputs();wirePanel();}
+
+function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+async function apiCall(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function ensureTeams(){
+  if(_teamsCache)return _teamsCache;
+  var res=await apiCall('getAll',{});
+  if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
+  var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
+  _teamsCache=map;return map;
+}
+function logoTd(team){
+  var initial=esc((team&&team.name||'?').charAt(0));
+  var color=esc(team&&team.color||'#f5a623');
+  var img=team&&team.logoUrl
+    ?'<img class="pz-logo" src="'+esc(team.logoUrl)+'" onerror="this.outerHTML=\'<div class=&quot;pz-logo ph&quot; style=&quot;background:'+color+'&quot;>'+initial+'</div>\'">'
+    :'<div class="pz-logo ph" style="background:'+color+'">'+initial+'</div>';
+  return'<td class="pz-team-cell"><div class="pz-team-inner">'+img+'<span class="pz-tname">'+esc(team&&team.name||'?')+'</span></div></td>';
+}
+// ¿Ya le "toco" jugar esa entrada a este equipo (aunque sea parcialmente, en vivo)? El
+// visitante batea en el TOP y el local en el BOTTOM de cada entrada — si el local no llega a
+// batear en la ultima entrada (juego terminado por el visitante ganando, o walk-off en el
+// campo), esa celda queda en blanco, igual que en una pizarra real.
+function inningPlayed(side,n,gm){
+  var cur=parseInt(gm.currentInning)||1;
+  if(side==='away')return n<=cur;
+  return n<cur||(n===cur&&gm.currentHalf==='bottom');
+}
+function inningVal(side,n,gm){
+  var key=n+'_'+(side==='away'?'top':'bottom');
+  return parseInt(gm.inningScores&&gm.inningScores[key])||0;
+}
+function render(gm,teams){
+  var awayTeam=teams[gm.awayTeamId]||{name:'Visitante'};
+  var homeTeam=teams[gm.homeTeamId]||{name:'Local'};
+  document.getElementById('msg').style.display='none';
+  document.getElementById('cardWrap').style.display='block';
+  var totalInnings=Math.max(parseInt(gm.totalInnings)||7,parseInt(gm.currentInning)||0);
+  var innCols='';
+  for(var i=1;i<=totalInnings;i++)innCols+='<th>'+i+'</th>';
+  document.getElementById('pzHeadRow').innerHTML='<th>Equipo</th>'+innCols+'<th class="tot">R</th><th class="tot">H</th><th class="tot">E</th>';
+  function rowHtml(side,team){
+    var cells='';
+    for(var n=1;n<=totalInnings;n++){
+      if(!inningPlayed(side,n,gm)){cells+='<td></td>';continue;}
+      var v=inningVal(side,n,gm);
+      cells+='<td class="'+(v>0?'hi':'')+'">'+v+'</td>';
+    }
+    var r=parseInt(side==='away'?gm.awayRuns:gm.homeRuns)||0;
+    var h=parseInt(side==='away'?gm.awayHits:gm.homeHits)||0;
+    var e=parseInt(side==='away'?gm.awayErrors:gm.homeErrors)||0;
+    return'<tr>'+logoTd(team)+cells+'<td class="tot r hi">'+r+'</td><td class="tot">'+h+'</td><td class="tot">'+e+'</td></tr>';
+  }
+  document.getElementById('pzBody').innerHTML=rowHtml('away',awayTeam)+rowHtml('home',homeTeam);
+  document.title='Pizarra — '+(awayTeam.name||'Visitante')+' vs '+(homeTeam.name||'Local');
+}
+var _pollTimer=null,_errCount=0;
+async function poll(){
+  try{
+    if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
+    var teams=await ensureTeams();
+    var res=await apiCall('getGameSlice',{gameId:GAME_ID});
+    if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('cardWrap').style.display='none';return;}
+    _errCount=0;
+    render(res.data.game,teams);
+  }catch(e){
+    _errCount++;
+    if(_errCount>2&&document.getElementById('cardWrap').style.display==='none'){document.getElementById('msg').textContent='Sin conexion, reintentando...';}
+  }finally{ _pollTimer=setTimeout(poll,POLL_MS); }
+}
+poll();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
+</script>
+</body>
+</html>
