@@ -1730,6 +1730,44 @@ function closeGoogleFirstStepsM(userId){
   }
   cM();
 }
+// Ventana informativa mostrada la PRIMERA VEZ que un usuario de Google efectivamente INICIA un
+// partido (lineups guardados, el juego pasa a 'live' — ver saveLS) y entra a Control de Juego:
+// un repaso rapido de las herramientas de esa pantalla, para que no tenga que descubrirlas por
+// prueba y error. Mismo mecanismo de "No volver a mostrar" (localStorage, por usuario) que
+// openGoogleFreeTierInfoM/openGoogleFirstStepsM, e independiente de esos dos checkboxes.
+function openGoogleGameControlInfoM(userId){
+  var dismissKey='ggci_dismissed_'+userId;
+  try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
+  showM('<div class="mhd"><div class="mtl">&#9918; Control de Juego &mdash; Guia rapida</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">Tu juego ya esta en vivo. Este es un repaso rapido de lo que puedes hacer desde esta pantalla:</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--acc);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Botones de jugada</div>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:12px">Toca el boton que corresponda a lo que paso en el turno actual (sencillo, out, base por bolas, etc.). Algunas jugadas &mdash; como <b>Out Forzado</b>, <b>Eleccion del Fielder</b> o <b>Doble Play</b> &mdash; te haran un par de preguntas rapidas sobre los corredores antes de guardarse.</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--acc);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Sustituciones</div>'
+    +'<ul style="font-size:13px;color:var(--t2);line-height:1.7;margin:0 0 12px 18px;padding:0">'
+    +'<li><b>Emergente</b>: cambia al bateador actual por otro jugador del banco.</li>'
+    +'<li><b>Pitcher</b>: saca al lanzador actual y entra uno nuevo.</li>'
+    +'<li><b>Cambio Defensa</b>: reacomoda jugadores en el campo sin afectar el orden al bate.</li>'
+    +'</ul>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--acc);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">Otras herramientas</div>'
+    +'<ul style="font-size:13px;color:var(--t2);line-height:1.7;margin:0 0 12px 18px;padding:0">'
+    +'<li>&#11088; <b>Puntos por Jugada</b>: otorga puntos extra a un jugador por una jugada defensiva destacada (se usa para el ranking de Jugadores Destacados del partido).</li>'
+    +'<li>&#9998; <b>Corregir</b>: edita o elimina cualquier jugada ya registrada en el juego, no solo la ultima.</li>'
+    +'<li>&#8630; <b>Deshacer</b>: revierte de inmediato la ULTIMA jugada anotada, por si te equivocaste al tocar un boton.</li>'
+    +'</ul>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6">No se pierde nada por experimentar — casi todo se puede corregir o deshacer despues.</div>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer;margin-top:14px"><input type="checkbox" id="ggciDismiss"> No volver a mostrar este mensaje</label>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="closeGoogleGameControlInfoM(\''+userId+'\')">Entendido, ¡a jugar!</button></div>'
+  );
+}
+function closeGoogleGameControlInfoM(userId){
+  var chk=document.getElementById('ggciDismiss');
+  if(chk&&chk.checked){
+    try{ localStorage.setItem('ggci_dismissed_'+userId,'1'); }catch(e){}
+  }
+  cM();
+}
 function guestLogin(){
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
   // El visitante entra siempre con el deporte del subdominio de origen (BRAND), bloqueado —
@@ -5011,6 +5049,7 @@ async function saveLS(gid,awT,hmT){
     lockedBy:(S.user?S.user.id:''),lockedByName:(S.user?S.user.name:''),lockedAt:new Date().toISOString()});
   await api('saveGame',{game:g});S.games=S.games.map(function(x){return x.id===gid?g:x;});
   cM();S.game=gid;goNav('gamecontrol');
+  if(S.user&&S.user.role==='google')openGoogleGameControlInfoM(S.user.id);
 }
 
 // GAME CONTROL MAIN PAGE
@@ -5301,8 +5340,6 @@ function pgGC(){
       +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Pitcher</button>'
       +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
       +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
-      +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.awayTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+aw.name+'</button>'
-      +'<button class="btn bs bsm" data-gid="'+gm.id+'" data-tid="'+gm.homeTeamId+'" onclick="openPitM(this.dataset.gid,this.dataset.tid)">&#128202; Pit.'+hw.name+'</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
     +(hasModuleAccess('transmissionpanel')?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>':'')
