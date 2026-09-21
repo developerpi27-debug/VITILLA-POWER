@@ -1593,6 +1593,7 @@ async function doLogin(){
   renderApp();startPolling();startSessionTimer();
   toast('Bienvenido, '+res.user.name+'!','success');
   warnIfLicenseNearExpiry();
+  if(S.user&&S.user.role==='scorer')openPasswordFirstStepsM(S.user.id);
 }
 // Si al usuario le quedan 5 dias o menos (y aun no vencio) de licencia en alguno de los
 // torneos padre a los que tiene acceso, se le avisa al iniciar sesion para que no lo tome
@@ -1730,11 +1731,43 @@ function closeGoogleFirstStepsM(userId){
   }
   cM();
 }
-// Ventana informativa mostrada la PRIMERA VEZ que un usuario de Google efectivamente INICIA un
-// partido (lineups guardados, el juego pasa a 'live' — ver saveLS) y entra a Control de Juego:
-// un repaso rapido de las herramientas de esa pantalla, para que no tenga que descubrirlas por
-// prueba y error. Mismo mecanismo de "No volver a mostrar" (localStorage, por usuario) que
-// openGoogleFreeTierInfoM/openGoogleFirstStepsM, e independiente de esos dos checkboxes.
+// Misma idea que openGoogleFirstStepsM, pero para usuarios de USUARIO Y CONTRASEÑA (role
+// 'scorer' — ver el selector "Rol base" en el formulario de Usuarios): a diferencia de un
+// usuario de Google, este tipo de cuenta NO crea su propio torneo — trabaja dentro de
+// subtorneos/equipos que el administrador ya armo y le asigno a su perfil. El contenido esta
+// adaptado a ese flujo (y remite al administrador si le falta acceso a algo), en vez de
+// indicarle que cree un Torneo Padre. Dismiss independiente (clave propia en localStorage) de
+// las ventanas de Google.
+function openPasswordFirstStepsM(userId){
+  var dismissKey='pfsi_dismissed_'+userId;
+  try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
+  showM('<div class="mhd"><div class="mtl">&#128640; Primeros pasos</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">Para orientarte en '+brandName()+':</div>'
+    +'<ol style="font-size:13px;color:var(--t2);line-height:2;margin:0 0 14px 18px;padding:0">'
+    +'<li>En el módulo <b>Torneos</b> puedes ver los torneos y subtorneos a los que tienes acceso — los crea y organiza el administrador.</li>'
+    +'<li>En <b>Equipos</b> puedes ver los equipos de esos subtorneos y, si tu perfil lo permite, armar o editar su <b>roster</b>.</li>'
+    +'<li>En <b>Calendario</b> puedes ver los juegos programados — desde ahí los <b>inicias</b> cuando llegue la fecha, si tu perfil tiene acceso a Control de Juego.</li>'
+    +'<li>Si te falta acceso a algún torneo, equipo o función que necesitas, contacta al administrador para que ajuste tu perfil.</li>'
+    +'</ol>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer"><input type="checkbox" id="pfsiDismiss"> No volver a mostrar este mensaje</label>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="closePasswordFirstStepsM(\''+userId+'\')">Entendido</button></div>'
+  );
+}
+function closePasswordFirstStepsM(userId){
+  var chk=document.getElementById('pfsiDismiss');
+  if(chk&&chk.checked){
+    try{ localStorage.setItem('pfsi_dismissed_'+userId,'1'); }catch(e){}
+  }
+  cM();
+}
+// Ventana informativa mostrada la PRIMERA VEZ que un usuario NO-ADMIN (de Google, o de
+// usuario/contraseña con rol 'scorer') efectivamente INICIA un partido (lineups guardados, el
+// juego pasa a 'live' — ver saveLS) y entra a Control de Juego: un repaso rapido de las
+// herramientas de esa pantalla, para que no tenga que descubrirlas por prueba y error. Mismo
+// mecanismo de "No volver a mostrar" (localStorage, por usuario) que
+// openGoogleFreeTierInfoM/openGoogleFirstStepsM/openPasswordFirstStepsM.
 function openGoogleGameControlInfoM(userId){
   var dismissKey='ggci_dismissed_'+userId;
   try{ if(localStorage.getItem(dismissKey)==='1')return; }catch(e){}
@@ -5049,7 +5082,7 @@ async function saveLS(gid,awT,hmT){
     lockedBy:(S.user?S.user.id:''),lockedByName:(S.user?S.user.name:''),lockedAt:new Date().toISOString()});
   await api('saveGame',{game:g});S.games=S.games.map(function(x){return x.id===gid?g:x;});
   cM();S.game=gid;goNav('gamecontrol');
-  if(S.user&&S.user.role==='google')openGoogleGameControlInfoM(S.user.id);
+  if(S.user&&(S.user.role==='google'||S.user.role==='scorer'))openGoogleGameControlInfoM(S.user.id);
 }
 
 // GAME CONTROL MAIN PAGE
