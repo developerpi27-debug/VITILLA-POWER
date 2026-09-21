@@ -1483,11 +1483,26 @@ function openRequestAccessM(){
   var email=(S.contactEmail||'').trim();
   if(!wa&&!email){toast('El administrador aun no ha configurado un medio de contacto','info');return;}
   var waDigits=wa.replace(/[^0-9]/g,'');
+  // Dentro de la app nativa de Android, un link a wa.me con target="_blank" no abre WhatsApp de
+  // forma confiable: Capacitor SI reconoce que wa.me no es un dominio propio y lo manda afuera
+  // (a un navegador/pestana externa), pero es ESE navegador externo el que despues falla al
+  // intentar la redireccion propia de wa.me hacia el esquema whatsapp:// -- ahi es donde
+  // aparece "net::ERR_UNKNOWN_URL_SCHEME" (bug conocido de wa.me + target=_blank dentro de
+  // WebViews/Custom Tabs empotrados, no exclusivo de esta app). La solucion es saltarse wa.me
+  // por completo adentro de la app nativa: navegar DIRECTO al esquema whatsapp://send?...
+  // desde la MISMA pestana (sin target=_blank) — asi el propio Capacitor (ya trae esto de
+  // fabrica en BridgeWebViewClient) intercepta esa navegacion y abre WhatsApp via Intent
+  // directamente, sin ningun salto intermedio que pueda romperse. Mismo cuidado para
+  // mailto: — cualquier esquema no-http(s) con target=_blank corre el mismo riesgo. Fuera de
+  // la app (navegador de escritorio o del celular) se sigue usando wa.me con target="_blank"
+  // como siempre, para no perder la sesion de la app abierta en esa pestana.
+  var waHref=IS_NATIVE_APP?('whatsapp://send?phone='+waDigits):('https://wa.me/'+waDigits);
+  var extAttrs=IS_NATIVE_APP?'':' target="_blank"';
   showM('<div class="mhd"><div class="mtl">Solicitar acceso</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +'<div style="font-size:13px;color:var(--t2);margin-bottom:16px">Elige por donde deseas contactar al administrador para solicitar tu usuario y contrasena.</div>'
-    +(wa?'<a href="https://wa.me/'+waDigits+'" target="_blank" class="btn bp wf" style="margin-bottom:10px;justify-content:center;text-decoration:none">&#128241; Escribir por WhatsApp</a>':'')
-    +(email?'<a href="mailto:'+email+'" class="btn bs wf" style="justify-content:center;text-decoration:none">&#9993; Enviar Correo</a>':'')
+    +(wa?'<a href="'+waHref+'"'+extAttrs+' class="btn bp wf" style="margin-bottom:10px;justify-content:center;text-decoration:none">&#128241; Escribir por WhatsApp</a>':'')
+    +(email?'<a href="mailto:'+email+'"'+extAttrs+' class="btn bs wf" style="justify-content:center;text-decoration:none">&#9993; Enviar Correo</a>':'')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button></div>'
   );
