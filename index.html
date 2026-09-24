@@ -15105,10 +15105,13 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Limite de juegos calendarizados por torneo (0 = sin limite)</label><input class="fi" id="gAccMaxGames" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerTournament||0)+'"></div>'
       +'<div class="fg"><label class="fl">Limite de juegos calendarizados por dia, dentro de un mismo subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxGamesPerDay" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerDay||0)+'"></div>'
       +'</div>'
-      +'<div class="fr c2">'
       +'<div class="fg"><label class="fl">Limite de equipos que puede crear por subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxTeams" type="number" min="0" value="'+(S.config&&S.config.googleMaxTeamsPerTournament||0)+'"></div>'
-      +'<div class="fg"><label class="fl">Limite de jugadores por equipo (0 = sin limite)</label><input class="fi" id="gAccMaxPlayers" type="number" min="0" value="'+(S.config&&S.config.googleMaxPlayersPerTeam||0)+'"></div>'
-      +'</div>'
+      +'<div class="fg"><label class="fl">Limite de jugadores por equipo, por deporte (0 = sin limite)</label>'
+      +'<div class="fr c3">'
+      +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Vitilla</label><input class="fi" id="gAccMaxPlVitilla" type="number" min="0" value="'+(S.config&&S.config.googleMaxPlayersPerTeamVitilla||0)+'"></div>'
+      +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Baseball</label><input class="fi" id="gAccMaxPlBaseball" type="number" min="0" value="'+(S.config&&S.config.googleMaxPlayersPerTeamBaseball||0)+'"></div>'
+      +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Softball</label><input class="fi" id="gAccMaxPlSoftball" type="number" min="0" value="'+(S.config&&S.config.googleMaxPlayersPerTeamSoftball||0)+'"></div>'
+      +'</div></div>'
       +'<div class="fg"><label class="fl">Limite de entradas al programar un juego, por deporte (0 = sin limite)</label>'
       +'<div class="fr c3">'
       +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Vitilla</label><input class="fi" id="gAccMaxInnVitilla" type="number" min="0" value="'+(S.config&&S.config.googleMaxInningsVitilla||0)+'"></div>'
@@ -15259,7 +15262,9 @@ async function saveGoogleAccessConfig(){
   var maxGames=parseInt(fv('gAccMaxGames'))||0;
   var maxGamesPerDay=parseInt(fv('gAccMaxGamesPerDay'))||0;
   var maxTeams=parseInt(fv('gAccMaxTeams'))||0;
-  var maxPlayers=parseInt(fv('gAccMaxPlayers'))||0;
+  var maxPlVitilla=parseInt(fv('gAccMaxPlVitilla'))||0;
+  var maxPlBaseball=parseInt(fv('gAccMaxPlBaseball'))||0;
+  var maxPlSoftball=parseInt(fv('gAccMaxPlSoftball'))||0;
   var maxInnVitilla=parseInt(fv('gAccMaxInnVitilla'))||0;
   var maxInnBaseball=parseInt(fv('gAccMaxInnBaseball'))||0;
   var maxInnSoftball=parseInt(fv('gAccMaxInnSoftball'))||0;
@@ -15272,16 +15277,18 @@ async function saveGoogleAccessConfig(){
   var r3=await api('saveConfig',{key:'googleMaxGamesPerTournament',value:maxGames});
   var r4=await api('saveConfig',{key:'googleMaxGamesPerDay',value:maxGamesPerDay});
   var r5=await api('saveConfig',{key:'googleMaxTeamsPerTournament',value:maxTeams});
-  var r5b=await api('saveConfig',{key:'googleMaxPlayersPerTeam',value:maxPlayers});
+  var r5b=await api('saveConfig',{key:'googleMaxPlayersPerTeamVitilla',value:maxPlVitilla});
+  var r5f=await api('saveConfig',{key:'googleMaxPlayersPerTeamBaseball',value:maxPlBaseball});
+  var r5g=await api('saveConfig',{key:'googleMaxPlayersPerTeamSoftball',value:maxPlSoftball});
   var r5c=await api('saveConfig',{key:'googleMaxInningsVitilla',value:maxInnVitilla});
   var r5d=await api('saveConfig',{key:'googleMaxInningsBaseball',value:maxInnBaseball});
   var r5e=await api('saveConfig',{key:'googleMaxInningsSoftball',value:maxInnSoftball});
   var r6=await api('saveConfig',{key:'googleImportScope',value:importScope});
   _saving=false;
-  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r2b&&r2b.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok&&r5b&&r5b.ok&&r5c&&r5c.ok&&r5d&&r5d.ok&&r5e&&r5e.ok&&r6&&r6.ok){
+  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r2b&&r2b.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok&&r5b&&r5b.ok&&r5f&&r5f.ok&&r5g&&r5g.ok&&r5c&&r5c.ok&&r5d&&r5d.ok&&r5e&&r5e.ok&&r6&&r6.ok){
     S.config=S.config||{};
     S.config.googleWebClientId=webClientId;
-    S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleMaxPlayersPerTeam=String(maxPlayers);S.config.googleMaxInningsVitilla=String(maxInnVitilla);S.config.googleMaxInningsBaseball=String(maxInnBaseball);S.config.googleMaxInningsSoftball=String(maxInnSoftball);S.config.googleImportScope=importScope;
+    S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleMaxPlayersPerTeamVitilla=String(maxPlVitilla);S.config.googleMaxPlayersPerTeamBaseball=String(maxPlBaseball);S.config.googleMaxPlayersPerTeamSoftball=String(maxPlSoftball);S.config.googleMaxInningsVitilla=String(maxInnVitilla);S.config.googleMaxInningsBaseball=String(maxInnBaseball);S.config.googleMaxInningsSoftball=String(maxInnSoftball);S.config.googleImportScope=importScope;
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
 }
