@@ -989,7 +989,27 @@ var _curYear=new Date().getFullYear();
 var S={user:null,profile:null,authToken:'',game:null,tourFilter:'',parentTourFilter:'',sportFilter:'',phaseFilter:'',yearFilter:_curYear,tournaments:[],parentTournaments:[],teams:[],players:[],games:[],events:[],lineups:[],pitching:[],profiles:[],users:[],awards:[],defensivePoints:[],config:{},licenseExpires:'',tourLicenses:{},sessionTimeout:30,pollInterval:30,loginMaxAttempts:5,loginWindowMinutes:1,loginLockoutMinutes:5,playLogLimit:0,undoCooldownSec:0,importablePlayersGlobal:[]};
 
 // API — llama al Worker con el token
+// ── AMISTOSOS: acciones de escritura de un juego amistoso se resuelven 100% en
+// IndexedDB y NUNCA llegan a la red/Supabase (ni siquiera se intenta el fetch).
+// Ver seccion "AMISTOSOS" mas abajo para el resto de la logica.
+var FRIENDLY_WRITE_ACTIONS={saveGame:1,saveLineup:1,saveEvent:1,savePitching:1,saveDefensivePoints:1,deleteEvent:1,deletePitching:1,deleteDefensivePoints:1};
+function isFriendlyGameId(id){ return typeof id==='string' && id.slice(0,3)==='fr_'; }
+function resolveFriendlyGameId(action,data){
+  var gid=null;
+  if(action==='saveGame') gid=data.game&&data.game.id;
+  else if(action==='saveLineup') gid=data.lineup&&data.lineup.gameId;
+  else if(action==='saveEvent'||action==='savePitching') gid=data.event&&data.event.gameId;
+  else if(action==='saveDefensivePoints') gid=data.item&&data.item.gameId;
+  else if(action==='deleteEvent'){ var e=S.events.filter(function(x){return x.id===data.id;})[0]; gid=e&&e.gameId; }
+  else if(action==='deletePitching'){ var p=S.pitching.filter(function(x){return x.id===data.id;})[0]; gid=p&&p.gameId; }
+  else if(action==='deleteDefensivePoints'){ var d=S.defensivePoints.filter(function(x){return x.id===data.id;})[0]; gid=d&&d.gameId; }
+  return isFriendlyGameId(gid)?gid:null;
+}
 async function api(action,data){
+  if(FRIENDLY_WRITE_ACTIONS[action]){
+    var fgid=resolveFriendlyGameId(action,data);
+    if(fgid) return handleFriendlyWrite(action,data,fgid);
+  }
   try{
     var res=await apiRaw(action,data);
     if(res&&res.authError){
@@ -1037,7 +1057,7 @@ async function pingUrl(url){
 // applyOfflineNavLock/goNav) mientras no haya conexion real.
 // ═══════════════════════════════════════════════════════════
 var IDB_NAME='vitillaOfflineDB';
-var IDB_VERSION=1;
+var IDB_VERSION=2;
 var _idbPromise=null;
 function idbOpen(){
   if(_idbPromise)return _idbPromise;
@@ -1049,6 +1069,9 @@ function idbOpen(){
       if(!db.objectStoreNames.contains('session'))db.createObjectStore('session',{keyPath:'key'});
       if(!db.objectStoreNames.contains('cache'))db.createObjectStore('cache',{keyPath:'key'});
       if(!db.objectStoreNames.contains('outbox'))db.createObjectStore('outbox',{keyPath:'key'});
+      // Amistosos: cada registro es UN juego amistoso completo y autocontenido (equipo,
+      // roster, lineup, jugadas, pitcheo) — nunca sale de este dispositivo ni pasa por 'outbox'.
+      if(!db.objectStoreNames.contains('friendlies'))db.createObjectStore('friendlies',{keyPath:'id'});
     };
     req.onsuccess=function(ev){resolve(ev.target.result);};
     req.onerror=function(){reject(req.error);};
@@ -1286,7 +1309,7 @@ function updateOfflineBanner(){
 }
 // Restriccion de navegacion VISUAL: ademas del bloqueo funcional en goNav(),
 // los items de menu de modulos no permitidos offline se deshabilitan.
-var OFFLINE_ALLOWED_PAGES={schedule:1,gamecontrol:1};
+var OFFLINE_ALLOWED_PAGES={schedule:1,gamecontrol:1,amistoso:1};
 function applyOfflineNavLock(){
   document.querySelectorAll('.ni').forEach(function(el){
     var id=el.id||'';
@@ -1860,6 +1883,7 @@ async function saveGuestSession(){
 }
 function doLogout(){
   stopPolling();stopSessionTimer();clearSession();stopPublicGalleries();
+  if(S._activeFriendlyId) deactivateFriendlyInjection();
   resetModuleState();
   cM(); // BUG CORREGIDO: cerrar cualquier formulario/modal abierto (ej. sustitucion de
         // jugador, cambio de pitcher) al salir — #modals es independiente de #app, asi que
@@ -2470,7 +2494,9 @@ async function _doPoll(){
     var _isViewingGame=(curP==='gamecontrol'&&!!S.game);
     var _isActiveScorer=(_isViewingGame&&!!document.getElementById('gc-rplay-area'));
     if(_isViewingGame){
-      await loadGameSliceOnly(S.game);
+      // Un amistoso es 100% local: no existe en el servidor, asi que no hay nada que
+      // pedirle (ni falta — los datos ya estan completos en memoria/IndexedDB).
+      if(!isFriendlyGameId(S.game)) await loadGameSliceOnly(S.game);
     } else {
       await loadAll();
     }
@@ -2618,6 +2644,7 @@ var ALL_MOD=[
   {id:'dashboard',lbl:'Dashboard',ico:'📊',sec:'General'},
   {id:'tournaments',lbl:'Torneos',ico:'🏆',sec:'General'},
   {id:'teams',lbl:'Equipos',ico:'👥',sec:'General'},
+  {id:'amistoso',lbl:'Amistoso',ico:'🤝',sec:'General'},
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
@@ -2640,7 +2667,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','tovsto','rankings','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -3166,7 +3193,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -3237,6 +3264,10 @@ function goNav(page){
     if(typeof _ST!=='undefined'){_ST.search='';_ST.dateFrom='';_ST.dateTo='';}
     if(typeof _SL!=='undefined'){_SL.search='';}
   }
+  // Al salir de Control de Juego (a cualquier otro modulo) quitar de memoria el equipo/roster
+  // temporal del amistoso que se estaba anotando — nunca debe quedar mezclado con los datos
+  // reales de Equipos/Estadisticas/Lideres, etc. mientras se navega por el resto de la app.
+  if(page!=='gamecontrol'&&S._activeFriendlyId) deactivateFriendlyInjection();
   curP=page;
   document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
   var el=document.getElementById('nv-'+page);if(el)el.classList.add('on');
@@ -4865,6 +4896,293 @@ async function revertForfeit(id){
   if(r&&r.ok){S.games=S.games.map(function(x){return x.id===id?r.item:x;});cM();pgSched();toast('Forfeit revertido — juego programado de nuevo','info');}
   else toast(r&&r.error||'Error','error');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AMISTOSOS — modulo 100% local. Cada amistoso (equipos, roster, lineup, jugadas,
+// pitcheo) vive UNICAMENTE en el IndexedDB de este dispositivo (store 'friendlies',
+// ver idbOpen arriba): nunca se crea un equipo/jugador real, nunca se llama a
+// Supabase (ver FRIENDLY_WRITE_ACTIONS/resolveFriendlyGameId en api(), mas arriba),
+// y no afecta Eventos/Estadisticas/Lideres/Calendario. Para anotarlo se reutiliza
+// tal cual el motor de Control de Juego (pgGC/rPlay): mientras el amistoso esta
+// "activo" se inyectan su equipo/roster temporalmente en S.teams/S.players/S.games
+// (marcados isFriendly+_frOwner) para que ese motor funcione sin tocarlo, y esa
+// inyeccion se retira apenas se sale de Control de Juego (ver goNav) para que
+// jamas se mezcle con los datos reales en otras pantallas.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Escritura de un amistoso: persiste SOLO en IndexedDB y devuelve una respuesta
+// identica en forma a la que daria el servidor (synthOfflineResult ya hace esto).
+async function handleFriendlyWrite(action,data,fgid){
+  var rec=await idbGet('friendlies',fgid);
+  if(!rec) return{ok:false,error:'Este amistoso ya no existe en este dispositivo'};
+  rec.updatedAt=Date.now();
+  if(action==='saveGame'){
+    rec.game=data.game;
+  } else if(action==='saveLineup'){
+    rec.lineups=(rec.lineups||[]).filter(function(l){return l.teamId!==data.lineup.teamId;});
+    rec.lineups.push(data.lineup);
+  } else if(action==='saveEvent'){
+    var ev=data.event;if(!ev.id)ev.id='fre'+nid();
+    rec.events=(rec.events||[]).filter(function(e){return e.id!==ev.id;});
+    rec.events.push(ev);
+  } else if(action==='savePitching'){
+    var pv=data.event;if(!pv.id)pv.id='frpi'+nid();
+    rec.pitching=(rec.pitching||[]).filter(function(p){return p.id!==pv.id;});
+    rec.pitching.push(pv);
+  } else if(action==='saveDefensivePoints'){
+    var dp=data.item;if(!dp.id)dp.id='frdp'+nid();
+    rec.defensivePoints=(rec.defensivePoints||[]).filter(function(d){return d.id!==dp.id;});
+    rec.defensivePoints.push(dp);
+  } else if(action==='deleteEvent'){
+    rec.events=(rec.events||[]).filter(function(e){return e.id!==data.id;});
+    rec.defensivePoints=(rec.defensivePoints||[]).filter(function(d){return d.relatedEventId!==data.id;});
+  } else if(action==='deletePitching'){
+    rec.pitching=(rec.pitching||[]).filter(function(p){return p.id!==data.id;});
+  } else if(action==='deleteDefensivePoints'){
+    rec.defensivePoints=(rec.defensivePoints||[]).filter(function(d){return d.id!==data.id;});
+  }
+  await idbPut('friendlies',rec);
+  return synthOfflineResult(action,data);
+}
+
+// Inyecta el equipo/roster/juego de ESTE amistoso en S.teams/S.players/S.games/
+// S.lineups/S.events/S.pitching para que pgGC/rPlay (pensados para datos de
+// Supabase) funcionen exactamente igual sin ningun cambio. Se retira con
+// deactivateFriendlyInjection() apenas se navega fuera de Control de Juego.
+async function activateFriendlyInjection(gid){
+  if(S._activeFriendlyId&&S._activeFriendlyId!==gid) deactivateFriendlyInjection();
+  var rec=await idbGet('friendlies',gid);
+  if(!rec) return false;
+  rec.game.isFriendly=true;
+  S.games=S.games.filter(function(g){return g.id!==gid;}).concat([rec.game]);
+  var awT={id:rec.teams.awayId,name:rec.teams.awayName,isFriendly:true,_frOwner:gid,color:'#f5a623'};
+  var hmT={id:rec.teams.homeId,name:rec.teams.homeName,isFriendly:true,_frOwner:gid,color:'#3b82f6'};
+  S.teams=S.teams.filter(function(t){return t.id!==awT.id&&t.id!==hmT.id;}).concat([awT,hmT]);
+  var pls=(rec.players||[]).map(function(p){return Object.assign({},p,{isFriendly:true,_frOwner:gid});});
+  var plIds=pls.map(function(p){return p.id;});
+  S.players=S.players.filter(function(p){return plIds.indexOf(p.id)<0;}).concat(pls);
+  S.lineups=S.lineups.filter(function(l){return l.gameId!==gid;}).concat(rec.lineups||[]);
+  S.events=S.events.filter(function(e){return e.gameId!==gid;}).concat(rec.events||[]);
+  S.pitching=S.pitching.filter(function(p){return p.gameId!==gid;}).concat(rec.pitching||[]);
+  S.defensivePoints=S.defensivePoints.filter(function(d){return d.gameId!==gid;}).concat(rec.defensivePoints||[]);
+  S._activeFriendlyId=gid;
+  return true;
+}
+function deactivateFriendlyInjection(){
+  var fid=S._activeFriendlyId;if(!fid)return;
+  S.teams=S.teams.filter(function(t){return !(t.isFriendly&&t._frOwner===fid);});
+  S.players=S.players.filter(function(p){return !(p.isFriendly&&p._frOwner===fid);});
+  S.games=S.games.filter(function(g){return g.id!==fid;});
+  S.lineups=S.lineups.filter(function(l){return l.gameId!==fid;});
+  S.events=S.events.filter(function(e){return e.gameId!==fid;});
+  S.pitching=S.pitching.filter(function(p){return p.gameId!==fid;});
+  S.defensivePoints=S.defensivePoints.filter(function(d){return d.gameId!==fid;});
+  S._activeFriendlyId=null;
+}
+async function openFriendlyGC(gid){ await activateFriendlyInjection(gid); S.game=gid; goNav('gamecontrol'); }
+function exitFriendlyGC(){ deactivateFriendlyInjection(); S.game=null; goNav('amistoso'); }
+
+// Misma validacion de lineup que usa Calendario (ver validateLineup dentro de saveLS):
+// al menos un Pitcher, y ninguna posicion repetida salvo UT/DH.
+function validateFriendlyLineup(players,teamName){
+  if(!players.length) return teamName+': agrega al menos un jugador.';
+  var hasPitcher=players.some(function(p){return(p.position||'').toUpperCase()==='P';});
+  if(!hasPitcher) return teamName+': debe incluir al menos un jugador con posición P (Pitcher).';
+  var ALLOWED_DUP=['UT','DH'],posCounts={},dupPos=null;
+  players.forEach(function(p){
+    var pos=(p.position||'').toUpperCase();
+    if(!pos||ALLOWED_DUP.indexOf(pos)>=0)return;
+    posCounts[pos]=(posCounts[pos]||0)+1;
+    if(posCounts[pos]>1)dupPos=pos;
+  });
+  if(dupPos) return teamName+': la posición "'+dupPos+'" está asignada a más de un jugador.';
+  return null;
+}
+
+// Crea (y persiste en IndexedDB) UN juego amistoso ya en estado 'live', e inicia la
+// anotacion de inmediato en Control de Juego — programar e iniciar son un mismo paso.
+// cfg.reuseTeams permite encadenar el siguiente juego de una serie con el mismo
+// equipo/roster (ver continueFriendlySeries), sin tener que rellenar el formulario de nuevo.
+async function createAndStartFriendlyGame(cfg){
+  var gid='fr_'+nid();
+  var awTeamId,hmTeamId,players;
+  if(cfg.reuseTeams){
+    awTeamId=cfg.reuseTeams.awayId;hmTeamId=cfg.reuseTeams.homeId;players=cfg.reuseTeams.players;
+  } else {
+    awTeamId='frt'+nid();hmTeamId='frt'+nid();players=[];
+    (cfg.awayRoster||[]).forEach(function(r){players.push({id:'frp'+nid(),name:(r.name||'').trim(),position:r.position||'OF',teamId:awTeamId,number:'',active:'true'});});
+    (cfg.homeRoster||[]).forEach(function(r){players.push({id:'frp'+nid(),name:(r.name||'').trim(),position:r.position||'OF',teamId:hmTeamId,number:'',active:'true'});});
+  }
+  var awPl=players.filter(function(p){return p.teamId===awTeamId;});
+  var hmPl=players.filter(function(p){return p.teamId===hmTeamId;});
+  var g={
+    id:gid,awayTeamId:awTeamId,homeTeamId:hmTeamId,date:new Date().toISOString().slice(0,10),time:null,venue:'',
+    tournamentId:null,totalInnings:cfg.innings,unlimitedInnings:!!cfg.unlimited,numBases:3,
+    status:'live',phase:'amistoso',isFriendly:true,
+    currentInning:1,currentHalf:'top',outs:0,balls:0,strikes:0,awayBatterIdx:0,homeBatterIdx:0,
+    awayRuns:0,homeRuns:0,awayHits:0,homeHits:0,awayErrors:0,homeErrors:0,inningScores:{},
+    bases:{first:null,second:null,third:null},
+    lockedBy:(S.user?S.user.id:''),lockedByName:(S.user?S.user.name:''),lockedAt:new Date().toISOString(),
+    seriesId:cfg.seriesId,seriesGameNumber:cfg.seriesGameNumber,bestOf:cfg.bestOf
+  };
+  var awL={gameId:gid,teamId:awTeamId,players:awPl.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:false};})};
+  var hmL={gameId:gid,teamId:hmTeamId,players:hmPl.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:false};})};
+  var rec={id:gid,seriesId:cfg.seriesId,seriesGameNumber:cfg.seriesGameNumber,bestOf:cfg.bestOf,
+    createdAt:Date.now(),updatedAt:Date.now(),game:g,
+    teams:{awayId:awTeamId,awayName:cfg.awayName,homeId:hmTeamId,homeName:cfg.homeName},
+    players:players,lineups:[awL,hmL],events:[],pitching:[],defensivePoints:[]};
+  await idbPut('friendlies',rec);
+  await activateFriendlyInjection(gid);
+  cM();S.game=gid;goNav('gamecontrol');
+  toast('Amistoso iniciado','success');
+}
+async function continueFriendlySeries(prevGameId){
+  var prevRec=await idbGet('friendlies',prevGameId);
+  if(!prevRec){toast('No se encontró el amistoso anterior','error');return;}
+  if(!confirm('¿Iniciar el siguiente juego de la serie con el mismo roster?'))return;
+  await createAndStartFriendlyGame({
+    seriesId:prevRec.seriesId,seriesGameNumber:(prevRec.seriesGameNumber||1)+1,bestOf:prevRec.bestOf,
+    awayName:prevRec.teams.awayName,homeName:prevRec.teams.homeName,
+    innings:prevRec.game.totalInnings,unlimited:prevRec.game.unlimitedInnings,
+    reuseTeams:{awayId:prevRec.teams.awayId,homeId:prevRec.teams.homeId,players:prevRec.players}
+  });
+}
+async function deleteFriendlyM(gid){
+  if(!confirm('¿Eliminar este amistoso de este dispositivo? Esta acción no se puede deshacer.'))return;
+  await idbDelete('friendlies',gid);
+  if(S.game===gid){deactivateFriendlyInjection();S.game=null;}
+  toast('Amistoso eliminado','info');
+  pgAmistoso();
+}
+
+// ── Modulo Amistoso: pantalla principal (lista, agrupada por serie) ─────────
+function pgAmistoso(){
+  ct('<div class="stl">&#129309; Amistoso</div>'
+    +'<div class="ssb">Partidos amistosos — se guardan solo en este dispositivo, nunca en la nube</div>'
+    +(canDo('create','amistoso')?'<button class="btn bp" style="margin:10px 0" onclick="openAmistosoFormM()">&#43; Programar Encuentro</button>':'')
+    +'<div id="am-list" class="empty"><div style="font-size:36px">&#8987;</div><div>Cargando...</div></div>');
+  renderAmistosoList();
+}
+async function renderAmistosoList(){
+  var recs=await idbGetAll('friendlies');
+  recs.sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);});
+  var el=document.getElementById('am-list');if(!el)return;
+  if(!recs.length){el.className='empty';el.innerHTML='<div style="font-size:40px">&#9918;</div><div>No hay amistosos programados</div>';return;}
+  el.className='';
+  var bySeries={},order=[];
+  recs.forEach(function(r){var sid=r.seriesId||r.id;if(!bySeries[sid]){bySeries[sid]=[];order.push(sid);}bySeries[sid].push(r);});
+  var html='';
+  order.forEach(function(sid){
+    var games=bySeries[sid].sort(function(a,b){return(a.seriesGameNumber||1)-(b.seriesGameNumber||1);});
+    var first=games[0],last=games[games.length-1];
+    var awWins=games.filter(function(g){return g.game.status==='final'&&(parseInt(g.game.awayRuns)||0)>(parseInt(g.game.homeRuns)||0);}).length;
+    var hmWins=games.filter(function(g){return g.game.status==='final'&&(parseInt(g.game.homeRuns)||0)>(parseInt(g.game.awayRuns)||0);}).length;
+    var needed=Math.floor((first.bestOf||1)/2)+1;
+    var seriesDone=(first.bestOf||1)<=1||awWins>=needed||hmWins>=needed;
+    html+='<div class="card" style="margin-bottom:12px"><div class="chd"><div class="ctl">'+first.teams.awayName+' <span style="color:var(--t3)">vs</span> '+first.teams.homeName
+      +((first.bestOf||1)>1?' <span class="chip" style="font-size:10px">Mejor de '+first.bestOf+' ('+awWins+'-'+hmWins+')</span>':'')+'</div></div>'
+      +games.map(function(g){
+        var st=g.game.status;
+        var badge=st==='final'?'<span class="badge" style="background:var(--grn)">Final '+(parseInt(g.game.awayRuns)||0)+'-'+(parseInt(g.game.homeRuns)||0)+'</span>':'<span class="badge" style="background:var(--acc)">En vivo</span>';
+        return'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--bdr)">'
+          +'<div style="font-size:12px">Juego '+(g.seriesGameNumber||1)+'&nbsp; '+badge+(g.game.unlimitedInnings?' <span style="color:var(--t3);font-size:11px">&#8734; entradas</span>':'')+'</div>'
+          +'<div style="display:flex;gap:6px">'
+          +'<button class="btn bs" style="padding:4px 10px;font-size:11px" data-g="'+g.id+'" onclick="openFriendlyGC(this.dataset.g)">'+(st==='final'?'Ver':'Continuar')+'</button>'
+          +(canDo('delete','amistoso')?'<button class="btn bd" style="padding:4px 10px;font-size:11px" data-g="'+g.id+'" onclick="deleteFriendlyM(this.dataset.g)">&#128465;</button>':'')
+          +'</div></div>';
+      }).join('')
+      +((first.bestOf||1)>1&&!seriesDone&&last.game.status==='final'&&canDo('create','amistoso')?'<div style="padding-top:10px"><button class="btn bp" data-g="'+last.id+'" onclick="continueFriendlySeries(this.dataset.g)">Iniciar Juego '+((last.seriesGameNumber||1)+1)+'</button></div>':'')
+      +'</div>';
+  });
+  el.innerHTML=html;
+}
+
+// ── Formulario: programar (y de una vez iniciar) un encuentro amistoso ──────
+var _AM={_nextRid:1,aw:[],hm:[]};
+function openAmistosoFormM(){
+  _AM={_nextRid:1,aw:[],hm:[]};
+  showM(amFormHtml(),'mlg');
+  renderAmTeam('aw');renderAmTeam('hm');
+}
+function amFormHtml(){
+  return'<div class="mhd"><div class="mtl">&#9918; Programar Encuentro Amistoso</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="alert ai" style="font-size:12px;margin-bottom:12px">Este amistoso se guarda solo en este dispositivo: no crea equipos/jugadores reales ni afecta estadísticas, líderes o torneos.</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Equipo Visitante *</label><input class="fi" id="am-aw-name" placeholder="Nombre del equipo"></div>'
+    +'<div class="fg"><label class="fl">Equipo Local *</label><input class="fi" id="am-hm-name" placeholder="Nombre del equipo"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Serie — mejor de cuántos juegos</label><select class="fs" id="am-bestof">'+[1,3,5,7].map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'</select></div>'
+    +'<div class="fg"><label class="fl">Entradas</label><div style="display:flex;align-items:center;gap:8px">'
+    +'<input class="fi" id="am-innings" type="number" min="1" max="30" value="7" style="flex:1">'
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;cursor:pointer"><input type="checkbox" id="am-unlimited" onchange="document.getElementById(\'am-innings\').disabled=this.checked">Sin límite</label>'
+    +'</div></div></div>'
+    +'<div class="g2" style="gap:20px;margin-top:6px">'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster Visitante</div><div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster Local</div><div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
+    +'</div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="saveStartAmistoso()">Guardar e Iniciar &#9654;</button></div>';
+}
+function renderAmTeam(side){
+  var el=document.getElementById('am-rows-'+side);if(!el)return;
+  el.innerHTML=(_AM[side]||[]).map(function(r){
+    var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(r.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+    return'<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
+      +'<input class="fi" style="flex:1" id="am-name-'+side+'-'+r.rid+'" value="'+(r.name||'').replace(/"/g,'&quot;')+'" placeholder="Nombre del jugador">'
+      +'<select class="fs" style="width:78px" id="am-pos-'+side+'-'+r.rid+'">'+pOpts+'</select>'
+      +'<button class="btn bd" style="padding:4px 8px" data-s="'+side+'" data-r="'+r.rid+'" onclick="amRemoveRow(this.dataset.s,+this.dataset.r)">&#10005;</button>'
+      +'</div>';
+  }).join('')||'<div style="font-size:12px;color:var(--t3)">Agrega jugadores &rarr;</div>';
+}
+function syncAmRowsFromDOM(side){
+  (_AM[side]||[]).forEach(function(r){
+    var ne=document.getElementById('am-name-'+side+'-'+r.rid),pe=document.getElementById('am-pos-'+side+'-'+r.rid);
+    if(ne)r.name=ne.value;
+    if(pe)r.position=pe.value;
+  });
+}
+function amAddRow(side){
+  syncAmRowsFromDOM(side);
+  _AM[side].push({rid:_AM._nextRid++,name:'',position:'OF'});
+  renderAmTeam(side);
+}
+function amRemoveRow(side,rid){
+  syncAmRowsFromDOM(side);
+  _AM[side]=_AM[side].filter(function(r){return r.rid!==rid;});
+  renderAmTeam(side);
+}
+async function saveStartAmistoso(){
+  syncAmRowsFromDOM('aw');syncAmRowsFromDOM('hm');
+  var awName=fv('am-aw-name').trim(),hmName=fv('am-hm-name').trim();
+  if(!awName||!hmName){toast('Coloca el nombre de ambos equipos','error');return;}
+  if(awName.toLowerCase()===hmName.toLowerCase()){toast('Los equipos no pueden tener el mismo nombre','error');return;}
+  var bestOf=parseInt(fv('am-bestof'))||1;
+  var unlimited=document.getElementById('am-unlimited').checked;
+  var innings=unlimited?9:(parseInt(fv('am-innings'))||7);
+  var awPlayers=(_AM.aw||[]).filter(function(r){return(r.name||'').trim();});
+  var hmPlayers=(_AM.hm||[]).filter(function(r){return(r.name||'').trim();});
+  var errAw=validateFriendlyLineup(awPlayers,awName);if(errAw){toast(errAw,'error');return;}
+  var errHm=validateFriendlyLineup(hmPlayers,hmName);if(errHm){toast(errHm,'error');return;}
+  await createAndStartFriendlyGame({
+    seriesId:'frs'+nid(),seriesGameNumber:1,bestOf:bestOf,
+    awayName:awName,homeName:hmName,innings:innings,unlimited:unlimited,
+    awayRoster:awPlayers,homeRoster:hmPlayers
+  });
+}
+// Aviso + boton "Volver a Amistosos" dentro de Control de Juego cuando el juego
+// abierto es un amistoso — se engancha sobre pgGC sin tocar su implementacion.
+var _pgGCReal=pgGC;
+pgGC=function(){
+  _pgGCReal();
+  if(S.game&&isFriendlyGameId(S.game)){
+    var ctEl=document.getElementById('ct');
+    if(ctEl){
+      var b=document.createElement('div');
+      b.className='alert ai';
+      b.style.marginBottom='10px';
+      b.innerHTML='&#129309; Amistoso — solo en este dispositivo &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="exitFriendlyGC()" style="color:var(--acc);font-weight:700">&larr; Volver a Amistoso</a>';
+      ctEl.insertBefore(b,ctEl.firstChild);
+    }
+  }
+};
 
 // GAME CONTROL - LINEUP SETUP
 var _LU={aw:[],hm:[]};
@@ -7463,7 +7781,7 @@ async function rPlay(type){
       } else {
         gm.currentHalf='top';
         gm.currentInning=(parseInt(gm.currentInning)||1)+1;
-        if(gm.currentInning>parseInt(gm.totalInnings)){
+        if(!gm.unlimitedInnings&&gm.currentInning>parseInt(gm.totalInnings)){
           var ar=parseInt(gm.awayRuns)||0;
           var hr2=parseInt(gm.homeRuns)||0;
           if(ar!==hr2){
