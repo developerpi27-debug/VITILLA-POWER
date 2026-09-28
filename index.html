@@ -2611,6 +2611,7 @@ var ALL_MOD=[
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
+  {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
@@ -2629,7 +2630,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','tovsto','rankings','awards'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -3118,11 +3119,11 @@ function renderApp(){
   // ni para visitantes (a ellos se les ofrece de otra forma, ver ads).
   var adBanner=document.getElementById('adUpgradeBanner');
   if(adBanner)adBanner.style.display=(u.role==='google')?'block':'none';
-  // "transmissionpanel" es un permiso, no una pagina navegable — no debe salir en el menu
-  // lateral (solo controla si el boton "Panel Transmisión" se muestra dentro de Control de
-  // Juego). Se excluye aqui pero SI se mantiene en ALL_MOD para que aparezca en el checklist
-  // de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel';});var nm='';var last='';
+  // "transmissionpanel" y "addtolineup" son permisos, no paginas navegables — no deben salir
+  // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
+  // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
+  // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';});var nm='';var last='';
   var subMods=['statslife','leaderslife'];
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -5399,6 +5400,7 @@ function pgGC(){
       +'<button class="btn bs bsm" onclick="openSubM(\'emergente\')">&#128100; Emergente</button>'
       +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Pitcher</button>'
       +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
+      +(hasModuleAccess('addtolineup')?'<button class="btn bs bsm" onclick="openAddToLineupM()" title="Agrega un jugador del roster que todavia no este en el lineup, al final del orden al bate">&#10133; Agregar al Lineup</button>':'')
       +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
@@ -5591,7 +5593,7 @@ function playLog(gid){
     // Label especial para error en tiro luego de hit
     var _isThrow=(e.type==='E'&&e.errorSubtype==='throw');
     var _throwCorr=e.throwCorrId?playerOf(e.throwCorrId):null;
-    var _dispName=_isThrow?(parseInt(e.runs)>0?'E anota corredor — '+(_throwCorr?_throwCorr.name:'?'):'E avanza corredor — '+(_throwCorr?_throwCorr.name:'?')):(e.type==='OJ'?'Out en Jugada — '+(p?p.name:'?'):(p?p.name:'?'));
+    var _dispName=_isThrow?(parseInt(e.runs)>0?'E anota corredor — '+(_throwCorr?_throwCorr.name:'?'):'E avanza corredor — '+(_throwCorr?_throwCorr.name:'?')):(e.type==='OJ'?'Out en Jugada — '+(p?p.name:'?'):(e.type==='FC'&&e.noOut?(p?p.name:'?')+' (sin out)':(p?p.name:'?')));
     return'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);flex-wrap:wrap">'
       +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
       +'<span class="badge '+(isH?'bg':isO?'br':'bgr')+'">'+e.type+'</span>'
@@ -5645,7 +5647,7 @@ async function saveEditEvent(eid,gid){
   // ── Capturar el estado VIEJO del evento y a que pitcher le afectaba, ANTES de modificarlo ──
   // Esto permite revertir exactamente lo que esa jugada le habia sumado al pitcher contrario
   // (hits, HR, BB, K, carreras/ER, outs/IP) antes de aplicarle el efecto de la jugada corregida.
-  var oldEvSnapshot={type:e.type,runs:e.runs,battingTeamId:e.battingTeamId};
+  var oldEvSnapshot={type:e.type,runs:e.runs,battingTeamId:e.battingTeamId,noOut:e.noOut};
   var oldFtId=fieldingTeamIdForEvent(gm,oldEvSnapshot);
   var oldPitcherId=resolvePitcherForEvent(gm,e); // e.pitcherId aun no ha sido modificado aqui
   var oldDelta=pitchDeltaForEvent(oldEvSnapshot);
@@ -6881,33 +6883,51 @@ async function rPlay(type){
       gm._foBatterDest=(nbForce>=3&&_foBatSelNum===3)?'third':(_foBatSelNum===2?'second':'first');
     }
   } else if(type==='FC'){
-    // Eleccion del Fielder (Fielder's Choice): un corredor en base es eliminado (el fielder
-    // elige sacarlo a el en vez de tirar a primera), y el bateador llega safe. A diferencia de
-    // OUT FORZADO (FO) — que asume el avance en cadena automaticamente — aqui se le pregunta al
-    // anotador, corredor por corredor, hasta donde llego cada uno de los que sobrevivieron, y
-    // tambien hasta donde llego el bateador (no se asume 1ra por defecto). Esto permite anotar
-    // jugadas donde un corredor avanza mas de una base, se queda quieto, o el bateador llega
-    // mas lejos de lo usual — cosas que el force automatico de FO no puede representar.
+    // Eleccion del Fielder (Fielder's Choice): un corredor en base PUEDE ser eliminado (el
+    // fielder elige sacarlo a el en vez de tirar a primera), y el bateador llega safe. Lo
+    // primero que se pregunta es si realmente se produjo un out en la jugada (el intento de
+    // fielder's choice pudo fallar, ej. tiro descontrolado, y terminar sin ningun out) — segun
+    // la respuesta:
+    //  - SI hubo out: procede igual que antes (a cual corredor, luego a donde llego cada
+    //    sobreviviente, luego el bateador).
+    //  - NO hubo out: se pregunta a donde llego CADA corredor en base (todos sobreviven) y el
+    //    bateador, sin preguntar "a cual corredor" (nadie fue eliminado).
+    // En AMBOS casos el turno se anota como oficial fallido para el bateador (no es hit) — eso
+    // ya lo garantiza que 'FC' este incluido en los arreglos de "isOut" usados para AB/stats,
+    // sin importar si hubo o no out real. Lo unico que cambia segun la respuesta es si esta
+    // jugada suma o no al conteo de OUTS de la entrada (ver gm._fcNoOut mas abajo) y a las
+    // entradas lanzadas (IP) del pitcher — un intento fallido no le da un out real al pitcher.
+    // Si alguien anota, se sigue detectando igual que siempre (a partir de las respuestas).
     if(!bases.first&&!bases.second&&!bases.third){
       toast('Eleccion del Fielder requiere al menos un corredor en base. Usa OUT normal.','error');
       _rPlayBusy=false;return;
     }
-    // 1) ¿A cual corredor le hicieron el out?
-    var _fcOutBase=bases.first?'first':(bases.second?'second':'third');
-    if(enBase>=2){
-      var _fcOpts=[];
-      if(bases.third)_fcOpts.push({base:'third',label:'3ra base'+(playerOf(bases.third)?(' - #'+(playerOf(bases.third).number||'?')+' '+playerOf(bases.third).name):'')});
-      if(bases.second)_fcOpts.push({base:'second',label:'2da base'+(playerOf(bases.second)?(' - #'+(playerOf(bases.second).number||'?')+' '+playerOf(bases.second).name):'')});
-      if(bases.first)_fcOpts.push({base:'first',label:'1ra base'+(playerOf(bases.first)?(' - #'+(playerOf(bases.first).number||'?')+' '+playerOf(bases.first).name):'')});
-      var _fcOptStr=_fcOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n');
-      var _fcSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n¿A qué corredor le hicieron el out?\n'+_fcOptStr+'\n\nIngresa el número (1-'+_fcOpts.length+'):','1');
-      if(_fcSel===null){_rPlayBusy=false;return;}
-      var _fcIdx=parseInt(_fcSel)-1;
-      if(_fcIdx>=0&&_fcIdx<_fcOpts.length) _fcOutBase=_fcOpts[_fcIdx].base;
+    // 0) ¿Se hizo out en la jugada?
+    var _fcOutSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n¿Se hizo out en la jugada?\n1. Si\n2. No\n\nIngresa el número (1-2):','1');
+    if(_fcOutSel===null){_rPlayBusy=false;return;}
+    var _fcOutHappened=String(_fcOutSel).trim()!=='2';
+    // 1) Si hubo out: ¿a cual corredor? Si NO hubo out, nadie se elimina (mas abajo se
+    // preguntara el destino de TODOS los que esten en base).
+    var _fcOutBase=null;
+    if(_fcOutHappened){
+      _fcOutBase=bases.first?'first':(bases.second?'second':'third');
+      if(enBase>=2){
+        var _fcOpts=[];
+        if(bases.third)_fcOpts.push({base:'third',label:'3ra base'+(playerOf(bases.third)?(' - #'+(playerOf(bases.third).number||'?')+' '+playerOf(bases.third).name):'')});
+        if(bases.second)_fcOpts.push({base:'second',label:'2da base'+(playerOf(bases.second)?(' - #'+(playerOf(bases.second).number||'?')+' '+playerOf(bases.second).name):'')});
+        if(bases.first)_fcOpts.push({base:'first',label:'1ra base'+(playerOf(bases.first)?(' - #'+(playerOf(bases.first).number||'?')+' '+playerOf(bases.first).name):'')});
+        var _fcOptStr=_fcOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n');
+        var _fcSel=await numPromptAsync('ELECCION DEL FIELDER - '+bName+'\n\n¿A qué corredor le hicieron el out?\n'+_fcOptStr+'\n\nIngresa el número (1-'+_fcOpts.length+'):','1');
+        if(_fcSel===null){_rPlayBusy=false;return;}
+        var _fcIdx=parseInt(_fcSel)-1;
+        if(_fcIdx>=0&&_fcIdx<_fcOpts.length) _fcOutBase=_fcOpts[_fcIdx].base;
+      }
     }
     gm._fcOutBase=_fcOutBase;
-    // 2) Para cada corredor que SOBREVIVIO (no fue el out), preguntar hasta donde llego —
-    // en orden de 3ra hacia 1ra (el mas cercano a home primero, igual que en FO).
+    gm._fcNoOut=!_fcOutHappened;
+    // 2) Para cada corredor que SOBREVIVIO (todos, si no hubo out; todos menos el eliminado, si
+    // si lo hubo), preguntar hasta donde llego — en orden de 3ra hacia 1ra (el mas cercano a
+    // home primero, igual que en FO).
     var _fcDest={};
     var _fcBaseLabel={first:'1ra',second:'2da',third:'3ra'};
     var _fcOrder=['third','second','first'];
@@ -7370,15 +7390,19 @@ async function rPlay(type){
       // corredor que sobrevivio ya tiene su destino EXPLICITO (gm._fcDest, preguntado arriba),
       // y el bateador tambien (gm._fcBatterDest). Simplemente se coloca a cada quien en la
       // base que el anotador indico; el que "anoto" sale de las bases (no ocupa ninguna).
-      var fcOutBase=gm._fcOutBase||'first';
-      if(gm._fcOutBase) delete gm._fcOutBase;
+      // fcOutBase queda en null cuando la jugada NO tuvo out (ver la pregunta inicial en el
+      // bloque de arriba) — en ese caso nadie se excluye de la colocacion de abajo.
+      var fcOutBase=gm._fcOutBase;
+      delete gm._fcOutBase;
+      var fcNoOut=!!gm._fcNoOut;
+      delete gm._fcNoOut;
       var fcDest=gm._fcDest||{};
-      if(gm._fcDest) delete gm._fcDest;
+      delete gm._fcDest;
       var fcBatDest=gm._fcBatterDest||'first';
-      if(gm._fcBatterDest) delete gm._fcBatterDest;
+      delete gm._fcBatterDest;
       var fcNewBases={first:null,second:null,third:null};
       ['third','second','first'].forEach(function(fromBase){
-        if(fromBase===fcOutBase)return; // eliminado, no ocupa base
+        if(fromBase===fcOutBase)return; // eliminado (solo si hubo out), no ocupa base
         if(!b[fromBase])return; // no habia corredor ahi
         var d=fcDest[fromBase]||'stay';
         if(d==='score')return; // anoto, sale de las bases
@@ -7404,9 +7428,11 @@ async function rPlay(type){
       gm.bases=b;
     }
     // ── END BASE ADVANCEMENT ──────────────────────────────────────
-    // Update outs
+    // Update outs — en Eleccion del Fielder (FC) sin out (fcNoOut), esta jugada NO suma al
+    // conteo de outs de la entrada, aunque si cuenta como turno oficial fallido del bateador
+    // para sus propias estadisticas de bateo (ver isOut mas arriba, que no distingue esto).
     if(type==='DP') gm.outs=Math.min((parseInt(gm.outs)||0)+2,3);
-    else if(isOut) gm.outs=(parseInt(gm.outs)||0)+1;
+    else if(isOut && !(type==='FC'&&fcNoOut)) gm.outs=(parseInt(gm.outs)||0)+1;
     // Capture event inning/half BEFORE possible inning change
     var evInning=parseInt(gm.currentInning)||1;
     var evHalf=gm.currentHalf;
@@ -7497,6 +7523,7 @@ async function rPlay(type){
       type:type,inning:evInning,half:evHalf,rbi:rbi,runs:runs,errorFielderId:errorFielderId,
       scorerIds:scorerIds,outs:outsBeforePlay,batterIdxBefore:battingIdxBefore,
       errorSubtype:_errSubtype||undefined,throwCorrId:_throwCorrId||undefined,
+      noOut:(type==='FC'&&fcNoOut)||undefined,
       priorBases:{first:bases?bases.first:null,second:bases?bases.second:null,third:bases?bases.third:null},
       timestamp:new Date().toISOString()};
     // ── Todo lo de abajo (carreras limpias/sucias, estadisticas del pitcher, "quien embaso a
@@ -7542,7 +7569,7 @@ async function rPlay(type){
     // carreras limpias por hits que el MISMO permita de ahi en adelante — cualquier corredor
     // heredado que anote sigue siendo sucio.
     var _dirtyIdsForPitcher=_inningShouldHaveEnded?scorerIds.slice():_errBaseIds;
-    var _pitRes=computePitcherUpdate(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_dirtyIdsForPitcher);
+    var _pitRes=computePitcherUpdate(gm,type,runs,evHalf,_isErrorPlay,_earnedRuns,scorerIds,_dirtyIdsForPitcher,fcNoOut);
     var facedPitcherId=_pitRes?_pitRes.pitcherId:null;
     ev.pitcherId=facedPitcherId||null;
     // ── Registrar quien "embasó" a este corredor (para corredores heredados) ──
@@ -7749,7 +7776,8 @@ function pitchDeltaForEvent(ev){
   if(['BB','HBP'].indexOf(type)>=0)d.bb=1;
   if(runs>0)d.runs=runs;
   if(type==='E')d.isError=true;
-  d.outs=type==='DP'?2:(['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0?1:0);
+  // Eleccion del Fielder (FC) sin out (ev.noOut): no se le acredita ningun out al pitcher.
+  d.outs=type==='DP'?2:((['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0&&!(type==='FC'&&ev.noOut))?1:0);
   return d;
 }
 function negateDelta(d){return{h:-d.h,hr:-d.hr,bb:-d.bb,k:-d.k,runs:-d.runs,outs:-d.outs};}
@@ -7791,7 +7819,7 @@ function findPitcherRecordById(gm,ftId,pitcherId){
 // funcion async (autoUpdatePitcher) que se llamaba DESPUES de renderizar — eso hacia que las
 // estadisticas del pitcher (ej. un ponche) no se vieran en pantalla hasta la SIGUIENTE jugada,
 // porque el calculo que las actualiza corria despues del render de la jugada actual.
-function computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds){
+function computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dirtyIds,noOut){
   var h=half||gm.currentHalf;
   var isTop=h==='top';
   var ftId=isTop?gm.homeTeamId:gm.awayTeamId;
@@ -7849,7 +7877,10 @@ function computePitcherUpdate(gm,type,runs,half,isError,earnedRuns,scorerIds,dir
       if(er>0) ex.er=(parseInt(ex.er)||0)+er;
     }
   }
-  var outsAdded=type==='DP'?2:(['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0?1:0);
+  // Eleccion del Fielder (FC) sin out (noOut): no se le acredita ningun out al pitcher — de
+  // verdad no se produjo ninguno en el campo, aunque al bateador si se le cuenta el turno como
+  // fallido para sus propias estadisticas (eso se maneja aparte, en rPlay).
+  var outsAdded=type==='DP'?2:((['K','OUT','FO','FC','SAC','OJ'].indexOf(type)>=0&&!(type==='FC'&&noOut))?1:0);
   if(outsAdded>0){var ip=parseFloat(ex.ip)||0;var parts=String(ip).split('.');var full=parseInt(parts[0])||0;var part=parseInt(parts[1])||0;var thirds=full*3+part+outsAdded;ex.ip=parseFloat(Math.floor(thirds/3)+'.'+(thirds%3));}
 
   // Reflejar YA en S.pitching (sincrono, sin red) los registros tocados — asi el proximo
@@ -9459,6 +9490,70 @@ async function applySub(gid,tid,type){
   var _subLabel=(isPitcherChange?'Cambio de pitcher':'Cambio de jugador')+': #'+(_subOutP&&_subOutP.number||'?')+' '+(_subOutP?_subOutP.name:'?')+' sale, entra #'+(_subInP&&_subInP.number||'?')+' '+(_subInP?_subInP.name:'?');
   await logSubAction(gid,[tid],isPitcherChange?'pitcher':'pinch_hit',_subLabel,_subBefore);
   cM();pgGC();toast('Sustitución aplicada','success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AGREGAR JUGADOR AL LINEUP: incorpora a alguien del roster que NO esta en el lineup del
+// juego (ni titular ni ya sustituido) — a diferencia de Emergente/Cambio de Pitcher, esto NO
+// reemplaza a nadie: se agrega un turno al bate NUEVO, siempre despues del ultimo bateador del
+// orden actual. Visible/oculto por el permiso "addtolineup" (ver hasModuleAccess), igual que
+// el boton de Panel de Transmision.
+// ═══════════════════════════════════════════════════════════════════
+function openAddToLineupM(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  var aw=teamOf(gm.awayTeamId),hw=teamOf(gm.homeTeamId);
+  function availFor(tid){
+    var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
+    var inIds=lu&&lu.players?lu.players.map(function(lp){return lp.playerId;}):[];
+    return S.players.filter(function(p){return p.teamId===tid&&inIds.indexOf(p.id)<0&&p.active!=='false'&&p.active!==false&&p.active!=='0';})
+      .sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+  }
+  function colHtml(tid,team,side){
+    var avail=availFor(tid);
+    var opts=avail.map(function(p){return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+' ('+(p.position||'OF')+')</option>';}).join('');
+    return'<div style="flex:1;min-width:0">'
+      +'<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;color:'+(side==='aw'?'var(--acc)':'var(--blu)')+';margin-bottom:6px">'+(team?team.name:(side==='aw'?'Visitante':'Local'))+'</div>'
+      +(avail.length
+        ?('<select class="fs" id="atl-sel-'+side+'" style="margin-bottom:8px">'+opts+'</select>'
+          +'<button class="btn bp bsm" style="width:100%" data-side="'+side+'" data-tid="'+tid+'" onclick="pickAddToLineupPos(this.dataset.side,this.dataset.tid)">&#10133; Agregar al lineup</button>')
+        :'<div style="font-size:12px;color:var(--t3);padding:8px;text-align:center;border:1px dashed var(--bdr);border-radius:7px">Todo el roster ya esta en el lineup</div>')
+      +'</div>';
+  }
+  showM('<div class="mhd"><div class="mtl">&#10133; Agregar Jugador al Lineup</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">El jugador se agrega SIEMPRE despues del ultimo bateador del orden actual.</div>'
+    +'<div style="display:flex;gap:16px">'+colHtml(gm.awayTeamId,aw,'aw')+colHtml(gm.homeTeamId,hw,'hm')+'</div>'
+    +'</div>'
+  );
+}
+function pickAddToLineupPos(side,tid){
+  var sel=document.getElementById('atl-sel-'+side);
+  var pid=sel&&sel.value;
+  if(!pid){toast('Selecciona un jugador','error');return;}
+  var p=playerOf(pid);
+  var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(p&&p.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+  showM('<div class="mhd"><div class="mtl">&#9918; Posición de entrada</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div style="font-size:13px;color:var(--t2);margin-bottom:12px">#'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entrará a jugar en:</div>'
+    +'<select class="fs" id="atl-pos">'+pOpts+'</select>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" data-side="'+side+'" data-tid="'+tid+'" data-pid="'+pid+'" onclick="confirmAddToLineup(this.dataset.side,this.dataset.tid,this.dataset.pid)">Confirmar</button></div>'
+  );
+}
+async function confirmAddToLineup(side,tid,pid){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  if(!canScoreNow(gm)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
+  var pos=fv('atl-pos')||'OF';
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
+  if(!lu){toast('Lineup no encontrado','error');return;}
+  if(lu.players.some(function(lp){return lp.playerId===pid;})){toast('Ese jugador ya está en el lineup','error');return;}
+  var _before=snapshotForUndo(gm.id,[tid]);
+  var maxOrder=lu.players.reduce(function(mx,lp){return Math.max(mx,lp.order||0);},0);
+  var p=playerOf(pid);
+  lu.players.push({playerId:pid,order:maxOrder+1,position:pos,originalPosition:null,isSubstitute:true,replacedPlayerId:null,noBat:false});
+  await api('saveLineup',{lineup:lu});
+  S.lineups=S.lineups.map(function(l){return l.gameId===gm.id&&l.teamId===tid?lu:l;});
+  var _label='Jugador agregado al lineup: #'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entra jugando '+pos;
+  await logSubAction(gm.id,[tid],'add_to_lineup',_label,_before);
+  cM();pgGC();toast('Jugador agregado al lineup','success');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -14144,6 +14239,7 @@ function pgUsers(){
     return'<tr><td><b>'+u.username+'</b></td><td>'+u.name+'</td><td>'+rb+'</td>'
       +'<td><span class="badge '+(act?'bg':'br')+'">'+(act?'Activo':'Inactivo')+'</span></td>'
       +'<td style="font-size:12px;color:var(--t3)">'+(u.created?new Date(u.created).toLocaleDateString('es-DO'):'-')+'</td>'
+      +'<td style="font-size:12px;color:var(--t3)">'+(u.lastLogin?new Date(u.lastLogin).toLocaleString('es-DO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'<span style="opacity:.6">Nunca</span>')+'</td>'
       +'<td><div style="display:flex;gap:5px">'
       +'<button class="btn bs bsm" data-uid="'+u.id+'" onclick="openUM(this.dataset.uid)">Editar</button>'
       +'<button class="btn '+(act?'bd':'bg2')+' bsm" data-uid="'+u.id+'" onclick="togU(this.dataset.uid)">'+(act?'Inactivar':'Activar')+'</button>'
@@ -14154,8 +14250,8 @@ function pgUsers(){
     +'<div><div class="stl">Usuarios</div><div class="ssb">Gestion de usuarios del sistema</div></div>'
     +'<button class="btn bp" onclick="openUM(\'\')">+ Nuevo Usuario</button></div>'
     +'<div class="card" style="margin-bottom:12px"><input class="fi" id="usr-search" value="'+(_usrQ||'')+'" placeholder="&#128269; Buscar por nombre o usuario..." oninput="_usrQ=this.value;filterUsersDisplay()" style="width:280px"></div>'
-    +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Estado</th><th>Creado</th><th>Acciones</th></tr></thead>'
-    +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="6"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
+    +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Estado</th><th>Creado</th><th>Ultimo Login</th><th>Acciones</th></tr></thead>'
+    +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="7"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
   // Restore search box value and apply filter without losing focus
   var inp=document.getElementById('usr-search');
   if(inp){inp.value=_usrQ;filterUsersDisplay();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
@@ -14189,7 +14285,7 @@ async function saveU(id){
   if(pass)u.password=pass;
   var r=await api('saveUser',{user:u});
   if(r&&r.ok){
-    var saved=r.item||u;
+    var saved=Object.assign({},ex,r.item||u);
     if(!id)S.users.push(saved);
     else S.users=S.users.map(function(x){return x.id===id?saved:x;});
     cM();pgUsers();toast('Usuario guardado','success');
@@ -15130,7 +15226,7 @@ function pgSet(){
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledGoogle" '+(S.config&&S.config.adsEnabledGoogle==='true'?'checked':'')+'> Mostrar anuncios a usuarios de Google</label></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Nunca se muestran a usuarios con usuario/contraseña (staff/anotadores), sin importar estos interruptores.</div>'
       +'<div class="fg"><label class="fl">Modulos donde se muestra el banner</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel';}).map(function(m){
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
         var sel=safeAdsList(S.config&&S.config.adBannerModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adBannerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
@@ -15151,7 +15247,7 @@ function pgSet(){
         return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTrigger" value="'+t[0]+'" '+(sel?'checked':'')+'>'+t[1]+'</label>';
       }).join('')+'</div></div>'
       +'<div class="fg"><label class="fl">Modulos que disparan el intersticial al entrar (solo si "Acceder a un modulo especifico" esta marcado arriba)</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel';}).map(function(m){
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
         var sel=safeAdsList(S.config&&S.config.adInterstitialModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTriggerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
