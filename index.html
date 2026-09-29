@@ -5005,19 +5005,37 @@ function validateFriendlyLineup(players,teamName){
 // equipo/roster (ver continueFriendlySeries), sin tener que rellenar el formulario de nuevo.
 async function createAndStartFriendlyGame(cfg){
   var gid='fr_'+nid();
-  var awTeamId,hmTeamId,players;
+  var awTeamId,hmTeamId,players=[],awStarters=[],hmStarters=[];
   if(cfg.reuseTeams){
     awTeamId=cfg.reuseTeams.awayId;hmTeamId=cfg.reuseTeams.homeId;players=cfg.reuseTeams.players;
+    var prevAwL=(cfg.reuseTeams.prevLineups||[]).filter(function(l){return l.teamId===awTeamId;})[0]||{players:[]};
+    var prevHmL=(cfg.reuseTeams.prevLineups||[]).filter(function(l){return l.teamId===hmTeamId;})[0]||{players:[]};
+    // Un jugador vuelve a ser titular solo si tenia "order" en el lineup del juego anterior;
+    // si solo estaba en el roster (banca), sigue en banca para este juego tambien.
+    var awOrderMap={};prevAwL.players.forEach(function(lp){awOrderMap[lp.playerId]=lp;});
+    var hmOrderMap={};prevHmL.players.forEach(function(lp){hmOrderMap[lp.playerId]=lp;});
+    awStarters=players.filter(function(p){return p.teamId===awTeamId&&awOrderMap[p.id];})
+      .sort(function(a,b){return(awOrderMap[a.id].order||0)-(awOrderMap[b.id].order||0);})
+      .map(function(p){return{id:p.id,position:awOrderMap[p.id].position||p.position,noBat:awOrderMap[p.id].noBat===true};});
+    hmStarters=players.filter(function(p){return p.teamId===hmTeamId&&hmOrderMap[p.id];})
+      .sort(function(a,b){return(hmOrderMap[a.id].order||0)-(hmOrderMap[b.id].order||0);})
+      .map(function(p){return{id:p.id,position:hmOrderMap[p.id].position||p.position,noBat:hmOrderMap[p.id].noBat===true};});
   } else {
-    awTeamId='frt'+nid();hmTeamId='frt'+nid();players=[];
-    (cfg.awayRoster||[]).forEach(function(r){players.push({id:'frp'+nid(),name:(r.name||'').trim(),position:r.position||'OF',teamId:awTeamId,number:'',active:'true'});});
-    (cfg.homeRoster||[]).forEach(function(r){players.push({id:'frp'+nid(),name:(r.name||'').trim(),position:r.position||'OF',teamId:hmTeamId,number:'',active:'true'});});
+    awTeamId='frt'+nid();hmTeamId='frt'+nid();
+    (cfg.awayRoster||[]).forEach(function(r){
+      var pid='frp'+nid();
+      players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:awTeamId,number:'',active:'true'});
+      if(!r.banca) awStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
+    });
+    (cfg.homeRoster||[]).forEach(function(r){
+      var pid='frp'+nid();
+      players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:hmTeamId,number:'',active:'true'});
+      if(!r.banca) hmStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
+    });
   }
-  var awPl=players.filter(function(p){return p.teamId===awTeamId;});
-  var hmPl=players.filter(function(p){return p.teamId===hmTeamId;});
   var g={
     id:gid,awayTeamId:awTeamId,homeTeamId:hmTeamId,date:new Date().toISOString().slice(0,10),time:null,venue:'',
-    tournamentId:null,totalInnings:cfg.innings,unlimitedInnings:!!cfg.unlimited,numBases:3,
+    tournamentId:null,totalInnings:cfg.innings,unlimitedInnings:!!cfg.unlimited,numBases:parseInt(cfg.numBases)||3,
     status:'live',phase:'amistoso',isFriendly:true,
     currentInning:1,currentHalf:'top',outs:0,balls:0,strikes:0,awayBatterIdx:0,homeBatterIdx:0,
     awayRuns:0,homeRuns:0,awayHits:0,homeHits:0,awayErrors:0,homeErrors:0,inningScores:{},
@@ -5025,8 +5043,8 @@ async function createAndStartFriendlyGame(cfg){
     lockedBy:(S.user?S.user.id:''),lockedByName:(S.user?S.user.name:''),lockedAt:new Date().toISOString(),
     seriesId:cfg.seriesId,seriesGameNumber:cfg.seriesGameNumber,bestOf:cfg.bestOf
   };
-  var awL={gameId:gid,teamId:awTeamId,players:awPl.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:false};})};
-  var hmL={gameId:gid,teamId:hmTeamId,players:hmPl.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:false};})};
+  var awL={gameId:gid,teamId:awTeamId,players:awStarters.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:p.noBat===true};})};
+  var hmL={gameId:gid,teamId:hmTeamId,players:hmStarters.map(function(p,i){return{playerId:p.id,order:i+1,position:p.position,noBat:p.noBat===true};})};
   var rec={id:gid,seriesId:cfg.seriesId,seriesGameNumber:cfg.seriesGameNumber,bestOf:cfg.bestOf,
     createdAt:Date.now(),updatedAt:Date.now(),game:g,
     teams:{awayId:awTeamId,awayName:cfg.awayName,homeId:hmTeamId,homeName:cfg.homeName},
@@ -5043,8 +5061,8 @@ async function continueFriendlySeries(prevGameId){
   await createAndStartFriendlyGame({
     seriesId:prevRec.seriesId,seriesGameNumber:(prevRec.seriesGameNumber||1)+1,bestOf:prevRec.bestOf,
     awayName:prevRec.teams.awayName,homeName:prevRec.teams.homeName,
-    innings:prevRec.game.totalInnings,unlimited:prevRec.game.unlimitedInnings,
-    reuseTeams:{awayId:prevRec.teams.awayId,homeId:prevRec.teams.homeId,players:prevRec.players}
+    innings:prevRec.game.totalInnings,unlimited:prevRec.game.unlimitedInnings,numBases:prevRec.game.numBases,
+    reuseTeams:{awayId:prevRec.teams.awayId,homeId:prevRec.teams.homeId,players:prevRec.players,prevLineups:prevRec.lineups}
   });
 }
 async function deleteFriendlyM(gid){
@@ -5110,7 +5128,8 @@ function amFormHtml(){
     +'<div class="alert ai" style="font-size:12px;margin-bottom:12px">Este amistoso se guarda solo en este dispositivo: no crea equipos/jugadores reales ni afecta estadísticas, líderes o torneos.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Equipo Visitante *</label><input class="fi" id="am-aw-name" placeholder="Nombre del equipo"></div>'
     +'<div class="fg"><label class="fl">Equipo Local *</label><input class="fi" id="am-hm-name" placeholder="Nombre del equipo"></div></div>'
-    +'<div class="fr c2"><div class="fg"><label class="fl">Serie — mejor de cuántos juegos</label><select class="fs" id="am-bestof">'+[1,3,5,7].map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'</select></div>'
+    +'<div class="fr c3"><div class="fg"><label class="fl">Serie — mejor de cuántos juegos</label><select class="fs" id="am-bestof">'+[1,3,5,7].map(function(n){return'<option value="'+n+'">'+n+'</option>';}).join('')+'</select></div>'
+    +'<div class="fg"><label class="fl">Bases del juego</label><select class="fs" id="am-bases"><option value="2">2 bases (sin 3ra)</option><option value="3" selected>3 bases (completo)</option></select></div>'
     +'<div class="fg"><label class="fl">Entradas</label><div style="display:flex;align-items:center;gap:8px">'
     +'<input class="fi" id="am-innings" type="number" min="1" max="30" value="7" style="flex:1">'
     +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;cursor:pointer"><input type="checkbox" id="am-unlimited" onchange="document.getElementById(\'am-innings\').disabled=this.checked">Sin límite</label>'
@@ -5125,9 +5144,11 @@ function renderAmTeam(side){
   var el=document.getElementById('am-rows-'+side);if(!el)return;
   el.innerHTML=(_AM[side]||[]).map(function(r){
     var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(r.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
-    return'<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
-      +'<input class="fi" style="flex:1" id="am-name-'+side+'-'+r.rid+'" value="'+(r.name||'').replace(/"/g,'&quot;')+'" placeholder="Nombre del jugador">'
+    return'<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap">'
+      +'<input class="fi" style="flex:1;min-width:110px" id="am-name-'+side+'-'+r.rid+'" value="'+(r.name||'').replace(/"/g,'&quot;')+'" placeholder="Nombre del jugador">'
       +'<select class="fs" style="width:78px" id="am-pos-'+side+'-'+r.rid+'">'+pOpts+'</select>'
+      +'<label style="display:flex;align-items:center;gap:3px;font-size:10px;white-space:nowrap;cursor:pointer" title="El pitcher no batea (hay DH en su lugar)"><input type="checkbox" id="am-nb-'+side+'-'+r.rid+'" '+(r.noBat?'checked':'')+'> NB</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;font-size:10px;white-space:nowrap;cursor:pointer" title="Queda en banca: no inicia en el lineup, pero disponible para emergente/sustitución/cambio de pitcher"><input type="checkbox" id="am-bn-'+side+'-'+r.rid+'" '+(r.banca?'checked':'')+'> Banca</label>'
       +'<button class="btn bd" style="padding:4px 8px" data-s="'+side+'" data-r="'+r.rid+'" onclick="amRemoveRow(this.dataset.s,+this.dataset.r)">&#10005;</button>'
       +'</div>';
   }).join('')||'<div style="font-size:12px;color:var(--t3)">Agrega jugadores &rarr;</div>';
@@ -5135,13 +5156,16 @@ function renderAmTeam(side){
 function syncAmRowsFromDOM(side){
   (_AM[side]||[]).forEach(function(r){
     var ne=document.getElementById('am-name-'+side+'-'+r.rid),pe=document.getElementById('am-pos-'+side+'-'+r.rid);
+    var nbe=document.getElementById('am-nb-'+side+'-'+r.rid),bne=document.getElementById('am-bn-'+side+'-'+r.rid);
     if(ne)r.name=ne.value;
     if(pe)r.position=pe.value;
+    if(nbe)r.noBat=nbe.checked;
+    if(bne)r.banca=bne.checked;
   });
 }
 function amAddRow(side){
   syncAmRowsFromDOM(side);
-  _AM[side].push({rid:_AM._nextRid++,name:'',position:'OF'});
+  _AM[side].push({rid:_AM._nextRid++,name:'',position:'OF',noBat:false,banca:false});
   renderAmTeam(side);
 }
 function amRemoveRow(side,rid){
@@ -5155,15 +5179,18 @@ async function saveStartAmistoso(){
   if(!awName||!hmName){toast('Coloca el nombre de ambos equipos','error');return;}
   if(awName.toLowerCase()===hmName.toLowerCase()){toast('Los equipos no pueden tener el mismo nombre','error');return;}
   var bestOf=parseInt(fv('am-bestof'))||1;
+  var numBases=parseInt(fv('am-bases'))||3;
   var unlimited=document.getElementById('am-unlimited').checked;
   var innings=unlimited?9:(parseInt(fv('am-innings'))||7);
   var awPlayers=(_AM.aw||[]).filter(function(r){return(r.name||'').trim();});
   var hmPlayers=(_AM.hm||[]).filter(function(r){return(r.name||'').trim();});
-  var errAw=validateFriendlyLineup(awPlayers,awName);if(errAw){toast(errAw,'error');return;}
-  var errHm=validateFriendlyLineup(hmPlayers,hmName);if(errHm){toast(errHm,'error');return;}
+  var awStarterRows=awPlayers.filter(function(r){return !r.banca;});
+  var hmStarterRows=hmPlayers.filter(function(r){return !r.banca;});
+  var errAw=validateFriendlyLineup(awStarterRows,awName);if(errAw){toast(errAw,'error');return;}
+  var errHm=validateFriendlyLineup(hmStarterRows,hmName);if(errHm){toast(errHm,'error');return;}
   await createAndStartFriendlyGame({
     seriesId:'frs'+nid(),seriesGameNumber:1,bestOf:bestOf,
-    awayName:awName,homeName:hmName,innings:innings,unlimited:unlimited,
+    awayName:awName,homeName:hmName,innings:innings,unlimited:unlimited,numBases:numBases,
     awayRoster:awPlayers,homeRoster:hmPlayers
   });
 }
@@ -14544,6 +14571,37 @@ function exportToVsToPDF(){
 
 // USERS
 var _usrQ='';
+var _usrSortDir=''; // '', 'asc', 'desc' — ordena por Ultimo Login
+function toggleUsrSort(){
+  _usrSortDir=_usrSortDir==='asc'?'desc':(_usrSortDir==='desc'?'':'asc');
+  pgUsers();
+}
+// Nombre(s) del/los torneo(s) padre a los que tiene acceso un usuario, para la columna
+// "Torneos Padre" del modulo Usuarios. Misma logica de acceso que visibleParentTournaments()
+// pero evaluada para UN usuario cualquiera de la lista (no necesariamente S.user).
+function userParentTourNames(u){
+  if(!u) return 'Todos';
+  if(u.role==='google'){
+    var owned=(S.parentTournaments||[]).filter(function(pt){return pt.createdBy===u.id;});
+    return owned.length?owned.map(function(pt){return pt.name;}).join(', '):'<span style="opacity:.6">Ninguno aún</span>';
+  }
+  if(u.role==='admin') return 'Todos';
+  var prof=(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
+  if(!prof) return 'Todos';
+  if(prof.parentTournaments&&prof.parentTournaments.length){
+    var names=prof.parentTournaments.map(function(id){var pt=(S.parentTournaments||[]).filter(function(p){return p.id===id;})[0];return pt?pt.name:null;}).filter(Boolean);
+    return names.length?names.join(', '):'Todos';
+  }
+  if(prof.tournaments&&prof.tournaments.length){
+    var ptids=prof.tournaments.map(function(x){return String(x);});
+    var allowedSubs=(S.tournaments||[]).filter(function(t){return ptids.indexOf(String(t.id))>=0;});
+    var parentIds=[];
+    allowedSubs.forEach(function(t){if(t.parentTournamentId&&parentIds.indexOf(t.parentTournamentId)<0)parentIds.push(t.parentTournamentId);});
+    var names2=parentIds.map(function(id){var pt=(S.parentTournaments||[]).filter(function(p){return p.id===id;})[0];return pt?pt.name:null;}).filter(Boolean);
+    return names2.length?names2.join(', '):'Todos';
+  }
+  return 'Todos';
+}
 function filterUsersDisplay(){
   var q=(_usrQ||'').toLowerCase();
   var tbody=document.querySelector('#usr-table tbody');
@@ -14560,11 +14618,20 @@ function filterUsersDisplay(){
 }
 function pgUsers(){
   var q=''; // render all rows, filtering is DOM-only
-  var rows=S.users.map(function(u){
+  var usersSorted=S.users.slice();
+  if(_usrSortDir){
+    usersSorted.sort(function(a,b){
+      var ta=a.lastLogin?new Date(a.lastLogin).getTime():0;
+      var tb=b.lastLogin?new Date(b.lastLogin).getTime():0;
+      return _usrSortDir==='asc'?ta-tb:tb-ta;
+    });
+  }
+  var rows=usersSorted.map(function(u){
     var prof=(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
     var rb=u.role==='admin'?'<span class="badge bo">Admin</span>':prof?'<span class="badge bb">'+prof.name+'</span>':'<span class="badge bgr">Anotador</span>';
     var act=String(u.active)==='true';
     return'<tr><td><b>'+u.username+'</b></td><td>'+u.name+'</td><td>'+rb+'</td>'
+      +'<td style="font-size:12px;color:var(--t3)">'+userParentTourNames(u)+'</td>'
       +'<td><span class="badge '+(act?'bg':'br')+'">'+(act?'Activo':'Inactivo')+'</span></td>'
       +'<td style="font-size:12px;color:var(--t3)">'+(u.created?new Date(u.created).toLocaleDateString('es-DO'):'-')+'</td>'
       +'<td style="font-size:12px;color:var(--t3)">'+(u.lastLogin?new Date(u.lastLogin).toLocaleString('es-DO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'<span style="opacity:.6">Nunca</span>')+'</td>'
@@ -14574,12 +14641,13 @@ function pgUsers(){
       +'<button class="btn bd bsm" data-uid="'+u.id+'" onclick="delU(this.dataset.uid)">&#128465;</button>'
       +'</div></td></tr>';
   }).join('');
+  var sortIc=_usrSortDir==='asc'?'&#9650;':(_usrSortDir==='desc'?'&#9660;':'&#8597;');
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Usuarios</div><div class="ssb">Gestion de usuarios del sistema</div></div>'
     +'<button class="btn bp" onclick="openUM(\'\')">+ Nuevo Usuario</button></div>'
     +'<div class="card" style="margin-bottom:12px"><input class="fi" id="usr-search" value="'+(_usrQ||'')+'" placeholder="&#128269; Buscar por nombre o usuario..." oninput="_usrQ=this.value;filterUsersDisplay()" style="width:280px"></div>'
-    +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Estado</th><th>Creado</th><th>Ultimo Login</th><th>Acciones</th></tr></thead>'
-    +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="7"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
+    +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Torneos Padre</th><th>Estado</th><th>Creado</th><th style="cursor:pointer;white-space:nowrap" onclick="toggleUsrSort()" title="Ordenar por Ultimo Login">Ultimo Login <span id="usr-sort-ic">'+sortIc+'</span></th><th>Acciones</th></tr></thead>'
+    +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="8"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
   // Restore search box value and apply filter without losing focus
   var inp=document.getElementById('usr-search');
   if(inp){inp.value=_usrQ;filterUsersDisplay();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
