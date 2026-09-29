@@ -2891,7 +2891,11 @@ function autoSubTour(parentId, year){
     if(sfStr2&&subs.filter(function(t){return String(t.id)===sfStr2;}).length)return sfStr2;
     return String(mostRecentlyRegistered(subs).id);
   }
-  return S.tourFilter?String(S.tourFilter):'';
+  // El torneo padre (o el combo padre+año) seleccionado no tiene NINGUN subtorneo propio:
+  // no hay nada que auto-seleccionar. Antes esto devolvia el S.tourFilter viejo tal cual,
+  // lo que dejaba el selector de Subtorneo y los modulos (Standings, Stats, etc.) mostrando
+  // el subtorneo/datos de OTRO torneo padre seleccionado previamente.
+  return '';
 }
 function setYearFilter(val){
   S.yearFilter=parseInt(val)||0;
@@ -2928,8 +2932,11 @@ function toursByYear(){
     base=visibleTournaments().filter(function(t){
       return String(t.parentTournamentId)===_ptfStr;
     });
-    // If filter returns nothing, fall back to all visible (migration safety)
-    if(!base.length) base=visibleTournaments();
+    // Ya NO se hace fallback a "todos los subtorneos visibles" cuando el padre filtrado no
+    // tiene ninguno propio: ese fallback hacia que el selector de Subtorneo (y todo lo que
+    // depende de toursByYear/gamesByYear, como Standings/Stats/Lideres) mostrara subtorneos
+    // y datos de OTROS torneos padre. Si el padre simplemente no tiene subtorneos aun, la
+    // vista debe quedar vacia — no inventar contenido de otro torneo.
   } else {
     base=visibleTournaments();
   }
@@ -10393,10 +10400,16 @@ function pgStand(){
   var _sfStr=S.tourFilter?String(S.tourFilter):'';
   var tid=_sfStr&&vt.filter(function(t){return String(t.id)===_sfStr;}).length?_sfStr:'';
   var tour=tid?vt.filter(function(t){return String(t.id)===tid;})[0]:null;
-  // If still no tour found, try all visible tournaments (e.g. tourFilter points outside current parent/year scope)
+  // If still no tour found within the current parent/year scope, try other visible tournaments
+  // but NEVER cross into a different torneo padre than the one filtrado (eso era lo que dejaba
+  // Standings mostrando el torneo padre anterior cuando el nuevo no tenia subtorneos aun).
   if(!tour&&S.tourFilter){
-    tour=visibleTournaments().filter(function(t){return String(t.id)===String(S.tourFilter);})[0]||null;
-    if(tour){tid=String(tour.id);vt=vt.concat([tour]);}
+    var _candTour=visibleTournaments().filter(function(t){return String(t.id)===String(S.tourFilter);})[0]||null;
+    if(_candTour&&(!S.parentTourFilter||String(_candTour.parentTournamentId)===String(S.parentTourFilter))){
+      tour=_candTour;tid=String(tour.id);vt=vt.concat([tour]);
+    } else {
+      S.tourFilter='';
+    }
   }
   // CONSOLIDADO: cuando no hay un subtorneo especifico seleccionado ("Todos"), se agregan
   // los datos de TODOS los subtorneos visibles del torneo padre + año filtrados.
