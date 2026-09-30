@@ -2819,12 +2819,14 @@ function resyncTourId(moduleKey,currentTourId){
   var combo=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
   var valid=toursByYear().map(function(t){return String(t.id);});
   var comboChanged=_lastFilterCombo[moduleKey]!==combo;
-  // Salvaguarda: si "valid" viene sospechosamente vacio (posible carga incompleta de
-  // S.tournaments durante un poll automatico en curso) pero ya habia una seleccion previa
-  // del usuario para este modulo, no se pisa esa seleccion — se mantiene tal cual hasta que
-  // los datos completos confirmen si sigue siendo valida o no. Esto evita que el filtro de
-  // subtorneo "salte a Todos" solo por una condicion de carrera transitoria en el refresco.
-  if(!valid.length&&currentTourId) return String(currentTourId);
+  // Salvaguarda: si "valid" viene sospechosamente vacio SOLO por una carga incompleta de
+  // S.tournaments/S.parentTournaments durante un poll automatico en curso (nada ha cargado
+  // todavia), no se pisa una seleccion previa del usuario. Pero si los datos YA cargaron y el
+  // torneo padre filtrado simplemente no tiene subtorneos propios, esta guarda NO debe
+  // aplicar — antes se aplicaba siempre, dejando el subtorneo (y sus datos) de OTRO torneo
+  // padre "pegado" en modulos como Canales en Vivo.
+  var dataLooksLoaded=(S.parentTournaments&&S.parentTournaments.length)||(S.tournaments&&S.tournaments.length);
+  if(!valid.length&&currentTourId&&!dataLooksLoaded) return String(currentTourId);
   _lastFilterCombo[moduleKey]=combo;
   // IMPORTANTE: aunque el torneo padre este en "Todos" (S.parentTourFilter vacio), si el
   // usuario ya habia elegido manualmente un subtorneo especifico y ese combo no cambio y el
@@ -3987,7 +3989,12 @@ function renderPlayersTable(){
 function pgTeams(){
   var isA=S.user&&S.user.role==='admin';
   var isPub=S.user&&S.user.role==='public';
-  var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
+  // Alcance por torneo padre + año, igual que gamesByYear(): antes esto solo filtraba por año
+  // y por el subtorneo especifico (si habia uno elegido), pero en "Todos" (sin subtorneo
+  // especifico) mostraba TODOS los equipos de TODOS los torneos padre, sin importar cual
+  // estuviera filtrado arriba.
+  var scopeTourIds=toursByYear().map(function(t){return String(t.id);});
+  var vt=visibleTeams().filter(function(t){return !t.tournamentId||scopeTourIds.indexOf(String(t.tournamentId))>=0;});
   var tf=(S.tourFilter?vt.filter(function(t){return t.tournamentId===S.tourFilter;}):vt).slice().sort(function(a,b){return (a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
   var tOpts='<option value="">Todos los torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var plr=buildPlayersRows();
@@ -14753,7 +14760,14 @@ function pgChannels(){
   var isA=S.user&&S.user.role!=='public'&&canDo('create','channels');
   S.chTourFilter=resyncTourId('channels',S.chTourFilter);
   var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.chTourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  var chs=(S.channels||[]).filter(function(c){return!S.chTourFilter||c.tournamentId===S.chTourFilter;});
+  var chScopeIds=toursByYear().map(function(t){return String(t.id);});
+  var chs=(S.channels||[]).filter(function(c){
+    if(S.chTourFilter) return c.tournamentId===S.chTourFilter;
+    if(!c.tournamentId) return true; // canal global, sin torneo asignado — siempre visible
+    // "Todos" (sin subtorneo especifico): antes mostraba TODOS los canales sin importar el
+    // torneo padre filtrado arriba. Ahora se acota a los subtorneos del padre seleccionado.
+    return chScopeIds.indexOf(String(c.tournamentId))>=0;
+  });
   var cards=chs.map(function(c){
     var plt=getPlatform(c.url);
     var ico=PLATFORM_ICONS[plt]||'📺';
