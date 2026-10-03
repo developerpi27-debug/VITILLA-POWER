@@ -3184,7 +3184,12 @@ function renderApp(){
   });
   if(u.role!=='public'&&u.role!=='google'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
   document.getElementById('snav').innerHTML=nm;
-  goNav(u.role==='public'?'standings':(mods[0]?mods[0].id:'dashboard'));
+  // Si la URL ya trae un modulo/filtros (recarga de pagina, link directo, o volviendo de un
+  // "Atras" del navegador), se restaura esa vista en vez de forzar siempre el modulo por
+  // defecto.
+  if(!applyRouteFromUrl()){
+    goNav(u.role==='public'?'standings':(mods[0]?mods[0].id:'dashboard'));
+  }
 }
 var _sbCollapsed=false;
 function toggleSidebar(){
@@ -3269,6 +3274,194 @@ function toggleTheme(){
   applyTheme();
   try{ localStorage.setItem('vp_theme',_THEME); }catch(e){}
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// ENRUTAMIENTO (History API) — cada modulo, y sus filtros principales, quedan
+// reflejados en la URL (#/modulo?parametros), para que el boton "Atras" del
+// navegador navegue entre modulos/filtros en vez de perderse o salir de la app.
+// Sigue siendo UN SOLO index.html: no se crean paginas nuevas, solo se actualiza
+// la URL a medida que se navega — igual que cualquier SPA moderna.
+// ═══════════════════════════════════════════════════════════════════════════
+var _routing=false;        // true mientras se esta APLICANDO una URL entrante
+                            // (popstate/carga inicial): evita volver a empujarla
+var _lastRoutedModule=null;
+var _routePushTimer=null;
+var _firstRouteSet=true;   // la PRIMERA vez que se fija una ruta en esta carga de pagina se
+                            // usa replaceState (no pushState), para no dejar una entrada de
+                            // historial "vacia" extra antes del modulo inicial
+function buildRouteUrl(moduleId){
+  var p=new URLSearchParams();
+  if(S.parentTourFilter) p.set('parent',S.parentTourFilter);
+  if(S.yearFilter) p.set('year',S.yearFilter);
+  if(S.tourFilter) p.set('tour',S.tourFilter);
+  if(S.sportFilter) p.set('sport',S.sportFilter);
+  if(S.phaseFilter) p.set('phase',S.phaseFilter);
+  if((moduleId==='stats'||moduleId==='statslife')&&typeof _ST!=='undefined'&&_ST.search) p.set('q',_ST.search);
+  if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined'&&_SL.search) p.set('q',_SL.search);
+  if(moduleId==='schedule'){
+    if(S._schedTeamQ) p.set('q',S._schedTeamQ);
+    if(typeof _schedPhaseFilter!=='undefined'&&_schedPhaseFilter) p.set('fase',_schedPhaseFilter);
+    if(S._schedDateFilter) p.set('fecha',S._schedDateFilter);
+  }
+  if(moduleId==='users'&&typeof _usrQ!=='undefined'&&_usrQ) p.set('q',_usrQ);
+  if(moduleId==='channels'&&S.chTourFilter) p.set('ctour',S.chTourFilter);
+  if(moduleId==='gamecontrol'&&S.game) p.set('game',S.game);
+  if(moduleId==='stats'&&typeof _ST!=='undefined'){
+    if(_ST.tourId) p.set('stour',_ST.tourId);
+    if(_ST.divFilter) p.set('sdiv',_ST.divFilter);
+    if(_ST.dateFrom) p.set('dfrom',_ST.dateFrom);
+    if(_ST.dateTo) p.set('dto',_ST.dateTo);
+    if(_ST.activeTab) p.set('stab',_ST.activeTab);
+  }
+  if(moduleId==='statslife'&&typeof _ST!=='undefined'&&_ST.activeTab) p.set('stab',_ST.activeTab);
+  if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined'&&_SL.activeTab) p.set('ltab',_SL.activeTab);
+  if(moduleId==='rankings'&&typeof _RK!=='undefined'){
+    if(_RK.tourId) p.set('rtour',_RK.tourId);
+    if(_RK.divFilter) p.set('rdiv',_RK.divFilter);
+    if(_RK.search) p.set('q',_RK.search);
+  }
+  if(moduleId==='awards'){
+    if(typeof _awTour!=='undefined'&&_awTour) p.set('awtour',_awTour);
+    if(typeof _awDivFilter!=='undefined'&&_awDivFilter) p.set('awdiv',_awDivFilter);
+  }
+  if(moduleId==='profiles'&&typeof _pfSearch!=='undefined'&&_pfSearch) p.set('q',_pfSearch);
+  if(moduleId==='teams'&&typeof _plSearch!=='undefined'&&_plSearch) p.set('q',_plSearch);
+  if(moduleId==='standings'&&typeof _standDivFilter!=='undefined'&&_standDivFilter) p.set('div',_standDivFilter);
+  if(moduleId==='tovsto'&&typeof _TVT!=='undefined'){
+    if(_TVT.mode) p.set('mode',_TVT.mode);
+    if(_TVT.p1) p.set('p1',_TVT.p1);
+    if(_TVT.p2) p.set('p2',_TVT.p2);
+    if(_TVT.t1) p.set('t1',_TVT.t1);
+    if(_TVT.t2) p.set('t2',_TVT.t2);
+    if(_TVT.tourId) p.set('ttour',_TVT.tourId);
+    if(_TVT.year) p.set('tyear',_TVT.year);
+    if(_TVT.tab) p.set('tab',_TVT.tab);
+    if(_TVT.phase) p.set('tphase',_TVT.phase);
+    if(_TVT.teamTab) p.set('teamtab',_TVT.teamTab);
+  }
+  var qs=p.toString();
+  return '#/'+moduleId+(qs?'?'+qs:'');
+}
+function pushRoute(moduleId){
+  if(_routing||!moduleId)return;
+  var url=buildRouteUrl(moduleId);
+  if(url===(location.hash||''))return;
+  var isModuleChange=(moduleId!==_lastRoutedModule);
+  _lastRoutedModule=moduleId;
+  clearTimeout(_routePushTimer);
+  if(_firstRouteSet){
+    _firstRouteSet=false;
+    try{history.replaceState({m:moduleId},'',url);}catch(e){}
+    return;
+  }
+  if(isModuleChange){
+    try{history.pushState({m:moduleId},'',url);}catch(e){}
+  } else {
+    // Cambios de filtro/busqueda DENTRO del mismo modulo se agrupan (debounce): escribir en
+    // un buscador no genera una entrada de historial por cada letra, solo UNA cuando el
+    // usuario deja de escribir/filtrar — asi "Atras" regresa a la version limpia de antes.
+    _routePushTimer=setTimeout(function(){
+      try{history.pushState({m:moduleId},'',url);}catch(e){}
+    },600);
+  }
+}
+function applyRouteFromUrl(){
+  var h=location.hash||'';
+  var m=h.match(/^#\/([a-zA-Z0-9_]+)(?:\?(.*))?$/);
+  if(!m)return false;
+  var moduleId=m[1];
+  if(!hasModuleAccess(moduleId)&&moduleId!=='myprofile')return false;
+  var p=new URLSearchParams(m[2]||'');
+  if(p.has('parent'))S.parentTourFilter=p.get('parent');
+  if(p.has('year'))S.yearFilter=parseInt(p.get('year'))||0;
+  if(p.has('tour'))S.tourFilter=p.get('tour');
+  if(p.has('sport'))S.sportFilter=p.get('sport');
+  if(p.has('phase'))S.phaseFilter=p.get('phase');
+  if(moduleId==='gamecontrol'&&p.has('game')&&isFriendlyGameId(p.get('game'))){
+    // Los amistosos viven solo en IndexedDB: hay que re-inyectar su equipo/roster (async)
+    // antes de poder renderizar Control de Juego con ellos (ver activateFriendlyInjection).
+    _routing=true;_lastRoutedModule=moduleId;_firstRouteSet=false;
+    var fgid=p.get('game');
+    activateFriendlyInjection(fgid).then(function(){
+      S.game=fgid;curP='gamecontrol';
+      document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
+      var nel=document.getElementById('nv-gamecontrol');if(nel)nel.classList.add('on');
+      var ptl=document.getElementById('ptl');if(ptl)ptl.textContent=TITLES.gamecontrol||'gamecontrol';
+      initPGS();if(PGS.gamecontrol)PGS.gamecontrol();
+      _routing=false;
+    });
+    return true;
+  }
+  _routing=true;
+  try{
+    var q=p.get('q')||'';
+    if((moduleId==='stats'||moduleId==='statslife')&&typeof _ST!=='undefined')_ST.search=q;
+    if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined')_SL.search=q;
+    if(moduleId==='schedule'){
+      S._schedTeamQ=q;
+      if(p.has('fase')&&typeof _schedPhaseFilter!=='undefined')_schedPhaseFilter=p.get('fase');
+      if(p.has('fecha'))S._schedDateFilter=p.get('fecha');
+    }
+    if(moduleId==='users')_usrQ=q;
+    if(moduleId==='channels'&&p.has('ctour'))S.chTourFilter=p.get('ctour');
+    if(moduleId==='gamecontrol'&&p.has('game'))S.game=p.get('game');
+    if(moduleId==='stats'&&typeof _ST!=='undefined'){
+      _ST.search=q;
+      if(p.has('stour'))_ST.tourId=p.get('stour');
+      if(p.has('sdiv'))_ST.divFilter=p.get('sdiv');
+      if(p.has('dfrom'))_ST.dateFrom=p.get('dfrom');
+      if(p.has('dto'))_ST.dateTo=p.get('dto');
+      if(p.has('stab'))_ST.activeTab=p.get('stab');
+    }
+    if(moduleId==='statslife'&&typeof _ST!=='undefined'){
+      _ST.search=q;
+      if(p.has('stab'))_ST.activeTab=p.get('stab');
+    }
+    if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined'){
+      _SL.search=q;
+      if(p.has('ltab'))_SL.activeTab=p.get('ltab');
+    }
+    if(moduleId==='rankings'&&typeof _RK!=='undefined'){
+      if(p.has('rtour'))_RK.tourId=p.get('rtour');
+      if(p.has('rdiv'))_RK.divFilter=p.get('rdiv');
+      _RK.search=q;
+    }
+    if(moduleId==='awards'){
+      if(p.has('awtour')&&typeof _awTour!=='undefined')_awTour=p.get('awtour');
+      if(p.has('awdiv')&&typeof _awDivFilter!=='undefined')_awDivFilter=p.get('awdiv');
+    }
+    if(moduleId==='profiles'&&typeof _pfSearch!=='undefined')_pfSearch=q;
+    if(moduleId==='teams'&&typeof _plSearch!=='undefined')_plSearch=q;
+    if(moduleId==='standings'&&typeof _standDivFilter!=='undefined'&&p.has('div'))_standDivFilter=p.get('div');
+    if(moduleId==='tovsto'&&typeof _TVT!=='undefined'){
+      if(p.has('mode'))_TVT.mode=p.get('mode');
+      if(p.has('p1'))_TVT.p1=p.get('p1');
+      if(p.has('p2'))_TVT.p2=p.get('p2');
+      if(p.has('t1'))_TVT.t1=p.get('t1');
+      if(p.has('t2'))_TVT.t2=p.get('t2');
+      if(p.has('ttour'))_TVT.tourId=p.get('ttour');
+      if(p.has('tyear'))_TVT.year=parseInt(p.get('tyear'))||0;
+      if(p.has('tab'))_TVT.tab=p.get('tab');
+      if(p.has('tphase'))_TVT.phase=p.get('tphase');
+      if(p.has('teamtab'))_TVT.teamTab=p.get('teamtab');
+    }
+    if(moduleId!=='gamecontrol'&&S._activeFriendlyId)deactivateFriendlyInjection();
+    _lastRoutedModule=moduleId;_firstRouteSet=false;
+    curP=moduleId;
+    document.querySelectorAll('.ni').forEach(function(el){el.classList.remove('on');});
+    var el=document.getElementById('nv-'+moduleId);if(el)el.classList.add('on');
+    var ptl2=document.getElementById('ptl');if(ptl2)ptl2.textContent=TITLES[moduleId]||moduleId;
+    initPGS();
+    if(PGS[moduleId])PGS[moduleId]();
+    else ct('<div class="empty"><div style="font-size:36px">&#128679;</div><div>En construccion</div></div>');
+    if(typeof applyAdsUI==='function')applyAdsUI();
+  } finally { _routing=false; }
+  return true;
+}
+window.addEventListener('popstate',function(){
+  if(!S.user)return; // sin sesion todavia no hay nada que enrutar
+  if(!applyRouteFromUrl()) goNav(S.user.role==='public'?'standings':'dashboard');
+});
+
 function goNav(page){
   if(!S_isOnline&&!OFFLINE_ALLOWED_PAGES[page]){
     toast('Sin conexión: solo Calendario y Control de Juego están disponibles.','error');
@@ -3298,7 +3491,7 @@ function goNav(page){
 }
 
 // UI HELPERS
-function ct(html){document.getElementById('ct').innerHTML=html;}
+function ct(html){document.getElementById('ct').innerHTML=html;pushRoute(curP);}
 function fv(id){var e=document.getElementById(id);return e?(e.value||''):'';} 
 function nid(){return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function tmNm(id){var t=S.tournaments.filter(function(x){return x.id===id;})[0];return t?t.name:'—';}
