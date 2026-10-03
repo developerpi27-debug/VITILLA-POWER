@@ -1057,7 +1057,7 @@ async function pingUrl(url){
 // applyOfflineNavLock/goNav) mientras no haya conexion real.
 // ═══════════════════════════════════════════════════════════
 var IDB_NAME='vitillaOfflineDB';
-var IDB_VERSION=2;
+var IDB_VERSION=3;
 var _idbPromise=null;
 function idbOpen(){
   if(_idbPromise)return _idbPromise;
@@ -1072,6 +1072,9 @@ function idbOpen(){
       // Amistosos: cada registro es UN juego amistoso completo y autocontenido (equipo,
       // roster, lineup, jugadas, pitcheo) — nunca sale de este dispositivo ni pasa por 'outbox'.
       if(!db.objectStoreNames.contains('friendlies'))db.createObjectStore('friendlies',{keyPath:'id'});
+      // Plantillas de roster reutilizables para Amistoso (nombre + lista de jugadores con
+      // nombre/posicion) — tambien 100% locales, nunca en Supabase.
+      if(!db.objectStoreNames.contains('friendlyTemplates'))db.createObjectStore('friendlyTemplates',{keyPath:'id'});
     };
     req.onsuccess=function(ev){resolve(ev.target.result);};
     req.onerror=function(){reject(req.error);};
@@ -5290,7 +5293,7 @@ async function deleteFriendlyM(gid){
 function pgAmistoso(){
   ct('<div class="stl">&#129309; Amistoso</div>'
     +'<div class="ssb">Partidos amistosos — se guardan solo en este dispositivo, nunca en la nube</div>'
-    +(canDo('create','amistoso')?'<button class="btn bp" style="margin:10px 0" onclick="openAmistosoFormM()">&#43; Programar Encuentro</button>':'')
+    +(canDo('create','amistoso')?'<div style="display:flex;gap:10px;margin:10px 0"><button class="btn bp" onclick="openAmistosoFormM()">&#43; Programar Encuentro</button><button class="btn bs" onclick="openTemplatesM()">&#128221; Plantillas de Roster</button></div>':'')
     +'<div id="am-list" class="empty"><div style="font-size:36px">&#8987;</div><div>Cargando...</div></div>');
   renderAmistosoList();
 }
@@ -5328,10 +5331,125 @@ async function renderAmistosoList(){
   el.innerHTML=html;
 }
 
+// ── Plantillas de roster reutilizables (nombre+posicion por jugador) ────────
+// Igual que los amistosos: viven solo en IndexedDB, nunca en Supabase. Sirven para no
+// tener que escribir el roster completo cada vez que se programa un amistoso.
+function listFriendlyTemplates(){ return idbGetAll('friendlyTemplates'); }
+function getFriendlyTemplate(id){ return idbGet('friendlyTemplates',id); }
+async function openTemplatesM(){ showM(await templatesListHtml(),'mlg'); }
+async function templatesListHtml(){
+  var tpls=await listFriendlyTemplates();
+  tpls.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
+  return'<div class="mhd"><div class="mtl">&#128221; Plantillas de Roster</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<button class="btn bp" style="margin-bottom:12px" onclick="openTemplateEditM(null)">&#43; Nueva Plantilla</button>'
+    +(tpls.length?tpls.map(function(t){
+      return'<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:10px 14px">'
+        +'<div><b>'+t.name+'</b><div style="font-size:11px;color:var(--t3)">'+(t.players||[]).length+' jugador(es)</div></div>'
+        +'<div style="display:flex;gap:6px">'
+        +'<button class="btn bs bsm" data-id="'+t.id+'" onclick="openTemplateEditM(this.dataset.id)">Editar</button>'
+        +'<button class="btn bd bsm" data-id="'+t.id+'" onclick="deleteTemplateM(this.dataset.id)">&#128465;</button>'
+        +'</div></div>';
+    }).join(''):'<div class="empty"><div style="font-size:36px">&#128221;</div><div>No hay plantillas guardadas</div></div>')
+    +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>';
+}
+var _AMT={id:null,_nextRid:1,name:'',rows:[]};
+async function openTemplateEditM(id){
+  if(id){
+    var t=await getFriendlyTemplate(id);
+    if(!t){toast('Plantilla no encontrada','error');return;}
+    _AMT={id:id,_nextRid:1,name:t.name||'',rows:[]};
+    _AMT.rows=(t.players||[]).map(function(pl){return{rid:_AMT._nextRid++,name:pl.name||'',position:pl.position||'OF'};});
+  } else {
+    _AMT={id:null,_nextRid:1,name:'',rows:[]};
+  }
+  showM(templateEditHtml(),'mlg');
+  renderAmtRows();
+}
+function templateEditHtml(){
+  return'<div class="mhd"><div class="mtl">&#128221; '+(_AMT.id?'Editar':'Nueva')+' Plantilla</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="fg"><label class="fl">Nombre de la plantilla *</label><input class="fi" id="amt-name" value="'+(_AMT.name||'').replace(/"/g,'&quot;')+'" placeholder="Ej: Mi equipo titular"></div>'
+    +'<div id="amt-rows" style="margin-top:10px"></div>'
+    +'<button class="btn bs" style="margin-top:6px" onclick="amtAddRow()">&#43; Agregar Jugador</button>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="openTemplatesM()">&larr; Volver</button><button class="btn bp" onclick="saveTemplateForm()">Guardar Plantilla</button></div>';
+}
+function renderAmtRows(){
+  var el=document.getElementById('amt-rows');if(!el)return;
+  el.innerHTML=(_AMT.rows||[]).map(function(r){
+    var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(r.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+    return'<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">'
+      +'<input class="fi" style="flex:1" id="amt-name-'+r.rid+'" value="'+(r.name||'').replace(/"/g,'&quot;')+'" placeholder="Nombre del jugador">'
+      +'<select class="fs" style="width:78px" id="amt-pos-'+r.rid+'">'+pOpts+'</select>'
+      +'<button class="btn bd" style="padding:4px 8px" data-r="'+r.rid+'" onclick="amtRemoveRow(+this.dataset.r)">&#10005;</button>'
+      +'</div>';
+  }).join('')||'<div style="font-size:12px;color:var(--t3)">Agrega jugadores &rarr;</div>';
+}
+function syncAmtRowsFromDOM(){
+  (_AMT.rows||[]).forEach(function(r){
+    var ne=document.getElementById('amt-name-'+r.rid),pe=document.getElementById('amt-pos-'+r.rid);
+    if(ne)r.name=ne.value;
+    if(pe)r.position=pe.value;
+  });
+}
+function amtAddRow(){
+  syncAmtRowsFromDOM();
+  _AMT.rows.push({rid:_AMT._nextRid++,name:'',position:'OF'});
+  renderAmtRows();
+}
+function amtRemoveRow(rid){
+  syncAmtRowsFromDOM();
+  _AMT.rows=_AMT.rows.filter(function(r){return r.rid!==rid;});
+  renderAmtRows();
+}
+async function saveTemplateForm(){
+  syncAmtRowsFromDOM();
+  var name=fv('amt-name').trim();
+  if(!name){toast('Coloca un nombre para la plantilla','error');return;}
+  var players=(_AMT.rows||[]).filter(function(r){return(r.name||'').trim();}).map(function(r){return{name:r.name.trim(),position:r.position||'OF'};});
+  if(!players.length){toast('Agrega al menos un jugador','error');return;}
+  var existingCreatedAt=null;
+  if(_AMT.id){var existing=await getFriendlyTemplate(_AMT.id);existingCreatedAt=existing&&existing.createdAt;}
+  var rec={id:_AMT.id||('tpl'+nid()),name:name,players:players,createdAt:existingCreatedAt||Date.now(),updatedAt:Date.now()};
+  await idbPut('friendlyTemplates',rec);
+  toast('Plantilla guardada','success');
+  showM(await templatesListHtml(),'mlg');
+}
+async function deleteTemplateM(id){
+  if(!confirm('¿Eliminar esta plantilla? Esta acción no se puede deshacer.'))return;
+  await idbDelete('friendlyTemplates',id);
+  toast('Plantilla eliminada','info');
+  showM(await templatesListHtml(),'mlg');
+}
+function templateLoaderHtml(side){
+  var tpls=_AM._templates||[];
+  if(!tpls.length)return'';
+  var opts='<option value="">-- Cargar plantilla --</option>'+tpls.map(function(t){return'<option value="'+t.id+'">'+t.name+' ('+(t.players||[]).length+')</option>';}).join('');
+  return'<div style="display:flex;gap:6px;margin-bottom:8px"><select class="fs" style="flex:1" id="am-tplsel-'+side+'">'+opts+'</select>'
+    +'<button class="btn bs" style="white-space:nowrap" data-s="'+side+'" onclick="loadTemplateIntoSide(this.dataset.s)">Cargar</button></div>';
+}
+async function loadTemplateIntoSide(side){
+  var sel=document.getElementById('am-tplsel-'+side);
+  var tid=sel&&sel.value;
+  if(!tid)return;
+  var t=await getFriendlyTemplate(tid);
+  if(!t){toast('Plantilla no encontrada','error');return;}
+  syncAmRowsFromDOM(side);
+  if((_AM[side]||[]).some(function(r){return(r.name||'').trim();})){
+    if(!confirm('Esto reemplaza el roster actual de este equipo con la plantilla "'+t.name+'". ¿Continuar?'))return;
+  }
+  _AM[side]=(t.players||[]).map(function(pl){return{rid:_AM._nextRid++,name:pl.name,position:pl.position||'OF',noBat:false,banca:false};});
+  renderAmTeam(side);
+  toast('Plantilla cargada — ajusta posición, NB o Banca si hace falta','success');
+}
+
 // ── Formulario: programar (y de una vez iniciar) un encuentro amistoso ──────
-var _AM={_nextRid:1,aw:[],hm:[]};
-function openAmistosoFormM(){
-  _AM={_nextRid:1,aw:[],hm:[]};
+var _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+async function openAmistosoFormM(){
+  _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+  _AM._templates=await listFriendlyTemplates();
+  _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
   showM(amFormHtml(),'mlg');
   renderAmTeam('aw');renderAmTeam('hm');
 }
@@ -5348,8 +5466,8 @@ function amFormHtml(){
     +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;cursor:pointer"><input type="checkbox" id="am-unlimited" onchange="document.getElementById(\'am-innings\').disabled=this.checked">Sin límite</label>'
     +'</div></div></div>'
     +'<div class="g2" style="gap:20px;margin-top:6px">'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster Visitante</div><div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster Local</div><div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster Visitante</div>'+templateLoaderHtml('aw')+'<div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster Local</div>'+templateLoaderHtml('hm')+'<div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
     +'</div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="saveStartAmistoso()">Guardar e Iniciar &#9654;</button></div>';
 }
