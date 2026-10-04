@@ -45,7 +45,14 @@
      la altura de .sb-side, que es mas alta por el diamante/conteo). Bateador y pitcher van
      LADO A LADO (2 columnas), y el conteo de bolas/strikes va debajo, a todo lo ancho — los
      outs se muestran aparte, siempre debajo del diamante de bases (ver .sb-side/.sb-bs). */
-  .sb-matchup{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:7px 12px;}
+  .sb-matchup{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:7px 12px;}
+  /* Animacion de jugada: aparece ENCIMA del bateador/pitcher (misma zona) al marcarse un hit,
+     ponche, etc. en el panel de anotacion — se superpone con fondo oscuro para leerse bien
+     sin importar lo que haya debajo, y se oculta sola dejando ver de nuevo el bateador/pitcher. */
+  #sbPlayFlash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:rgba(8,12,22,.94);border-radius:4px;opacity:0;transform:scale(.82);pointer-events:none;transition:opacity .2s ease,transform .25s cubic-bezier(.34,1.56,.64,1);z-index:6;}
+  #sbPlayFlash.show{opacity:1;transform:scale(1);}
+  #sbPlayFlash .pf-type{font-size:19px;font-weight:900;letter-spacing:1px;text-transform:uppercase;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.65);}
+  #sbPlayFlash .pf-brand{font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.6);}
   .sb-mu-cols{display:flex;align-items:flex-start;gap:8px;}
   .sb-mu-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
   .sb-mu-divider{width:1px;align-self:stretch;background:var(--ov-bdr);flex:0 0 auto;}
@@ -134,6 +141,11 @@
   <div class="cf-row"><label>Como va el bateador (ej. "Hoy: 3-2")</label><input type="color" id="cLine"></div>
   <div class="cf-row"><label>Textos secundarios</label><input type="color" id="cText2"></div>
   <label class="cf-chk"><input type="checkbox" id="cTransp"> Fondo totalmente transparente</label>
+  <h4>&#127919; Animaci&oacute;n de jugada</h4>
+  <label class="cf-chk"><input type="checkbox" id="cPlayFlashOn"> Mostrar animaci&oacute;n al marcar hit/jonr&oacute;n/ponche...</label>
+  <div class="cf-row"><label>Texto junto a la jugada</label><input type="text" id="cPlayBrand" placeholder="VBS POWER" style="width:140px;background:#1a2536;color:#e6edf5;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 6px;font-size:12px;text-transform:uppercase"></div>
+  <div class="cf-row"><label>Color del texto (ej. "VBS POWER")</label><input type="color" id="cPlayBrandColor"></div>
+  <div class="cf-row"><label>Color de la jugada (ej. "HIT")</label><input type="color" id="cPlayTypeColor"></div>
   <h4>&#9918; Bolas / Strikes / Outs</h4>
   <div class="cf-row"><label>Como mostrarlos</label><select id="cCountMode"><option value="dots">Bolitas</option><option value="numbers">Numeros</option></select></div>
   <div class="cf-row"><label>Donde mostrarlos</label><select id="cCountPos">
@@ -183,6 +195,7 @@
           </div>
         </div>
         <div class="sb-bs sb-bs-inline" id="sbBsBatter"></div>
+        <div id="sbPlayFlash"></div>
       </div>
     </div>
     <div class="sb-side" style="position:relative">
@@ -219,7 +232,10 @@ var _teamsCache=null; // {id: {name,logoUrl,color}} — se carga una vez, los eq
 // club, sin depender de localStorage de esa maquina). ?edit=0 en la URL
 // oculta el engranaje de personalizacion (para la captura final limpia).
 var COLOR_KEYS=['bg','navy','bar','bartext','run','team','bat','inning','text2','matchup','line'];
-var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'numbers',countPos:'side'};
+// Colores de la animacion de jugada: no son variables CSS de :root (se aplican directo sobre
+// el recuadro de la animacion cada vez que aparece), asi que viven en su propia lista aparte.
+var PLAY_COLOR_KEYS=['playBrandColor','playTypeColor'];
+var DEFAULTS={bg:'#0d1b2e',navy:'#0b1522',bar:'#f5a623',bartext:'#1a1200',run:'#f4f7fb',team:'#f4f7fb',bat:'#f5a623',inning:'#f4f7fb',text2:'#a9b7c9',matchup:'#f4f7fb',line:'#f5a623',transp:false,countMode:'numbers',countPos:'side',playFlashOn:true,playBrandText:'VBS POWER',playBrandColor:'#f5a623',playTypeColor:'#ffffff'};
 var VARMAP={bg:'--ov-bg',navy:'--ov-navy',bar:'--ov-bar',bartext:'--ov-bartext',run:'--ov-run',team:'--ov-team',bat:'--ov-bat',inning:'--ov-inning',text2:'--ov-text2',matchup:'--ov-matchup',line:'--ov-line'};
 
 function loadSettings(){
@@ -228,10 +244,12 @@ function loadSettings(){
     var saved=JSON.parse(localStorage.getItem('vp_overlay_colors')||'{}');
     Object.assign(s,saved);
   }catch(e){}
-  COLOR_KEYS.forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
+  COLOR_KEYS.concat(PLAY_COLOR_KEYS).forEach(function(k){var v=qs.get(k);if(v)s[k]='#'+v.replace('#','');});
   if(qs.get('transp')!=null)s.transp=qs.get('transp')==='1';
   if(qs.get('countMode')==='dots'||qs.get('countMode')==='numbers')s.countMode=qs.get('countMode');
   if(qs.get('countPos')==='batter'||qs.get('countPos')==='side'||qs.get('countPos')==='together')s.countPos=qs.get('countPos');
+  if(qs.get('playFlashOn')!=null)s.playFlashOn=qs.get('playFlashOn')==='1';
+  if(qs.get('playBrandText')!=null)s.playBrandText=qs.get('playBrandText');
   return s;
 }
 var SET=loadSettings();
@@ -267,6 +285,10 @@ function syncPanelInputs(){
   document.getElementById('cTransp').checked=!!SET.transp;
   document.getElementById('cCountMode').value=SET.countMode;
   document.getElementById('cCountPos').value=SET.countPos;
+  document.getElementById('cPlayFlashOn').checked=!!SET.playFlashOn;
+  document.getElementById('cPlayBrand').value=SET.playBrandText;
+  document.getElementById('cPlayBrandColor').value=SET.playBrandColor;
+  document.getElementById('cPlayTypeColor').value=SET.playTypeColor;
 }
 function wirePanel(){
   var map={cBg:'bg',cNavy:'navy',cBar:'bar',cBartext:'bartext',cRun:'run',cTeam:'team',cBat:'bat',cInning:'inning',cMatchup:'matchup',cLine:'line',cText2:'text2'};
@@ -284,15 +306,29 @@ function wirePanel(){
   document.getElementById('cCountPos').addEventListener('change',function(){
     SET.countPos=this.value;renderCounts();saveSettings();
   });
+  document.getElementById('cPlayFlashOn').addEventListener('change',function(){
+    SET.playFlashOn=this.checked;saveSettings();
+  });
+  document.getElementById('cPlayBrand').addEventListener('input',function(){
+    SET.playBrandText=this.value;saveSettings();
+  });
+  document.getElementById('cPlayBrandColor').addEventListener('input',function(){
+    SET.playBrandColor=this.value;saveSettings();
+  });
+  document.getElementById('cPlayTypeColor').addEventListener('input',function(){
+    SET.playTypeColor=this.value;saveSettings();
+  });
   document.getElementById('btnReset').addEventListener('click',function(){
     SET=Object.assign({},DEFAULTS);applySettings();saveSettings();syncPanelInputs();renderCounts();
   });
   document.getElementById('btnCopy').addEventListener('click',function(){
     var u=new URL(location.href);
-    COLOR_KEYS.forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
+    COLOR_KEYS.concat(PLAY_COLOR_KEYS).forEach(function(k){u.searchParams.set(k,SET[k].replace('#',''));});
     u.searchParams.set('transp',SET.transp?'1':'0');
     u.searchParams.set('countMode',SET.countMode);
     u.searchParams.set('countPos',SET.countPos);
+    u.searchParams.set('playFlashOn',SET.playFlashOn?'1':'0');
+    u.searchParams.set('playBrandText',SET.playBrandText||'');
     u.searchParams.set('edit','0'); // enlace listo para OBS: sin el engranaje
     navigator.clipboard.writeText(u.href).then(function(){
       var m=document.getElementById('copyMsg');m.style.display='block';
@@ -431,6 +467,48 @@ function renderCounts(){
   }
 }
 
+// ── Animacion de jugada (hit/doble/triple/jonron/ponche) ───────────────────
+// Misma idea que el "flash" que ya existe dentro del panel de anotacion (index.html) al
+// marcar una jugada: aqui se detecta comparando los eventos del juego entre un poll y el
+// siguiente (esta pagina no tiene acceso al evento recien creado, solo a getGameSlice).
+var PLAY_LABELS={H1:'HIT',H2:'DOBLE',H3:'TRIPLE',HR:'HOME RUN',K:'PONCHE',OUT:'OUT'};
+var PLAY_TRIGGER_TYPES=Object.keys(PLAY_LABELS);
+var _seenEventIds=null; // null = todavia no se ha visto ningun poll de este juego
+var _playFlashTimer=null;
+function checkForNewPlay(events){
+  if(!SET.playFlashOn)return;
+  if(!_seenEventIds){
+    // Primer poll de esta carga de pagina: solo se registran los eventos ya existentes como
+    // "vistos", sin animar nada (si no, al abrir el overlay a mitad de un juego ya avanzado
+    // se dispararia la animacion con la ULTIMA jugada de entradas anteriores).
+    _seenEventIds={};
+    (events||[]).forEach(function(e){_seenEventIds[e.id]=true;});
+    return;
+  }
+  var newPlays=[];
+  (events||[]).forEach(function(e){
+    if(!_seenEventIds[e.id]){
+      _seenEventIds[e.id]=true;
+      if(!e.undoneType&&PLAY_TRIGGER_TYPES.indexOf(e.type)>=0)newPlays.push(e);
+    }
+  });
+  if(!newPlays.length)return;
+  newPlays.sort(function(a,b){return(a.timestamp||'')<(b.timestamp||'')?-1:1;});
+  showPlayFlash(newPlays[newPlays.length-1].type);
+}
+function showPlayFlash(type){
+  var el=document.getElementById('sbPlayFlash');
+  if(!el)return;
+  var brand=(SET.playBrandText||'').trim();
+  el.innerHTML='<div class="pf-type" style="color:'+esc(SET.playTypeColor)+'">'+esc(PLAY_LABELS[type]||type)+'</div>'
+    +(brand?'<div class="pf-brand" style="color:'+esc(SET.playBrandColor)+'">'+esc(brand)+'</div>':'');
+  clearTimeout(_playFlashTimer);
+  el.classList.remove('show');
+  void el.offsetWidth; // fuerza reflow para poder re-disparar la animacion si ya estaba visible
+  el.classList.add('show');
+  _playFlashTimer=setTimeout(function(){el.classList.remove('show');},2800);
+}
+
 function render(gm,teams,players,lineups,pitching,events){
   var aw=teams[gm.awayTeamId]||{name:'Visitante'},hw=teams[gm.homeTeamId]||{name:'Local'};
   var isTop=gm.currentHalf==='top';
@@ -513,6 +591,8 @@ function render(gm,teams,players,lineups,pitching,events){
   }
 
   document.title='Cuadro Visual — '+aw.name+' '+(parseInt(gm.awayRuns)||0)+'-'+(parseInt(gm.homeRuns)||0)+' '+hw.name;
+
+  checkForNewPlay(events);
 }
 
 var _pollTimer=null,_errCount=0;
