@@ -1031,7 +1031,11 @@ async function api(action,data){
       // MISMA llamada api('save...') que cualquier otro guardado (crear equipo, programar
       // juego, etc.), asi que sin esta separacion no habia forma de apagar el intersticial
       // solo al anotar sin apagarlo tambien para el resto de los guardados.
-      if(PLAY_SAVE_ACTIONS[action]) maybeInterstitial('markPlay');
+      // OJO: marcar una jugada en Control de Juego TAMBIEN llama a saveGame (actualiza
+      // marcador/outs/bases/entrada) ademas de saveEvent — ese saveGame debe caer en
+      // "markPlay" igual, nunca en el "save" generico. Se distingue por curP==='gamecontrol'
+      // (el saveGame de editar un juego desde Calendario ocurre con curP==='schedule').
+      if(PLAY_SAVE_ACTIONS[action]||(action==='saveGame'&&curP==='gamecontrol')) maybeInterstitial('markPlay');
       else if(action.indexOf('save')===0) maybeInterstitial('save');
     }
     return res;
