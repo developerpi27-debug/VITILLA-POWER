@@ -5218,37 +5218,26 @@ function validateFriendlyLineup(players,teamName){
 // Crea (y persiste en IndexedDB) UN juego amistoso ya en estado 'live', e inicia la
 // anotacion de inmediato en Control de Juego — programar e iniciar son un mismo paso.
 // cfg.reuseTeams permite encadenar el siguiente juego de una serie con el mismo
-// equipo/roster (ver continueFriendlySeries), sin tener que rellenar el formulario de nuevo.
+// equipo/roster (ver openContinueSeriesM), partiendo del lineup del juego anterior como base editable.
+// cfg.awayRoster/cfg.homeRoster: filas {name,position,noBat,banca,pid?}. Si una fila trae
+// "pid" (jugador que ya existia, p.ej. al continuar una serie) se conserva su identidad; si
+// no, se genera un id nuevo. cfg.reuseTeamIds:{awayId,homeId} reutiliza los MISMOS equipos
+// (para que una serie sea siempre "los mismos dos equipos"); si no se da, se crean nuevos.
 async function createAndStartFriendlyGame(cfg){
   var gid='fr_'+nid();
-  var awTeamId,hmTeamId,players=[],awStarters=[],hmStarters=[];
-  if(cfg.reuseTeams){
-    awTeamId=cfg.reuseTeams.awayId;hmTeamId=cfg.reuseTeams.homeId;players=cfg.reuseTeams.players;
-    var prevAwL=(cfg.reuseTeams.prevLineups||[]).filter(function(l){return l.teamId===awTeamId;})[0]||{players:[]};
-    var prevHmL=(cfg.reuseTeams.prevLineups||[]).filter(function(l){return l.teamId===hmTeamId;})[0]||{players:[]};
-    // Un jugador vuelve a ser titular solo si tenia "order" en el lineup del juego anterior;
-    // si solo estaba en el roster (banca), sigue en banca para este juego tambien.
-    var awOrderMap={};prevAwL.players.forEach(function(lp){awOrderMap[lp.playerId]=lp;});
-    var hmOrderMap={};prevHmL.players.forEach(function(lp){hmOrderMap[lp.playerId]=lp;});
-    awStarters=players.filter(function(p){return p.teamId===awTeamId&&awOrderMap[p.id];})
-      .sort(function(a,b){return(awOrderMap[a.id].order||0)-(awOrderMap[b.id].order||0);})
-      .map(function(p){return{id:p.id,position:awOrderMap[p.id].position||p.position,noBat:awOrderMap[p.id].noBat===true};});
-    hmStarters=players.filter(function(p){return p.teamId===hmTeamId&&hmOrderMap[p.id];})
-      .sort(function(a,b){return(hmOrderMap[a.id].order||0)-(hmOrderMap[b.id].order||0);})
-      .map(function(p){return{id:p.id,position:hmOrderMap[p.id].position||p.position,noBat:hmOrderMap[p.id].noBat===true};});
-  } else {
-    awTeamId='frt'+nid();hmTeamId='frt'+nid();
-    (cfg.awayRoster||[]).forEach(function(r){
-      var pid='frp'+nid();
-      players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:awTeamId,number:'',active:'true'});
-      if(!r.banca) awStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
-    });
-    (cfg.homeRoster||[]).forEach(function(r){
-      var pid='frp'+nid();
-      players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:hmTeamId,number:'',active:'true'});
-      if(!r.banca) hmStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
-    });
-  }
+  var awTeamId=(cfg.reuseTeamIds&&cfg.reuseTeamIds.awayId)||('frt'+nid());
+  var hmTeamId=(cfg.reuseTeamIds&&cfg.reuseTeamIds.homeId)||('frt'+nid());
+  var players=[],awStarters=[],hmStarters=[];
+  (cfg.awayRoster||[]).forEach(function(r){
+    var pid=r.pid||('frp'+nid());
+    players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:awTeamId,number:'',active:'true'});
+    if(!r.banca) awStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
+  });
+  (cfg.homeRoster||[]).forEach(function(r){
+    var pid=r.pid||('frp'+nid());
+    players.push({id:pid,name:(r.name||'').trim(),position:r.position||'OF',teamId:hmTeamId,number:'',active:'true'});
+    if(!r.banca) hmStarters.push({id:pid,position:r.position||'OF',noBat:!!r.noBat});
+  });
   var g={
     id:gid,awayTeamId:awTeamId,homeTeamId:hmTeamId,date:new Date().toISOString().slice(0,10),time:null,venue:'',
     tournamentId:null,totalInnings:cfg.innings,unlimitedInnings:!!cfg.unlimited,numBases:parseInt(cfg.numBases)||3,
@@ -5270,15 +5259,62 @@ async function createAndStartFriendlyGame(cfg){
   cM();S.game=gid;goNav('gamecontrol');
   toast('Amistoso iniciado','success');
 }
-async function continueFriendlySeries(prevGameId){
+// ── Iniciar el siguiente juego de una serie: el lineup NO se copia a ciegas, el usuario lo
+// puede ajustar (el roster puede cambiar de un juego a otro de la misma serie) reutilizando
+// el mismo editor de roster del formulario de programacion (orden, posicion, NB, Banca,
+// agregar/quitar jugadores, e incluso cargar otra plantilla si hace falta).
+async function openContinueSeriesM(prevGameId){
   var prevRec=await idbGet('friendlies',prevGameId);
   if(!prevRec){toast('No se encontró el amistoso anterior','error');return;}
-  if(!confirm('¿Iniciar el siguiente juego de la serie con el mismo roster?'))return;
+  function rowsFromPrev(teamId){
+    var lu=(prevRec.lineups||[]).filter(function(l){return l.teamId===teamId;})[0]||{players:[]};
+    var orderMap={};(lu.players||[]).forEach(function(lp){orderMap[lp.playerId]=lp;});
+    var pl=(prevRec.players||[]).filter(function(p){return p.teamId===teamId;});
+    var starters=pl.filter(function(p){return orderMap[p.id];}).sort(function(a,b){return(orderMap[a.id].order||0)-(orderMap[b.id].order||0);});
+    var bench=pl.filter(function(p){return !orderMap[p.id];});
+    return starters.concat(bench).map(function(p){
+      var lp=orderMap[p.id];
+      return{rid:_AM._nextRid++,pid:p.id,name:p.name,position:(lp?lp.position:p.position)||'OF',noBat:!!(lp&&lp.noBat===true),banca:!lp};
+    });
+  }
+  _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+  _AM._templates=await listFriendlyTemplates();
+  _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
+  _AM.aw=rowsFromPrev(prevRec.teams.awayId);
+  _AM.hm=rowsFromPrev(prevRec.teams.homeId);
+  _AM._continueCfg={
+    prevGameId:prevGameId,seriesId:prevRec.seriesId,seriesGameNumber:(prevRec.seriesGameNumber||1)+1,bestOf:prevRec.bestOf,
+    awayName:prevRec.teams.awayName,homeName:prevRec.teams.homeName,awayId:prevRec.teams.awayId,homeId:prevRec.teams.homeId,
+    innings:prevRec.game.totalInnings,unlimited:prevRec.game.unlimitedInnings,numBases:prevRec.game.numBases
+  };
+  showM(continueSeriesFormHtml(),'mlg');
+  renderAmTeam('aw');renderAmTeam('hm');
+}
+function continueSeriesFormHtml(){
+  var c=_AM._continueCfg;
+  return'<div class="mhd"><div class="mtl">&#9918; Juego '+c.seriesGameNumber+' de la serie</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div class="alert ai" style="font-size:12px;margin-bottom:12px">'+c.awayName+' vs '+c.homeName+' — el lineup se trajo del juego anterior, ajústalo si hace falta (el roster no tiene que ser siempre el mismo).</div>'
+    +'<div class="g2" style="gap:20px">'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster '+c.awayName+'</div>'+templateLoaderHtml('aw')+'<div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster '+c.homeName+'</div>'+templateLoaderHtml('hm')+'<div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
+    +'</div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="saveContinueSeries()">Guardar e Iniciar Juego '+c.seriesGameNumber+' &#9654;</button></div>';
+}
+async function saveContinueSeries(){
+  syncAmRowsFromDOM('aw');syncAmRowsFromDOM('hm');
+  var c=_AM._continueCfg;
+  var awPlayers=(_AM.aw||[]).filter(function(r){return(r.name||'').trim();});
+  var hmPlayers=(_AM.hm||[]).filter(function(r){return(r.name||'').trim();});
+  var awStarterRows=awPlayers.filter(function(r){return !r.banca;});
+  var hmStarterRows=hmPlayers.filter(function(r){return !r.banca;});
+  var errAw=validateFriendlyLineup(awStarterRows,c.awayName);if(errAw){toast(errAw,'error');return;}
+  var errHm=validateFriendlyLineup(hmStarterRows,c.homeName);if(errHm){toast(errHm,'error');return;}
   await createAndStartFriendlyGame({
-    seriesId:prevRec.seriesId,seriesGameNumber:(prevRec.seriesGameNumber||1)+1,bestOf:prevRec.bestOf,
-    awayName:prevRec.teams.awayName,homeName:prevRec.teams.homeName,
-    innings:prevRec.game.totalInnings,unlimited:prevRec.game.unlimitedInnings,numBases:prevRec.game.numBases,
-    reuseTeams:{awayId:prevRec.teams.awayId,homeId:prevRec.teams.homeId,players:prevRec.players,prevLineups:prevRec.lineups}
+    seriesId:c.seriesId,seriesGameNumber:c.seriesGameNumber,bestOf:c.bestOf,
+    awayName:c.awayName,homeName:c.homeName,innings:c.innings,unlimited:c.unlimited,numBases:c.numBases,
+    reuseTeamIds:{awayId:c.awayId,homeId:c.homeId},
+    awayRoster:awPlayers,homeRoster:hmPlayers
   });
 }
 async function deleteFriendlyM(gid){
@@ -5325,7 +5361,7 @@ async function renderAmistosoList(){
           +(canDo('delete','amistoso')?'<button class="btn bd" style="padding:4px 10px;font-size:11px" data-g="'+g.id+'" onclick="deleteFriendlyM(this.dataset.g)">&#128465;</button>':'')
           +'</div></div>';
       }).join('')
-      +((first.bestOf||1)>1&&!seriesDone&&last.game.status==='final'&&canDo('create','amistoso')?'<div style="padding-top:10px"><button class="btn bp" data-g="'+last.id+'" onclick="continueFriendlySeries(this.dataset.g)">Iniciar Juego '+((last.seriesGameNumber||1)+1)+'</button></div>':'')
+      +((first.bestOf||1)>1&&!seriesDone&&last.game.status==='final'&&canDo('create','amistoso')?'<div style="padding-top:10px"><button class="btn bp" data-g="'+last.id+'" onclick="openContinueSeriesM(this.dataset.g)">Iniciar Juego '+((last.seriesGameNumber||1)+1)+'</button></div>':'')
       +'</div>';
   });
   el.innerHTML=html;
