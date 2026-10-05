@@ -5292,7 +5292,7 @@ async function openContinueSeriesM(prevGameId){
       return{rid:_AM._nextRid++,pid:p.id,name:p.name,position:(lp?lp.position:p.position)||'OF',noBat:!!(lp&&lp.noBat===true),banca:!lp};
     });
   }
-  _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+  _AM={_nextRid:1,aw:[],hm:[],_templates:[],_loadedTpl:{}};
   _AM._templates=await listFriendlyTemplates();
   _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
   _AM.aw=rowsFromPrev(prevRec.teams.awayId);
@@ -5311,8 +5311,8 @@ function continueSeriesFormHtml(){
     +'<div class="mbd">'
     +'<div class="alert ai" style="font-size:12px;margin-bottom:12px">'+c.awayName+' vs '+c.homeName+' — el lineup se trajo del juego anterior, ajústalo si hace falta (el roster no tiene que ser siempre el mismo).</div>'
     +'<div class="g2" style="gap:20px">'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster '+c.awayName+'</div>'+templateLoaderHtml('aw')+'<div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster '+c.homeName+'</div>'+templateLoaderHtml('hm')+'<div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster '+c.awayName+'</div><div id="am-tplzone-aw">'+templateLoaderHtml('aw')+'</div><div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster '+c.homeName+'</div><div id="am-tplzone-hm">'+templateLoaderHtml('hm')+'</div><div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
     +'</div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="saveContinueSeries()">Guardar e Iniciar Juego '+c.seriesGameNumber+' &#9654;</button></div>';
 }
@@ -5475,10 +5475,25 @@ async function deleteTemplateM(id){
 }
 function templateLoaderHtml(side){
   var tpls=_AM._templates||[];
-  if(!tpls.length)return'';
-  var opts='<option value="">-- Cargar plantilla --</option>'+tpls.map(function(t){return'<option value="'+t.id+'">'+t.name+' ('+(t.players||[]).length+')</option>';}).join('');
-  return'<div style="display:flex;gap:6px;margin-bottom:8px"><select class="fs" style="flex:1" id="am-tplsel-'+side+'">'+opts+'</select>'
-    +'<button class="btn bs" style="white-space:nowrap" data-s="'+side+'" onclick="loadTemplateIntoSide(this.dataset.s)">Cargar</button></div>';
+  var loadedId=(_AM._loadedTpl||{})[side]||null;
+  var html='';
+  if(tpls.length){
+    var opts='<option value="">-- Cargar plantilla --</option>'+tpls.map(function(t){return'<option value="'+t.id+'" '+(t.id===loadedId?'selected':'')+'>'+t.name+' ('+(t.players||[]).length+')</option>';}).join('');
+    html+='<div style="display:flex;gap:6px;margin-bottom:6px"><select class="fs" style="flex:1" id="am-tplsel-'+side+'">'+opts+'</select>'
+      +'<button class="btn bs" style="white-space:nowrap" data-s="'+side+'" onclick="loadTemplateIntoSide(this.dataset.s)">Cargar</button></div>';
+  }
+  // Guardar el roster actual (manual, de plantilla, o una mezcla de ambos) como plantilla
+  // nueva, o actualizar la que se cargo en este lado para que incluya los jugadores que se
+  // hayan agregado despues — todo sin salir del formulario.
+  html+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">'
+    +'<button class="btn bs" style="font-size:11px" data-s="'+side+'" onclick="saveSideAsNewTemplate(this.dataset.s)">&#128190; Guardar como plantilla nueva</button>'
+    +(loadedId?'<button class="btn bs" style="font-size:11px" data-s="'+side+'" onclick="updateLoadedTemplate(this.dataset.s)">&#128260; Actualizar plantilla cargada</button>':'')
+    +'</div>';
+  return html;
+}
+function refreshTemplateZone(side){
+  var holder=document.getElementById('am-tplzone-'+side);
+  if(holder)holder.innerHTML=templateLoaderHtml(side);
 }
 async function loadTemplateIntoSide(side){
   var sel=document.getElementById('am-tplsel-'+side);
@@ -5491,14 +5506,49 @@ async function loadTemplateIntoSide(side){
     if(!confirm('Esto reemplaza el roster actual de este equipo con la plantilla "'+t.name+'". ¿Continuar?'))return;
   }
   _AM[side]=(t.players||[]).map(function(pl){return{rid:_AM._nextRid++,name:pl.name,position:pl.position||'OF',noBat:false,banca:false};});
+  _AM._loadedTpl=_AM._loadedTpl||{};_AM._loadedTpl[side]=tid;
   renderAmTeam(side);
+  refreshTemplateZone(side);
   toast('Plantilla cargada — ajusta posición, NB o Banca si hace falta','success');
+}
+async function saveSideAsNewTemplate(side){
+  syncAmRowsFromDOM(side);
+  var rows=(_AM[side]||[]).filter(function(r){return(r.name||'').trim();});
+  if(!rows.length){toast('Agrega al menos un jugador antes de guardar la plantilla','error');return;}
+  var name=prompt('Nombre para la nueva plantilla:');
+  if(name===null)return;
+  name=name.trim();
+  if(!name){toast('Coloca un nombre para la plantilla','error');return;}
+  var rec={id:'tpl'+nid(),name:name,players:rows.map(function(r){return{name:r.name.trim(),position:r.position||'OF'};}),createdAt:Date.now(),updatedAt:Date.now()};
+  await idbPut('friendlyTemplates',rec);
+  _AM._templates=await listFriendlyTemplates();
+  _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
+  _AM._loadedTpl=_AM._loadedTpl||{};_AM._loadedTpl[side]=rec.id;
+  refreshTemplateZone(side);
+  toast('Plantilla "'+name+'" guardada','success');
+}
+async function updateLoadedTemplate(side){
+  syncAmRowsFromDOM(side);
+  var loadedId=(_AM._loadedTpl||{})[side];
+  if(!loadedId)return;
+  var t=await getFriendlyTemplate(loadedId);
+  if(!t){toast('Plantilla no encontrada','error');return;}
+  var rows=(_AM[side]||[]).filter(function(r){return(r.name||'').trim();});
+  if(!rows.length){toast('Agrega al menos un jugador antes de actualizar la plantilla','error');return;}
+  if(!confirm('¿Actualizar la plantilla "'+t.name+'" con el roster actual ('+rows.length+' jugador(es))?'))return;
+  t.players=rows.map(function(r){return{name:r.name.trim(),position:r.position||'OF'};});
+  t.updatedAt=Date.now();
+  await idbPut('friendlyTemplates',t);
+  _AM._templates=await listFriendlyTemplates();
+  _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
+  refreshTemplateZone(side);
+  toast('Plantilla "'+t.name+'" actualizada','success');
 }
 
 // ── Formulario: programar (y de una vez iniciar) un encuentro amistoso ──────
-var _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+var _AM={_nextRid:1,aw:[],hm:[],_templates:[],_loadedTpl:{}};
 async function openAmistosoFormM(){
-  _AM={_nextRid:1,aw:[],hm:[],_templates:[]};
+  _AM={_nextRid:1,aw:[],hm:[],_templates:[],_loadedTpl:{}};
   _AM._templates=await listFriendlyTemplates();
   _AM._templates.sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
   showM(amFormHtml(),'mlg');
@@ -5517,8 +5567,8 @@ function amFormHtml(){
     +'<label style="display:flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;cursor:pointer"><input type="checkbox" id="am-unlimited" onchange="document.getElementById(\'am-innings\').disabled=this.checked">Sin límite</label>'
     +'</div></div></div>'
     +'<div class="g2" style="gap:20px;margin-top:6px">'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster Visitante</div>'+templateLoaderHtml('aw')+'<div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
-    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster Local</div>'+templateLoaderHtml('hm')+'<div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:6px">Roster Visitante</div><div id="am-tplzone-aw">'+templateLoaderHtml('aw')+'</div><div id="am-rows-aw"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'aw\')">&#43; Agregar Jugador</button></div>'
+    +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:6px">Roster Local</div><div id="am-tplzone-hm">'+templateLoaderHtml('hm')+'</div><div id="am-rows-hm"></div><button class="btn bs" style="margin-top:6px" onclick="amAddRow(\'hm\')">&#43; Agregar Jugador</button></div>'
     +'</div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="saveStartAmistoso()">Guardar e Iniciar &#9654;</button></div>';
 }
