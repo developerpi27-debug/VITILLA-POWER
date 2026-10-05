@@ -1025,7 +1025,15 @@ async function api(action,data){
       doLogout();
     }
     if(!S_isOnline) setOnlineState(true); // esta llamada SI tuvo respuesta real del servidor
-    if(res&&res.ok&&action.indexOf('save')===0) maybeInterstitial('save');
+    if(res&&res.ok){
+      // Anotar una jugada (saveEvent/savePitching/saveDefensivePoints) usa su PROPIO gatillo
+      // ("markPlay"), separado del generico "al hacer clic en un boton de guardado": son la
+      // MISMA llamada api('save...') que cualquier otro guardado (crear equipo, programar
+      // juego, etc.), asi que sin esta separacion no habia forma de apagar el intersticial
+      // solo al anotar sin apagarlo tambien para el resto de los guardados.
+      if(PLAY_SAVE_ACTIONS[action]) maybeInterstitial('markPlay');
+      else if(action.indexOf('save')===0) maybeInterstitial('save');
+    }
     return res;
   }catch(e){
     if(OFFLINE_ACTIONS[action]){
@@ -2131,7 +2139,10 @@ function applyAdsUI(){
 // Dispara un intersticial (pantalla completa) para el "gatillo" indicado (ver la lista de
 // checkboxes en Configuracion > Anuncios), solo si esta habilitado, el admin lo marco, y hay
 // un ID de unidad de anuncio configurado. triggerKey debe ser uno de: login, gameFinish,
-// viewFinishedGame, pdfExport, save, moduleEnter.
+// viewFinishedGame, pdfExport, save, markPlay, moduleEnter.
+// Acciones que representan "anotar una jugada" en Control de Juego — ver el gatillo
+// 'markPlay' en api(), separado del gatillo generico 'save'.
+var PLAY_SAVE_ACTIONS={saveEvent:1,savePitching:1,saveDefensivePoints:1};
 function maybeInterstitial(triggerKey){
   if(!shouldShowAds())return;
   var triggers=safeAdsList(S.config&&S.config.adInterstitialTriggers);
@@ -16045,6 +16056,7 @@ function pgSet(){
         ['viewFinishedGame','Entrar a los resultados de un partido finalizado'],
         ['pdfExport','Hacer clic en un boton de exportar PDF'],
         ['save','Hacer clic en un boton de guardado'],
+        ['markPlay','Anotar una jugada en Control de Juego (hit, out, ponche, pitcheo, etc.)'],
         ['moduleEnter','Acceder a un modulo especifico (elegir abajo)'],
       ].map(function(t){
         var sel=safeAdsList(S.config&&S.config.adInterstitialTriggers).indexOf(t[0])>=0;
