@@ -1036,7 +1036,7 @@ async function api(action,data){
       // "markPlay" igual, nunca en el "save" generico. Se distingue por curP==='gamecontrol'
       // (el saveGame de editar un juego desde Calendario ocurre con curP==='schedule').
       if(PLAY_SAVE_ACTIONS[action]||(action==='saveGame'&&curP==='gamecontrol')) maybeInterstitial('markPlay');
-      else if(action.indexOf('save')===0) maybeInterstitial('save');
+      else if(action.indexOf('save')===0||action==='updateFantasyTeam') maybeInterstitial('save');
     }
     return res;
   }catch(e){
@@ -2751,43 +2751,34 @@ function setSportFilter(val){
   initPGS();if(PGS[curP])PGS[curP]();
   if(typeof startMarquee==='function')startMarquee(); // reflejar el nuevo deporte de inmediato, sin esperar al ciclo pendiente
 }
+// ── Alcance del usuario local (usuario/contraseña, no admin) ──────────────────
+// Ve y gestiona SOLO: los torneos padre atados a su perfil, los que creo el mismo (createdBy) y los
+// subtorneos asignados directo a su perfil. Sin ninguno => no ve datos de ningun torneo (antes veia
+// TODOS). Misma regla que localScope() en worker.js, que ademas filtra lo que le envia el servidor.
+function localScopeClient(){
+  var u=S.user,prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
+  var full={},subs={},vis={};
+  ((prof&&prof.parentTournaments)||[]).forEach(function(x){full[String(x)]=1;});
+  (S.parentTournaments||[]).forEach(function(pt){if(pt.createdBy&&pt.createdBy===u.id)full[String(pt.id)]=1;});
+  (S.tournaments||[]).forEach(function(tt){if(full[String(tt.parentTournamentId)])subs[String(tt.id)]=1;});
+  ((prof&&prof.tournaments)||[]).forEach(function(x){subs[String(x)]=1;});
+  Object.keys(full).forEach(function(k){vis[k]=1;});
+  (S.tournaments||[]).forEach(function(tt){if(subs[String(tt.id)]&&tt.parentTournamentId)vis[String(tt.parentTournamentId)]=1;});
+  return{full:full,subs:subs,vis:vis};
+}
+function isLocalStaff(u){return !!u&&u.role!=='admin'&&u.role!=='google'&&u.role!=='public';}
+// Torneos padre del alcance del usuario, SIN el filtro de deporte (lo usa el modulo Torneos)
+function scopedParentTournaments(){
+  var u=S.user;
+  if(!isLocalStaff(u))return S.parentTournaments.slice();
+  var sc=localScopeClient();
+  return S.parentTournaments.filter(function(pt){return sc.vis[String(pt.id)];});
+}
 // ── Torneo padre visible para el usuario actual ──────────────────
 function visibleParentTournaments(){
-  var u=S.user;
-  var list;
-  // Los usuarios de Google NUNCA deben filtrarse aqui por el perfil (prof.parentTournaments/
-  // tournaments): ese perfil es COMPARTIDO por todos los usuarios de Google (ver
-  // googleLogin en worker.js) y su lista de torneos, si el admin llegara a configurarle
-  // alguno, es estatica — nunca podria incluir el ID de un torneo padre o subtorneo que el
-  // usuario de Google acaba de crear. El aislamiento de datos real para este rol ya ocurre
-  // en el Worker (actionGetAll filtra S.parentTournaments/S.tournaments a solo lo que el
-  // usuario posee — ver enforceGoogleOwnership/googleOwnedParentTournaments), asi que aqui
-  // alcanza con mostrar TODO lo que el cliente ya recibio, igual que a un admin. Sin este
-  // caso especial, un usuario de Google que recien creaba un subtorneo no lo veia hasta que
-  // el admin se lo habilitaba a mano en el perfil compartido (bug reportado).
-  if(!u||u.role==='admin'||u.role==='google') list=S.parentTournaments.slice();
-  else {
-    var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-    if(prof&&prof.parentTournaments&&prof.parentTournaments.length){
-      // Acceso basado en torneos padre (caso normal)
-      list=S.parentTournaments.filter(function(pt){return prof.parentTournaments.indexOf(pt.id)>=0;});
-    } else if(prof&&prof.tournaments&&prof.tournaments.length){
-      // Retrocompatibilidad: el perfil solo tiene acceso directo por subtorneo (prof.tournaments),
-      // sin parentTournaments configurado. Se derivan los torneos padre correspondientes a esos
-      // subtorneos en vez de caer al fallback de "todos los torneos padre sin restriccion" —
-      // de lo contrario un usuario configurado solo con acceso a un subtorneo especifico
-      // terminaria viendo (y pudiendo seleccionar) TODOS los torneos padre de la aplicacion,
-      // incluyendo juegos de torneos a los que no debería tener acceso.
-      var ptids3=prof.tournaments.map(function(x){return String(x);});
-      var allowedSubs=S.tournaments.filter(function(t){return ptids3.indexOf(String(t.id))>=0;});
-      var allowedParentIds=[];
-      allowedSubs.forEach(function(t){if(t.parentTournamentId&&allowedParentIds.indexOf(t.parentTournamentId)<0)allowedParentIds.push(t.parentTournamentId);});
-      list=S.parentTournaments.filter(function(pt){return allowedParentIds.indexOf(pt.id)>=0;});
-    } else {
-      list=S.parentTournaments.slice();
-    }
-  }
-  return list.filter(parentMatchesSport);
+  // Los usuarios de Google NUNCA se filtran aqui por el perfil (es compartido y estatico): su
+  // aislamiento real ocurre en el Worker (actionGetAll), asi que alcanza con mostrar lo recibido.
+  return scopedParentTournaments().filter(parentMatchesSport);
 }
 // Subtorneos del padre seleccionado (o todos los visibles)
 function subsByParent(parentId){
@@ -3003,26 +2994,12 @@ function hasModuleAccess(moduleId){
 function visibleTournaments(){
   var u=S.user;
   var tours;
-  // Ver el comentario en visibleParentTournaments(): mismo caso especial para role==='google'
-  // y el mismo motivo (el aislamiento real ya ocurre en el Worker; filtrar aqui ademas por el
-  // perfil compartido de Google impedia ver un subtorneo recien creado).
-  if(!u||u.role==='admin'||u.role==='google'){
+  // Google: el aislamiento real ya ocurre en el Worker (ver visibleParentTournaments()).
+  if(!isLocalStaff(u)){
     tours=S.tournaments.slice();
   } else {
-    var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-    if(prof&&prof.parentTournaments&&prof.parentTournaments.length){
-      // Acceso basado en torneos padre: el usuario ve todos los subtorneos de sus padres
-      var ppids=prof.parentTournaments.map(function(x){return String(x);});
-      tours=S.tournaments.filter(function(t){
-        return ppids.indexOf(String(t.parentTournamentId))>=0;
-      });
-    } else if(prof&&prof.tournaments&&prof.tournaments.length){
-      // Retrocompatibilidad: acceso directo por torneo id
-      var ptids2=prof.tournaments.map(function(x){return String(x);});
-      tours=S.tournaments.filter(function(t){return ptids2.indexOf(String(t.id))>=0;});
-    } else {
-      tours=S.tournaments.slice();
-    }
+    var sc=localScopeClient();
+    tours=S.tournaments.filter(function(tt){return sc.subs[String(tt.id)];});
   }
   return tours.filter(tourMatchesSport).sort(function(a,b){
     var ya=parseInt(a.year)||0,yb=parseInt(b.year)||0;
@@ -3729,7 +3706,7 @@ function pgTour(){
     }
   }
   // ── Sección Torneos Padre ─────────────────────────────────────
-  var ptRows=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
+  var ptRows=scopedParentTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
     var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
     var spLbl={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[pt.type]||'Vitilla';
     return'<tr><td><b>'+pt.name+'</b></td><td><span class="badge bb">'+spLbl+'</span></td><td>'+subCount+' subtorneo(s)</td>'
@@ -3788,6 +3765,12 @@ async function saveParentT(id){
   if(r&&r.ok){
     if(!id)S.parentTournaments.push(r.item);
     else S.parentTournaments=S.parentTournaments.map(function(x){return x.id===id?r.item:x;});
+    // Torneo nuevo de un usuario local: el Worker ya lo ato a su perfil; reflejarlo en la sesion activa
+    // (visibleParentTournaments() usa S.profile) para verlo y gestionarlo sin cerrar sesion.
+    if(r.profile){
+      S.profiles=(S.profiles||[]).map(function(x){return x.id===r.profile.id?r.profile:x;});
+      if(S.profile&&S.profile.id===r.profile.id)S.profile=r.profile;
+    }
     cM();pgTour();toast('Torneo padre guardado','success');
   } else toast(r&&r.error||'Error','error');
 }
@@ -4146,15 +4129,15 @@ function buildPlayersRows(){
   // Extraido de pgTeams() para poder re-renderizar SOLO la tabla de jugadores al escribir en
   // el buscador (ver renderPlayersTable), sin reconstruir toda la pagina — si el buscador
   // disparara pgTeams() completo en cada tecla, el input perderia el foco a cada letra.
-  var vt=visibleTeams().filter(function(t){if(!S.yearFilter)return true;var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];return !tour||(parseInt(tour.year)===S.yearFilter||!tour.year);});
+  // Alcance: SOLO equipos de los subtorneos del torneo padre/año elegidos arriba (toursByYear), igual que
+  // las tarjetas de equipos. Antes, con "Todos los torneos", se listaban los jugadores de todos los
+  // equipos visibles, incluso de torneos ajenos al seleccionado o sin equipos propios.
+  var scopeTourIds=toursByYear().map(function(x){return String(x.id);});
+  var baseTeams=(S.user&&S.user.role==='public')?S.teams:visibleTeams();
+  var vt=baseTeams.filter(function(t){return !t.tournamentId||scopeTourIds.indexOf(String(t.tournamentId))>=0;});
   var tf=(S.tourFilter?vt.filter(function(t){return t.tournamentId===S.tourFilter;}):vt);
   var filteredTeamIds=tf.map(function(t){return t.id;});
-  var profileVisibleTeamIds=(S.user&&S.user.role==='public')?S.teams.map(function(t){return t.id;}):visibleTeams().map(function(t){return t.id;});
-  var spSource=S.tourFilter
-    ? S.players.filter(function(p){return filteredTeamIds.indexOf(p.teamId)>=0;})
-    : (S.user&&S.user.role==='admin')
-      ? S.players
-      : S.players.filter(function(p){return profileVisibleTeamIds.indexOf(p.teamId)>=0;});
+  var spSource=S.players.filter(function(p){return filteredTeamIds.indexOf(p.teamId)>=0;});
   // Orden ascendente por Equipo y, dentro de cada equipo, por Nombre de jugador.
   var sp=spSource.slice().sort(function(a,b){
     var ta=teamOf(a.teamId),tb=teamOf(b.teamId);
@@ -13320,17 +13303,28 @@ function pgRankings(tid){
     +'</div>');
 }
 // ═══════════════════════════════════════════════════════════════════
-// LIGA DE FANTASÍA — plantilla (cuadro + 3 de banca) por usuario y subtorneo.
-// Se puede modificar solo intercambiando entre los jugadores ya elegidos. Los puntos los
-// calcula el Worker; a los de jugadas se suman, por separado, los de acceso diario.
+// LIGA DE FANTASÍA — plantilla (cuadro + 3 de banca) por usuario y concurso.
+// Concurso = subtorneo + FASE (serie regular / playoff / serie final) o subtorneo + DÍA (jugada diaria).
+// Se puede modificar solo intercambiando entre los jugadores ya elegidos (único caso especial: un
+// jugador pasa a inactivo en Equipos). Los puntos los calcula el Worker; a los de jugadas de una
+// plantilla de fase se suman, por separado, los de acceso diario y los de victorias diarias.
 // Permisos: módulo y botones Crear (guardar) / Editar (modificar) vía Perfiles.
 // ═══════════════════════════════════════════════════════════════════
-var _FN={cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',data:null,pm:{},slots:{},name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{}};
-var FN_XY={P:[50,60],C:[50,87],'1B':[82,57],'2B':[64,39],'3B':[18,57],SS:[36,39],LF:[15,22],CF:[50,13],RF:[85,22],DH:[13,90],UT:[87,90]};
+var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{}};
+var FN_PH={regular:'Serie regular',playoff:'Playoff',final:'Serie final'};
+var FN_XY={P:[50,61],C:[50,89],'1B':[83,58],'2B':[65,38],'3B':[17,58],SS:[35,38],LF:[14,20],CF:[50,12],RF:[86,20],DH:[13,92],UT:[87,92]};
 var FN_XY_VIT={'2B':[50,36]};
 var FN_BN=['B1','B2','B3'];
 function fnEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fnPts(v){return String(Math.round((v||0)*100)/100);}
+function fnDateTxt(d){var m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:(d||'');}
+function fnCtxLabel(){return _FN.kind==='dia'?'Jugada diaria':FN_PH[_FN.phase];}
+// Parámetros del concurso según la pestaña activa
+function fnCtx(){
+  if(_FN.tab==='rank')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
+  return{kind:_FN.kind,phase:_FN.phase,day:''};
+}
 function pgFantasy(){
   if(!S.user||S.user.role==='public'){ct('<div class="card"><div class="empty"><div style="font-size:30px">&#127919;</div><div>Inicia sesión (Google o usuario) para jugar la Liga de Fantasía</div></div></div>');return;}
   if(!_FN.timer)_FN.timer=setInterval(fnTick,Math.max(15,(S.pollInterval||30))*1000);
@@ -13338,8 +13332,7 @@ function pgFantasy(){
   fnLoadCat();
 }
 function fnStart(){var prev=_FN.tid;fnResolveSel();if(_FN.tid!==prev)fnReset();fnRender();fnLoad();}
-// Catálogo ABIERTO: todos los torneos/subtorneos, también para usuarios de Google (que en el
-// resto de la app solo ven los suyos). Si falla, se cae a lo que la app ya tiene cargado.
+// Catálogo ABIERTO: todos los torneos/subtorneos, también para usuarios de Google.
 async function fnLoadCat(){
   var first=!_FN.cat;
   var r=await api('getFantasyCatalog',{});
@@ -13370,12 +13363,21 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.slots={};_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};}
+// Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
+function fnCtxChange(){fnReset();fnRender();fnLoad();}
+function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
+function fnSetKind(k){_FN.kind=k;fnCtxChange();}
+function fnSetPhase(p){_FN.phase=p;fnCtxChange();}
+function fnSetDay(d){_FN.day=d||'';fnCtxChange();}
 async function fnLoad(){
   var tid=_FN.tid;if(!tid)return;
-  var r=await api('getFantasy',{tournamentId:tid});
-  if(tid!==_FN.tid||curP!=='fantasy')return;
+  var cx=fnCtx(),key=[tid,cx.kind,cx.phase,cx.day].join('|');
+  _FN.ckey=key;
+  var r=await api('getFantasy',{tournamentId:tid,kind:cx.kind,phase:cx.phase,day:cx.day});
+  if(key!==_FN.ckey||curP!=='fantasy')return;
   if(r&&r.ok){_FN.data=r;_FN.err='';_FN.pm={};r.players.forEach(function(p){_FN.pm[p.id]=p;});
+    _FN.vm={};(r.viewPlayers||[]).forEach(function(p){_FN.vm[p.id]=p;});
     Object.keys(_FN.slots).forEach(function(k){if(!_FN.pm[_FN.slots[k]])delete _FN.slots[k];});
     fnRender();fnMaybeInfo();return;}
   else{_FN.err=(r&&r.error)||'No se pudo cargar la Liga de Fantasía';}
@@ -13388,7 +13390,8 @@ function fnTick(){
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnLoad();
 }
-function fnSetTab(t){_FN.tab=t;fnRender();}
+// Jugador para mostrar en el cuadro: los disponibles/mios o, al VER la plantilla de otro usuario, los suyos
+function fnP(id){return id?(_FN.pm[id]||_FN.vm[id]||null):null;}
 function fnTeamMap(tm){
   var m={};Object.keys(tm.slots||{}).forEach(function(k){m[k]=tm.slots[k];});
   (tm.bench||[]).forEach(function(id,i){m['B'+(i+1)]=id;});return m;
@@ -13402,23 +13405,25 @@ function fnLast(p){
   return'<div><div style="display:inline-block;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:0 6px;margin-bottom:2px" title="Puntos en su último partido">Últ: '
     +(v===null||v===undefined?'&mdash;':'<span style="color:'+(v<0?'#f87171':'#4ade80')+'">'+(v>0?'+':'')+fnPts(v)+'</span>')+'</div></div>';
 }
+// Tarjeta de jugador (con su foto de Equipos si la tiene; si no, el número)
 function fnCard(key,label,p,edit,badge){
   var sel=edit&&p&&_FN.sel===p.id;
   return'<div data-slot="'+key+'" '+(edit?'ondragover="event.preventDefault()" ondrop="fnDrop(event,this.dataset.slot)" onclick="fnTapSlot(this.dataset.slot)"':'')+' style="width:78px;text-align:center;'+(edit?'cursor:pointer':'')+'">'
     +(badge||'')
     +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid)"':'')+' style="background:rgba(0,0,0,.65);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:3px 2px;color:#fff;line-height:1.15">'
     +'<div style="font-size:10px;font-weight:800;color:var(--acc)">'+label+'</div>'
-    +'<div style="font-size:10px;min-height:23px;display:flex;align-items:center;justify-content:center;overflow:hidden;word-break:break-word">'
+    +(p?'<div style="display:flex;justify-content:center;margin:2px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)+'</div>':'')
+    +'<div style="font-size:10px;min-height:'+(p?'12':'23')+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;word-break:break-word">'
     +(p?fnEsc(p.name):'<span style="opacity:.6">'+(edit?'Arrastra aquí':'—')+'</span>')+'</div>'
     +(p&&p.inactive?'<div style="font-size:8px;font-weight:800;color:#f87171">INACTIVO</div>':'')+'</div></div>';
 }
 function fnField(map,edit,contrib){
   var d=_FN.data,vit=d.sport==='vitilla';
-  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/105;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
+  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/125;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
    +'<svg viewBox="0 0 100 105" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,90 85,58 50,28 15,58" fill="#b98b55" opacity=".5"/><polygon points="50,80 72,58 50,40 28,58" fill="#2a7a35"/><circle cx="50" cy="60" r="3" fill="#b98b55" opacity=".7"/></svg>';
   d.slots.forEach(function(pos){
     var xy=(vit&&FN_XY_VIT[pos])||FN_XY[pos]||[50,50];
-    var p=map[pos]?_FN.pm[map[pos]]:null;
+    var p=fnP(map[pos]);
     var badge=(!edit&&p)?fnLast(p)+fnBadge(contrib&&contrib[p.id]!==undefined?contrib[p.id]:p.pts):'';
     h+='<div style="position:absolute;left:'+xy[0]+'%;top:'+xy[1]+'%;transform:translate(-50%,-50%)">'+fnCard(pos,pos,p,edit,badge)+'</div>';
   });
@@ -13427,8 +13432,9 @@ function fnField(map,edit,contrib){
 function fnBench(map,edit){
   return'<div style="max-width:460px;margin:10px auto 0"><div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;margin-bottom:4px">BANCA'+(edit?'':' <span style="font-weight:400">(no suma puntos)</span>')+'</div>'
     +'<div style="display:flex;gap:10px;justify-content:center;background:#173d20;border-radius:12px;padding:10px 4px;border:1px solid var(--bdr)">'
-    +FN_BN.map(function(k,i){var p=map[k]?_FN.pm[map[k]]:null;return fnCard(k,'BANCA '+(i+1),p,edit,(!edit&&p)?fnLast(p)+fnBadge(p.pts,true):'');}).join('')+'</div></div>';
+    +FN_BN.map(function(k,i){var p=fnP(map[k]);return fnCard(k,'BANCA '+(i+1),p,edit,(!edit&&p)?fnLast(p)+fnBadge(p.pts,true):'');}).join('')+'</div></div>';
 }
+function fnHasInactive(){return Object.keys(_FN.orig).some(function(id){return _FN.pm[id]&&_FN.pm[id].inactive;});}
 function fnListHtml(){
   var d=_FN.data,used={};
   Object.keys(_FN.slots).forEach(function(k){used[_FN.slots[k]]=k;});
@@ -13441,7 +13447,7 @@ function fnListHtml(){
     var ia=order.indexOf(a.position),ib=order.indexOf(b.position);if(ia<0)ia=99;if(ib<0)ib=99;
     return ia-ib||(a.name||'').localeCompare(b.name||'');
   });
-  if(!list.length)return '<div class="empty">Sin jugadores</div>';
+  if(!list.length)return '<div class="empty">Sin jugadores disponibles</div>';
   return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px">'+list.map(function(p){
     var u=used[p.id];
     return '<div draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;cursor:grab;background:var(--card);border:1px solid '+(_FN.sel===p.id?'var(--acc)':'var(--bdr)')+';opacity:'+(u&&!_FN.editing?'.4':'1')+'">'
@@ -13451,7 +13457,6 @@ function fnListHtml(){
       +'<div style="font-size:11px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div></div>';
   }).join('')+'</div>';
 }
-function fnHasInactive(){return Object.keys(_FN.orig).some(function(id){return _FN.pm[id]&&_FN.pm[id].inactive;});}
 function fnFilterList(){var el=document.getElementById('fn-list');if(el)el.innerHTML=fnListHtml();}
 function fnDrag(e,pid){e.dataTransfer.setData('text/plain',pid);e.dataTransfer.effectAllowed='move';}
 function fnDrop(e,key){e.preventDefault();var pid=e.dataTransfer.getData('text/plain');if(pid)fnAssign(key,pid);}
@@ -13475,19 +13480,20 @@ function fnTapSlot(key){
 function fnClear(){_FN.slots={};_FN.sel='';fnRender();}
 function fnPayload(){
   var d=_FN.data,s={};d.slots.forEach(function(k){s[k]=_FN.slots[k];});
-  return{slots:s,bench:FN_BN.map(function(k){return _FN.slots[k];})};
+  var cx=fnCtx();
+  return{tournamentId:_FN.tid,kind:cx.kind,phase:cx.phase,day:'',slots:s,bench:FN_BN.map(function(k){return _FN.slots[k];})};
 }
 function fnComplete(){return _FN.data.slots.concat(FN_BN).every(function(k){return _FN.slots[k];});}
 async function fnSave(){
   var n=(_FN.name||'').trim();
   if(!n){toast('Escribe un nombre para tu plantilla','error');return;}
   if(!fnComplete()){toast('Completa el cuadro y los 3 jugadores de banca','error');return;}
-  if(!confirm('Una vez guardada, solo podrás intercambiar entre estos mismos jugadores (cuadro y banca). ¿Guardar plantilla?'))return;
+  if(!confirm('Vas a guardar tu plantilla de: '+fnCtxLabel()+'.\n\nUna vez guardada, solo podrás intercambiar entre estos mismos jugadores (cuadro y banca). ¿Guardar?'))return;
   _FN.busy=true;
-  var pl=fnPayload();
-  var r=await api('saveFantasyTeam',{tournamentId:_FN.tid,teamName:n,slots:pl.slots,bench:pl.bench});
+  var pl=fnPayload();pl.teamName=n;
+  var r=await api('saveFantasyTeam',pl);
   _FN.busy=false;
-  if(r&&r.ok){toast('Plantilla guardada','success');_FN.slots={};_FN.name='';_FN.tab='team';await fnLoad();}
+  if(r&&r.ok){toast('Plantilla guardada','success');_FN.slots={};_FN.name='';await fnLoad();}
   else{toast(r&&r.error||'Error','error');fnLoad();}
 }
 function fnStartEdit(){
@@ -13503,8 +13509,7 @@ async function fnSaveEdit(){
   var bad=Object.keys(_FN.orig).filter(function(id){return !cur[id]&&!(_FN.pm[id]&&_FN.pm[id].inactive);});
   if(bad.length){toast('Solo un jugador inactivo puede salir de tu plantilla','error');return;}
   _FN.busy=true;
-  var pl=fnPayload();
-  var r=await api('updateFantasyTeam',{tournamentId:_FN.tid,slots:pl.slots,bench:pl.bench});
+  var r=await api('updateFantasyTeam',fnPayload());
   _FN.busy=false;
   if(r&&r.ok){toast('Cambios guardados','success');_FN.editing=false;_FN.slots={};await fnLoad();}
   else{toast(r&&r.error||'Error','error');fnLoad();}
@@ -13516,9 +13521,13 @@ function fnViewTeam(i){
     +'<div class="mbd">'+fnTotals(tm)+fnField(map,false,tm.contrib)+fnBench(map,false)+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
 function fnTotals(tm){
+  var d=_FN.data,dia=d.kind==='dia';
   return'<div style="text-align:center;margin-bottom:10px"><div style="font-size:11px;color:var(--t3)">por '+fnEsc(tm.userName)+'</div>'
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:52px;font-weight:800;color:var(--acc);line-height:1.05">'+fnPts(tm.total)+'</div><div style="font-size:11px;color:var(--t3)">PUNTOS TOTALES</div>'
-    +'<div style="display:flex;gap:8px;justify-content:center;margin-top:6px;font-size:12px"><span class="badge bg">&#9918; Jugadas '+fnPts(tm.playPts)+'</span><span class="badge" style="background:rgba(245,166,35,.15);color:#f5a623">&#128293; Acceso '+fnPts(tm.accessPts)+'</span></div></div>';
+    +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-size:12px"><span class="badge bg">&#9918; '+(dia?'Del día ':'Jugadas ')+fnPts(tm.playPts)+'</span>'
+    +(dia?'':'<span class="badge" style="background:rgba(245,166,35,.15);color:#f5a623">&#128293; Acceso '+fnPts(tm.accessPts)+'</span>'
+      +((tm.winPts>0||d.dailyWin>0)?'<span class="badge" style="background:rgba(59,130,246,.15);color:#60a5fa">&#127942; Victorias diarias '+fnPts(tm.winPts)+'</span>':''))
+    +'</div></div>';
 }
 function fnAccessCard(d){
   var a=d.access||{total:0,streak:0,recent:[]};
@@ -13536,8 +13545,8 @@ function fnEditor(isEdit){
   var filled=keys.filter(function(k){return _FN.slots[k];}).length;
   var posOpts='<option value="">Todas las posiciones</option>'+Array.from(new Set(d.players.map(function(p){return p.position;}).filter(Boolean))).map(function(p){return'<option value="'+fnEsc(p)+'" '+(_FN.pf===p?'selected':'')+'>'+fnEsc(p)+'</option>';}).join('');
   return'<div class="card" style="margin-bottom:12px"><div style="font-size:12px;color:var(--t2);margin-bottom:8px">'
-    +(isEdit?'Intercambia jugadores entre el cuadro y la banca (solo los que ya elegiste). Si alguno fue marcado como <b>inactivo</b> en Equipos, puedes reemplazarlo por otro jugador disponible del roster. Los puntos de quien entra al cuadro cuentan desde ese momento; los que ya ganó quien sale se conservan.'
-      :'Elige el cuadro y <b>3 jugadores de banca</b> (solo aparecen los que ningún otro usuario ha elegido): arrástralos (o toca un jugador y luego la posición). Tocar una posición ocupada selecciona a ese jugador para moverlo o intercambiarlo.')+'</div>'
+    +(isEdit?'Intercambia jugadores entre el cuadro y la banca (solo los que ya elegiste). Si alguno fue marcado como <b>inactivo</b> en Equipos, puedes reemplazarlo por otro jugador disponible.'
+      :'Plantilla de <b>'+fnEsc(fnCtxLabel())+'</b>. Elige el cuadro y <b>3 jugadores de banca</b> (solo aparecen los que ningún otro usuario ha elegido): arrástralos (o toca un jugador y luego la posición). Tocar una posición ocupada selecciona a ese jugador para moverlo o intercambiarlo.')+'</div>'
     +fnField(_FN.slots,true)+fnBench(_FN.slots,true)
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">'
     +(isEdit?'<button class="btn bs" onclick="fnCancelEdit()">Cancelar</button><button class="btn bp" style="margin-left:auto" onclick="fnSaveEdit()">Guardar cambios</button>'
@@ -13547,44 +13556,84 @@ function fnEditor(isEdit){
     +'<div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" style="flex:1;min-width:140px" placeholder="Buscar jugador o equipo..." value="'+fnEsc(_FN.q)+'" oninput="_FN.q=this.value;fnFilterList()">'
     +'<select class="fs" style="width:170px" onchange="_FN.pf=this.value;fnFilterList()">'+posOpts+'</select></div><div id="fn-list">'+fnListHtml()+'</div></div>';
 }
+function fnRankRows(d,closedDay){
+  if(!d.teams.length)return'<div class="empty">Aún no hay plantillas en este concurso</div>';
+  return d.teams.map(function(x,i){
+    var sub=fnEsc(x.userName)+' &middot; &#9918; '+fnPts(x.playPts)+(d.kind==='dia'?'':' &middot; &#128293; '+fnPts(x.accessPts)+((x.winPts>0||d.dailyWin>0)?' &middot; &#127942; '+fnPts(x.winPts):''));
+    return'<div '+(x.slots?'onclick="fnViewTeam('+i+')" ':'')+'style="display:flex;align-items:center;gap:10px;padding:9px 6px;'+(i?'border-top:1px solid var(--bdr);':'')+(x.isMine?'background:rgba(255,200,0,.08);':'')+(x.slots?'cursor:pointer':'')+'">'
+      +'<div style="width:26px;text-align:center;font-weight:800;color:'+(i===0?'var(--acc)':'var(--t3)')+'">'+(i===0&&closedDay&&x.total>0?'&#128081;':(i+1))+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+fnEsc(x.teamName)+(x.isMine?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+sub+'</div></div>'
+      +'<div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--acc)">'+fnPts(x.total)+'</div></div>';
+  }).join('');
+}
+function fnCtxBar(){
+  function opt(v,l,cur){return'<option value="'+v+'" '+(cur===v?'selected':'')+'>'+l+'</option>';}
+  var phSel='<select class="fs" onchange="fnSetPhase(this.value)">'+Object.keys(FN_PH).map(function(k){return opt(k,FN_PH[k],_FN.phase);}).join('')+'</select>';
+  var lb=function(t,c){return'<div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">'+t+'</label>'+c+'</div>';};
+  var inner='';
+  if(_FN.tab==='team'){
+    inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
+      +(_FN.kind==='fase'?lb('Fase',phSel):'');
+  }else if(_FN.tab==='rank')inner=lb('Fase',phSel);
+  else{
+    var today=_FN.data?_FN.data.today:'';
+    inner=lb('Día','<input type="date" class="fi" '+(today?'max="'+today+'"':'')+' value="'+fnEsc(_FN.day||(_FN.data?_FN.data.day:''))+'" onchange="fnSetDay(this.value)">');
+  }
+  return'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+inner+'</div>';
+}
+function fnTeamTab(d,mine){
+  var h='';
+  if(d.kind==='dia')h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128197; Plantilla del día <b>'+fnDateTxt(d.today)+'</b> (hora de República Dominicana): solo suman los puntos de hoy y solo puedes elegir jugadores de equipos con juego programado hoy. Podrás crear otra cuando sean las 12:00 a. m.</div>';
+  else h+=fnAccessCard(d);
+  if(mine&&!_FN.editing){
+    var map=fnTeamMap(mine);
+    h+='<div class="card" style="text-align:center"><div style="font-weight:800;font-size:16px">'+fnEsc(mine.teamName)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-bottom:6px">'+fnEsc(fnCtxLabel())+' &middot; puesto #'+(d.teams.indexOf(mine)+1)+' de '+d.teams.length+'</div>'
+      +fnTotals(mine)+fnField(map,false,mine.contrib)+fnBench(map,false)
+      +(canDo('edit','fantasy')?'<button class="btn bs" style="margin-top:12px" onclick="fnStartEdit()">&#9998; Modificar (intercambiar jugadores)</button>':'')+'</div>';
+  }else if(mine&&_FN.editing)h+=fnEditor(true);
+  else if(!canDo('create','fantasy'))h+='<div class="card"><div class="empty"><div>Tu perfil no tiene permiso para crear plantillas</div></div></div>';
+  else if(!d.canCreate){
+    var msg={limit:'Ya se jugaron '+d.gamesPlayed+' juegos de esta fase (límite '+d.maxGames+'): ya no se pueden crear plantillas.',
+      nophase:'Aún no hay juegos programados en esta fase. Cuando los haya podrás elegir jugadores de los equipos que la juegan.',
+      nogames:'Hoy no hay juegos programados en este subtorneo, así que no se puede crear la plantilla diaria.',
+      past:'Solo se puede crear la plantilla diaria del día de hoy.'}[d.reason]||'No se pueden crear plantillas en este momento.';
+    h+='<div class="card"><div class="empty"><div style="font-size:26px">&#128274;</div><div>'+msg+'</div></div></div>';
+  }else h+=fnEditor(false);
+  return h;
+}
 function fnRender(){
   var sel=fnResolveSel(),d=_FN.data;
   var mine=d?d.teams.filter(function(x){return x.isMine;})[0]:null;
   function sOpt(arr,cur,val,lbl){return arr.map(function(x){var v=val(x);return'<option value="'+fnEsc(v)+'" '+(String(v)===String(cur)?'selected':'')+'>'+fnEsc(lbl(x))+'</option>';}).join('');}
   function sf(level,label,opts){return'<div style="flex:1;min-width:130px"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">'+label+'</label><select class="fs" style="width:100%" onchange="fnOnSel(\''+level+'\',this.value)">'+opts+'</select></div>';}
   var tab=function(id,l){return'<button class="btn '+(_FN.tab===id?'bp':'bs')+' bsm" onclick="fnSetTab(\''+id+'\')">'+l+'</button>';};
-  var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px"><div><div class="stl">&#127919; Liga de Fantasía</div><div class="ssb">Arma tu plantilla (cuadro + banca) y compite por puntos de jugadas y de acceso diario</div></div>'
+  var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px"><div><div class="stl">&#127919; Liga de Fantasía</div><div class="ssb">Arma tu plantilla (cuadro + banca) por fase del torneo o por día y compite por puntos</div></div>'
     +'<button class="btn bs bsm" onclick="fnOpenInfo()">&#8505; Cómo funciona</button></div>'
     +'<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap">'
     +sf('sport','Deporte',sOpt(sel.sports,_FN.sport,function(x){return x.id;},function(x){return x.lbl;}))
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">'+tab('team','Mi Plantilla')+tab('rank','Clasificación'+(d?' ('+d.teams.length+')':''))+'</div></div>';
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('daily','Diaria')+'</div>'
+    +(_FN.tid?fnCtxBar():'')+'</div>';
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
-    h+='<div class="card" id="fn-rank">'+(d.teams.length?d.teams.map(function(x,i){
-      return'<div '+(x.slots?'onclick="fnViewTeam('+i+')" ':'')+'style="display:flex;align-items:center;gap:10px;padding:9px 6px;'+(i?'border-top:1px solid var(--bdr);':'')+(x.isMine?'background:rgba(255,200,0,.08);':'')+(x.slots?'cursor:pointer':'')+'">'
-        +'<div style="width:26px;text-align:center;font-weight:800;color:'+(i===0?'var(--acc)':'var(--t3)')+'">'+(i+1)+'</div>'
-        +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+fnEsc(x.teamName)+(x.isMine?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</div>'
-        +'<div style="font-size:11px;color:var(--t3)">'+fnEsc(x.userName)+' &middot; &#9918; '+fnPts(x.playPts)+' &middot; &#128293; '+fnPts(x.accessPts)+'</div></div>'
-        +'<div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--acc)">'+fnPts(x.total)+'</div></div>';
-    }).join(''):'<div class="empty">Aún no hay plantillas en este subtorneo</div>')
-    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Total = puntos de jugadas (&#9918;) + puntos por acceso (&#128293;). Se actualiza automáticamente.'+(d.hasMine?' Toca una fila para ver su alineación.':' Guarda tu plantilla para poder ver las alineaciones de los demás.')+'</div></div>';
-  }else{
-    h+=fnAccessCard(d);
-    if(mine&&!_FN.editing){
-      var map=fnTeamMap(mine);
-      h+='<div class="card" style="text-align:center"><div style="font-weight:800;font-size:16px">'+fnEsc(mine.teamName)+'</div>'
-        +'<div style="font-size:11px;color:var(--t3);margin-bottom:6px">puesto #'+(d.teams.indexOf(mine)+1)+' de '+d.teams.length+'</div>'
-        +fnTotals(mine)+fnField(map,false,mine.contrib)+fnBench(map,false)
-        +(canDo('edit','fantasy')?'<button class="btn bs" style="margin-top:12px" onclick="fnStartEdit()">&#9998; Modificar (intercambiar jugadores)</button>':'')+'</div>';
-    }else if(mine&&_FN.editing){h+=fnEditor(true);}
-    else if(!canDo('create','fantasy')){h+='<div class="card"><div class="empty"><div>Tu perfil no tiene permiso para crear plantillas</div></div></div>';}
-    else if(!d.canCreate){h+='<div class="card"><div class="empty"><div style="font-size:26px">&#128274;</div><div>Ya se jugaron '+d.gamesPlayed+' juegos en este subtorneo (límite '+d.maxGames+'): ya no se pueden crear plantillas.</div></div></div>';}
-    else h+=fnEditor(false);
-  }
+    h+='<div class="card" id="fn-rank"><div style="font-weight:700;margin-bottom:6px">Clasificación — '+FN_PH[d.phase]+'</div>'+fnRankRows(d,false)
+      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Total = puntos de jugadas de esta fase (&#9918;) + acceso diario (&#128293;) + victorias diarias (&#127942;). Se actualiza automáticamente.'+' Toca una fila para ver su alineación.'+'</div></div>';
+  }else if(_FN.tab==='daily'){
+    var closed=d.day<d.today;
+    h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">Ranking del '+fnDateTxt(d.day)+(closed?' (día cerrado)':' (en juego)')+'</div>'+fnRankRows(d,closed)
+      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Solo cuentan los puntos de ese día. El ganador de cada día cerrado recibe '+fnPts(d.dailyWin)+' puntos de victoria diaria.'+' Toca una fila para ver su alineación.'+'</div></div>'
+      +'<div class="card"><div style="font-weight:700;margin-bottom:6px">&#127942; Ganadores por día</div>'
+      +(d.winners.length?d.winners.map(function(w){
+        return'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bdr)"><div style="font-size:12px;color:var(--t3);width:78px">'+fnDateTxt(w.day)+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:700">&#128081; '+fnEsc(w.teamName)+'</div><div style="font-size:11px;color:var(--t3)">'+fnEsc(w.userName)+' &middot; '+FN_PH[w.phase]+(d.dailyWin>0?' &middot; +'+fnPts(d.dailyWin)+' pts':'')+'</div></div>'
+          +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">'+fnPts(w.score)+'</div></div>';
+      }).join(''):'<div class="empty">Aún no hay días cerrados con ganador</div>')+'</div>';
+  }else h+=fnTeamTab(d,mine);
   ct(h);
 }
 // Ventana informativa: mecánica y puntos. Se muestra la primera vez que el usuario entra al módulo
@@ -13617,13 +13666,16 @@ function fnOpenInfo(){
   showM('<div class="mhd"><div class="mtl">&#127919; Liga de Fantasía — Cómo funciona</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd" style="font-size:13px;color:var(--t2);line-height:1.55">'
     +sec('La mecánica')
-    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>Elige <b>deporte, torneo, año y subtorneo</b> y arma <b>una sola plantilla</b> por subtorneo, con el nombre que quieras.</li>'
+    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>Elige <b>deporte, torneo, año y subtorneo</b> y crea tu plantilla con el nombre que quieras. Hay dos tipos:</li>'
+    +'<ul style="margin:0 0 6px 18px;padding:0"><li '+li+'><b>Fase del torneo</b>: una por <b>Serie regular, Playoff o Serie final</b>. Solo cuentan los puntos de los juegos de esa fase, y en playoff/serie final solo salen jugadores de equipos que la juegan.</li>'
+    +'<li '+li+'><b>Jugada diaria</b>: una por día (hora de República Dominicana; puedes crear otra a las 12:00 a. m.). Solo cuentan los puntos de ese día y solo puedes elegir jugadores de equipos con juego programado hoy.</li></ul>'
     +'<li '+li+'>Completa el cuadro ('+pos+') y <b>3 jugadores de banca</b> arrastrándolos (o tocando el jugador y luego la posición).</li>'
     +'<li '+li+'>Cada jugador solo puede estar en <b>una plantilla</b>: si otro usuario ya lo eligió, no aparece. ¡Elige rápido!</li>'
     +'<li '+li+'>Una vez guardada solo puedes <b>intercambiar</b> entre tus mismos jugadores (cuadro y banca). Si uno de ellos pasa a <b>inactivo</b> en Equipos, puedes reemplazarlo por otro jugador disponible del roster.</li>'
     +'<li '+li+'>Solo suman los jugadores del <b>cuadro</b>, desde que entran a él; la banca no suma. Los puntos ganados por quien sale se conservan.</li>'
     +(mg>0?'<li '+li+'>Solo puedes crear tu plantilla mientras el subtorneo tenga menos de <b>'+mg+'</b> juegos finalizados.</li>':'')
-    +'<li '+li+'>Tu puntaje total = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b>, que se muestran por separado.</li></ul>'
+    +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado.</li>'
+    +'<li '+li+'>El usuario con más puntos en la clasificación <b>Diaria</b> de cada día cerrado gana '+(((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts)||0)>0?'<b>'+fnPts((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts))+' puntos de victoria diaria</b>':'puntos de victoria diaria')+', que se suman a tu plantilla de la fase de ese día.</li></ul>'
     +sec('Puntos por jugada ('+fnEsc(tour.name||'subtorneo')+')')
     +row('Sencillo (H1)',pv('asPtsH1',1))+row('Doble (H2)',pv('asPtsH2',2))+row('Triple (H3)',pv('asPtsH3',3))+row('Jonrón (HR)',pv('asPtsHr',4))
     +row('Base por bolas (BB)',pv('asPtsBb',1))+row('Remolcada (RBI)',pv('asPtsRbi',1))+row('Carrera anotada (R)',pv('asPtsR',1))
@@ -13636,8 +13688,23 @@ function fnOpenInfo(){
     +bonus+pen
     +'</div><div class="mft"><button class="btn bp" onclick="cM()">Entendido</button></div>');
 }
+// Primer acceso del día cuando la app se REABRE con la sesión vigente (sin pasar por el login).
+// El Worker registra un solo acceso por usuario y día (hora RD), así que repetirlo es inofensivo.
+var _fnAccDone=false;
+async function fnDailyAccess(){
+  if(_fnAccDone||!S.user||S.user.role==='public'||S.user.isGuest)return;
+  _fnAccDone=true;
+  try{
+    var r=await api('dailyAccess',{});
+    var a=r&&r.access;
+    if(a&&a.error&&S.user.role==='admin')toast('Acceso diario: '+a.error,'error');
+    else if(a)fnAccessMsg(a);
+    else if(r&&r.error&&S.user.role==='admin')toast('Acceso diario: '+r.error,'error');
+  }catch(e){}
+}
 // Mensaje del primer acceso del día (lo manda el Worker en la respuesta del login)
 function fnAccessMsg(a){
+  if(a&&a.error&&S.user&&S.user.role==='admin'){toast('Acceso diario: '+a.error,'error');return;}
   if(!a||!a.firstToday||!(a.bonus>0||a.penalty>0))return;
   var m='';
   if(a.penalty>0)m+='<div class="alert ae" style="font-size:13px;margin-bottom:10px">Estuviste <b>'+a.missed+'</b> '+(a.missed===1?'día':'días')+' sin acceder: se descontaron <b>'+fnPts(a.penalty)+'</b> puntos de tus puntos por acceso.</div>';
@@ -13662,7 +13729,8 @@ function fnCfgCard(){
   return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127919; Liga de Fantasía</div></div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">PUNTOS POR ACCESO DIARIO (primer login del día, usuario o Google)</div><div style="'+g+'">'+b+'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--red);margin:12px 0 6px">PUNTOS A DESCONTAR POR DEJAR DE ACCEDER (solo de los puntos por acceso, nunca bajan de 0)</div><div style="'+g+'">'+p+'</div>'
-    +'<div class="fg" style="margin-top:12px"><label class="fl">No permitir crear plantilla si en el subtorneo ya se jugaron (finalizados) este número de juegos (0 = sin límite)</label><input class="fi" id="fnmg" type="number" min="0" value="'+(c.fantasyMaxGamesCreate||0)+'"></div>'
+    +'<div class="fg" style="margin-top:12px"><label class="fl">&#127942; Puntos por VICTORIA DIARIA (ganador de cada día en la clasificación Diaria; se suman a su plantilla de fase)</label><input class="fi" id="fnwin" type="number" min="0" step="0.5" value="'+(c.fantasyDailyWinPts||0)+'"></div>'
+    +'<div class="fg"><label class="fl">No permitir crear plantilla de FASE si en esa fase del subtorneo ya se jugaron (finalizados) este número de juegos (0 = sin límite)</label><input class="fi" id="fnmg" type="number" min="0" value="'+(c.fantasyMaxGamesCreate||0)+'"></div>'
     +'<div class="alert ai" style="font-size:12px;margin-bottom:10px">Con 0 en todos los campos el sistema de acceso queda desactivado. Pasados 5 días seguidos (o 5 sin acceder) se aplica el valor de la fila "5 o más". El día se cuenta en hora de República Dominicana.</div>'
     +'<button class="btn bp" onclick="saveFantasyCfg()">Guardar Liga de Fantasía</button></div>';
 }
@@ -13673,6 +13741,7 @@ async function saveFantasyCfg(){
     items.push(['fantasyPenaltyDay'+i,Math.max(0,parseFloat(fv('fnp'+i))||0)]);
   }
   items.push(['fantasyMaxGamesCreate',Math.max(0,parseInt(fv('fnmg'))||0)]);
+  items.push(['fantasyDailyWinPts',Math.max(0,parseFloat(fv('fnwin'))||0)]);
   var ok=true;
   for(var j=0;j<items.length;j++){
     var r=await api('saveConfig',{key:items[j][0],value:items[j][1]});
@@ -15398,17 +15467,19 @@ function toggleUsrSort(){
 // "Torneos Padre" del modulo Usuarios. Misma logica de acceso que visibleParentTournaments()
 // pero evaluada para UN usuario cualquiera de la lista (no necesariamente S.user).
 function userParentTourNames(u){
-  if(!u) return 'Todos';
+  if(!u||u.role==='public') return 'Todos';
   if(u.role==='google'){
     var owned=(S.parentTournaments||[]).filter(function(pt){return pt.createdBy===u.id;});
     return owned.length?owned.map(function(pt){return pt.name;}).join(', '):'<span style="opacity:.6">Ninguno aún</span>';
   }
   if(u.role==='admin') return 'Todos';
   var prof=(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-  if(!prof) return 'Todos';
+  var ownP=(S.parentTournaments||[]).filter(function(pt){return pt.createdBy===u.id;}).map(function(pt){return pt.name;});
+  var none=ownP.length?ownP.join(', '):'<span style="opacity:.6">Ninguno</span>';
+  if(!prof) return none;
   if(prof.parentTournaments&&prof.parentTournaments.length){
     var names=prof.parentTournaments.map(function(id){var pt=(S.parentTournaments||[]).filter(function(p){return p.id===id;})[0];return pt?pt.name:null;}).filter(Boolean);
-    return names.length?names.join(', '):'Todos';
+    return names.length?names.join(', '):none;
   }
   if(prof.tournaments&&prof.tournaments.length){
     var ptids=prof.tournaments.map(function(x){return String(x);});
@@ -15416,9 +15487,9 @@ function userParentTourNames(u){
     var parentIds=[];
     allowedSubs.forEach(function(t){if(t.parentTournamentId&&parentIds.indexOf(t.parentTournamentId)<0)parentIds.push(t.parentTournamentId);});
     var names2=parentIds.map(function(id){var pt=(S.parentTournaments||[]).filter(function(p){return p.id===id;})[0];return pt?pt.name:null;}).filter(Boolean);
-    return names2.length?names2.join(', '):'Todos';
+    return names2.length?names2.join(', '):none;
   }
-  return 'Todos';
+  return none;
 }
 function filterUsersDisplay(){
   var q=(_usrQ||'').toLowerCase();
@@ -15823,7 +15894,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -17422,7 +17493,7 @@ window.onload=function(){
         document.getElementById('app').style.display='flex';
         // Al refrescar con sesion activa, aplicar auto-select de torneo padre igual que en login
         if(!S.parentTourFilter){var pts2=visibleParentTournaments();if(pts2.length>0){S.parentTourFilter=String(pts2[0].id);var defYr=defaultYearForParent(pts2[0].id)||_curYear;S.yearFilter=parseInt(defYr)||_curYear;S.tourFilter=autoSubTour(pts2[0].id,S.yearFilter);if(S.tourFilter)S.tourFilter=String(S.tourFilter);}else{S.yearFilter=_curYear;}}
-        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();startPublicGalleries();
+        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();startPublicGalleries();fnDailyAccess();
       }).catch(function(){
         // Tampoco hubo red para el intento normal: mismo camino offline de arriba.
         loadOfflineCache().then(function(){
