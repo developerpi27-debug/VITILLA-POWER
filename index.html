@@ -13562,7 +13562,7 @@ function fnRender(){
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
     +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">'+tab('team','Mi Plantilla')+tab('rank','Clasificación'+(d?' ('+d.teams.length+')':''))+'</div></div>';
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
-  else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?fnEsc(_FN.err):'Cargando...')+'</div></div>';
+  else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
     h+='<div class="card" id="fn-rank">'+(d.teams.length?d.teams.map(function(x,i){
       return'<div '+(x.slots?'onclick="fnViewTeam('+i+')" ':'')+'style="display:flex;align-items:center;gap:10px;padding:9px 6px;'+(i?'border-top:1px solid var(--bdr);':'')+(x.isMine?'background:rgba(255,200,0,.08);':'')+(x.slots?'cursor:pointer':'')+'">'
@@ -15823,7 +15823,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
