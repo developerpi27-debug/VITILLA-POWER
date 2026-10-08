@@ -13480,8 +13480,17 @@ function fnBench(map,edit,contrib){
     +'</div>';
 }
 // Fila de jugador (listas): foto, #número nombre, posición · equipo · estado, números y puntos
+// Jugador liberado: bloqueado para los demás hasta que pase el tiempo (solo quien lo liberó puede volver a tomarlo)
+function fnHoldMs(p){return p&&p.hold?p.hold.until-(Date.now()+(_FN.skew||0)):0;}
+function fnHoldTxt(ms){var m=Math.max(1,Math.ceil(ms/60000));return m>=60?Math.floor(m/60)+' h '+(m%60)+' min':m+' min';}
+function fnHoldLocked(p){return fnHoldMs(p)>0&&!p.hold.mine;}
 function fnChip(p,tag,opts){
   opts=opts||{};
+  var hms=fnHoldMs(p);
+  if(hms>0){
+    tag=(tag?tag+' &middot; ':'')+(p.hold.mine?'&#128275; solo tú, '+fnHoldTxt(hms):'<span style="color:#f59e0b">&#128274; bloqueado '+fnHoldTxt(hms)+'</span>');
+    if(!p.hold.mine)opts=Object.assign({},opts,{noSel:true,tap:false,dim:true});
+  }
   return'<div '+(opts.tap?'data-pid="'+p.id+'" onclick="fnDraftTap(this.dataset.pid)" ':(opts.noSel?'':'draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" '))
     +'style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;'+(opts.tap?'cursor:pointer;':(opts.noSel?'':'cursor:grab;'))+'background:var(--card);border:1px solid '+((_FN.sel===p.id||(opts.tap&&_FN.dsel.indexOf(String(p.id))>=0))?'var(--acc)':'var(--bdr)')+';opacity:'+(opts.dim?'.4':'1')+'">'
     +playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)
@@ -13551,6 +13560,7 @@ function fnAssign(target,pid){
   if(_FN.editing){
     var pl=fnP(pid);
     if(!_FN.orig[pid]){                       // agente libre
+      if(pl&&fnHoldLocked(pl))return fnWarn('Ese jugador fue liberado por otro usuario y sigue bloqueado '+fnHoldTxt(fnHoldMs(pl))+' más: solo quien lo liberó puede volver a tomarlo.');
       if(occ){
         var o=fnP(occ);
         if(!(o&&o.inactive))return fnWarn('Libera primero a ese jugador, o elige un espacio vacío');
@@ -13584,7 +13594,7 @@ function fnClear(){_FN.slots={};_FN.sel='';fnRender();}
 function fnRelease(){
   var pid=_FN.sel;if(!pid||!_FN.orig[pid])return;
   var p=fnP(pid);
-  if(!confirm('¿Liberar a '+(p?p.name:'este jugador')+'? Conservas los puntos que ya sumó para ti. El jugador vuelve a la agencia libre y cualquier usuario podrá tomarlo.'))return;
+  if(!confirm('¿Liberar a '+(p?p.name:'este jugador')+'? Conservas los puntos que ya sumó para ti. El jugador vuelve a la agencia libre'+(((_FN.data&&_FN.data.holdMin)||0)>0?', pero queda bloqueado '+fnHoldTxt(_FN.data.holdMin*60000)+' para los demás: en ese tiempo solo tú podrás volver a tomarlo (si liberas otro espacio).':' y cualquier usuario podrá tomarlo.')))return;
   Object.keys(_FN.slots).forEach(function(k){if(_FN.slots[k]===pid)delete _FN.slots[k];});
   _FN.parked=_FN.parked.filter(function(x){return x!==pid;});
   delete _FN.orig[pid];_FN.sel='';fnRender();
@@ -13740,7 +13750,8 @@ function fnDraftRefreshSel(){
 }
 function fnDraftTap(pid){
   var dr=fnDraft();if(!dr||!dr.mine.myTurn)return;
-  pid=String(pid);var need=fnDraftNeed(),i=_FN.dsel.indexOf(pid);
+  pid=String(pid);var hp=fnP(pid);if(hp&&fnHoldLocked(hp)){toast('Ese jugador está bloqueado temporalmente (liberado por otro usuario)','error');return;}
+  var need=fnDraftNeed(),i=_FN.dsel.indexOf(pid);
   if(i>=0)_FN.dsel.splice(i,1);
   else if(need<=1)_FN.dsel=[pid];
   else if(_FN.dsel.length>=need){toast('Ya elegiste '+need+' jugadores. Toca uno elegido para quitarlo.','error');return;}
@@ -14057,6 +14068,7 @@ function fnCfgCard(){
     +qinp('fnq-min'+sx,'fantasyQueueMin'+sx,'Mín. participantes en la cola',2)+qinp('fnq-max'+sx,'fantasyQueueMax'+sx,'Máx. participantes en la cola',10)
     +qinp('fnq-wait'+sx,'fantasyQueueWaitMin'+sx,'Minutos tras el último que entra para iniciar solo',10)
     +qinp('fnq-pick'+sx,'fantasyPickMax'+sx,'Máx. jugadores por turno (el 1º elige de 1 a este valor)',3)+qinp('fnq-sec'+sx,'fantasyTurnSec'+sx,'Segundos por turno',60)+'</div>';}
+  function hinp(id,key,lbl){var v=parseInt(c[key]);return'<div class="fg"><label class="fl" style="font-size:11px">'+lbl+'</label><input class="fi" id="'+id+'" type="number" min="0" step="1" value="'+(isFinite(v)&&v>=0?v:60)+'"></div>';}
   return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127919; Liga de Fantasía</div></div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">PUNTOS POR ACCESO DIARIO (primer login del día, usuario o Google)</div><div style="'+g+'">'+b+'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--red);margin:12px 0 6px">PUNTOS A DESCONTAR POR DEJAR DE ACCEDER (solo de los puntos por acceso, nunca bajan de 0)</div><div style="'+g+'">'+p+'</div>'
@@ -14065,6 +14077,8 @@ function fnCfgCard(){
     +'<div class="fg" style="margin-top:12px"><label class="fl">&#127942; Puntos por VICTORIA DIARIA (ganador de cada día en la clasificación Diaria; se suman a su plantilla de fase)</label><input class="fi" id="fnwin" type="number" min="0" step="0.5" value="'+(c.fantasyDailyWinPts||0)+'"></div>'
     +'<div class="fg"><label class="fl">No permitir crear plantilla de FASE si en esa fase del subtorneo ya se jugaron (finalizados) este número de juegos (0 = sin límite)</label><input class="fi" id="fnmg" type="number" min="0" value="'+(c.fantasyMaxGamesCreate||0)+'"></div>'
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">COLA DE TURNOS AL "CREAR PLANTILLA" (cada tipo de plantilla con sus propios valores)</div>'+qblock('Fase','Plantillas POR TORNEO (fase)')+qblock('Dia','Plantillas DIARIAS')
+    +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">BLOQUEO DE JUGADORES LIBERADOS (minutos en que solo quien lo liberó puede volver a tomarlo; 0 = sin bloqueo)</div>'
+    +'<div style="'+g+'">'+hinp('fnhold-Fase','fantasyHoldMinFase','Plantillas por torneo (min)')+hinp('fnhold-Dia','fantasyHoldMinDia','Plantillas diarias (min)')+'</div>'
     +'<div class="alert ai" style="font-size:12px;margin:10px 0">Con 0 en todos los campos el sistema de acceso queda desactivado. Pasados 5 días seguidos (o 5 sin acceder) se aplica el valor de la fila "5 o más". El día se cuenta en hora de República Dominicana.</div>'
     +'<button class="btn bp" onclick="saveFantasyCfg()">Guardar Liga de Fantasía</button></div>';
 }
@@ -14085,6 +14099,7 @@ async function saveFantasyCfg(){
     items.push(['fantasyQueueMin'+sx,mn],['fantasyQueueMax'+sx,mx],['fantasyQueueWaitMin'+sx,Math.max(1,parseInt(fv('fnq-wait'+sx))||10)],
       ['fantasyPickMax'+sx,Math.max(1,parseInt(fv('fnq-pick'+sx))||3)],['fantasyTurnSec'+sx,Math.max(5,parseInt(fv('fnq-sec'+sx))||60)]);
   });
+  items.push(['fantasyHoldMinFase',Math.max(0,parseInt(fv('fnhold-Fase'))||0)],['fantasyHoldMinDia',Math.max(0,parseInt(fv('fnhold-Dia'))||0)]);
   var ok=true;
   for(var j=0;j<items.length;j++){
     var r=await api('saveConfig',{key:items[j][0],value:items[j][1]});
