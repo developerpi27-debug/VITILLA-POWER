@@ -4245,6 +4245,7 @@ function pgTeams(){
     +tourFollowBtn
     +(canDo('create','teams')?'<button class="btn bp" onclick="openEM(\'\')">+ Equipo</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openImportTeamM()">&#128228; Importar Equipo</button>':'')
+    +(isA?'<button class="btn bs" onclick="openMlbImportM()" title="Importar roster desde la API de MLB (solo admin)">&#9918; Importar de MLB</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openPM(\'\',\'\')">+ Jugador</button>':'')
     +'<button class="btn bs" onclick="exportAllRostersPDF()" title="Exportar PDF con todos los rosters">&#128196; Rosters PDF<\/button>'
     +'</div></div>'
@@ -4440,6 +4441,104 @@ async function doImportTeams(){
   }
   pgTeams();
   if(errors.length)toast('Errores: '+errors.join(', '),'error');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMPORTAR ROSTER DESDE LA API DE MLB — solo admin. Liga -> año -> equipo -> vista previa -> importar.
+// El servidor vuelve a leer la API al importar (el navegador solo manda los IDs elegidos) y guarda el ID de
+// MLB de cada jugador/equipo para poder asignar estadísticas por ID más adelante.
+// ═══════════════════════════════════════════════════════════════════
+var _MLB={roster:[]};
+function mlbEsc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function openMlbImportM(){
+  if(!(S.user&&S.user.role==='admin')){toast('Solo el administrador puede importar desde la API de MLB','error');return;}
+  _MLB={roster:[]};
+  var tours=visibleTournaments().slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+  var tOpts=tours.map(function(t){return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+mlbEsc(t.name)+'</option>';}).join('');
+  var lbl='font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin:10px 0 6px';
+  showM('<div class="mhd"><div class="mtl">&#9918; Importar roster desde la API de MLB</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'
+    +'<div class="alert ai" style="font-size:12px">Elige la liga, el año y el equipo; revisa el roster y marca a quién importar. Se guarda el ID de MLB de cada jugador. Volver a importar actualiza, no duplica.</div>'
+    +'<div style="'+lbl+'">1. DESTINO EN TU APP</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Subtorneo</label><select class="fs" id="mlb-tour" onchange="mlbFillTeams()">'+tOpts+'</select></div>'
+    +'<div class="fg"><label class="fl">Equipo destino</label><select class="fs" id="mlb-team" onchange="mlbRosterStale()"></select></div></div>'
+    +'<div style="'+lbl+'">2. LIGA Y AÑO EN MLB</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Liga</label><div style="display:flex;gap:6px"><select class="fs" id="mlb-lg" style="flex:1"><option value="">— carga las ligas —</option></select><button class="btn bs bsm" onclick="mlbLoadLeagues()">Cargar ligas</button></div></div>'
+    +'<div class="fg"><label class="fl">o ID de liga (manual)</label><input class="fi" id="mlb-lg-id" type="number" placeholder="Ej: 131"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada)</label><input class="fi" id="mlb-season" type="number" value="'+new Date().getFullYear()+'"></div>'
+    +'<div class="fg"><label class="fl">&nbsp;</label><button class="btn bs" style="width:100%" onclick="mlbLoadTeams()">Buscar equipos</button></div></div>'
+    +'<div class="fg"><label class="fl">Equipo de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="mlb-mt" style="flex:1" onchange="mlbRosterStale()"><option value="">— busca los equipos —</option></select><button class="btn bs bsm" onclick="mlbLoadRoster()">Ver roster</button></div></div>'
+    +'<div id="mlb-msg" style="font-size:12px;color:var(--t3);margin:6px 0"></div>'
+    +'<div id="mlb-roster"></div>'
+    +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" id="mlb-go" onclick="mlbDoImport()" disabled>Importar seleccionados</button></div>');
+  mlbFillTeams();
+}
+function mlbFillTeams(){
+  var tid=fv('mlb-tour')||'';
+  var ts=S.teams.filter(function(t){return t.tournamentId===tid;}).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+  var el=document.getElementById('mlb-team');if(!el)return;
+  el.innerHTML='<option value="">➕ Crear equipo nuevo con el nombre de MLB</option>'+ts.map(function(t){return'<option value="'+t.id+'">'+mlbEsc(t.name)+(t.mlbTeamId?' (vinculado a MLB)':'')+'</option>';}).join('');
+  mlbRosterStale();
+}
+function mlbRosterStale(){_MLB.roster=[];var r=document.getElementById('mlb-roster');if(r)r.innerHTML='';var b=document.getElementById('mlb-go');if(b)b.disabled=true;}
+function mlbMsg(t,err){var m=document.getElementById('mlb-msg');if(m){m.style.color=err?'#f87171':'var(--t3)';m.textContent=t||'';}}
+function mlbLeagueId(){var man=(fv('mlb-lg-id')||'').trim();return man||fv('mlb-lg')||'';}
+async function mlbLoadLeagues(){
+  mlbMsg('Consultando ligas…');
+  var r=await api('mlbLookup',{what:'leagues',sportId:17});
+  if(!r||!r.ok){mlbMsg((r&&r.error)||'No se pudieron cargar las ligas','1');return;}
+  var el=document.getElementById('mlb-lg');if(!el)return;
+  el.innerHTML='<option value="">— elige la liga —</option>'+r.leagues.map(function(l){return'<option value="'+l.id+'">'+mlbEsc(l.name)+' (ID '+l.id+')</option>';}).join('');
+  var dom=r.leagues.filter(function(l){return /dominic|lidom/i.test(l.name+' '+l.abbreviation);})[0];
+  if(dom){el.value=String(dom.id);mlbMsg('Liga dominicana encontrada: '+dom.name+' (ID '+dom.id+').');}
+  else mlbMsg(r.leagues.length+' ligas cargadas. No apareció una liga dominicana: escribe el ID manualmente si lo conoces.');
+}
+async function mlbLoadTeams(){
+  var lid=mlbLeagueId(),season=fv('mlb-season');
+  if(!lid){mlbMsg('Elige o escribe una liga','1');return;}
+  mlbMsg('Buscando equipos…');mlbRosterStale();
+  var r=await api('mlbLookup',{what:'teams',leagueId:lid,season:season});
+  if(!r||!r.ok){mlbMsg((r&&r.error)||'Error','1');return;}
+  var el=document.getElementById('mlb-mt');if(!el)return;
+  el.innerHTML='<option value="">— elige el equipo —</option>'+r.teams.map(function(t){return'<option value="'+t.id+'" data-name="'+mlbEsc(t.name)+'" data-abbr="'+mlbEsc(t.abbreviation)+'" data-city="'+mlbEsc(t.city)+'">'+mlbEsc(t.name)+'</option>';}).join('');
+  mlbMsg(r.teams.length?r.teams.length+' equipos encontrados.':'La API no devolvió equipos para esa liga y año.',!r.teams.length);
+}
+async function mlbLoadRoster(){
+  var mt=fv('mlb-mt'),season=fv('mlb-season'),team=fv('mlb-team');
+  if(!mt){mlbMsg('Elige un equipo de MLB','1');return;}
+  mlbMsg('Cargando roster…');
+  var r=await api('mlbLookup',{what:'roster',mlbTeamId:mt,season:season,teamId:team||''});
+  if(!r||!r.ok){mlbMsg((r&&r.error)||'Error','1');return;}
+  _MLB.roster=r.players||[];
+  if(!_MLB.roster.length){mlbMsg('La API no tiene roster publicado para ese equipo y año.',true);document.getElementById('mlb-roster').innerHTML='';return;}
+  mlbMsg(_MLB.roster.length+' jugadores. Marca los que quieres importar.');
+  mlbRenderRoster();
+}
+function mlbRenderRoster(){
+  var badge={'new':'<span style="color:var(--grn)">nuevo</span>','imported':'<span style="color:var(--acc)">ya importado (se actualiza)</span>','match':'<span style="color:#f59e0b">mismo nombre (se vincula)</span>'};
+  var rows=_MLB.roster.map(function(p,i){
+    return'<tr><td><input type="checkbox" class="mlb-chk" data-id="'+p.mlbId+'" checked style="accent-color:var(--acc)" onchange="mlbSyncGo()"></td><td>'+mlbEsc(p.number)+'</td><td><b>'+mlbEsc(p.name)+'</b></td><td>'+mlbEsc(p.position)+(p.posRaw&&p.posRaw!==p.position?' <span style="color:var(--t3)">('+mlbEsc(p.posRaw)+')</span>':'')+'</td><td>'+p.bats+'/'+p.throws+'</td><td style="font-size:11px">'+(badge[p.state]||'')+'</td></tr>';
+  }).join('');
+  document.getElementById('mlb-roster').innerHTML='<label style="display:flex;gap:8px;align-items:center;margin-bottom:6px;font-size:12px"><input type="checkbox" checked style="accent-color:var(--acc)" onchange="[].forEach.call(document.querySelectorAll(\'.mlb-chk\'),function(c){c.checked=this.checked;}.bind(this));mlbSyncGo()"> Seleccionar todos</label>'
+    +'<label style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:12px"><input type="checkbox" id="mlb-link" checked style="accent-color:var(--acc)"> Vincular con jugadores existentes del equipo que tengan el mismo nombre (en vez de duplicarlos)</label>'
+    +'<div class="tw" style="max-height:300px;overflow:auto"><table><thead><tr><th></th><th>#</th><th>Nombre</th><th>Pos</th><th>B/L</th><th>Estado</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px">Las posiciones que no existen en tu app (OF, IF, bateador de dos vías…) se importan como UT; puedes cambiarlas después.</div>';
+  mlbSyncGo();
+}
+function mlbSyncGo(){var n=document.querySelectorAll('.mlb-chk:checked').length;var b=document.getElementById('mlb-go');if(b){b.disabled=!n;b.textContent=n?'Importar '+n+' jugador(es)':'Importar seleccionados';}}
+async function mlbDoImport(){
+  var ids=[].map.call(document.querySelectorAll('.mlb-chk:checked'),function(c){return c.getAttribute('data-id');});
+  if(!ids.length)return;
+  var mtEl=document.getElementById('mlb-mt'),opt=mtEl.options[mtEl.selectedIndex];
+  var team=fv('mlb-team');
+  var pl={tournamentId:fv('mlb-tour'),teamId:team||'',mlbTeamId:fv('mlb-mt'),season:fv('mlb-season'),mlbIds:ids,linkByName:!!(document.getElementById('mlb-link')||{}).checked};
+  if(!team)pl.newTeam={name:opt.getAttribute('data-name'),abbreviation:opt.getAttribute('data-abbr'),city:opt.getAttribute('data-city')};
+  var b=document.getElementById('mlb-go');if(b){b.disabled=true;b.textContent='Importando…';}
+  var r=await api('mlbImportRoster',pl);
+  if(!r||!r.ok){toast((r&&r.error)||'Error al importar','error');mlbSyncGo();return;}
+  if(r.team){var ti=-1;S.teams.forEach(function(t,i){if(t.id===r.team.id)ti=i;});if(ti>=0)S.teams[ti]=r.team;else S.teams.push(r.team);}
+  (r.players||[]).forEach(function(p){var pi=-1;S.players.forEach(function(x,i){if(x.id===p.id)pi=i;});if(pi>=0)S.players[pi]=p;else S.players.push(p);});
+  cM();pgTeams();
+  toast(r.created+' nuevo(s), '+r.updated+' actualizado(s)'+(r.linked?', '+r.linked+' vinculado(s) por nombre':''),'success');
 }
 
 function viewTeamPlayers(tid){
