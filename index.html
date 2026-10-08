@@ -13303,22 +13303,26 @@ function pgRankings(tid){
     +'</div>');
 }
 // ═══════════════════════════════════════════════════════════════════
-// LIGA DE FANTASÍA — plantilla (cuadro + 3 de banca) por usuario y concurso.
-// Concurso = subtorneo + FASE (serie regular / playoff / serie final) o subtorneo + DÍA (jugada diaria).
-// Se puede modificar solo intercambiando entre los jugadores ya elegidos (único caso especial: un
-// jugador pasa a inactivo en Equipos). Los puntos los calcula el Worker; a los de jugadas de una
-// plantilla de fase se suman, por separado, los de acceso diario y los de victorias diarias.
-// Permisos: módulo y botones Crear (guardar) / Editar (modificar) vía Perfiles.
+// LIGA DE FANTASÍA — plantilla por usuario y concurso (subtorneo + FASE o subtorneo + DÍA).
+// Cuadro (posiciones del deporte) + banca + relevistas; el máximo de jugadores lo fija el admin por deporte
+// en Configuración. Una vez guardada se puede gestionar: mover entre cuadro/banca/relevistas (el cuadro puede
+// quedar con posiciones vacías), liberar jugadores (conservas sus puntos), fichar agentes libres si hay espacio y
+// reemplazar a un jugador INACTIVO (pasa a tu lista de inactivos y sigue siendo tuyo). Se bloquea desde que
+// inicia el primer juego del día hasta que terminan todos. Los puntos los calcula el Worker.
 // ═══════════════════════════════════════════════════════════════════
-var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{}};
+var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{}};
 var FN_PH={regular:'Serie regular',playoff:'Playoff',final:'Serie final'};
-var FN_XY={P:[50,61],C:[50,89],'1B':[83,58],'2B':[65,38],'3B':[17,58],SS:[35,38],LF:[14,20],CF:[50,12],RF:[86,20],DH:[13,92],UT:[87,92]};
-var FN_XY_VIT={'2B':[50,36]};
-var FN_BN=['B1','B2','B3'];
+// Posiciones del cuadro (% del ancho/alto). El cuadro tiene proporción 100:130 y las tarjetas escalan con su ancho.
+var FN_XY={P:[50,59],C:[50,82],'1B':[85,55],'2B':[66,38],'3B':[15,55],SS:[34,38],LF:[15,18],CF:[50,11],RF:[85,18],DH:[15,92],UT:[85,92]};
+var FN_XY_VIT={'2B':[50,37],'1B':[84,57]};
 function fnEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fnPts(v){return String(Math.round((v||0)*100)/100);}
 function fnDateTxt(d){var m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:(d||'');}
 function fnCtxLabel(){return _FN.kind==='dia'?'Jugada diaria':FN_PH[_FN.phase];}
+function fnIsB(k){return /^B\d+$/.test(k);}
+function fnIsR(k){return /^R\d+$/.test(k);}
+function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)a.push('B'+i);return a;}
+function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
   if(_FN.tab==='rank')return{kind:'fase',phase:_FN.phase,day:''};
@@ -13341,7 +13345,7 @@ async function fnLoadCat(){
   if(first)fnStart();
   else{var prev=_FN.tid;fnResolveSel();if(_FN.tid!==prev){fnReset();fnRender();fnLoad();}}
 }
-// Cadena de selección propia del módulo: deporte > torneo padre > año > subtorneo
+// Cadena de selección propia del módulo: deporte > torneo padre > año > subtorneo (por defecto, el ÚLTIMO creado)
 function fnResolveSel(){
   var pts=_FN.cat?_FN.cat.parents:(S.parentTournaments||[]),tours=_FN.cat?_FN.cat.tours:(S.tournaments||[]);
   var sports=SPORT_TYPES.filter(function(s){return pts.some(function(x){return (x.type||'vitilla')===s.id;});});
@@ -13353,7 +13357,10 @@ function fnResolveSel(){
   years.sort(function(a,b){return b-a;});
   if(years.indexOf(_FN.year)<0)_FN.year=years.indexOf(S.yearFilter)>=0?S.yearFilter:(years.length?years[0]:0);
   var list=subs.filter(function(x){return (parseInt(x.year)||0)===_FN.year;});
-  if(!list.some(function(x){return x.id===_FN.tid;}))_FN.tid=list.length?list[0].id:'';
+  if(!list.some(function(x){return x.id===_FN.tid;})){
+    var latest=list.slice().sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''))||String(b.id).localeCompare(String(a.id));})[0];
+    _FN.tid=latest?latest.id:'';
+  }
   return{sports:sports,parents:parents,years:years,list:list};
 }
 function fnOnSel(level,v){
@@ -13363,7 +13370,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -13378,7 +13385,8 @@ async function fnLoad(){
   if(key!==_FN.ckey||curP!=='fantasy')return;
   if(r&&r.ok){_FN.data=r;_FN.err='';_FN.pm={};r.players.forEach(function(p){_FN.pm[p.id]=p;});
     _FN.vm={};(r.viewPlayers||[]).forEach(function(p){_FN.vm[p.id]=p;});
-    Object.keys(_FN.slots).forEach(function(k){if(!_FN.pm[_FN.slots[k]])delete _FN.slots[k];});
+    // al CREAR: descartar lo que otro usuario tomó mientras se armaba (en edición no se toca)
+    if(!_FN.editing)Object.keys(_FN.slots).forEach(function(k){if(!fnP(_FN.slots[k]))delete _FN.slots[k];});
     fnRender();fnMaybeInfo();return;}
   else{_FN.err=(r&&r.error)||'No se pudo cargar la Liga de Fantasía';}
   fnRender();
@@ -13390,37 +13398,52 @@ function fnTick(){
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnLoad();
 }
-// Jugador para mostrar en el cuadro: los disponibles/mios o, al VER la plantilla de otro usuario, los suyos
+// Jugador para mostrar: disponibles/míos o, al VER la plantilla de otro usuario, los suyos
 function fnP(id){return id?(_FN.pm[id]||_FN.vm[id]||null):null;}
 function fnTeamMap(tm){
-  var m={};Object.keys(tm.slots||{}).forEach(function(k){m[k]=tm.slots[k];});
-  (tm.bench||[]).forEach(function(id,i){m['B'+(i+1)]=id;});return m;
+  var m={};Object.keys(tm.slots||{}).forEach(function(k){if(tm.slots[k])m[k]=tm.slots[k];});
+  (tm.bench||[]).forEach(function(id,i){if(id)m['B'+(i+1)]=id;});
+  (tm.relievers||[]).forEach(function(id,i){if(id)m['R'+(i+1)]=id;});
+  return m;
+}
+// Números del jugador debajo del nombre: pitcheo para lanzadores, bateo para el resto
+function fnStat(p){
+  var s=p&&p.st||{},b=s.b,pi=s.p;
+  if((p.position==='P'&&pi)||(!b&&pi)){
+    var ip=Math.floor(pi.outs/3)+(pi.outs%3)/10;
+    return 'IP '+ip.toFixed(1)+' · K '+pi.k+' · ER '+pi.er+((pi.w||pi.l)?' · '+pi.w+'-'+pi.l:'');
+  }
+  if(!b)return 'Sin juegos';
+  var avg=b.ab?(b.h/b.ab):0;
+  return 'AVG '+(b.ab?avg.toFixed(3).replace(/^0/,''):'.000')+' · H '+b.h+' · HR '+b.hr+' · RBI '+b.rbi;
 }
 function fnBadge(v,muted){
-  return'<div style="display:inline-block;background:'+(muted?'rgba(255,255,255,.25)':'var(--acc)')+';color:'+(muted?'#fff':'#000')+';font-weight:800;font-size:12px;border-radius:9px;padding:1px 8px;margin-bottom:2px">'+fnPts(v)+'</div>';
+  return'<div style="display:inline-block;background:'+(muted?'rgba(255,255,255,.25)':'var(--acc)')+';color:'+(muted?'#fff':'#000')+';font-weight:800;font-size:11px;border-radius:9px;padding:0 7px;margin-bottom:2px;line-height:16px">'+fnPts(v)+'</div>';
 }
 function fnLast(p){
   if(!p)return'';
   var v=p.lastPts;
-  return'<div><div style="display:inline-block;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:0 6px;margin-bottom:2px" title="Puntos en su último partido">Últ: '
+  return'<div><div style="display:inline-block;background:rgba(0,0,0,.6);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:0 6px;margin-bottom:2px;line-height:14px" title="Puntos en su último partido">Últ: '
     +(v===null||v===undefined?'&mdash;':'<span style="color:'+(v<0?'#f87171':'#4ade80')+'">'+(v>0?'+':'')+fnPts(v)+'</span>')+'</div></div>';
 }
-// Tarjeta de jugador (con su foto de Equipos si la tiene; si no, el número)
+// Tarjeta de jugador: tamaño fijo en proporción al ancho del cuadro (cqw) para que no se deforme; la foto de
+// Equipos si la tiene (si no, el número); el nombre en UNA línea para que todas midan lo mismo.
 function fnCard(key,label,p,edit,badge){
   var sel=edit&&p&&_FN.sel===p.id;
-  return'<div data-slot="'+key+'" '+(edit?'ondragover="event.preventDefault()" ondrop="fnDrop(event,this.dataset.slot)" onclick="fnTapSlot(this.dataset.slot)"':'')+' style="width:78px;text-align:center;'+(edit?'cursor:pointer':'')+'">'
+  return'<div data-slot="'+key+'" '+(edit?'ondragover="event.preventDefault()" ondrop="fnDrop(event,this.dataset.slot)" onclick="fnTapSlot(this.dataset.slot)"':'')
+    +' style="width:74px;width:min(88px,19cqw);text-align:center;'+(edit?'cursor:pointer':'')+'">'
     +(badge||'')
-    +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid)"':'')+' style="background:rgba(0,0,0,.65);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:3px 2px;color:#fff;line-height:1.15">'
-    +'<div style="font-size:10px;font-weight:800;color:var(--acc)">'+label+'</div>'
-    +(p?'<div style="display:flex;justify-content:center;margin:2px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)+'</div>':'')
-    +'<div style="font-size:10px;min-height:'+(p?'12':'23')+'px;display:flex;align-items:center;justify-content:center;overflow:hidden;word-break:break-word">'
-    +(p?fnEsc(p.name):'<span style="opacity:.6">'+(edit?'Arrastra aquí':'—')+'</span>')+'</div>'
-    +(p&&p.inactive?'<div style="font-size:8px;font-weight:800;color:#f87171">INACTIVO</div>':'')+'</div></div>';
+    +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid)"':'')+' style="background:rgba(0,0,0,.68);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:2px 1px;color:#fff;line-height:1.15;overflow:hidden">'
+    +'<div style="font-size:9px;font-weight:800;color:var(--acc);white-space:nowrap">'+label+'</div>'
+    +(p?'<div style="display:flex;justify-content:center;margin:1px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,26,'circle',p.number)+'</div>':'<div style="height:'+(edit?'26':'18')+'px"></div>')
+    +'<div title="'+(p?fnEsc(p.name):'')+'" style="font-size:9px;height:12px;line-height:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px">'
+    +(p?fnEsc(p.name):'<span style="opacity:.6">'+(edit?'vacío':'—')+'</span>')+'</div>'
+    +(p&&p.inactive?'<div style="font-size:8px;font-weight:800;color:#f87171;line-height:10px">INACTIVO</div>':'')+'</div></div>';
 }
 function fnField(map,edit,contrib){
   var d=_FN.data,vit=d.sport==='vitilla';
-  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/125;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
-   +'<svg viewBox="0 0 100 105" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,90 85,58 50,28 15,58" fill="#b98b55" opacity=".5"/><polygon points="50,80 72,58 50,40 28,58" fill="#2a7a35"/><circle cx="50" cy="60" r="3" fill="#b98b55" opacity=".7"/></svg>';
+  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/130;container-type:inline-size;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
+   +'<svg viewBox="0 0 100 130" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,98 88,70 50,34 12,70" fill="#b98b55" opacity=".5"/><polygon points="50,88 74,70 50,48 26,70" fill="#2a7a35"/><circle cx="50" cy="72" r="3" fill="#b98b55" opacity=".7"/></svg>';
   d.slots.forEach(function(pos){
     var xy=(vit&&FN_XY_VIT[pos])||FN_XY[pos]||[50,50];
     var p=fnP(map[pos]);
@@ -13429,48 +13452,118 @@ function fnField(map,edit,contrib){
   });
   return h+'</div>';
 }
-function fnBench(map,edit){
-  return'<div style="max-width:460px;margin:10px auto 0"><div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;margin-bottom:4px">BANCA'+(edit?'':' <span style="font-weight:400">(no suma puntos)</span>')+'</div>'
-    +'<div style="display:flex;gap:10px;justify-content:center;background:#173d20;border-radius:12px;padding:10px 4px;border:1px solid var(--bdr)">'
-    +FN_BN.map(function(k,i){var p=fnP(map[k]);return fnCard(k,'BANCA '+(i+1),p,edit,(!edit&&p)?fnLast(p)+fnBadge(p.pts,true):'');}).join('')+'</div></div>';
+function fnCells(keys,labelFn,map,edit,contrib,muted){
+  return keys.map(function(k,i){
+    var p=fnP(map[k]);
+    var badge=(!edit&&p)?fnLast(p)+fnBadge(contrib&&contrib[p.id]!==undefined?contrib[p.id]:p.pts,muted&&!(contrib&&contrib[p.id]!==undefined)):'';
+    return fnCard(k,labelFn(i),p,edit,badge);
+  }).join('');
 }
-function fnHasInactive(){return Object.keys(_FN.orig).some(function(id){return _FN.pm[id]&&_FN.pm[id].inactive;});}
+// Banca y relevistas (la banca + los relevistas comparten el cupo "banca" del deporte)
+function fnBench(map,edit,contrib){
+  var d=_FN.data,bk=fnBenchKeys(d),rk=fnRelKeys(d);
+  if(!bk.length)return'';
+  var nb=bk.filter(function(k){return map[k];}).length,nr=rk.filter(function(k){return map[k];}).length;
+  var box='display:flex;gap:8px;justify-content:center;flex-wrap:wrap;background:#173d20;border-radius:12px;padding:10px 4px;border:1px solid var(--bdr);container-type:inline-size';
+  var head=function(t,x){return'<div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;margin:10px 0 4px">'+t+' <span style="font-weight:400">'+x+'</span></div>';};
+  return'<div style="max-width:460px;margin:0 auto">'
+    +head('BANCA','('+nb+'/'+bk.length+(edit?'':' &middot; no suma puntos')+')')
+    +'<div style="'+box+'">'+fnCells(bk,function(i){return'BANCA '+(i+1);},map,edit,contrib,true)+'</div>'
+    +(rk.length?head('RELEVISTAS','('+nr+'/'+rk.length+' &middot; suman solo sus puntos de pitcheo)')
+      +'<div style="'+box+'">'+fnCells(rk,function(i){return'RELEV. '+(i+1);},map,edit,contrib,false)+'</div>':'')
+    +'</div>';
+}
+// Fila de jugador (listas): foto, #número nombre, posición · equipo · estado, números y puntos
+function fnChip(p,tag,opts){
+  opts=opts||{};
+  return'<div '+(opts.noSel?'':'draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" ')
+    +'style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;'+(opts.noSel?'':'cursor:grab;')+'background:var(--card);border:1px solid '+(_FN.sel===p.id?'var(--acc)':'var(--bdr)')+';opacity:'+(opts.dim?'.4':'1')+'">'
+    +playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)
+    +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#'+fnEsc(p.number||'?')+' '+fnEsc(p.name)+'</div>'
+    +'<div style="font-size:10px;color:var(--t3)">'+fnEsc(p.position||'—')+' &middot; '+fnEsc(p.abbr||p.teamName)+(tag?' &middot; '+tag:'')+(p.inactive?' &middot; <span style="color:#f87171">inactivo</span>':'')+'</div>'
+    +'<div style="font-size:10px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+fnEsc(fnStat(p))+'</div></div>'
+    +'<div style="font-size:11px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div></div>';
+}
+function fnTagOf(id){
+  var k=null;Object.keys(_FN.slots).forEach(function(x){if(_FN.slots[x]===id)k=x;});
+  if(k){return fnIsB(k)?'banca':fnIsR(k)?'relevista':'cuadro '+k;}
+  return _FN.parked.indexOf(id)>=0?'<span style="color:#f87171">lista de inactivos</span>':'';
+}
+function fnGrid(chips){return'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">'+chips+'</div>';}
+var FN_POS_ORDER=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','UT'];
+// Roster general (agencia libre al gestionar / todos los disponibles al crear)
 function fnListHtml(){
-  var d=_FN.data,used={};
+  var d=_FN.data,q=(_FN.q||'').toLowerCase(),used={};
   Object.keys(_FN.slots).forEach(function(k){used[_FN.slots[k]]=k;});
-  var q=(_FN.q||'').toLowerCase(),order=['P','C','1B','2B','3B','SS','LF','CF','RF','DH','UT'];
   var list=d.players.filter(function(p){
-    if(_FN.editing&&!_FN.orig[p.id]&&!fnHasInactive())return false;
+    if(_FN.editing&&_FN.orig[p.id])return false;
     if(_FN.pf&&p.position!==_FN.pf)return false;
     return !q||(p.name||'').toLowerCase().indexOf(q)>=0||(p.teamName||'').toLowerCase().indexOf(q)>=0;
   }).sort(function(a,b){
-    var ia=order.indexOf(a.position),ib=order.indexOf(b.position);if(ia<0)ia=99;if(ib<0)ib=99;
+    var ia=FN_POS_ORDER.indexOf(a.position),ib=FN_POS_ORDER.indexOf(b.position);if(ia<0)ia=99;if(ib<0)ib=99;
     return ia-ib||(a.name||'').localeCompare(b.name||'');
   });
   if(!list.length)return '<div class="empty">Sin jugadores disponibles</div>';
-  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px">'+list.map(function(p){
-    var u=used[p.id];
-    return '<div draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;cursor:grab;background:var(--card);border:1px solid '+(_FN.sel===p.id?'var(--acc)':'var(--bdr)')+';opacity:'+(u&&!_FN.editing?'.4':'1')+'">'
-      +playerAvatarHtml(p.photoUrl,p.name,28,'circle',p.number)
-      +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#'+fnEsc(p.number||'?')+' '+fnEsc(p.name)+'</div>'
-      +'<div style="font-size:10px;color:var(--t3)">'+fnEsc(p.position||'—')+' &middot; '+fnEsc(p.abbr||p.teamName)+(u?' &middot; '+(u.charAt(0)==='B'?'banca '+u.charAt(1):'en '+u):'')+(p.inactive?' &middot; <span style="color:#f87171">inactivo</span>':'')+'</div></div>'
-      +'<div style="font-size:11px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div></div>';
-  }).join('')+'</div>';
+  return fnGrid(list.map(function(p){return fnChip(p,used[p.id]?fnTagOf(p.id):'',{dim:!!used[p.id]&&!_FN.editing});}).join(''));
+}
+// Mi roster: todos mis jugadores (cuadro, banca, relevistas e inactivos) con su estado
+function fnMineIds(map,parked){
+  var ids=[];Object.keys(map).forEach(function(k){if(map[k])ids.push(map[k]);});
+  (parked||[]).forEach(function(x){ids.push(x);});return ids;
+}
+function fnMineHtml(ids,sel){
+  var list=ids.map(fnP).filter(Boolean).sort(function(a,b){
+    var ia=FN_POS_ORDER.indexOf(a.position),ib=FN_POS_ORDER.indexOf(b.position);if(ia<0)ia=99;if(ib<0)ib=99;
+    return ia-ib||(a.name||'').localeCompare(b.name||'');
+  });
+  if(!list.length)return'<div class="empty">Aún no tienes jugadores</div>';
+  return fnGrid(list.map(function(p){return fnChip(p,fnTagOf(p.id),{noSel:!sel});}).join(''));
 }
 function fnFilterList(){var el=document.getElementById('fn-list');if(el)el.innerHTML=fnListHtml();}
 function fnDrag(e,pid){e.dataTransfer.setData('text/plain',pid);e.dataTransfer.effectAllowed='move';}
 function fnDrop(e,key){e.preventDefault();var pid=e.dataTransfer.getData('text/plain');if(pid)fnAssign(key,pid);}
-// Si el jugador ya estaba colocado y el destino tiene a otro, se INTERCAMBIAN.
+function fnWarn(m){toast(m,'error');_FN.sel='';fnRender();}
+// Reglas de la distribución: máximo de jugadores (cuadro + banca/relevistas) y cupo de banca + relevistas
+function fnLayoutErr(){
+  var d=_FN.data,n=0,b=0;
+  Object.keys(_FN.slots).forEach(function(k){if(!_FN.slots[k])return;n++;if(fnIsB(k)||fnIsR(k))b++;});
+  if(n>d.caps.total)return'Máximo '+d.caps.total+' jugadores en la plantilla (cuadro + banca). Libera a uno primero.';
+  if(b>d.caps.bench)return'La banca y los relevistas suman como máximo '+d.caps.bench+' jugadores.';
+  return'';
+}
+// Mover / intercambiar / fichar. Al CREAR todo es libre (dentro de los máximos). Al GESTIONAR: mover o intercambiar
+// entre mis jugadores; fichar un agente libre solo en un espacio vacío (o sobre un INACTIVO, que pasa a mi lista de
+// inactivos); un inactivo ya activo vuelve a un espacio vacío.
 function fnAssign(target,pid){
+  var snap=JSON.stringify([_FN.slots,_FN.parked]);
   var src=null;Object.keys(_FN.slots).forEach(function(k){if(_FN.slots[k]===pid)src=k;});
   if(src===target){_FN.sel='';fnRender();return;}
-  var occ=_FN.slots[target];
-  if(_FN.editing&&!src&&!_FN.orig[pid]){
-    var o=occ&&_FN.pm[occ];
-    if(!occ||!(o&&o.inactive||!_FN.orig[occ])){toast('Solo puedes reemplazar a un jugador marcado como inactivo','error');_FN.sel='';fnRender();return;}
+  var occ=_FN.slots[target],inParked=_FN.parked.indexOf(pid)>=0;
+  if(_FN.editing){
+    var pl=fnP(pid);
+    if(!_FN.orig[pid]){                       // agente libre
+      if(occ){
+        var o=fnP(occ);
+        if(!(o&&o.inactive))return fnWarn('Libera primero a ese jugador, o elige un espacio vacío');
+        _FN.parked.push(occ);                 // el inactivo reemplazado queda en tu lista (sigue siendo tuyo)
+      }
+      _FN.slots[target]=pid;
+    }else if(inParked){                       // inactivo que ya se reactivó
+      if(pl&&pl.inactive)return fnWarn('Ese jugador sigue inactivo');
+      if(occ)return fnWarn('Elige un espacio vacío para volver a usarlo');
+      _FN.parked=_FN.parked.filter(function(x){return x!==pid;});
+      _FN.slots[target]=pid;
+    }else{                                    // mío, en cuadro/banca/relevistas
+      if(src){if(occ)_FN.slots[src]=occ;else delete _FN.slots[src];}
+      _FN.slots[target]=pid;
+    }
+  }else{
+    if(src){if(occ)_FN.slots[src]=occ;else delete _FN.slots[src];}
+    _FN.slots[target]=pid;
   }
-  if(src){if(occ)_FN.slots[src]=occ;else delete _FN.slots[src];}
-  _FN.slots[target]=pid;_FN.sel='';fnRender();
+  var err=fnLayoutErr();
+  if(err){var s=JSON.parse(snap);_FN.slots=s[0];_FN.parked=s[1];return fnWarn(err);}
+  _FN.sel='';fnRender();
 }
 function fnTapPlayer(pid){_FN.sel=_FN.sel===pid?'':pid;fnRender();}
 function fnTapSlot(key){
@@ -13478,17 +13571,29 @@ function fnTapSlot(key){
   if(_FN.slots[key]){_FN.sel=_FN.slots[key];fnRender();}
 }
 function fnClear(){_FN.slots={};_FN.sel='';fnRender();}
-function fnPayload(){
-  var d=_FN.data,s={};d.slots.forEach(function(k){s[k]=_FN.slots[k];});
-  var cx=fnCtx();
-  return{tournamentId:_FN.tid,kind:cx.kind,phase:cx.phase,day:'',slots:s,bench:FN_BN.map(function(k){return _FN.slots[k];})};
+// Liberar: sale de mi plantilla, conservo los puntos que ya sumó y vuelve a la agencia libre
+function fnRelease(){
+  var pid=_FN.sel;if(!pid||!_FN.orig[pid])return;
+  var p=fnP(pid);
+  if(!confirm('¿Liberar a '+(p?p.name:'este jugador')+'? Conservas los puntos que ya sumó para ti. El jugador vuelve a la agencia libre y cualquier usuario podrá tomarlo.'))return;
+  Object.keys(_FN.slots).forEach(function(k){if(_FN.slots[k]===pid)delete _FN.slots[k];});
+  _FN.parked=_FN.parked.filter(function(x){return x!==pid;});
+  delete _FN.orig[pid];_FN.sel='';fnRender();
 }
-function fnComplete(){return _FN.data.slots.concat(FN_BN).every(function(k){return _FN.slots[k];});}
+function fnPayload(){
+  var d=_FN.data,s={};d.slots.forEach(function(k){if(_FN.slots[k])s[k]=_FN.slots[k];});
+  var cx=fnCtx();
+  return{tournamentId:_FN.tid,kind:cx.kind,phase:cx.phase,day:'',slots:s,
+    bench:fnBenchKeys(d).map(function(k){return _FN.slots[k]||'';}),
+    relievers:fnRelKeys(d).map(function(k){return _FN.slots[k]||'';}),
+    parked:_FN.parked.slice()};
+}
+function fnComplete(){return _FN.data.slots.every(function(k){return _FN.slots[k];});}
 async function fnSave(){
   var n=(_FN.name||'').trim();
   if(!n){toast('Escribe un nombre para tu plantilla','error');return;}
-  if(!fnComplete()){toast('Completa el cuadro y los 3 jugadores de banca','error');return;}
-  if(!confirm('Vas a guardar tu plantilla de: '+fnCtxLabel()+'.\n\nUna vez guardada, solo podrás intercambiar entre estos mismos jugadores (cuadro y banca). ¿Guardar?'))return;
+  if(!fnComplete()){toast('Completa todas las posiciones del cuadro','error');return;}
+  if(!confirm('Vas a guardar tu plantilla de: '+fnCtxLabel()+'.\n\nDespués podrás moverlos entre cuadro, banca y relevistas, liberar jugadores y fichar agentes libres (si hay espacio), salvo cuando haya juegos del día en curso. ¿Guardar?'))return;
   _FN.busy=true;
   var pl=fnPayload();pl.teamName=n;
   var r=await api('saveFantasyTeam',pl);
@@ -13498,27 +13603,24 @@ async function fnSave(){
 }
 function fnStartEdit(){
   var mine=_FN.data.teams.filter(function(x){return x.isMine;})[0];if(!mine)return;
-  _FN.slots=fnTeamMap(mine);_FN.orig={};
-  Object.keys(_FN.slots).forEach(function(k){_FN.orig[_FN.slots[k]]=true;});
+  _FN.slots=fnTeamMap(mine);_FN.parked=(mine.parked||[]).slice();_FN.orig={};
+  fnMineIds(_FN.slots,_FN.parked).forEach(function(id){_FN.orig[id]=true;});
   _FN.editing=true;_FN.sel='';fnRender();
 }
-function fnCancelEdit(){_FN.editing=false;_FN.slots={};_FN.sel='';fnRender();}
+function fnCancelEdit(){_FN.editing=false;_FN.slots={};_FN.parked=[];_FN.sel='';fnRender();}
 async function fnSaveEdit(){
-  if(!fnComplete()){toast('Completa todas las posiciones','error');return;}
-  var cur={};Object.keys(_FN.slots).forEach(function(k){cur[_FN.slots[k]]=1;});
-  var bad=Object.keys(_FN.orig).filter(function(id){return !cur[id]&&!(_FN.pm[id]&&_FN.pm[id].inactive);});
-  if(bad.length){toast('Solo un jugador inactivo puede salir de tu plantilla','error');return;}
+  var err=fnLayoutErr();if(err){toast(err,'error');return;}
   _FN.busy=true;
   var r=await api('updateFantasyTeam',fnPayload());
   _FN.busy=false;
-  if(r&&r.ok){toast('Cambios guardados','success');_FN.editing=false;_FN.slots={};await fnLoad();}
+  if(r&&r.ok){toast('Cambios guardados','success');_FN.editing=false;_FN.slots={};_FN.parked=[];await fnLoad();}
   else{toast(r&&r.error||'Error','error');fnLoad();}
 }
 function fnViewTeam(i){
   var tm=_FN.data.teams[i];if(!tm||!tm.slots)return;
   var map=fnTeamMap(tm);
   showM('<div class="mhd"><div class="mtl">'+fnEsc(tm.teamName)+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd">'+fnTotals(tm)+fnField(map,false,tm.contrib)+fnBench(map,false)+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
+    +'<div class="mbd">'+fnTotals(tm)+fnField(map,false,tm.contrib)+fnBench(map,false,tm.contrib)+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
 function fnTotals(tm){
   var d=_FN.data,dia=d.kind==='dia';
@@ -13540,20 +13642,37 @@ function fnAccessCard(d){
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:30px;font-weight:800;color:var(--acc)">'+fnPts(a.total)+'</div></div>'
     +(chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+chips+'</div>':'')+'</div>';
 }
+// Barra de acciones del jugador seleccionado (al gestionar)
+function fnActionBar(){
+  var p=_FN.sel?fnP(_FN.sel):null;
+  if(!p||!_FN.editing)return'';
+  var own=!!_FN.orig[p.id];
+  return'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,200,0,.1);border:1px solid var(--acc);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:12px">'
+    +'<div style="flex:1;min-width:150px">Seleccionado: <b>'+fnEsc(p.name)+'</b>'+(own?' &middot; toca otra posición/espacio para moverlo o intercambiarlo':' (agente libre) &middot; toca un espacio vacío para fichar')+'</div>'
+    +(own?'<button class="btn bs bsm" style="color:#f87171" onclick="fnRelease()">Liberar jugador</button>':'')
+    +'<button class="btn bs bsm" onclick="_FN.sel=\'\';fnRender()">Quitar selección</button></div>';
+}
+function fnCounters(){
+  var d=_FN.data,n=0,b=0;
+  Object.keys(_FN.slots).forEach(function(k){if(!_FN.slots[k])return;n++;if(fnIsB(k)||fnIsR(k))b++;});
+  return'<div style="font-size:11px;color:var(--t3);margin:8px 0">Jugadores: <b>'+n+'/'+d.caps.total+'</b> &middot; Banca + relevistas: <b>'+b+'/'+d.caps.bench+'</b>'+(_FN.parked.length?' &middot; Inactivos: <b>'+_FN.parked.length+'</b>':'')+'</div>';
+}
 function fnEditor(isEdit){
-  var d=_FN.data,keys=d.slots.concat(FN_BN);
-  var filled=keys.filter(function(k){return _FN.slots[k];}).length;
+  var d=_FN.data;
   var posOpts='<option value="">Todas las posiciones</option>'+Array.from(new Set(d.players.map(function(p){return p.position;}).filter(Boolean))).map(function(p){return'<option value="'+fnEsc(p)+'" '+(_FN.pf===p?'selected':'')+'>'+fnEsc(p)+'</option>';}).join('');
+  var parked=_FN.parked.length?'<div style="max-width:460px;margin:12px auto 0"><div style="font-size:11px;font-weight:800;color:#f87171;letter-spacing:1px;margin-bottom:4px">INACTIVOS (reemplazados) <span style="font-weight:400;color:var(--t3)">&middot; siguen siendo tuyos; cuando se activen podrás usarlos de nuevo en un espacio vacío</span></div>'+fnGrid(_FN.parked.map(fnP).filter(Boolean).map(function(p){return fnChip(p,'');}).join(''))+'</div>':'';
   return'<div class="card" style="margin-bottom:12px"><div style="font-size:12px;color:var(--t2);margin-bottom:8px">'
-    +(isEdit?'Intercambia jugadores entre el cuadro y la banca (solo los que ya elegiste). Si alguno fue marcado como <b>inactivo</b> en Equipos, puedes reemplazarlo por otro jugador disponible.'
-      :'Plantilla de <b>'+fnEsc(fnCtxLabel())+'</b>. Elige el cuadro y <b>3 jugadores de banca</b> (solo aparecen los que ningún otro usuario ha elegido): arrástralos (o toca un jugador y luego la posición). Tocar una posición ocupada selecciona a ese jugador para moverlo o intercambiarlo.')+'</div>'
-    +fnField(_FN.slots,true)+fnBench(_FN.slots,true)
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">'
+    +(isEdit?'Gestiona tu plantilla: mueve jugadores entre cuadro, banca y relevistas (el cuadro puede quedar con posiciones vacías), libera jugadores para abrir espacio y ficha agentes libres. Si un jugador fue marcado <b>inactivo</b> en Equipos puedes reemplazarlo por otro; el inactivo queda en tu lista y no vuelve a la agencia libre.'
+      :'Plantilla de <b>'+fnEsc(fnCtxLabel())+'</b>. Completa el cuadro y, si quieres, la banca (máximo '+d.caps.total+' jugadores en total). Solo aparecen jugadores que ningún otro usuario ha elegido. Arrástralos, o toca un jugador y luego la posición.')+'</div>'
+    +fnActionBar()+fnField(_FN.slots,true)+fnBench(_FN.slots,true)+parked+fnCounters()
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
     +(isEdit?'<button class="btn bs" onclick="fnCancelEdit()">Cancelar</button><button class="btn bp" style="margin-left:auto" onclick="fnSaveEdit()">Guardar cambios</button>'
       :'<input class="fi" style="flex:1;min-width:150px" placeholder="Nombre de tu plantilla" maxlength="40" value="'+fnEsc(_FN.name)+'" oninput="_FN.name=this.value">'
-       +'<button class="btn bs" onclick="fnClear()">Limpiar</button><button class="btn bp" onclick="fnSave()">Guardar ('+filled+'/'+keys.length+')</button>')
+       +'<button class="btn bs" onclick="fnClear()">Limpiar</button><button class="btn bp" onclick="fnSave()">Guardar plantilla</button>')
     +'</div></div>'
-    +'<div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" style="flex:1;min-width:140px" placeholder="Buscar jugador o equipo..." value="'+fnEsc(_FN.q)+'" oninput="_FN.q=this.value;fnFilterList()">'
+    +(isEdit?'<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">Mi roster</div>'+fnMineHtml(fnMineIds(_FN.slots,_FN.parked),true)+'</div>':'')
+    +'<div class="card"><div style="font-weight:700;margin-bottom:6px">'+(isEdit?'Agencia libre (roster general)':'Roster general')+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" style="flex:1;min-width:140px" placeholder="Buscar jugador o equipo..." value="'+fnEsc(_FN.q)+'" oninput="_FN.q=this.value;fnFilterList()">'
     +'<select class="fs" style="width:170px" onchange="_FN.pf=this.value;fnFilterList()">'+posOpts+'</select></div><div id="fn-list">'+fnListHtml()+'</div></div>';
 }
 function fnRankRows(d,closedDay){
@@ -13584,20 +13703,24 @@ function fnCtxBar(){
 }
 function fnTeamTab(d,mine){
   var h='';
-  if(d.kind==='dia')h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128197; Plantilla del día <b>'+fnDateTxt(d.today)+'</b> (hora de República Dominicana): solo suman los puntos de hoy y solo puedes elegir jugadores de equipos con juego programado hoy. Podrás crear otra cuando sean las 12:00 a. m.</div>';
+  if(d.kind==='dia')h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128197; Plantilla del día <b>'+fnDateTxt(d.today)+'</b> (hora de República Dominicana): solo suman los puntos de hoy y solo puedes elegir jugadores de equipos con juego programado hoy. Se cierra al iniciar el primer juego; podrás crear otra cuando sean las 12:00 a. m.</div>';
   else h+=fnAccessCard(d);
   if(mine&&!_FN.editing){
     var map=fnTeamMap(mine);
-    h+='<div class="card" style="text-align:center"><div style="font-weight:800;font-size:16px">'+fnEsc(mine.teamName)+'</div>'
+    var ids=fnMineIds(map,mine.parked);
+    h+=(d.locked?'<div class="alert ai" style="font-size:12px;margin-bottom:12px;border-color:#f59e0b">&#128274; <b>Plantilla bloqueada:</b> ya inició al menos un juego de hoy en este subtorneo. Podrás hacer cambios cuando terminen todos los juegos del día.</div>':'')
+      +'<div class="card" style="text-align:center;margin-bottom:12px"><div style="font-weight:800;font-size:16px">'+fnEsc(mine.teamName)+'</div>'
       +'<div style="font-size:11px;color:var(--t3);margin-bottom:6px">'+fnEsc(fnCtxLabel())+' &middot; puesto #'+(d.teams.indexOf(mine)+1)+' de '+d.teams.length+'</div>'
-      +fnTotals(mine)+fnField(map,false,mine.contrib)+fnBench(map,false)
-      +(canDo('edit','fantasy')?'<button class="btn bs" style="margin-top:12px" onclick="fnStartEdit()">&#9998; Modificar (intercambiar jugadores)</button>':'')+'</div>';
+      +fnTotals(mine)+fnField(map,false,mine.contrib)+fnBench(map,false,mine.contrib)
+      +(canDo('edit','fantasy')&&!d.locked?'<button class="btn bs" style="margin-top:12px" onclick="fnStartEdit()">&#9998; Gestionar plantilla (mover, liberar, fichar)</button>':'')+'</div>'
+      +'<div class="card"><div style="font-weight:700;margin-bottom:6px">Mi roster'+(mine.parked&&mine.parked.length?' <span style="font-weight:400;font-size:11px;color:var(--t3)">(incluye '+mine.parked.length+' inactivo(s) reemplazado(s))</span>':'')+'</div>'+(function(){_FN.slots=map;_FN.parked=(mine.parked||[]).slice();var hh=fnMineHtml(ids,false);_FN.slots={};_FN.parked=[];return hh;})()+'</div>';
   }else if(mine&&_FN.editing)h+=fnEditor(true);
   else if(!canDo('create','fantasy'))h+='<div class="card"><div class="empty"><div>Tu perfil no tiene permiso para crear plantillas</div></div></div>';
   else if(!d.canCreate){
     var msg={limit:'Ya se jugaron '+d.gamesPlayed+' juegos de esta fase (límite '+d.maxGames+'): ya no se pueden crear plantillas.',
       nophase:'Aún no hay juegos programados en esta fase. Cuando los haya podrás elegir jugadores de los equipos que la juegan.',
       nogames:'Hoy no hay juegos programados en este subtorneo, así que no se puede crear la plantilla diaria.',
+      started:'Ya inició el primer juego de hoy: ya no se pueden crear plantillas diarias. Podrás crear la de mañana a las 12:00 a. m.',
       past:'Solo se puede crear la plantilla diaria del día de hoy.'}[d.reason]||'No se pueden crear plantillas en este momento.';
     h+='<div class="card"><div class="empty"><div style="font-size:26px">&#128274;</div><div>'+msg+'</div></div></div>';
   }else h+=fnEditor(false);
@@ -13622,11 +13745,11 @@ function fnRender(){
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
     h+='<div class="card" id="fn-rank"><div style="font-weight:700;margin-bottom:6px">Clasificación — '+FN_PH[d.phase]+'</div>'+fnRankRows(d,false)
-      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Total = puntos de jugadas de esta fase (&#9918;) + acceso diario (&#128293;) + victorias diarias (&#127942;). Se actualiza automáticamente.'+' Toca una fila para ver su alineación.'+'</div></div>';
+      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Total = puntos de jugadas de esta fase (&#9918;) + acceso diario (&#128293;) + victorias diarias (&#127942;). Se actualiza automáticamente. Toca una fila para ver su alineación.</div></div>';
   }else if(_FN.tab==='daily'){
     var closed=d.day<d.today;
     h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">Ranking del '+fnDateTxt(d.day)+(closed?' (día cerrado)':' (en juego)')+'</div>'+fnRankRows(d,closed)
-      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Solo cuentan los puntos de ese día. El ganador de cada día cerrado recibe '+fnPts(d.dailyWin)+' puntos de victoria diaria.'+' Toca una fila para ver su alineación.'+'</div></div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Solo cuentan los puntos de ese día. El ganador de cada día cerrado recibe '+fnPts(d.dailyWin)+' puntos de victoria diaria. Toca una fila para ver su alineación.</div></div>'
       +'<div class="card"><div style="font-weight:700;margin-bottom:6px">&#127942; Ganadores por día</div>'
       +(d.winners.length?d.winners.map(function(w){
         return'<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bdr)"><div style="font-size:12px;color:var(--t3);width:78px">'+fnDateTxt(w.day)+'</div>'
@@ -13669,9 +13792,12 @@ function fnOpenInfo(){
     +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>Elige <b>deporte, torneo, año y subtorneo</b> y crea tu plantilla con el nombre que quieras. Hay dos tipos:</li>'
     +'<ul style="margin:0 0 6px 18px;padding:0"><li '+li+'><b>Fase del torneo</b>: una por <b>Serie regular, Playoff o Serie final</b>. Solo cuentan los puntos de los juegos de esa fase, y en playoff/serie final solo salen jugadores de equipos que la juegan.</li>'
     +'<li '+li+'><b>Jugada diaria</b>: una por día (hora de República Dominicana; puedes crear otra a las 12:00 a. m.). Solo cuentan los puntos de ese día y solo puedes elegir jugadores de equipos con juego programado hoy.</li></ul>'
-    +'<li '+li+'>Completa el cuadro ('+pos+') y <b>3 jugadores de banca</b> arrastrándolos (o tocando el jugador y luego la posición).</li>'
+    +'<li '+li+'>Completa el cuadro ('+pos+') y, si quieres, la <b>banca</b> hasta el máximo de jugadores que fija el administrador para el deporte (el cuadro + la banca). Arrástralos, o toca el jugador y luego la posición.</li>'
     +'<li '+li+'>Cada jugador solo puede estar en <b>una plantilla</b>: si otro usuario ya lo eligió, no aparece. ¡Elige rápido!</li>'
-    +'<li '+li+'>Una vez guardada solo puedes <b>intercambiar</b> entre tus mismos jugadores (cuadro y banca). Si uno de ellos pasa a <b>inactivo</b> en Equipos, puedes reemplazarlo por otro jugador disponible del roster.</li>'
+    +'<li '+li+'>Ya guardada puedes <b>gestionarla</b>: mover jugadores entre cuadro, banca y <b>relevistas</b> (el cuadro puede quedar con posiciones vacías; lo que sume un jugador mientras no está en el cuadro no te afecta), <b>liberar</b> jugadores para abrir espacio (conservas los puntos que ya te dieron) y <b>fichar</b> agentes libres del roster general si tienes espacio.</li>'
+    +'<li '+li+'>Los <b>relevistas</b> son jugadores de tu banca que, si lanzan, te suman sus puntos de pitcheo (solo pitcheo).</li>'
+    +'<li '+li+'>Si un jugador tuyo pasa a <b>inactivo</b> en Equipos puedes reemplazarlo por otro del roster general; el inactivo queda en tu lista de inactivos (no vuelve a la agencia libre) y podrás usarlo de nuevo cuando se active.</li>'
+    +'<li '+li+'>&#128274; Desde que inicia el <b>primer juego del día</b> (hora RD) la plantilla se bloquea hasta que terminen todos los juegos del día en el subtorneo. Las plantillas diarias tampoco se pueden crear una vez inicia el primer juego.</li>'
     +'<li '+li+'>Solo suman los jugadores del <b>cuadro</b>, desde que entran a él; la banca no suma. Los puntos ganados por quien sale se conservan.</li>'
     +(mg>0?'<li '+li+'>Solo puedes crear tu plantilla mientras el subtorneo tenga menos de <b>'+mg+'</b> juegos finalizados.</li>':'')
     +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado.</li>'
@@ -13729,6 +13855,8 @@ function fnCfgCard(){
   return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127919; Liga de Fantasía</div></div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:6px">PUNTOS POR ACCESO DIARIO (primer login del día, usuario o Google)</div><div style="'+g+'">'+b+'</div>'
     +'<div style="font-size:11px;font-weight:700;color:var(--red);margin:12px 0 6px">PUNTOS A DESCONTAR POR DEJAR DE ACCEDER (solo de los puntos por acceso, nunca bajan de 0)</div><div style="'+g+'">'+p+'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin:12px 0 6px">MÁXIMO DE JUGADORES DE LA PLANTILLA POR DEPORTE (cuadro + banca; el resto del máximo va a la banca; 0 = cuadro + 3)</div>'
+    +'<div style="'+g+'">'+inp('fnmpv','fantasyMaxPlayersVitilla','Vitilla (cuadro de 7)')+inp('fnmpb','fantasyMaxPlayersBaseball','Baseball (cuadro de 10)')+inp('fnmps','fantasyMaxPlayersSoftball','Softball (cuadro de 10)')+inp('fnmrel','fantasyMaxRelievers','Máx. relevistas (por defecto 3)')+'</div>'
     +'<div class="fg" style="margin-top:12px"><label class="fl">&#127942; Puntos por VICTORIA DIARIA (ganador de cada día en la clasificación Diaria; se suman a su plantilla de fase)</label><input class="fi" id="fnwin" type="number" min="0" step="0.5" value="'+(c.fantasyDailyWinPts||0)+'"></div>'
     +'<div class="fg"><label class="fl">No permitir crear plantilla de FASE si en esa fase del subtorneo ya se jugaron (finalizados) este número de juegos (0 = sin límite)</label><input class="fi" id="fnmg" type="number" min="0" value="'+(c.fantasyMaxGamesCreate||0)+'"></div>'
     +'<div class="alert ai" style="font-size:12px;margin-bottom:10px">Con 0 en todos los campos el sistema de acceso queda desactivado. Pasados 5 días seguidos (o 5 sin acceder) se aplica el valor de la fila "5 o más". El día se cuenta en hora de República Dominicana.</div>'
@@ -13742,6 +13870,10 @@ async function saveFantasyCfg(){
   }
   items.push(['fantasyMaxGamesCreate',Math.max(0,parseInt(fv('fnmg'))||0)]);
   items.push(['fantasyDailyWinPts',Math.max(0,parseFloat(fv('fnwin'))||0)]);
+  items.push(['fantasyMaxPlayersVitilla',Math.max(0,parseInt(fv('fnmpv'))||0)]);
+  items.push(['fantasyMaxPlayersBaseball',Math.max(0,parseInt(fv('fnmpb'))||0)]);
+  items.push(['fantasyMaxPlayersSoftball',Math.max(0,parseInt(fv('fnmps'))||0)]);
+  var rl=fv('fnmrel');items.push(['fantasyMaxRelievers',rl===''?3:Math.max(0,parseInt(rl)||0)]);
   var ok=true;
   for(var j=0;j<items.length;j++){
     var r=await api('saveConfig',{key:items[j][0],value:items[j][1]});
