@@ -3869,9 +3869,61 @@ function openTM(id){
     +'<div class="fg"><label class="fl">BB (otorgada)</label><input class="fi" id="tapbbpit" type="number" step="0.5" value="'+(t.asPtsBbPit!==undefined&&t.asPtsBbPit!==null?t.asPtsBbPit:1)+'"></div>'
     +'<div class="fg"><label class="fl">L (derrota)</label><input class="fi" id="taplpit" type="number" step="0.5" value="'+(t.asPtsLPit!==undefined&&t.asPtsLPit!==null?t.asPtsLPit:2)+'"></div></div>'
     +'<div class="alert ai" style="font-size:12px">Estos puntos determinan los candidatos a MVP, Cy Young, Novato del Año, MVP Serie Final y el Top 3 por posición del Juego de Estrellas, visibles en el módulo de Premiaciones.</div>'
+    +tmlbSection(t)
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveT(this.dataset.tid)">Guardar</button></div>');
+  if(id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'))tmlbLoadStatus(id);
+}
+// ── Fuente de datos MLB del subtorneo (SOLO admin; el servidor también lo valida) ──
+function tmlbSection(t){
+  if(!(S.user&&S.user.role==='admin'))return'';
+  var src=function(id,cur){return'<select class="fs" id="'+id+'"><option value="app" '+(cur!=='mlb'?'selected':'')+'>App (como hasta ahora)</option><option value="mlb" '+(cur==='mlb'?'selected':'')+'>API de MLB</option></select>';};
+  return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#9918; FUENTE DE DATOS MLB (solo administrador)</div>'
+    +'<div class="alert ai" style="font-size:12px">Define de dónde toma la Liga de Fantasía sus datos en este subtorneo. Con <b>App</b> todo funciona como hasta ahora (anotas los juegos). Con <b>API de MLB</b> se leen de la liga y el año indicados, y los jugadores se identifican por su ID de MLB.</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Liga de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="tmlb-lg" style="flex:1" onchange="if(this.value)document.getElementById(\'tmlb-lgid\').value=this.value"><option value="">— cargar ligas —</option></select><button class="btn bs bsm" type="button" onclick="tmlbLoadLeagues()">Cargar</button></div></div>'
+    +'<div class="fg"><label class="fl">ID de liga</label><input class="fi" id="tmlb-lgid" type="number" value="'+(t.mlbLeagueId||'')+'" placeholder="Ej: 131"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada MLB)</label><input class="fi" id="tmlb-season" type="number" value="'+(t.mlbSeason||'')+'" placeholder="'+(t.year||new Date().getFullYear())+'"></div><div class="fg"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Eventos diarios para los puntos de Fantasía</label>'+src('tmlb-stats',t.mlbStatsSource)+'</div>'
+    +'<div class="fg"><label class="fl">Inicio del partido (bloqueo de plantillas)</label>'+src('tmlb-lock',t.mlbLockSource)+'</div></div>'
+    +'<div class="fg"><label class="fl">Roster de agencia libre mostrado en Fantasía</label>'+src('tmlb-fa',t.mlbFaSource)+'</div>'
+    +'<div id="tmlb-msg" style="font-size:12px;color:var(--t3)"></div>'
+    +((t.id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'))?'<div class="fg" style="margin-top:10px"><label class="fl">Sincronización con MLB</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',false)">&#128260; Sincronizar ahora</button><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',true)" title="Trae todos los juegos de las fechas del subtorneo (puede requerir varias pulsaciones)">Traer toda la temporada</button></div><div id="tmlb-sync" style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.5"></div></div>':'');
+}
+function tmlbRepHtml(r){
+  if(!r)return'Aún no se ha sincronizado.';
+  var h='Última sincronización: <b>'+new Date(r.at).toLocaleString('es-DO')+'</b> &middot; '+r.games+' juegos en la ventana, '+r.deep+' con jugadas, '+r.events+' jugadas, '+r.pitching+' líneas de pitcheo'+(r.newPlayers?', '+r.newPlayers+' jugador(es) creado(s) automáticamente':'')+'.';
+  if(r.pending)h+='<br><span style="color:#f59e0b">Quedan '+r.pending+' juego(s) por sincronizar: vuelve a pulsar el botón.</span>';
+  (r.warnings||[]).forEach(function(w){h+='<br><span style="color:#f59e0b">&#9888; '+mlbEsc(w)+'</span>';});
+  (r.errors||[]).forEach(function(w){h+='<br><span style="color:#f87171">&#10005; '+mlbEsc(w)+'</span>';});
+  var u=Object.keys(r.unknown||{});if(u.length)h+='<br><span style="color:#f59e0b">Jugadas de MLB sin traducir (ignoradas): '+u.map(function(k){return mlbEsc(k)+' ×'+r.unknown[k];}).join(', ')+'</span>';
+  return h;
+}
+function tmlbRosterHtml(r){
+  if(!r)return'';
+  var h='<br>Roster (agencia libre): <b>'+new Date(r.at).toLocaleString('es-DO')+'</b> &middot; '+r.teams+' equipos, '+r.added+' nuevos, '+r.deactivated+' inactivados, '+r.activated+' reactivados'+(r.moved?', '+r.moved+' traspasos':'')+'.';
+  (r.errors||[]).forEach(function(w){h+='<br><span style="color:#f87171">&#10005; '+mlbEsc(w)+'</span>';});
+  return h;
+}
+async function tmlbLoadStatus(id){
+  var r=await api('mlbSyncStatus',{tournamentId:id});var el=document.getElementById('tmlb-sync');
+  if(el&&r&&r.ok)el.innerHTML=(r.report?tmlbRepHtml(r.report):'')+(r.roster?tmlbRosterHtml(r.roster):'')||'Aún no se ha sincronizado.';
+}
+async function tmlbSync(id,full){
+  var el=document.getElementById('tmlb-sync');if(el)el.textContent=full?'Trayendo la temporada…':'Sincronizando…';
+  var r=await api('mlbSyncNow',{tournamentId:id,full:!!full});
+  if(!el)return;
+  if(!r||!r.ok){el.innerHTML='<span style="color:#f87171">'+mlbEsc((r&&r.error)||'Error al sincronizar')+'</span>';return;}
+  el.innerHTML=(r.report?tmlbRepHtml(r.report):'')+(r.roster?tmlbRosterHtml(r.roster):'');
+}
+async function tmlbLoadLeagues(){
+  var m=document.getElementById('tmlb-msg');if(m)m.textContent='Consultando ligas…';
+  var r=await api('mlbLookup',{what:'leagues',sportId:17});
+  if(!r||!r.ok){if(m){m.style.color='#f87171';m.textContent=(r&&r.error)||'No se pudieron cargar las ligas';}return;}
+  var el=document.getElementById('tmlb-lg');if(!el)return;
+  el.innerHTML='<option value="">— elige la liga —</option>'+r.leagues.map(function(l){return'<option value="'+l.id+'">'+mlbEsc(l.name)+' (ID '+l.id+')</option>';}).join('');
+  var cur=(document.getElementById('tmlb-lgid')||{}).value;if(cur)el.value=String(cur);
+  if(m){m.style.color='var(--t3)';m.textContent=r.leagues.length+' ligas cargadas.';}
 }
 async function saveT(id){
   var t={id:id||null,name:fv('tn'),year:parseInt(fv('ty'))||new Date().getFullYear(),
@@ -3901,6 +3953,11 @@ async function saveT(id){
     asPtsWPit:parseFloat(fv('tapwpit')),asPtsSvPit:parseFloat(fv('tapsvpit')),
     asPtsErPit:parseFloat(fv('taperpit')),asPtsBbPit:parseFloat(fv('tapbbpit')),asPtsLPit:parseFloat(fv('taplpit'))};
   if(!t.name){toast('Nombre requerido','error');return;}
+  if(document.getElementById('tmlb-stats')){   // solo existe para el admin
+    t.mlbStatsSource=fv('tmlb-stats');t.mlbLockSource=fv('tmlb-lock');t.mlbFaSource=fv('tmlb-fa');
+    t.mlbLeagueId=(fv('tmlb-lgid')||'').trim();t.mlbSeason=(fv('tmlb-season')||'').trim();
+    if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
+  }
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok){
     if(!id)S.tournaments.push(r.item);else S.tournaments=S.tournaments.map(function(x){return x.id===id?r.item:x;});
@@ -16351,7 +16408,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
