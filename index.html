@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title id="pageTitle">Vitilla Power</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VBS Power">
+<script>
+/* Chrome/Edge/Android lanzan "beforeinstallprompt" una sola vez y muy temprano: se guarda aqui para usarlo luego en el aviso de instalacion. */
+window.__bip=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e;try{window.dispatchEvent(new Event('pwa-bip'));}catch(x){}});
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;
@@ -785,6 +797,75 @@ var BRAND_CREATOR={vitilla:'vitillero',baseball:'beisbolero',softball:'softbolis
 var IS_NATIVE_APP=(function(){
   try{ return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()); }catch(e){ return false; }
 })();
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Aviso "Instalar VBS Power" (versión web). Aparece arriba, como el de Chrome, a los pocos segundos de entrar:
+//  · Android / escritorio (Chrome, Edge...): usa el instalador real del navegador (botón "Instalar").
+//  · iPhone/iPad (Safari no tiene instalador automático): muestra los pasos "Compartir > Añadir a pantalla de inicio".
+// No sale dentro de la app nativa de Capacitor, si la app ya está instalada/abierta como app, ni durante 7 días
+// después de cerrarlo (3 días si se cancela el instalador).
+// ─────────────────────────────────────────────────────────────────────────────────────
+(function(){
+  var NAME='VBS Power',KEY='pwaInstallHiddenUntil',DELAY=3000;
+  try{if(typeof IS_NATIVE_APP!=='undefined'&&IS_NATIVE_APP)return;}catch(e){}
+  var standalone=false;
+  try{standalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;}catch(e){}
+  if(standalone)return;
+  function hiddenNow(){try{return Date.now()<parseInt(localStorage.getItem(KEY)||'0',10);}catch(e){return false;}}
+  function remember(days){try{localStorage.setItem(KEY,String(Date.now()+days*864e5));}catch(e){}}
+  if(hiddenNow())return;
+  var ua=navigator.userAgent||'';
+  var isIOS=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var iosSafari=isIOS&&/Safari/.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS|GSA|FBAN|FBAV|Instagram|Line\//.test(ua);
+  var done=false,timerOk=false;
+  function css(){
+    if(document.getElementById('pwa-bn-css'))return;
+    var st=document.createElement('style');st.id='pwa-bn-css';
+    st.textContent='#pwa-bn{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px));margin:0 auto;max-width:540px;z-index:2147483000;'
+      +'display:flex;align-items:center;gap:14px;padding:14px 14px 14px 16px;border-radius:20px;background:#4a4b52;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.45);'
+      +'font-family:Barlow,sans-serif;animation:pwabn .35s cubic-bezier(.2,.9,.3,1.1)}'
+      +'@keyframes pwabn{from{transform:translateY(-130%);opacity:0}to{transform:none;opacity:1}}'
+      +'#pwa-bn img{width:46px;height:46px;border-radius:10px;background:#0a0e1a;object-fit:cover;flex-shrink:0}'
+      +'#pwa-bn .t{flex:1;min-width:0}#pwa-bn .t b{display:block;font-size:17px;font-weight:600;line-height:1.2}'
+      +'#pwa-bn .t span{display:block;font-size:13px;color:#d1d2d8;margin-top:2px;line-height:1.35}'
+      +'#pwa-bn .go{background:none;border:0;color:#7ab0ff;font-size:16px;font-weight:600;padding:8px 6px;cursor:pointer;flex-shrink:0}'
+      +'#pwa-bn .x{background:none;border:0;color:#b8b9c0;font-size:18px;line-height:1;padding:6px;cursor:pointer;flex-shrink:0}';
+    document.head.appendChild(st);
+  }
+  function hide(){var b=document.getElementById('pwa-bn');if(b&&b.parentNode)b.parentNode.removeChild(b);}
+  function show(mode){
+    if(done||document.getElementById('pwa-bn')||!document.body)return;
+    done=true;css();
+    var logo='icon-192.png';try{if(typeof VBS_LOGO!=='undefined'&&VBS_LOGO)logo=VBS_LOGO;}catch(e){}
+    var b=document.createElement('div');b.id='pwa-bn';b.setAttribute('role','dialog');b.setAttribute('aria-label','Instalar aplicación');
+    b.innerHTML='<img alt="" src="'+logo+'"><div class="t"><b>Instalar '+NAME+'</b><span id="pwa-sub">'+(mode==='ios'?'Añádela a tu pantalla de inicio':location.hostname)+'</span></div>'
+      +'<button class="go" type="button">'+(mode==='ios'?'Cómo':'Instalar')+'</button><button class="x" type="button" aria-label="Cerrar">&#10005;</button>';
+    document.body.appendChild(b);
+    b.querySelector('.x').onclick=function(){remember(7);hide();};
+    b.querySelector('.go').onclick=function(){
+      if(mode==='ios'){
+        var sub=document.getElementById('pwa-sub');
+        if(sub)sub.innerHTML='1. Toca <b style="display:inline">Compartir</b> (el cuadro con la flecha ↑ de Safari)<br>2. Elige <b style="display:inline">Añadir a pantalla de inicio</b><br>3. Pulsa <b style="display:inline">Añadir</b>';
+        this.textContent='Listo';this.onclick=function(){remember(30);hide();};
+        return;
+      }
+      var e=window.__bip;if(!e){hide();return;}
+      hide();
+      try{
+        e.prompt();
+        e.userChoice.then(function(c){window.__bip=null;if(!c||c.outcome!=='accepted')remember(3);});
+      }catch(x){remember(3);}
+    };
+  }
+  function tryShow(){
+    if(!timerOk||done)return;
+    if(window.__bip)show('prompt');
+    else if(iosSafari)show('ios');
+  }
+  window.addEventListener('pwa-bip',tryShow);
+  window.addEventListener('appinstalled',function(){remember(3650);hide();});
+  setTimeout(function(){timerOk=true;tryShow();},DELAY);
+})();
+
 // Dentro de la app nativa de Android, el nombre de marca se fuerza siempre a "VBS" (dando
 // "VBS Power" via brandName()) sin importar el deporte elegido por el visitante — coherente
 // con el logo VBS_LOGO de arriba y con el nombre "VBS Power" ya usado en capacitor.config.ts
@@ -2563,7 +2644,7 @@ async function _doPoll(){
     // ── Auto-refresh del módulo activo (silencioso) ──────────────
     // 'gamecontrol' se maneja aparte mas abajo (no aqui) porque necesita logica especial
     // para no pisar el estado del anotador activo mientras esta registrando jugadas.
-    var refreshableMods=['standings','stats','leaders','leaderslife','statslife','schedule','dashboard','channels'];
+    var refreshableMods=['standings','stats','streaks','leaders','leaderslife','statslife','schedule','dashboard','channels'];
     if(!_isViewingGame&&curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
       try{
         if(curP==='stats'&&(_ST.search||'')){
@@ -2673,6 +2754,7 @@ var ALL_MOD=[
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
+  {id:'streaks',lbl:'En Racha',ico:'🔥',sec:'Estadisticas'},
   {id:'statslife',lbl:'Stats de Por Vida',ico:'♾️',sec:'Estadisticas'},
   {id:'leaders',lbl:'Lideres',ico:'🥇',sec:'Estadisticas'},
   {id:'leaderslife',lbl:'Lideres de Por Vida',ico:'🌟',sec:'Estadisticas'},
@@ -2686,9 +2768,9 @@ var ALL_MOD=[
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
   {id:'gsimport',lbl:'Importar desde GSheets',ico:'📥',sec:'Admin'},
 ];
-var BASE_PUB=['standings','schedule','teams','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
-var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
+var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -2974,12 +3056,19 @@ function canDo(action,moduleId){
   if(!modPerms)return true; // module not restricted
   return modPerms[action]!==false;
 }
+// "En Racha" antes era parte de Estadisticas: un perfil que ya tenia Estadisticas sigue viendolo, salvo que el admin lo haya
+// desmarcado (se guarda la marca "-streaks" en la lista de modulos del perfil).
+function profHasMod(mods,id){
+  mods=mods||[];
+  if(mods.indexOf(id)>=0)return true;
+  return id==='streaks'&&mods.indexOf('stats')>=0&&mods.indexOf('-streaks')<0;
+}
 function getUserMods(u){
   if(!u)return[];
   if(u.role==='admin')return ALL_MOD;
   if(u.role==='public')return ALL_MOD.filter(function(m){return BASE_PUB.indexOf(m.id)>=0;});
   var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-  if(prof&&prof.modules&&prof.modules.length)return ALL_MOD.filter(function(m){return prof.modules.indexOf(m.id)>=0;});
+  if(prof&&prof.modules&&prof.modules.length)return ALL_MOD.filter(function(m){return profHasMod(prof.modules,m.id);});
   return ALL_MOD.filter(function(m){return BASE_SCR.indexOf(m.id)>=0;});
 }
 // Chequeo de acceso a un modulo/permiso puntual (incluye pseudo-modulos como
@@ -3174,10 +3263,11 @@ function renderApp(){
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
   var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';});var nm='';var last='';
-  var subMods=['statslife','leaderslife'];
+  var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
-    var isSub=subMods.indexOf(p.id)>=0;
+    var isSub=subParent[p.id]!==undefined&&prevId===subParent[p.id];
+    prevId=p.id;
     nm+='<div class="ni'+(isSub?' ni-sub':'')+'" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'" style="'+(isSub?'padding-left:28px;font-size:12px;':'')+'"><span style="font-size:'+(isSub?'13':'15')+'px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
   });
   if(u.role!=='public'&&u.role!=='google'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
@@ -3211,7 +3301,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -3311,6 +3401,7 @@ function buildRouteUrl(moduleId){
     if(_ST.activeTab) p.set('stab',_ST.activeTab);
   }
   if(moduleId==='statslife'&&typeof _ST!=='undefined'&&_ST.activeTab) p.set('stab',_ST.activeTab);
+  if(moduleId==='streaks'&&typeof _SK!=='undefined'&&_SK.tourId) p.set('sktour',_SK.tourId);
   if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined'&&_SL.activeTab) p.set('ltab',_SL.activeTab);
   if(moduleId==='rankings'&&typeof _RK!=='undefined'){
     if(_RK.tourId) p.set('rtour',_RK.tourId);
@@ -3410,6 +3501,7 @@ function applyRouteFromUrl(){
       if(p.has('dto'))_ST.dateTo=p.get('dto');
       if(p.has('stab'))_ST.activeTab=p.get('stab');
     }
+    if(moduleId==='streaks'&&typeof _SK!=='undefined'&&p.has('sktour'))_SK.tourId=p.get('sktour');
     if(moduleId==='statslife'&&typeof _ST!=='undefined'){
       _ST.search=q;
       if(p.has('stab'))_ST.activeTab=p.get('stab');
@@ -12336,6 +12428,24 @@ function streakSectionHTML(tourId, yearFilter, allowedTourIds){
     +col('&#127970; Equipos — Victorias Seguidas', sk.activeTm, sk.pastTm, tmItem)
     +'</div></div>';
 }
+// ── Modulo "En Racha" 🔥 ── (antes era una seccion dentro de Estadisticas; separado para que Estadisticas cargue mas rapido)
+var _SK={tourId:''};
+function pgStreaks(tid){
+  if(tid!==undefined){
+    _SK.tourId=tid;
+    _lastFilterCombo['streaks']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
+  } else {
+    _SK.tourId=resyncTourId('streaks',_SK.tourId);
+  }
+  var scopeTourIds=toursByYear().map(function(t){return t.id;});
+  var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_SK.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">&#128293; En Racha</div></div>'
+    +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="pgStreaks(this.value)">'+tOpts+'</select>'
+    +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:140px" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select>'
+    +'</div></div>'
+    +streakSectionHTML(_SK.tourId||'',S.yearFilter||null,scopeTourIds));
+}
 function pgStats(tid,sBy,pSBy){
   if(tid!==undefined){
     _ST.tourId=tid;
@@ -12382,14 +12492,9 @@ function pgStats(tid,sBy,pSBy){
     var tm=teamOf(p.teamId);
     return!!(tm&&tm.name&&tm.name.toLowerCase().indexOf(statsQ)>=0);
   });
-  // ── Rachas activas para badge en la tabla (declarados antes que pitRows/tmRows/batRows) ──
+  // Las rachas (y su calculo, que recorre todos los juegos) ya NO se hacen aqui: viven en el modulo "En Racha" (pgStreaks),
+  // para que Estadisticas cargue mas rapido. Estos mapas quedan vacios (sin insignias 🔥 en las tablas).
   var _activeBatIds={},_activePitIds={},_activeTmIds={};
-  try{
-    var _skST=calcStreaks(_ST.tourId||null,S.yearFilter||null,scopeTourIdsST);
-    if(_skST&&_skST.activeBat)_skST.activeBat.forEach(function(x){if(x.p)_activeBatIds[x.p.id]=x.streak;});
-    if(_skST&&_skST.activePit)_skST.activePit.forEach(function(x){if(x.p)_activePitIds[x.p.id]=x.streak;});
-    if(_skST&&_skST.activeTm) _skST.activeTm.forEach(function(x){if(x.tm)_activeTmIds[x.tm.id]=x.streak;});
-  }catch(_e){}
   // Consolidar jugadores transferidos DENTRO del mismo subtorneo/torneo padre en
   // alcance: agrupa por identidad de carrera (mismo mecanismo de "de por vida",
   // careerInstances — ya protege contra homonimos de otro deporte), restringido a
@@ -12677,8 +12782,6 @@ function pgStats(tid,sBy,pSBy){
       +'<td style="text-align:center;color:'+(s.e>0?'var(--red)':'inherit')+';font-weight:'+(s.e>0?700:400)+'">'+s.e+'</td>'
       +'<td style="text-align:center"><span class="chip">'+s.pos+'</span></td></tr>';
   }).join('');
-  var _streakTourId=_ST.tourId||'';
-  var _streakYear=S.yearFilter||null;
   ct(yearBar()+sponsorPinnedBanner('pinEstadisticas','&#128202; Estadisticas presentadas gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">Estadisticas</div></div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:180px" onchange="_ST.divFilter=\'\';pgStats(this.value)">'+tOpts+'</select>'
     +(divisionsST.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_ST.divFilter=this.value;pgStats(_ST.tourId)"><option value="">Todas las Divs.</option>'+divisionsST.map(function(d){return'<option value="'+d+'" '+(_ST.divFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
@@ -12689,7 +12792,6 @@ function pgStats(tid,sBy,pSBy){
     +'<button class="btn bs bsm" style="margin-left:auto" onclick="exportPlayerPDF()">&#128196; Informe PDF</button>'
     +'<button class="btn bs bsm" onclick="doExportTeamStatsPDF()">&#128202; Generar Estadisticas</button>'
     +'<input class="fi" id="stats-search" placeholder="&#128269; Buscar jugador..." value="'+(_ST.search||'')+'" oninput="_ST.search=this.value;filterStatsDisplay()" style="width:180px"></div></div>'
-    +streakSectionHTML(_streakTourId, _streakYear, scopeTourIdsST)
     +'<div class="tabs">'    +'<div class="tab'+(_ST.activeTab==='st-b'?' on':'')+'" onclick="_ST.activeTab=&quot;st-b&quot;;showTab(this,&quot;st-b&quot;)">&#127952; Bateo</div>'    +'<div class="tab'+(_ST.activeTab==='st-d'?' on':'')+'" onclick="_ST.activeTab=&quot;st-d&quot;;showTab(this,&quot;st-d&quot;)">&#129354; Defensa</div>'    +'<div class="tab'+(_ST.activeTab==='st-p'?' on':'')+'" onclick="_ST.activeTab=&quot;st-p&quot;;showTab(this,&quot;st-p&quot;)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_ST.activeTab==='st-t'?' on':'')+'" onclick="_ST.activeTab=&quot;st-t&quot;;showTab(this,&quot;st-t&quot;)">&#127970; Equipos</div>'    +'</div>'
     +'<div id="st-b" style="'+(_ST.activeTab==='st-b'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'+th('name','Jugador')+'<th>Equipo</th>'+th('vb','VB')+th('h','H')+th('h2','2B')+th('h3','3B')+th('hr','HR')+th('r','R')+th('rbi','RBI')+th('bb','BB')+th('k','K')+th('sb','SB')+th('avg','AVG')+th('obp','OBP')+th('slg','SLG')+'</tr></thead><tbody>'
     +(ps.map(function(s){
@@ -16462,7 +16564,7 @@ function pgProfiles(q){
   var list=(S.profiles||[]).slice().sort(function(a,b){return(a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
   var cards=list.map(function(p){
     var uc=S.users.filter(function(u){return u.profileId===p.id;}).length;
-    var modNames=(p.modules||[]).map(function(mid){var m=ALL_MOD.filter(function(x){return x.id===mid;})[0];return m?m.lbl:'?';});
+    var modNames=(p.modules||[]).filter(function(mid){return mid.charAt(0)!=='-';}).map(function(mid){var m=ALL_MOD.filter(function(x){return x.id===mid;})[0];return m?m.lbl:'?';});
     return'<div class="card" data-pname="'+(p.name||'').toLowerCase()+'"><div class="chd"><div class="ctl">'+p.name+'</div><span class="badge bgr">'+uc+' usuario(s)</span></div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+modNames.map(function(n){return'<span class="chip">'+n+'</span>';}).join('')+'</div>'
       +'<div style="display:flex;gap:6px">'
@@ -16496,7 +16598,7 @@ function openProfM(id){
   var mods=p.modules||[];var profParentTours=p.parentTournaments||[];var profTeams=p.teams||[];
   var chks=ALL_MOD.map(function(m){
     return'<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--bdr);border-radius:7px;cursor:pointer;background:var(--card);margin-bottom:4px">'
-      +'<input type="checkbox" id="pm-'+m.id+'" '+(mods.indexOf(m.id)>=0?'checked':'')+' style="accent-color:var(--acc);width:14px;height:14px">'
+      +'<input type="checkbox" id="pm-'+m.id+'" '+(profHasMod(mods,m.id)?'checked':'')+' style="accent-color:var(--acc);width:14px;height:14px">'
       +'<span>'+m.ico+'</span><div><div style="font-size:13px;font-weight:500">'+m.lbl+'</div><div style="font-size:10px;color:var(--t3)">'+m.sec+'</div></div></label>';
   }).join('');
   var sortedParentTours=(S.parentTournaments||[]).slice().sort(function(a,b){return a.name<b.name?-1:1;});
@@ -16588,6 +16690,7 @@ function filterProfTeams(q){
 async function saveProf(id){
   var name=fv('pfn');if(!name){toast('Nombre requerido','error');return;}
   var mods=ALL_MOD.filter(function(m){var e=document.getElementById('pm-'+m.id);return e&&e.checked;}).map(function(m){return m.id;});
+  if(mods.indexOf('stats')>=0&&mods.indexOf('streaks')<0)mods.push('-streaks');   // Estadisticas sin En Racha: marca explicita (ver profHasMod)
   var tours=(S.parentTournaments||[]).filter(function(pt){var e=document.getElementById('ppt-'+pt.id);return e&&e.checked;}).map(function(pt){return pt.id;});
   var teams=S.teams.filter(function(t){var e=document.getElementById('ptm-'+t.id);return e&&e.checked;}).map(function(t){return t.id;});
   // Read per-module permissions
