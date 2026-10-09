@@ -3873,7 +3873,7 @@ function openTM(id){
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveT(this.dataset.tid)">Guardar</button></div>');
-  if(id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'))tmlbLoadStatus(id);
+  if(id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb'))tmlbLoadStatus(id);
 }
 // ── Fuente de datos MLB del subtorneo (SOLO admin; el servidor también lo valida) ──
 function tmlbSection(t){
@@ -3887,8 +3887,9 @@ function tmlbSection(t){
     +'<div class="fr c2"><div class="fg"><label class="fl">Eventos diarios para los puntos de Fantasía</label>'+src('tmlb-stats',t.mlbStatsSource)+'</div>'
     +'<div class="fg"><label class="fl">Inicio del partido (bloqueo de plantillas)</label>'+src('tmlb-lock',t.mlbLockSource)+'</div></div>'
     +'<div class="fg"><label class="fl">Roster de agencia libre mostrado en Fantasía</label>'+src('tmlb-fa',t.mlbFaSource)+'</div>'
+    +'<div class="fg"><label class="fl">Tabla de posiciones</label>'+src('tmlb-stand',t.mlbStandSource)+'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Con API de MLB se sincronizan los marcadores de los juegos de la liga y la tabla se calcula con las reglas de tu app (juegos sobre .500, PCT, serie particular, DIF). Si los puntos de Fantasía ya usan la API, la tabla también se alimenta sola.</div></div>'
     +'<div id="tmlb-msg" style="font-size:12px;color:var(--t3)"></div>'
-    +((t.id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'))?'<div class="fg" style="margin-top:10px"><label class="fl">Sincronización con MLB</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',false)">&#128260; Sincronizar ahora</button><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',true)" title="Trae todos los juegos de las fechas del subtorneo (puede requerir varias pulsaciones)">Traer toda la temporada</button></div><div id="tmlb-sync" style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.5"></div></div>':'');
+    +((t.id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb'))?'<div class="fg" style="margin-top:10px"><label class="fl">Sincronización con MLB</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',false)">&#128260; Sincronizar ahora</button><button class="btn bs bsm" type="button" onclick="tmlbSync(\''+t.id+'\',true)" title="Trae todos los juegos de las fechas del subtorneo (puede requerir varias pulsaciones)">Traer toda la temporada</button></div><div id="tmlb-sync" style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.5"></div></div>':'');
 }
 function tmlbRepHtml(r){
   if(!r)return'Aún no se ha sincronizado.';
@@ -3954,9 +3955,9 @@ async function saveT(id){
     asPtsErPit:parseFloat(fv('taperpit')),asPtsBbPit:parseFloat(fv('tapbbpit')),asPtsLPit:parseFloat(fv('taplpit'))};
   if(!t.name){toast('Nombre requerido','error');return;}
   if(document.getElementById('tmlb-stats')){   // solo existe para el admin
-    t.mlbStatsSource=fv('tmlb-stats');t.mlbLockSource=fv('tmlb-lock');t.mlbFaSource=fv('tmlb-fa');
+    t.mlbStatsSource=fv('tmlb-stats');t.mlbLockSource=fv('tmlb-lock');t.mlbFaSource=fv('tmlb-fa');t.mlbStandSource=fv('tmlb-stand');
     t.mlbLeagueId=(fv('tmlb-lgid')||'').trim();t.mlbSeason=(fv('tmlb-season')||'').trim();
-    if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
+    if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok){
