@@ -272,7 +272,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .past-streak-item .si-val{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t2);}
 .streak-empty{font-size:11px;color:var(--t3);text-align:center;padding:8px 0;}
 /* ── Carga inmediata de modulos pesados ── */
-.sk-load{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px 0;color:var(--t2);font-size:13px;font-weight:600;}
+.sk-load{display:flex;align-items:center;justify-content:center;gap:10px;padding:6px 0 14px;color:var(--t2);font-size:13px;font-weight:600;}
 .sk-spin{width:16px;height:16px;border:2px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:skspin .8s linear infinite;flex-shrink:0;}
 @keyframes skspin{to{transform:rotate(360deg);}}
 .sk-bar{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--bdr),rgba(148,163,184,.28),var(--bdr));background-size:200% 100%;animation:skshim 1.2s linear infinite;}
@@ -2939,6 +2939,33 @@ function resyncTourId(moduleKey,currentTourId){
   var autoSub=autoSubTour(S.parentTourFilter,S.yearFilter);
   return autoSub?String(autoSub):'';
 }
+// ── Subtorneo COMPARTIDO por todos los modulos ───────────────────────────────
+// Fuente unica: S.tourFilter (la misma que ya usaban Equipos, Calendario y Posiciones). Cambiar el
+// subtorneo en cualquier modulo (Canales en Vivo, Estadisticas, En Racha, Lideres, Rankings,
+// Premiaciones, TO vs TO, etc.) lo cambia en todos los demas.
+function sharedTourId(){
+  var v=S.tourFilter?String(S.tourFilter):'';
+  var dataLoaded=(S.parentTournaments&&S.parentTournaments.length)||(S.tournaments&&S.tournaments.length);
+  if(!v||!dataLoaded) return v; // '' = "Todos" (se respeta) / datos aun sin cargar
+  var ok=toursByYear().some(function(t){return String(t.id)===v;});
+  if(ok) return v;
+  // El subtorneo guardado ya no pertenece al torneo padre/año filtrados: se re-selecciona uno valido
+  var auto=S.parentTourFilter?autoSubTour(S.parentTourFilter,S.yearFilter):'';
+  S.tourFilter=auto?String(auto):'';
+  return S.tourFilter;
+}
+function setSharedTour(val){
+  var nv=val?String(val):'';
+  var changed=nv!==(S.tourFilter?String(S.tourFilter):'');
+  S.tourFilter=nv;
+  if(!changed) return; // mismo subtorneo: no tocar los filtros de division ya elegidos
+  // Las divisiones pertenecen a un subtorneo concreto: al cambiarlo se limpian en todos los modulos
+  try{_standDivFilter='';}catch(e){}
+  try{_ST.divFilter='';}catch(e){}
+  try{_LD.divFilter='';}catch(e){}
+  try{_RK.divFilter='';}catch(e){}
+  try{_awDivFilter='';}catch(e){}
+}
 // ── Filtro de Fase (Serie Regular / Playoffs / Serie Final / Todas) ──────────
 function gameMatchesPhase(g){
   if(!S.phaseFilter) return g.phase!=='allstar'; // "Todas" nunca incluye Juego de Estrellas
@@ -3497,17 +3524,17 @@ function applyRouteFromUrl(){
       if(p.has('fecha'))S._schedDateFilter=p.get('fecha');
     }
     if(moduleId==='users')_usrQ=q;
-    if(moduleId==='channels'&&p.has('ctour'))S.chTourFilter=p.get('ctour');
+    if(moduleId==='channels'&&p.has('ctour'))S.tourFilter=p.get('ctour');
     if(moduleId==='gamecontrol'&&p.has('game'))S.game=p.get('game');
     if(moduleId==='stats'&&typeof _ST!=='undefined'){
       _ST.search=q;
-      if(p.has('stour'))_ST.tourId=p.get('stour');
+      if(p.has('stour'))S.tourFilter=p.get('stour');
       if(p.has('sdiv'))_ST.divFilter=p.get('sdiv');
       if(p.has('dfrom'))_ST.dateFrom=p.get('dfrom');
       if(p.has('dto'))_ST.dateTo=p.get('dto');
       if(p.has('stab'))_ST.activeTab=p.get('stab');
     }
-    if(moduleId==='streaks'&&typeof _SK!=='undefined'&&p.has('sktour'))_SK.tourId=p.get('sktour');
+    if(moduleId==='streaks'&&typeof _SK!=='undefined'&&p.has('sktour'))S.tourFilter=p.get('sktour');
     if(moduleId==='statslife'&&typeof _ST!=='undefined'){
       _ST.search=q;
       if(p.has('stab'))_ST.activeTab=p.get('stab');
@@ -3517,12 +3544,12 @@ function applyRouteFromUrl(){
       if(p.has('ltab'))_SL.activeTab=p.get('ltab');
     }
     if(moduleId==='rankings'&&typeof _RK!=='undefined'){
-      if(p.has('rtour'))_RK.tourId=p.get('rtour');
+      if(p.has('rtour'))S.tourFilter=p.get('rtour');
       if(p.has('rdiv'))_RK.divFilter=p.get('rdiv');
       _RK.search=q;
     }
     if(moduleId==='awards'){
-      if(p.has('awtour')&&typeof _awTour!=='undefined')_awTour=p.get('awtour');
+      if(p.has('awtour'))S.tourFilter=p.get('awtour');
       if(p.has('awdiv')&&typeof _awDivFilter!=='undefined')_awDivFilter=p.get('awdiv');
     }
     if(moduleId==='profiles'&&typeof _pfSearch!=='undefined')_pfSearch=q;
@@ -3534,7 +3561,7 @@ function applyRouteFromUrl(){
       if(p.has('p2'))_TVT.p2=p.get('p2');
       if(p.has('t1'))_TVT.t1=p.get('t1');
       if(p.has('t2'))_TVT.t2=p.get('t2');
-      if(p.has('ttour'))_TVT.tourId=p.get('ttour');
+      if(p.has('ttour'))S.tourFilter=p.get('ttour');
       if(p.has('tyear'))_TVT.year=parseInt(p.get('tyear'))||0;
       if(p.has('tab'))_TVT.tab=p.get('tab');
       if(p.has('tphase'))_TVT.phase=p.get('tphase');
@@ -3579,7 +3606,7 @@ function skelHTML(page){
     var card=function(){var l='';for(var r=0;r<6;r++)l+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;'+(r?'border-top:1px solid var(--bdr)':'')+'"><div class="sk-bar" style="width:24px"></div><div class="sk-bar" style="width:32px;height:32px;border-radius:50%"></div><div class="sk-bar" style="flex:1"></div><div class="sk-bar" style="width:40px"></div></div>';return'<div class="card">'+l+'</div>';};
     body='<div class="g2">'+card()+card()+'</div>';
   }
-  return bar+title+body+'<div class="sk-load"><span class="sk-spin"></span>Cargando información...</div>';
+  return bar+title+'<div class="sk-load"><span class="sk-spin"></span>Cargando información...</div>'+body;
 }
 function runPageDeferred(page){
   var tok=++_deferTok;
@@ -4444,7 +4471,7 @@ function pgTeams(){
       +'<div><div class="stl">Equipos & Rosters</div><div class="ssb">Consulta equipos y sus rosters</div></div>'
       +'<div style="display:flex;gap:8px;align-items:center">'
       +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-      +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value;pgTeams()">'+tOpts+'</select>'
+      +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
       +tourFollowBtn
       +'</div></div>'
       +'<div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128101;</div><div>Sin equipos</div></div>')+'</div>');
@@ -4454,7 +4481,7 @@ function pgTeams(){
     +'<div><div class="stl">Equipos & Rosters</div><div class="ssb">Gestiona equipos y jugadores</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value;pgTeams()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
     +tourFollowBtn
     +(canDo('create','teams')?'<button class="btn bp" onclick="openEM(\'\')">+ Equipo</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openImportTeamM()">&#128228; Importar Equipo</button>':'')
@@ -5270,7 +5297,7 @@ function pgSched(){
     +'<div><div class="stl">Calendario</div><div class="ssb">Programa y gestiona juegos</div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:160px" onchange="S.tourFilter=this.value;pgSched()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:160px" onchange="setSharedTour(this.value);pgSched()">'+tOpts+'</select>'
     +'<select class="fs" style="width:140px" onchange="_schedPhaseFilter=this.value;pgSched()">'+phFiltOpts+'</select>'
     +'<input class="fi" type="text" style="width:180px" placeholder="&#128269; Buscar equipo..." value="'+(S._schedTeamQ||'')+'" onchange="S._schedTeamQ=this.value;pgSched()">'
     +(S._schedTeamQ?'<button class="btn bs bsm" onclick="S._schedTeamQ=\'\';pgSched()">&#10005;</button>':'')
@@ -11315,7 +11342,7 @@ function pgStand(){
     +'<div><div class="stl">Posiciones</div><div class="ssb">'+(tour?tour.name:'Todos los subtorneos (consolidado)')+' &mdash; '+(phase?{regular:'Serie Regular',playin:'Play In',playoff:'Playoffs',final:'Serie Final',allstar:'Juego de Estrellas'}[phase]:'Todas las Fases')+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:180px" onchange="S.tourFilter=this.value?String(this.value):\'\';_standDivFilter=\'\';pgStand()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgStand()">'+tOpts+'</select>'
     +(divisions.length?'<select class="fs" style="width:130px" onchange="_standDivFilter=this.value;pgStand()"><option value="">Todas las Divs.</option>'+divisions.map(function(d){return'<option value="'+d+'" '+(_standDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<select class="fs" style="width:140px" onchange="S.phaseFilter=this.value;pgStand()">'+phOpts+'</select>'
     +(tour&&(isA||isPub)?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\',_standDivFilter)">&#127919; Draft</button>':'')
@@ -12521,12 +12548,8 @@ function streakSectionHTML(tourId, yearFilter, allowedTourIds, usePhase){
 // ── Modulo "En Racha" 🔥 ── (antes era una seccion dentro de Estadisticas; separado para que Estadisticas cargue mas rapido)
 var _SK={tourId:''};
 function pgStreaks(tid){
-  if(tid!==undefined){
-    _SK.tourId=tid;
-    _lastFilterCombo['streaks']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
-  } else {
-    _SK.tourId=resyncTourId('streaks',_SK.tourId);
-  }
+  if(tid!==undefined) setSharedTour(tid);
+  _SK.tourId=sharedTourId();
   var scopeTourIds=toursByYear().map(function(t){return t.id;});
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_SK.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="stl">&#128293; En Racha'+(S.phaseFilter?' <span style="font-size:13px;color:var(--t3);font-weight:600">&middot; '+({regular:'Serie Regular',playoff:'Playoffs',final:'Serie Final'}[S.phaseFilter]||'')+'</span>':'')+'</div></div>'
@@ -12537,12 +12560,8 @@ function pgStreaks(tid){
     +streakSectionHTML(_SK.tourId||'',S.yearFilter||null,scopeTourIds,true));
 }
 function pgStats(tid,sBy,pSBy){
-  if(tid!==undefined){
-    _ST.tourId=tid;
-    _lastFilterCombo['stats']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
-  } else {
-    _ST.tourId=resyncTourId('stats',_ST.tourId);
-  }
+  if(tid!==undefined) setSharedTour(tid);
+  _ST.tourId=sharedTourId();
   if(sBy!==undefined){if(_ST.sortBy===sBy)_ST.sortDir*=-1;else{_ST.sortBy=sBy;_ST.sortDir=-1;}}
   if(pSBy!==undefined){if(_ST.pitSortBy===pSBy)_ST.pitSortDir*=-1;else{_ST.pitSortBy=pSBy;_ST.pitSortDir=1;}}
   var tSBy=arguments[3];
@@ -12962,12 +12981,8 @@ function resolveMinIP(th,playersList,getIPFn){
   return thirdsToIP(Math.round(thirdsList.reduce(function(a,b){return a+b;},0)/thirdsList.length));
 }
 function pgLead(tid){
-  if(tid!==undefined){
-    _LD.tourId=tid;
-    _lastFilterCombo['leaders']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
-  } else {
-    _LD.tourId=resyncTourId('leaders',_LD.tourId);
-  }
+  if(tid!==undefined) setSharedTour(tid);
+  _LD.tourId=sharedTourId();
   var gids=gamesByYear().filter(function(g){
     if(!(!_LD.tourId||g.tournamentId===_LD.tourId))return false;
     if(!gameMatchesPhase(g))return false;
@@ -13718,12 +13733,8 @@ function rkTeamRow(x,idx){
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">'+x.pts.toFixed(2)+'</div></div>';
 }
 function pgRankings(tid){
-  if(tid!==undefined){
-    _RK.tourId=tid;
-    _lastFilterCombo['rankings']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
-  } else {
-    _RK.tourId=resyncTourId('rankings',_RK.tourId);
-  }
+  if(tid!==undefined) setSharedTour(tid);
+  _RK.tourId=sharedTourId();
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_RK.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var scopeTidsRK=(_RK.tourId?[_RK.tourId]:toursByYear().map(function(t){return t.id;})).map(String);
   var divisionsRK=[];
@@ -14633,14 +14644,8 @@ function doExportRankingPDF(){
 }
 function pgAwards(){
   var isA=S.user&&S.user.role==='admin';
-  // Auto-select/resync subtorneo según torneo padre + año filtrado (necesario para los candidatos automáticos)
-  var _awValid=toursByYear().map(function(t){return String(t.id);});
-  if(!S.parentTourFilter){
-    if(!_awTour||_awValid.indexOf(String(_awTour))<0)_awTour='';
-  } else if(!_awTour||_awValid.indexOf(String(_awTour))<0){
-    var autoSubAW=autoSubTour(S.parentTourFilter,S.yearFilter);
-    _awTour=autoSubAW?String(autoSubAW):'';
-  }
+  // Subtorneo compartido con el resto de los modulos (S.tourFilter)
+  _awTour=sharedTourId();
   var awTours=toursByYear().map(function(t){return t.id;});
   var awBase=S.yearFilter?(S.awards||[]).filter(function(a){return awTours.indexOf(a.tournamentId)>=0;}):(S.awards||[]);
   var filtered=awBase;
@@ -14670,7 +14675,7 @@ function pgAwards(){
     +(S.user&&S.user.role!=='public'&&canDo('create','awards')?'<button class="btn bp" onclick="openAwardM(\'\')">+ Registrar Premio</button>':'')+'</div>'
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:200px" onchange="_awTour=this.value;_awDivFilter=&quot;&quot;;pgAwards()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:200px" onchange="setSharedTour(this.value);pgAwards()">'+tOpts+'</select>'
     +'<select class="fs" style="width:160px" onchange="_awPhase=this.value;pgAwards()">'+phOpts+'</select>'
     +(awardDivsAvail.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_awDivFilter=this.value;pgAwards()"><option value="">Todas las Divs.</option>'+awardDivsAvail.map(function(d){return'<option value="'+d+'" '+(_awDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'</div>'
@@ -15855,14 +15860,8 @@ function doExportPlayerPDF(){
 // ═══════════════════════════════════════════════════════════════════
 var _TVT={mode:'players',p1:'',p2:'',t1:'',t2:'',tourId:'',year:0,tab:'bat',phase:'',teamTab:'general'};
 function pgToVsTo(){
-  // Auto-select/resincronizar el subtorneo cuando el padre+año identifica un torneo
-  var _tvtValid=toursByYear().map(function(t){return String(t.id);});
-  if(!S.parentTourFilter){
-    _TVT.tourId='';
-  } else if(!_TVT.tourId||_tvtValid.indexOf(String(_TVT.tourId))<0){
-    var autoSub=autoSubTour(S.parentTourFilter,S.yearFilter);
-    _TVT.tourId=autoSub?String(autoSub):'';
-  }
+  // Subtorneo compartido con el resto de los modulos (S.tourFilter)
+  _TVT.tourId=sharedTourId();
   // Filtro de fase PROPIO del modulo TO vs TO (independiente del filtro global S.phaseFilter,
   // para poder comparar jugadores/equipos en una fase especifica sin afectar otros modulos).
   function tvtMatchesPhase(g){
@@ -16188,7 +16187,7 @@ function pgToVsTo(){
     +'<button class="btn '+(_TVT.mode==='players'?'bp':'bs')+'" onclick="_TVT.mode=\'players\';pgToVsTo()">👥 Jugadores</button>'
     +'<button class="btn '+(_TVT.mode==='teams'?'bp':'bs')+'" onclick="_TVT.mode=\'teams\';pgToVsTo()">🏟️ Equipos</button>'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:180px" onchange="_TVT.tourId=this.value;pgToVsTo()">'+tOpts+'</select>'
+    +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgToVsTo()">'+tOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label>'
     +'<select class="fs" style="width:150px" onchange="_TVT.phase=this.value;pgToVsTo()">'
     +'<option value="" '+(!_TVT.phase?'selected':'')+'>Todas las Fases</option>'
@@ -16410,8 +16409,7 @@ function getPlatform(url){
   return'other';
 }
 function setChTour(val){
-  S.chTourFilter=val?String(val):'';
-  _lastFilterCombo['channels']=(S.parentTourFilter||'')+'|'+(S.yearFilter||0);
+  setSharedTour(val);
   pgChannels();
 }
 // Boton "Ver Transmision en Vivo" en Control de Juego: solo aparece para
@@ -16432,7 +16430,7 @@ function watchLiveChannel(tid){
 }
 function pgChannels(){
   var isA=S.user&&S.user.role!=='public'&&canDo('create','channels');
-  S.chTourFilter=resyncTourId('channels',S.chTourFilter);
+  S.chTourFilter=sharedTourId();
   var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.chTourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var chScopeIds=toursByYear().map(function(t){return String(t.id);});
   var chs=(S.channels||[]).filter(function(c){
