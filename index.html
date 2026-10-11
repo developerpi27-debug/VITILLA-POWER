@@ -1644,7 +1644,7 @@ function resetModuleState(){
   if(typeof _RK!=='undefined'){_RK.tourId='';_RK.divFilter='';}
   if(typeof _awTour!=='undefined'){try{_awTour='';}catch(e){}}
   if(typeof _TVT!=='undefined'){_TVT.p1='';_TVT.p2='';_TVT.t1='';_TVT.t2='';_TVT.tourId='';_TVT.year=0;_TVT.tab='bat';}
-  if(typeof _schedPhaseFilter!=='undefined'){_schedPhaseFilter='';}
+  if(typeof _schedPhaseFilter!=='undefined'){_schedPhaseFilter='';_schedOnly='';}
   S._schedTeamQ='';
   if(typeof _standDivFilter!=='undefined'){_standDivFilter='';}
   if(typeof _ST!=='undefined'){_ST.divFilter='';}
@@ -2993,8 +2993,10 @@ function phaseOpts(){
     +'<option value="divchamp" '+(S.phaseFilter==='divchamp'?'selected':'')+'>Serie Campeonato Divisional</option>'
     +'<option value="final" '+(S.phaseFilter==='final'?'selected':'')+'>Serie Final</option>';
 }
+// Cambia la fase compartida SIN re-renderizar (el modulo que la llama se encarga) y libera la fase exclusiva del Calendario.
+function setPhaseShared(val){S.phaseFilter=val||'';_schedOnly='';}
 function setPhaseFilter(val){
-  S.phaseFilter=val||'';
+  S.phaseFilter=val||'';_schedOnly='';
   initPGS();if(PGS[curP])PGS[curP]();
 }
 function autoSubTour(parentId, year){
@@ -3421,7 +3423,7 @@ function buildRouteUrl(moduleId){
   if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined'&&_SL.search) p.set('q',_SL.search);
   if(moduleId==='schedule'){
     if(S._schedTeamQ) p.set('q',S._schedTeamQ);
-    if(typeof _schedPhaseFilter!=='undefined'&&_schedPhaseFilter) p.set('fase',_schedPhaseFilter);
+    if(typeof _schedOnly!=='undefined'&&_schedOnly) p.set('fase',_schedOnly);
     if(S._schedDateFilter) p.set('fecha',S._schedDateFilter);
   }
   if(moduleId==='users'&&typeof _usrQ!=='undefined'&&_usrQ) p.set('q',_usrQ);
@@ -3521,7 +3523,7 @@ function applyRouteFromUrl(){
     if((moduleId==='leaders'||moduleId==='leaderslife')&&typeof _SL!=='undefined')_SL.search=q;
     if(moduleId==='schedule'){
       S._schedTeamQ=q;
-      if(p.has('fase')&&typeof _schedPhaseFilter!=='undefined')_schedPhaseFilter=p.get('fase');
+      if(p.has('fase'))setSchedPhase(p.get('fase'));
       if(p.has('fecha'))S._schedDateFilter=p.get('fecha');
     }
     if(moduleId==='users')_usrQ=q;
@@ -3565,7 +3567,7 @@ function applyRouteFromUrl(){
       if(p.has('ttour'))S.tourFilter=p.get('ttour');
       if(p.has('tyear'))_TVT.year=parseInt(p.get('tyear'))||0;
       if(p.has('tab'))_TVT.tab=p.get('tab');
-      if(p.has('tphase'))_TVT.phase=p.get('tphase');
+      if(p.has('tphase'))S.phaseFilter=p.get('tphase');
       if(p.has('teamtab'))_TVT.teamTab=p.get('teamtab');
     }
     if(moduleId!=='gamecontrol'&&S._activeFriendlyId)deactivateFriendlyInjection();
@@ -5271,7 +5273,17 @@ async function delPlayer(id){
 
 // SCHEDULE
 var _schedPhaseFilter='';
+// Fase del Calendario = filtro global S.phaseFilter (compartido con Posiciones, Estadisticas, En Racha, Lideres,
+// Premiaciones, TO vs TO...). Solo 'playin' y 'allstar' existen unicamente en el Calendario y se guardan aparte.
+var _schedOnly='';
+function schedPhase(){return _schedOnly||S.phaseFilter||'';}
+function setSchedPhase(v){
+  v=v||'';
+  if(v==='playin'||v==='allstar'){_schedOnly=v;}
+  else{_schedOnly='';S.phaseFilter=v;}
+}
 function pgSched(){
+  _schedPhaseFilter=schedPhase();
   var isA=S.user&&S.user.role==='admin';
   var vg=gamesByYear();
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.tourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
@@ -5301,7 +5313,7 @@ function pgSched(){
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
     +'<select class="fs" style="width:160px" onchange="setSharedTour(this.value);pgSched()">'+tOpts+'</select>'
-    +'<select class="fs" style="width:210px;max-width:100%" onchange="_schedPhaseFilter=this.value;pgSched()">'+phFiltOpts+'</select>'
+    +'<select class="fs" style="width:210px;max-width:100%" onchange="setSchedPhase(this.value);pgSched()">'+phFiltOpts+'</select>'
     +'<input class="fi" type="text" style="width:180px" placeholder="&#128269; Buscar equipo..." value="'+(S._schedTeamQ||'')+'" onchange="S._schedTeamQ=this.value;pgSched()">'
     +(S._schedTeamQ?'<button class="btn bs bsm" onclick="S._schedTeamQ=\'\';pgSched()">&#10005;</button>':'')
     +(canDo('create','schedule')?'<button class="btn bp" onclick="openGM(\'\')">+ Programar</button>':'')
@@ -11349,7 +11361,7 @@ function pgStand(){
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
     +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgStand()">'+tOpts+'</select>'
     +(divisions.length?'<select class="fs" style="width:130px" onchange="_standDivFilter=this.value;pgStand()"><option value="">Todas las Divs.</option>'+divisions.map(function(d){return'<option value="'+d+'" '+(_standDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
-    +'<select class="fs" style="width:210px;max-width:100%" onchange="S.phaseFilter=this.value;pgStand()">'+phOpts+'</select>'
+    +'<select class="fs" style="width:210px;max-width:100%" onchange="setPhaseShared(this.value);pgStand()">'+phOpts+'</select>'
     +(tour&&(isA||isPub)?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\',_standDivFilter)">&#127919; Draft</button>':'')
     +'</div></div>'
     +(consolidated?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128202; Vista consolidada: se suman los juegos de todos los subtorneos visibles del torneo padre y año filtrados.</div>':'')
@@ -14651,6 +14663,7 @@ function pgAwards(){
   var isA=S.user&&S.user.role==='admin';
   // Subtorneo compartido con el resto de los modulos (S.tourFilter)
   _awTour=sharedTourId();
+  _awPhase=S.phaseFilter||'';   // fase compartida con el resto de los modulos
   var awTours=toursByYear().map(function(t){return t.id;});
   var awBase=S.yearFilter?(S.awards||[]).filter(function(a){return awTours.indexOf(a.tournamentId)>=0;}):(S.awards||[]);
   var filtered=awBase;
@@ -14682,7 +14695,7 @@ function pgAwards(){
     +'<div class="card" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
     +'<select class="fs" style="width:200px" onchange="setSharedTour(this.value);pgAwards()">'+tOpts+'</select>'
-    +'<select class="fs" style="width:210px;max-width:100%" onchange="_awPhase=this.value;pgAwards()">'+phOpts+'</select>'
+    +'<select class="fs" style="width:210px;max-width:100%" onchange="setPhaseShared(this.value);pgAwards()">'+phOpts+'</select>'
     +(awardDivsAvail.length?'<label style="font-size:12px;color:var(--t2)">&#128202; Division:</label><select class="fs" style="width:130px" onchange="_awDivFilter=this.value;pgAwards()"><option value="">Todas las Divs.</option>'+awardDivsAvail.map(function(d){return'<option value="'+d+'" '+(_awDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'</div>'
     +'<div class="card"><div class="tw"><table><thead><tr><th>Jugador</th><th>Premio</th><th>Torneo</th><th>Fase</th><th>Motivo</th><th>Fecha</th>'+((S.user&&S.user.role!=='public'&&(isA||canDo('edit','awards')))?'<th>Acciones</th>':'')+'</tr></thead>'
@@ -15317,6 +15330,7 @@ function doExportSchedulePDF(){
   var vg=gamesByYear();
   var tour=S.tourFilter?S.tournaments.filter(function(t){return t.id===S.tourFilter;})[0]:null;
   var fg0=S.tourFilter?vg.filter(function(g){return String(g.tournamentId)===String(S.tourFilter);}):vg;
+  _schedPhaseFilter=schedPhase();
   var fg=_schedPhaseFilter?fg0.filter(function(g){return g.phase===_schedPhaseFilter;}):fg0;
   var sc=fg.filter(function(g){return g.status==='scheduled';}).sort(function(a,b){
     var da=(a.date||'2099')+'T'+(a.time&&a.time.indexOf('1899')<0?a.time.substring(0,5):'99:99');
@@ -15870,8 +15884,8 @@ var _TVT={mode:'players',p1:'',p2:'',t1:'',t2:'',tourId:'',year:0,tab:'bat',phas
 function pgToVsTo(){
   // Subtorneo compartido con el resto de los modulos (S.tourFilter)
   _TVT.tourId=sharedTourId();
-  // Filtro de fase PROPIO del modulo TO vs TO (independiente del filtro global S.phaseFilter,
-  // para poder comparar jugadores/equipos en una fase especifica sin afectar otros modulos).
+  // Fase compartida con el resto de los modulos (S.phaseFilter).
+  _TVT.phase=S.phaseFilter||'';
   function tvtMatchesPhase(g){
     if(!_TVT.phase) return true;
     if(_TVT.phase==='regular') return g.phase==='regular'||!g.phase;
@@ -16197,7 +16211,7 @@ function pgToVsTo(){
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
     +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgToVsTo()">'+tOpts+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label>'
-    +'<select class="fs" style="width:210px;max-width:100%" onchange="_TVT.phase=this.value;pgToVsTo()">'
+    +'<select class="fs" style="width:210px;max-width:100%" onchange="setPhaseShared(this.value);pgToVsTo()">'
     +'<option value="" '+(!_TVT.phase?'selected':'')+'>Todas las Fases</option>'
     +'<option value="regular" '+(_TVT.phase==='regular'?'selected':'')+'>Serie Regular</option>'
     +'<option value="playoff" '+(_TVT.phase==='playoff'?'selected':'')+'>Playoffs</option>'
