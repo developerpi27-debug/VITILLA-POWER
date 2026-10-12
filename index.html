@@ -3109,6 +3109,9 @@ function getUserMods(u){
 }
 // Chequeo de acceso a un modulo/permiso puntual (incluye pseudo-modulos como
 // "transmissionpanel" que no son paginas navegables, solo un permiso booleano).
+// "Mi Perfil" (datos de cuenta y cambio de contrasena) es solo para cuentas locales: ni los usuarios de Google (no tienen
+// contrasena propia en la app) ni los visitantes lo ven, ni por el menu, ni por enlace directo (#/myprofile), ni por goNav.
+function canSeeMyProfile(){return !!S.user&&S.user.role!=='google'&&S.user.role!=='public';}
 function hasModuleAccess(moduleId){
   // Seguro adicional: un usuario con cuenta de Google jamas ve el Panel de Transmision,
   // incluso si el perfil que el admin le asigno (Configuracion > Acceso con Google) lo
@@ -3306,7 +3309,7 @@ function renderApp(){
     prevId=p.id;
     nm+='<div class="ni'+(isSub?' ni-sub':'')+'" id="nv-'+p.id+'" onclick="goNav(\''+p.id+'\')" title="'+p.lbl+'" style="'+(isSub?'padding-left:28px;font-size:12px;':'')+'"><span style="font-size:'+(isSub?'13':'15')+'px;width:20px;text-align:center;flex-shrink:0">'+p.ico+'</span><span class="ni-lbl">'+p.lbl+'</span></div>';
   });
-  if(u.role!=='public'&&u.role!=='google'){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
+  if(canSeeMyProfile()){nm+='<div class="nsec">Mi cuenta</div><div class="ni" id="nv-myprofile" onclick="goNav(\'myprofile\')">  <span style="font-size:15px;width:20px;text-align:center;flex-shrink:0">&#128274;</span><span class="ni-lbl">Mi Perfil</span></div>';}
   document.getElementById('snav').innerHTML=nm;
   // Si la URL ya trae un modulo/filtros (recarga de pagina, link directo, o volviendo de un
   // "Atras" del navegador), se restaura esa vista en vez de forzar siempre el modulo por
@@ -3494,6 +3497,7 @@ function applyRouteFromUrl(){
   var m=h.match(/^#\/([a-zA-Z0-9_]+)(?:\?(.*))?$/);
   if(!m)return false;
   var moduleId=m[1];
+  if(moduleId==='myprofile'&&!canSeeMyProfile())return false;
   if(!hasModuleAccess(moduleId)&&moduleId!=='myprofile')return false;
   var p=new URLSearchParams(m[2]||'');
   if(p.has('parent'))S.parentTourFilter=p.get('parent');
@@ -3623,6 +3627,7 @@ function runPageDeferred(page){
   },0);});
 }
 function goNav(page){
+  if(page==='myprofile'&&!canSeeMyProfile())page=(getUserMods(S.user)[0]||{id:'dashboard'}).id;
   if(!S_isOnline&&!OFFLINE_ALLOWED_PAGES[page]){
     toast('Sin conexión: solo Calendario y Control de Juego están disponibles.','error');
     return;
@@ -4068,7 +4073,7 @@ function tmlbSection(t){
   return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#9918; FUENTE DE DATOS MLB (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Define de dónde toma la Liga de Fantasía sus datos en este subtorneo. Con <b>App</b> todo funciona como hasta ahora (anotas los juegos). Con <b>API de MLB</b> se leen de la liga y el año indicados, y los jugadores se identifican por su ID de MLB.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Liga de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="tmlb-lg" style="flex:1" onchange="if(this.value)document.getElementById(\'tmlb-lgid\').value=this.value"><option value="">— cargar ligas —</option></select><button class="btn bs bsm" type="button" onclick="tmlbLoadLeagues()">Cargar</button></div></div>'
-    +'<div class="fg"><label class="fl">ID de liga</label><input class="fi" id="tmlb-lgid" type="number" value="'+(t.mlbLeagueId||'')+'" placeholder="Ej: 131"></div></div>'
+    +'<div class="fg"><label class="fl">ID de liga</label><input class="fi" id="tmlb-lgid" type="number" value="'+(t.mlbLeagueId||'')+'" placeholder="Ej: 131 · MLB: 103 / 104 / 103104"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada MLB)</label><input class="fi" id="tmlb-season" type="number" value="'+(t.mlbSeason||'')+'" placeholder="'+(t.year||new Date().getFullYear())+'"></div><div class="fg"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Eventos diarios para los puntos de Fantasía</label>'+src('tmlb-stats',t.mlbStatsSource)+'</div>'
     +'<div class="fg"><label class="fl">Inicio del partido (bloqueo de plantillas)</label>'+src('tmlb-lock',t.mlbLockSource)+'</div></div>'
@@ -4105,7 +4110,7 @@ async function tmlbSync(id,full){
 }
 async function tmlbLoadLeagues(){
   var m=document.getElementById('tmlb-msg');if(m)m.textContent='Consultando ligas…';
-  var r=await api('mlbLookup',{what:'leagues',sportId:17});
+  var r=await api('mlbLookup',{what:'leagues',sportId:'all'});
   if(!r||!r.ok){if(m){m.style.color='#f87171';m.textContent=(r&&r.error)||'No se pudieron cargar las ligas';}return;}
   var el=document.getElementById('tmlb-lg');if(!el)return;
   el.innerHTML='<option value="">— elige la liga —</option>'+r.leagues.map(function(l){return'<option value="'+l.id+'">'+mlbEsc(l.name)+' (ID '+l.id+')</option>';}).join('');
@@ -4712,7 +4717,7 @@ function openMlbImportM(){
     +'<div class="fg"><label class="fl">Equipo destino</label><select class="fs" id="mlb-team" onchange="mlbRosterStale()"></select></div></div>'
     +'<div style="'+lbl+'">2. LIGA Y AÑO EN MLB</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Liga</label><div style="display:flex;gap:6px"><select class="fs" id="mlb-lg" style="flex:1"><option value="">— carga las ligas —</option></select><button class="btn bs bsm" onclick="mlbLoadLeagues()">Cargar ligas</button></div></div>'
-    +'<div class="fg"><label class="fl">o ID de liga (manual)</label><input class="fi" id="mlb-lg-id" type="number" placeholder="Ej: 131"></div></div>'
+    +'<div class="fg"><label class="fl">o ID de liga (manual)</label><input class="fi" id="mlb-lg-id" type="number" placeholder="Ej: 131 · MLB: 103 / 104 / 103104"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada)</label><input class="fi" id="mlb-season" type="number" value="'+new Date().getFullYear()+'"></div>'
     +'<div class="fg"><label class="fl">&nbsp;</label><button class="btn bs" style="width:100%" onclick="mlbLoadTeams()">Buscar equipos</button></div></div>'
     +'<div class="fg"><label class="fl">Equipo de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="mlb-mt" style="flex:1" onchange="mlbOnMtSel()"><option value="">— busca los equipos —</option></select><button class="btn bs bsm" onclick="mlbLoadRoster()">Ver roster</button></div></div>'
@@ -4739,7 +4744,7 @@ function mlbMsg(t,err){var m=document.getElementById('mlb-msg');if(m){m.style.co
 function mlbLeagueId(){var man=(fv('mlb-lg-id')||'').trim();return man||fv('mlb-lg')||'';}
 async function mlbLoadLeagues(){
   mlbMsg('Consultando ligas…');
-  var r=await api('mlbLookup',{what:'leagues',sportId:17});
+  var r=await api('mlbLookup',{what:'leagues',sportId:'all'});
   if(!r||!r.ok){mlbMsg((r&&r.error)||'No se pudieron cargar las ligas','1');return;}
   var el=document.getElementById('mlb-lg');if(!el)return;
   el.innerHTML='<option value="">— elige la liga —</option>'+r.leagues.map(function(l){return'<option value="'+l.id+'">'+mlbEsc(l.name)+' (ID '+l.id+')</option>';}).join('');
@@ -13797,7 +13802,7 @@ var FN_PH={regular:'Serie regular',playoff:'Playoff'};
 var FN_XY={P:[50,57],C:[50,79],'1B':[85,57],'2B':[66,35],'3B':[15,57],SS:[34,35],LF:[15,17],CF:[50,12.5],RF:[85,17],DH:[15,86],UT:[85,86]};
 var FN_XY_VIT={'2B':[50,35],'1B':[85,57]};
 // Puesto actual del jugador en el modulo Rankings (como lanzador si es P, si no como bateador), entre parentesis.
-function fnRk(p){return p&&p.rk&&p.rk.n?' <span title="'+(p.rk.t==='P'?'Puesto en el ranking de lanzadores':'Puesto en el ranking de bateadores')+'">('+p.rk.n+')</span>':'';}
+function fnRk(p){return p&&p.rk&&p.rk.n?' <span title="'+(p.rk.t==='P'?'Puesto en el ranking de lanzadores de la fase de la plantilla':'Puesto en el ranking de bateadores de la fase de la plantilla')+'">('+p.rk.n+')</span>':'';}
 function fnEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fnPts(v){return String(Math.round((v||0)*100)/100);}
 function fnDateTxt(d){var m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:(d||'');}
@@ -14290,7 +14295,7 @@ function fnDraftPanel(d){
       +(dr.error?'<div class="alert ai" style="font-size:12px;border-color:#f59e0b;margin-bottom:8px">'+fnEsc(dr.error)+'</div>':'')
       +'<div style="max-width:460px">'+rows+'</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+(m.inQueue?'<button class="btn bs" onclick="fnLeave()">Salir de la cola</button>':'<button class="btn bp" onclick="fnJoin()">&#127919; Crear plantilla</button>')+'</div>'+rules);
-    h+=card('<div style="font-weight:700;margin-bottom:6px">Jugadores disponibles <span style="font-weight:400;font-size:11px;color:var(--t3)">(para ir viendo a quién elegir; el número entre paréntesis es su puesto en Rankings)</span></div>'+search+'<div id="fn-list">'+fnDraftListHtml()+'</div>');
+    h+=card('<div style="font-weight:700;margin-bottom:6px">Jugadores disponibles <span style="font-weight:400;font-size:11px;color:var(--t3)">(para ir viendo a quién elegir; el número entre paréntesis es su puesto en Rankings dentro de la fase de la plantilla: Serie regular o Playoff)</span></div>'+search+'<div id="fn-list">'+fnDraftListHtml()+'</div>');
     return h;
   }
   // Selección en curso (participante)
@@ -17578,6 +17583,7 @@ async function saveAdsConfig(){
 
 // MY PROFILE
 function pgMyProfile(){
+  if(!canSeeMyProfile()){ct('<div class="empty"><div style="font-size:36px">&#128274;</div><div>Esta secci&oacute;n no est&aacute; disponible para tu tipo de cuenta.</div></div>');return;}
   var u=S.user;var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
   var mods=getUserMods(u);
   ct('<div class="stl">Mi Perfil</div><div class="ssb">Tu cuenta y cambio de contrasena</div>'
@@ -17605,10 +17611,8 @@ async function changePassword(){
   if(!oldP||!newP||!cfP){errEl.textContent='Completa todos los campos';errEl.style.display='block';return;}
   if(newP.length<6){errEl.textContent='La contrasena debe tener al menos 6 caracteres';errEl.style.display='block';return;}
   if(newP!==cfP){errEl.textContent='Las contrasenas no coinciden';errEl.style.display='block';return;}
-  var verify=await api('login',{username:S.user.username,password:oldP});
-  if(!verify||!verify.ok){errEl.textContent='La contrasena actual es incorrecta';errEl.style.display='block';return;}
-  var fullUser=S.users.filter(function(x){return x.id===S.user.id;})[0]||Object.assign({},S.user);
-  var r=await api('saveUser',{user:Object.assign({},fullUser,{password:newP})});
+  // El servidor verifica la contrasena actual y cambia SOLO la del usuario con sesion iniciada (no requiere ser admin).
+  var r=await api('changeOwnPassword',{oldPassword:oldP,newPassword:newP});
   if(r&&r.ok){okEl.style.display='block';document.getElementById('cp-old').value='';document.getElementById('cp-new').value='';document.getElementById('cp-cf').value='';toast('Contrasena actualizada','success');}
   else{errEl.textContent=r&&r.error||'Error';errEl.style.display='block';}
 }
