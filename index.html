@@ -5003,6 +5003,10 @@ function openPM(id,tid){
       visited[current]=true;
       var p=poolByIdPM[current];
       if(!p||!p.importedFrom||String(p.importedFrom)===''||String(p.importedFrom)===current)break;
+      // importedFrom enlaza con OTRO jugador (el original del que se clono). Los jugadores traidos de la API de MLB guardan ahi una
+      // MARCA de origen ("mlb:147:2026", "mlb:auto"), que no es un jugador: antes todos los de un mismo equipo compartian esa
+      // "raiz" y Estadisticas/Lideres/Rankings sumaban sus eventos como si fueran un solo jugador por equipo.
+      if(/^mlb:/i.test(String(p.importedFrom)))break;
       current=String(p.importedFrom);
     }
     return current;
@@ -11762,6 +11766,10 @@ function careerRootIdRaw(pid){
     visited[current]=true;
     var p=playerOf(current);
     if(!p||!p.importedFrom||String(p.importedFrom)===''||String(p.importedFrom)===current)break;
+    // importedFrom enlaza con OTRO jugador (el original del que se clono). Los jugadores traidos de la API de MLB guardan ahi una
+    // MARCA de origen ("mlb:147:2026", "mlb:auto"), que no es un jugador: antes todos los de un mismo equipo compartian esa
+    // "raiz" y Estadisticas/Lideres/Rankings sumaban sus eventos como si fueran un solo jugador por equipo.
+    if(/^mlb:/i.test(String(p.importedFrom)))break;
     current=String(p.importedFrom);
   }
   return current; // this is the original player ID (the root)
