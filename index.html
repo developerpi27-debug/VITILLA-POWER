@@ -4075,6 +4075,10 @@ function tmlbSection(t){
     +'<div class="fr c2"><div class="fg"><label class="fl">Liga de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="tmlb-lg" style="flex:1" onchange="if(this.value)document.getElementById(\'tmlb-lgid\').value=this.value"><option value="">— cargar ligas —</option></select><button class="btn bs bsm" type="button" onclick="tmlbLoadLeagues()">Cargar</button></div></div>'
     +'<div class="fg"><label class="fl">ID de liga</label><input class="fi" id="tmlb-lgid" type="number" value="'+(t.mlbLeagueId||'')+'" placeholder="Ej: 131 · MLB: 103 / 104 / 103104"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada MLB)</label><input class="fi" id="tmlb-season" type="number" value="'+(t.mlbSeason||'')+'" placeholder="'+(t.year||new Date().getFullYear())+'"></div><div class="fg"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Turnos al bate mínimos (bateadores)</label><input class="fi" id="tmlb-minab" type="number" min="0" value="'+(t.mlbMinAb||0)+'"></div>'
+    +'<div class="fg"><label class="fl">Entradas lanzadas mínimas (lanzadores)</label><input class="fi" id="tmlb-minip" type="number" min="0" step="0.1" value="'+(t.mlbMinIp||0)+'"></div></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin:-4px 0 10px;line-height:1.5">Valen para cualquier liga y aplican al roster que se importa o sincroniza y, por tanto, a la agencia libre de Fantasía. 0 = sin mínimo para ese lado; los jugadores de dos vías entran si cumplen en uno de los dos.</div>'
+    +'<div class="fg"><label class="fl">Tipo de roster (importación y sincronización)</label><select class="fs" id="tmlb-rt">'+['','active','40Man','fullSeason','fullRoster'].map(function(v){return'<option value="'+v+'"'+((t.mlbRosterType||'')===v?' selected':'')+'>'+({'':'Automático',active:'Roster activo (26 jugadores)','40Man':'Roster de 40 jugadores',fullSeason:'Todos los de la temporada',fullRoster:'Roster completo'})[v]+'</option>';}).join('')+'</select><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5"><b>Automático</b>: en Grandes Ligas el roster activo (26), o el de 40 si hay mínimos; en las demás ligas el roster completo. Si eliges uno, la sincronización automática también lo usa para no deshacer lo que importaste.</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Eventos diarios para los puntos de Fantasía</label>'+src('tmlb-stats',t.mlbStatsSource)+'</div>'
     +'<div class="fg"><label class="fl">Inicio del partido (bloqueo de plantillas)</label>'+src('tmlb-lock',t.mlbLockSource)+'</div></div>'
     +'<div class="fg"><label class="fl">Roster de agencia libre mostrado en Fantasía</label>'+src('tmlb-fa',t.mlbFaSource)+'</div>'
@@ -4148,6 +4152,7 @@ async function saveT(id){
   if(document.getElementById('tmlb-stats')){   // solo existe para el admin
     t.mlbStatsSource=fv('tmlb-stats');t.mlbLockSource=fv('tmlb-lock');t.mlbFaSource=fv('tmlb-fa');t.mlbStandSource=fv('tmlb-stand');
     t.mlbLeagueId=(fv('tmlb-lgid')||'').trim();t.mlbSeason=(fv('tmlb-season')||'').trim();
+    t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
   var r=await api('saveTournament',{tournament:t});
@@ -4720,6 +4725,7 @@ function openMlbImportM(){
     +'<div class="fg"><label class="fl">o ID de liga (manual)</label><input class="fi" id="mlb-lg-id" type="number" placeholder="Ej: 131 · MLB: 103 / 104 / 103104"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Año (temporada)</label><input class="fi" id="mlb-season" type="number" value="'+new Date().getFullYear()+'"></div>'
     +'<div class="fg"><label class="fl">&nbsp;</label><button class="btn bs" style="width:100%" onclick="mlbLoadTeams()">Buscar equipos</button></div></div>'
+    +'<div class="fg"><label class="fl">Tipo de roster a importar</label><select class="fs" id="mlb-rt" onchange="mlbRosterStale()"><option value="">Automático</option><option value="active">Roster activo (26 jugadores)</option><option value="40Man">Roster de 40 jugadores</option><option value="fullSeason">Todos los de la temporada</option><option value="fullRoster">Roster completo</option></select><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4"><b>Automático</b> usa el tipo definido en el subtorneo; si no tiene, en Grandes Ligas el roster activo (26) —o el de 40 si hay mínimos— y en las demás ligas el roster completo. Los mínimos de turnos al bate y entradas lanzadas del subtorneo se aplican siempre, sea cual sea el tipo.</div></div>'
     +'<div class="fg"><label class="fl">Equipo de MLB</label><div style="display:flex;gap:6px"><select class="fs" id="mlb-mt" style="flex:1" onchange="mlbOnMtSel()"><option value="">— busca los equipos —</option></select><button class="btn bs bsm" onclick="mlbLoadRoster()">Ver roster</button></div></div>'
     +'<div id="mlb-msg" style="font-size:12px;color:var(--t3);margin:6px 0"></div>'
     +'<div id="mlb-roster"></div>'
@@ -4728,6 +4734,8 @@ function openMlbImportM(){
 }
 function mlbFillTeams(){
   var tid=fv('mlb-tour')||'';
+  var rtEl=document.getElementById('mlb-rt'),tt0=(S.tournaments||[]).filter(function(t){return String(t.id)===String(tid);})[0];
+  if(rtEl)rtEl.value=(tt0&&tt0.mlbRosterType)||'';   // por defecto, el tipo de roster definido en el subtorneo
   var ts=S.teams.filter(function(t){return t.tournamentId===tid;}).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
   var el=document.getElementById('mlb-team');if(!el)return;
   el.innerHTML='<option value="">➕ Crear equipo nuevo con el nombre de MLB</option>'+ts.map(function(t){return'<option value="'+t.id+'">'+mlbEsc(t.name)+(t.mlbTeamId?' (vinculado a MLB)':'')+'</option>';}).join('');
@@ -4765,7 +4773,7 @@ async function mlbLoadTeams(){
 async function mlbLoadRosterAll(){
   var lid=mlbLeagueId();
   mlbMsg('Leyendo los rosters de toda la liga…');
-  var r=await api('mlbLookup',{what:'rosterAll',tournamentId:fv('mlb-tour'),leagueId:lid,season:fv('mlb-season')});
+  var r=await api('mlbLookup',{what:'rosterAll',tournamentId:fv('mlb-tour'),leagueId:lid,season:fv('mlb-season'),rosterType:fv('mlb-rt')});
   if(!r||!r.ok){mlbMsg((r&&r.error)||'Error','1');return;}
   _MLB.all=r.teams;
   var tp=0,tn=0;r.teams.forEach(function(t){if(!t.error&&t.total){tp+=t.total;tn++;}});
@@ -4784,11 +4792,15 @@ async function mlbLoadRoster(){
   if(!mt){mlbMsg('Elige un equipo de MLB','1');return;}
   if(mt==='ALL'){mlbLoadRosterAll();return;}
   mlbMsg('Cargando roster…');
-  var r=await api('mlbLookup',{what:'roster',mlbTeamId:mt,season:season,teamId:team||''});
+  var r=await api('mlbLookup',{what:'roster',mlbTeamId:mt,season:season,teamId:team||'',tournamentId:fv('mlb-tour'),leagueId:mlbLeagueId(),rosterType:fv('mlb-rt')});
   if(!r||!r.ok){mlbMsg((r&&r.error)||'Error','1');return;}
   _MLB.roster=r.players||[];
   if(!_MLB.roster.length){mlbMsg('La API no tiene roster publicado para ese equipo y año.',true);document.getElementById('mlb-roster').innerHTML='';return;}
-  mlbMsg(_MLB.roster.length+' jugadores. Marca los que quieres importar.');
+  var mm=r.meta||{},fl='';
+  if(mm.type)fl=' · roster '+({'active':'activo (26)','40Man':'de 40','fullSeason':'de toda la temporada','fullRoster':'completo'}[mm.type]||mm.type);
+  if(mm.minAb>0||mm.minIp>0)fl+=' · mín. '+(mm.minAb||0)+' AB / '+(mm.minIp||0)+' IP'+(mm.total!=null?' (de '+mm.total+')':'');
+  if(mm.statsUnavailable)fl+=' · ⚠ la API aún no tiene estadísticas de esa temporada: no se aplicaron los mínimos';
+  mlbMsg(_MLB.roster.length+' jugadores'+fl+'. Marca los que quieres importar.');
   mlbRenderRoster();
 }
 function mlbRenderRoster(){
@@ -4808,7 +4820,7 @@ async function mlbDoImportAll(){
   var ok=_MLB.all.filter(function(t){return !t.error&&t.total;}).length;
   if(!confirm('¿Importar '+ok+' equipos de la liga con todos sus jugadores al subtorneo seleccionado?'))return;
   var b=document.getElementById('mlb-go');if(b){b.disabled=true;b.textContent='Importando toda la liga…';}
-  var r=await api('mlbImportAll',{tournamentId:fv('mlb-tour'),leagueId:mlbLeagueId(),season:fv('mlb-season'),linkByName:!!(document.getElementById('mlb-link')||{}).checked});
+  var r=await api('mlbImportAll',{tournamentId:fv('mlb-tour'),leagueId:mlbLeagueId(),season:fv('mlb-season'),rosterType:fv('mlb-rt'),linkByName:!!(document.getElementById('mlb-link')||{}).checked});
   if(!r||!r.ok){toast((r&&r.error)||'Error al importar','error');if(b){b.disabled=false;b.textContent='Reintentar importación';}return;}
   (r.teams||[]).forEach(function(tm){var ti=-1;S.teams.forEach(function(t,i){if(t.id===tm.id)ti=i;});if(ti>=0)S.teams[ti]=tm;else S.teams.push(tm);});
   (r.players||[]).forEach(function(p){var pi=-1;S.players.forEach(function(x,i){if(x.id===p.id)pi=i;});if(pi>=0)S.players[pi]=p;else S.players.push(p);});
@@ -4822,7 +4834,7 @@ async function mlbDoImport(){
   if(!ids.length)return;
   var mtEl=document.getElementById('mlb-mt'),opt=mtEl.options[mtEl.selectedIndex];
   var team=fv('mlb-team');
-  var pl={tournamentId:fv('mlb-tour'),teamId:team||'',mlbTeamId:fv('mlb-mt'),season:fv('mlb-season'),mlbIds:ids,linkByName:!!(document.getElementById('mlb-link')||{}).checked};
+  var pl={tournamentId:fv('mlb-tour'),teamId:team||'',mlbTeamId:fv('mlb-mt'),leagueId:mlbLeagueId(),rosterType:fv('mlb-rt'),season:fv('mlb-season'),mlbIds:ids,linkByName:!!(document.getElementById('mlb-link')||{}).checked};
   if(!team)pl.newTeam={name:opt.getAttribute('data-name'),abbreviation:opt.getAttribute('data-abbr'),city:opt.getAttribute('data-city')};
   var b=document.getElementById('mlb-go');if(b){b.disabled=true;b.textContent='Importando…';}
   var r=await api('mlbImportRoster',pl);
@@ -14422,6 +14434,20 @@ function fnTeamTab(d,mine){
   else h+=fnEditor(false);
   return h;
 }
+// Aviso al abrir el modulo: jugadores inactivos (lesionados, ligas menores...) que siguen en mis plantillas
+function fnInactiveAlert(list){
+  var rows=list.map(function(a){
+    var lbl=a.kind==='dia'?'Jugada diaria '+fnDateTxt(a.day):(FN_PH[a.phase]||a.phase);
+    var names=a.players.map(function(p){
+      var tm=p.abbr||p.teamName;
+      return'<b>'+fnEsc(p.name)+'</b> <span style="opacity:.8">('+fnEsc(p.position||'—')+(tm?' &middot; '+fnEsc(tm):'')+')</span>';
+    }).join(', ');
+    return'<div style="margin-top:5px"><span style="font-weight:700">'+fnEsc(lbl)+':</span> '+names+'</div>';
+  }).join('');
+  return'<div class="alert aw" style="margin-bottom:12px;font-size:12px;line-height:1.5"><div style="font-weight:800;margin-bottom:2px">&#9888; Tienes jugadores inactivos en tu plantilla</div>'
+    +'No suman puntos mientras estén inactivos (lesión, ligas menores, etc.). Entra a <b>Mi Plantilla</b> y reemplázalos por otro del roster; el inactivo queda en tu lista y podrás usarlo de nuevo cuando se active.'
+    +rows+'</div>';
+}
 function fnRender(){
   var sel=fnResolveSel(),d=_FN.data;
   var mine=d?d.teams.filter(function(x){return x.isMine;})[0]:null;
@@ -14437,6 +14463,7 @@ function fnRender(){
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
     +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('daily','Diaria')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
+  if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
