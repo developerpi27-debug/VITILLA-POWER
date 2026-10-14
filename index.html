@@ -227,6 +227,14 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lv-score-num{font-size:30px;font-weight:800;color:var(--t3);line-height:1;}
 .lv-score-num.lv-leading{color:var(--txt);}
 .lv-score-sep{font-size:18px;color:var(--t3);}
+.lv-mid{display:flex;flex-direction:column;align-items:center;}
+.lv-dia{position:relative;width:40px;height:26px;margin:0 auto 7px;}
+.lv-base{position:absolute;width:10px;height:10px;background:var(--bdr2);border-radius:2px;transform:rotate(45deg);}
+.lv-base.on{background:var(--acc);}
+.lv-b2{top:0;left:50%;margin-left:-5px;}.lv-b1{right:2px;top:11px;}.lv-b3{left:2px;top:11px;}
+.lv-counts{display:flex;gap:8px;justify-content:center;margin-top:7px;}
+.lv-counts .bslbl{font-size:8px;letter-spacing:.5px;text-align:center;}
+.lv-counts .bsdots{gap:4px;justify-content:center;}.lv-counts .dot{width:8px;height:8px;}
 .lv-card-bottom{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--t3);border-top:1px solid var(--bdr);padding-top:9px;}
 .lv-watch-link{color:var(--acc);font-weight:700;}
 /* ── SLOGAN BANNER ── */
@@ -2240,13 +2248,40 @@ function maybeInterstitial(triggerKey){
   if(!shouldShowAds())return;
   var triggers=safeAdsList(S.config&&S.config.adInterstitialTriggers);
   if(triggers.indexOf(triggerKey)<0)return;
+  showInterstitialNow();
+}
+// Muestra el intersticial YA (los chequeos de rol/gatillo los hacen quienes lo llaman). Cualquier intersticial, venga del gatillo
+// que venga, reinicia el contador del intersticial continuo para no mostrar dos seguidos.
+function showInterstitialNow(){
   var unitId=S.config&&S.config.admobInterstitialUnitId;
-  if(!unitId)return;
+  if(!unitId||!adMobReady())return;
+  _adTimedDwell=0;
   var AdMob=window.Capacitor.Plugins.AdMob;
   AdMob.prepareInterstitial({adId:unitId,isTesting:false}).then(function(){
     return AdMob.showInterstitial();
   }).catch(function(){});
 }
+// ── Intersticial CONTINUO (por tiempo dentro de un mismo modulo) ─────────────────────────────────────
+// Independiente de los gatillos de arriba: el admin marca en Configuracion > Anuncios los modulos y cada cuantos minutos. Mientras
+// el usuario permanece en uno de esos modulos con la app a la vista (aunque no toque nada), se acumula el tiempo; al llegar al
+// intervalo se muestra un intersticial y el conteo vuelve a empezar. Cambiar de modulo reinicia el conteo, y un intersticial de
+// cualquier otro gatillo tambien. No se dispara mientras hay una ventana abierta o el usuario esta escribiendo (se reintenta en
+// el siguiente ciclo). Los limites de frecuencia que tengas en AdMob siguen aplicando por encima de esto.
+var _adTimedDwell=0,_adTimedPage='',_adTimedTimer=null,AD_TIMED_STEP=5;
+function adTimedTick(){
+  if(document.hidden)return;                                   // app en segundo plano / pantalla apagada: no cuenta
+  if(curP!==_adTimedPage){_adTimedPage=curP;_adTimedDwell=0;return;}
+  var mins=parseInt(S.config&&S.config.adInterstitialTimedMinutes)||0;
+  var mods=safeAdsList(S.config&&S.config.adInterstitialTimedModules);
+  if(mins<1||mods.indexOf(curP)<0||!shouldShowAds()){_adTimedDwell=0;return;}
+  _adTimedDwell+=AD_TIMED_STEP;
+  if(_adTimedDwell<mins*60)return;
+  var ae=document.activeElement,mo=document.getElementById('modals');
+  if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;  // escribiendo: esperar
+  if(mo&&mo.innerHTML.trim()!=='')return;                      // ventana abierta: esperar
+  showInterstitialNow();                                       // tambien reinicia el contador
+}
+if(IS_NATIVE_APP&&!_adTimedTimer)_adTimedTimer=setInterval(adTimedTick,AD_TIMED_STEP*1000);
 
 var VP_PDF_STYLE=`
   /* App color palette */
@@ -5294,6 +5329,21 @@ async function delPlayer(id){
 
 // SCHEDULE
 var _schedPhaseFilter='';
+// Tarjeta "EN VIVO AHORA" del Calendario: bases encima del marcador y, debajo, strikes y outs.
+function lvBasesHtml(g){
+  var b=g.bases||{},three=(parseInt(g.numBases)||2)>=3;
+  return'<div class="lv-dia" title="Corredores en base">'
+    +'<div class="lv-base lv-b2'+(b.second?' on':'')+'"></div>'
+    +'<div class="lv-base lv-b3'+(three&&b.third?' on':'')+'"'+(three?'':' style="opacity:.15"')+'></div>'
+    +'<div class="lv-base lv-b1'+(b.first?' on':'')+'"></div></div>';
+}
+function lvCountHtml(g){
+  var dots=function(n,max){return[0,1,2].slice(0,max).map(function(i){return'<div class="dot'+((parseInt(n)||0)>i?' on':'')+'"></div>';}).join('');};
+  return'<div class="lv-counts">'
+    +'<div><div class="bslbl">BOLAS</div><div class="bsdots">'+dots(g.balls,3)+'</div></div>'
+    +'<div><div class="bslbl">STRIKES</div><div class="bsdots">'+dots(g.strikes,2)+'</div></div>'
+    +'<div><div class="bslbl">OUTS</div><div class="bsdots">'+dots(g.outs,2)+'</div></div></div>';
+}
 // Fase del Calendario = filtro global S.phaseFilter (compartido con Posiciones, Estadisticas, En Racha, Lideres,
 // Premiaciones, TO vs TO...). Solo 'playin' y 'allstar' existen unicamente en el Calendario y se guardan aparte.
 var _schedOnly='';
@@ -5354,11 +5404,12 @@ function pgSched(){
           +'</div>'
           +'<div class="lv-matchup">'
           +'<div class="lv-team'+(aWin?' lv-leading':'')+'">'+teamLogoHtml(a,46,10)+'<div class="lv-team-name">'+(a?a.name:'?')+'</div></div>'
+          +'<div class="lv-mid">'+lvBasesHtml(g)
           +'<div class="lv-score">'
           +'<div class="lv-score-num'+(aWin?' lv-leading':'')+'">'+aR+'</div>'
           +'<div class="lv-score-sep">&ndash;</div>'
           +'<div class="lv-score-num'+(hWin?' lv-leading':'')+'">'+hR+'</div>'
-          +'</div>'
+          +'</div>'+lvCountHtml(g)+'</div>'
           +'<div class="lv-team'+(hWin?' lv-leading':'')+'">'+teamLogoHtml(h2,46,10)+'<div class="lv-team-name">'+(h2?h2.name:'?')+'</div></div>'
           +'</div>'
           +'<div class="lv-card-bottom">'
@@ -17431,6 +17482,13 @@ function pgSet(){
         var sel=safeAdsList(S.config&&S.config.adInterstitialModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTriggerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
+      +'<div class="fg"><label class="fl">Intersticial continuo — modulos donde se repite mientras el usuario permanece en ellos</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
+        var sel=safeAdsList(S.config&&S.config.adInterstitialTimedModules).indexOf(m.id)>=0;
+        return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTimedMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
+      }).join('')+'</div></div>'
+      +'<div class="fg"><label class="fl">Intersticial continuo — cada cuantos minutos en un mismo modulo</label><input class="fi" id="adInterstitialTimedMinutes" type="number" min="1" step="1" value="'+(parseInt(S.config&&S.config.adInterstitialTimedMinutes)||'')+'" placeholder="Ej: 5"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Independiente de los gatillos de arriba. Cuando el usuario acumula ese tiempo seguido en uno de los modulos marcados (con la app a la vista, aunque no toque nada) se muestra el intersticial y el conteo vuelve a empezar. Cambiar de modulo o ver cualquier otro intersticial reinicia el conteo. Si lo dejas vacio o sin modulos marcados, esta opcion queda apagada. Los limites de frecuencia que tengas en AdMob siguen aplicando.</div>'
       +'<div class="fr c2">'
       +'<div class="fg"><label class="fl">ID de unidad de anuncio — Banner</label><input class="fi" id="admobBannerUnitId" type="text" value="'+(S.config&&S.config.admobBannerUnitId||'')+'" placeholder="ca-app-pub-xxxxxxxx/xxxxxxxx"></div>'
       +'<div class="fg"><label class="fl">ID de unidad de anuncio — Intersticial</label><input class="fi" id="admobInterstitialUnitId" type="text" value="'+(S.config&&S.config.admobInterstitialUnitId||'')+'" placeholder="ca-app-pub-xxxxxxxx/xxxxxxxx"></div>'
@@ -17587,6 +17645,9 @@ async function saveAdsConfig(){
   var placement=fv('adBannerPlacement');
   var triggers=Array.prototype.slice.call(document.querySelectorAll('.adTrigger:checked')).map(function(el){return el.value;});
   var triggerMods=Array.prototype.slice.call(document.querySelectorAll('.adTriggerMod:checked')).map(function(el){return el.value;});
+  var timedMods=Array.prototype.slice.call(document.querySelectorAll('.adTimedMod:checked')).map(function(el){return el.value;});
+  var timedMins=parseInt(fv('adInterstitialTimedMinutes'))||0;
+  if(timedMods.length&&timedMins<1){toast('Indica cada cuantos minutos (minimo 1) se repite el intersticial continuo','error');return;}
   var bannerUnit=fv('admobBannerUnitId').trim();
   var interUnit=fv('admobInterstitialUnitId').trim();
   _saving=true;
@@ -17597,6 +17658,8 @@ async function saveAdsConfig(){
     api('saveConfig',{key:'adBannerPlacement',value:placement}),
     api('saveConfig',{key:'adInterstitialTriggers',value:JSON.stringify(triggers)}),
     api('saveConfig',{key:'adInterstitialModules',value:JSON.stringify(triggerMods)}),
+    api('saveConfig',{key:'adInterstitialTimedModules',value:JSON.stringify(timedMods)}),
+    api('saveConfig',{key:'adInterstitialTimedMinutes',value:String(timedMins||'')}),
     api('saveConfig',{key:'admobBannerUnitId',value:bannerUnit}),
     api('saveConfig',{key:'admobInterstitialUnitId',value:interUnit}),
   ]);
@@ -17609,6 +17672,8 @@ async function saveAdsConfig(){
     S.config.adBannerPlacement=placement;
     S.config.adInterstitialTriggers=JSON.stringify(triggers);
     S.config.adInterstitialModules=JSON.stringify(triggerMods);
+    S.config.adInterstitialTimedModules=JSON.stringify(timedMods);
+    S.config.adInterstitialTimedMinutes=String(timedMins||'');
     S.config.admobBannerUnitId=bannerUnit;
     S.config.admobInterstitialUnitId=interUnit;
     applyAdsUI();
