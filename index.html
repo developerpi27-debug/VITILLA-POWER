@@ -117,6 +117,15 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bx{background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
 .bx:hover{background:var(--bg3);}
 .badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+/* Modulo Notificaciones: filas con interruptor */
+.nrow{display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--bdr);}
+.nrow:first-child{border-top:0;}
+.nsw{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;}
+.nsw input{opacity:0;width:0;height:0;position:absolute;}
+.nsw span{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bdr);border-radius:26px;cursor:pointer;transition:background .2s;}
+.nsw span:before{content:'';position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;}
+.nsw input:checked+span{background:var(--acc);}
+.nsw input:checked+span:before{transform:translateX(20px);}
 .bg{background:rgba(34,197,94,.15);color:#4ade80;}.br{background:rgba(239,68,68,.15);color:#f87171;}
 .bb{background:rgba(59,130,246,.15);color:#60a5fa;}.bo{background:rgba(245,166,35,.15);color:#f5a623;}
 .bgr{background:rgba(148,163,184,.1);color:var(--t2);}
@@ -596,6 +605,13 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
    decorativa (no bloquea nada), se retira sola del DOM. */
 #playFlashOverlay{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(5,8,15,.6);opacity:0;pointer-events:none;animation:pfFadeIn .2s ease-out forwards;}
 #playFlashOverlay.pf-out{animation:pfFadeOut .5s ease-in forwards;}
+#mlbFxOverlay{position:fixed;inset:0;z-index:9400;display:flex;align-items:center;justify-content:center;background:rgba(5,8,15,.45);opacity:0;pointer-events:none;animation:mfxIn .25s ease-out forwards;}
+#mlbFxOverlay.mfx-out{animation:mfxOut .35s ease-in forwards;}
+.mfx-card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:12px 14px;width:min(88vw,300px);box-shadow:0 12px 40px rgba(0,0,0,.45);}
+.mfx-new{animation:mfxPulse .9s ease-in-out infinite;}
+@keyframes mfxIn{to{opacity:1;}}
+@keyframes mfxOut{from{opacity:1;}to{opacity:0;}}
+@keyframes mfxPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 .pf-stage{position:relative;width:300px;height:180px;}
 .pf-lane{position:absolute;left:16px;right:16px;top:50%;height:2px;margin-top:-1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18) 20%,rgba(255,255,255,.18) 80%,transparent);}
 .pf-origin{position:absolute;left:16px;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--acc,#f5a623);animation:pfOriginPulse .5s ease-out;}
@@ -897,6 +913,22 @@ function brandTagline(){ return brandLbl()+', más que un juego es pasión, herm
 // El token del dispositivo se guarda en el servidor (accion savePushToken) para que el
 // worker pueda enviarle la notificacion via Firebase Cloud Messaging cuando corresponda.
 var _lastPushToken=null;
+// Preferencias de avisos de ESTE dispositivo (modulo Notificaciones). La fuente de verdad es el servidor (se refresca al abrir
+// la app y al abrir el modulo); esto solo pinta al instante. live/runs por defecto activados, fantasy apagado hasta que el usuario lo active.
+var _pushPrefs={general:false,live:true,runs:true,fantasy:false};
+try{ var _pp=JSON.parse(localStorage.getItem('vp_push_prefs')||'null'); if(_pp&&typeof _pp==='object')_pushPrefs=Object.assign(_pushPrefs,_pp); }catch(e){}
+function savePushPrefsLocal(){ try{ localStorage.setItem('vp_push_prefs',JSON.stringify(_pushPrefs)); }catch(e){} }
+// Canales de notificacion de Android: el usuario puede silenciar o cambiar el sonido de cada tipo desde Ajustes del telefono.
+// El Worker manda el id del canal en cada push; si un telefono aun no lo tiene, Android usa el canal por defecto (no se pierde nada).
+function initPushChannels(){
+  var CapPush=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.PushNotifications;
+  if(!CapPush||!CapPush.createChannel)return;
+  [{id:'live',name:'Juegos en vivo',description:'Aviso cuando comienza un juego'},
+   {id:'runs',name:'Carreras',description:'Carreras anotadas en los juegos de tus equipos'},
+   {id:'fantasy',name:'Recordatorio de Fantasy',description:'Recordatorio para ajustar tu plantilla'}].forEach(function(c){
+    try{ var pr=CapPush.createChannel({id:c.id,name:c.name,description:c.description,importance:4,visibility:1,vibration:true}); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){}
+  });
+}
 function pushIsEnabled(){
   try{ return localStorage.getItem('vp_push_enabled')==='1'; }catch(e){ return false; }
 }
@@ -914,11 +946,23 @@ function wirePushListeners(){
     _lastPushToken=token&&token.value;
     if(_lastPushToken){
       try{ localStorage.setItem('vp_push_token',_lastPushToken); }catch(e){}
-      api('savePushToken',{token:_lastPushToken,platform:'android',enabled:true});
+      // Solo se manda enabled:true si la campana general YA estaba activada en este dispositivo (p. ej. el token se renovo).
+      // Si el token se registra al seguir un equipo, NO se toca la campana general (antes se encendia sola).
+      var regPayload={token:_lastPushToken,platform:'android'};
+      if(pushIsEnabled())regPayload.enabled=true;
+      api('savePushToken',regPayload);
     }
   });
   CapPush.addListener('registrationError',function(err){
     console.warn('Push registration error',err);
+  });
+  CapPush.addListener('pushNotificationActionPerformed',function(action){
+    // El usuario toco la notificacion (app en segundo plano o cerrada): ir a Fantasy o al Calendario segun el tipo.
+    var d=(action&&action.notification&&action.notification.data)||{};
+    try{
+      if(d.type==='fantasy_reminder'&&hasModuleAccess('fantasy'))goNav('fantasy');
+      else if(hasModuleAccess('schedule'))goNav('schedule');
+    }catch(e){}
   });
   CapPush.addListener('pushNotificationReceived',function(notification){
     // Con la app abierta en primer plano, Android NO muestra la notificacion del sistema
@@ -944,27 +988,42 @@ async function registerPush(){
     return true;
   }catch(e){ console.warn('registerPush error',e); return false; }
 }
-async function togglePushToggleUI(){
-  if(pushIsEnabled()){
-    try{ localStorage.setItem('vp_push_enabled','0'); }catch(e){}
-    var savedToken=null; try{ savedToken=localStorage.getItem('vp_push_token'); }catch(e){}
-    if(savedToken) api('savePushToken',{token:savedToken,platform:'android',enabled:false});
-    updatePushBtnUI(false);
-    toast('Notificaciones desactivadas','info');
-  } else {
-    var ok=await registerPush();
-    if(ok){
-      try{ localStorage.setItem('vp_push_enabled','1'); }catch(e){}
-      updatePushBtnUI(true);
-      toast('Listo — te avisaremos cuando comience un juego en vivo','success');
-    }
+// Token del dispositivo: el guardado, o (si aun no hay) pide permiso, registra y espera a que FCM lo entregue.
+async function ensurePushToken(){
+  var token=null; try{ token=localStorage.getItem('vp_push_token'); }catch(e){}
+  if(token)return token;
+  var ok=await registerPush();
+  if(!ok)return null;
+  for(var i=0;i<20&&!_lastPushToken;i++){ await new Promise(function(res){setTimeout(res,150);}); }
+  token=_lastPushToken; try{ if(token)localStorage.setItem('vp_push_token',token); }catch(e){}
+  if(!token)toast('No se pudo activar las notificaciones, intenta de nuevo','error');
+  return token||null;
+}
+// Campana general ("avisarme de TODO juego en vivo"). La usan el boton del encabezado y el modulo Notificaciones.
+async function setGeneralPush(on){
+  var token=null;
+  if(on){ token=await ensurePushToken(); if(!token)return false; }
+  else { try{ token=localStorage.getItem('vp_push_token'); }catch(e){} }
+  if(token){
+    var r=await api('savePushToken',{token:token,platform:'android',enabled:!!on});
+    if(!(r&&r.ok)){ toast('No se pudo guardar, intenta de nuevo','error'); return false; }
   }
+  try{ localStorage.setItem('vp_push_enabled',on?'1':'0'); }catch(e){}
+  _pushPrefs.general=!!on; savePushPrefsLocal();
+  updatePushBtnUI(!!on);
+  return true;
+}
+async function togglePushToggleUI(){
+  var on=!pushIsEnabled();
+  var ok=await setGeneralPush(on);
+  if(ok)toast(on?'Listo — te avisaremos cuando comience un juego en vivo':'Notificaciones desactivadas',on?'success':'info');
 }
 function initPushUI(){
   var btn=document.getElementById('push-toggle');
   if(!IS_NATIVE_APP){ if(btn)btn.style.display='none'; return; }
   if(btn)btn.style.display='inline-flex';
   wirePushListeners();
+  initPushChannels();
   // Si ya estaba activado en una sesion anterior, re-registrar en silencio (sin volver a
   // pedir permiso si ya fue concedido) para refrescar el token de este dispositivo.
   if(pushIsEnabled()){
@@ -1010,6 +1069,12 @@ async function syncPushFollowsFromServer(){
     });
     _followedTeams=teams;_followedTournaments=tours;
     saveFollowsToLocal();
+    if(r.prefs){
+      _pushPrefs=Object.assign({general:false,live:true,runs:true,fantasy:false},r.prefs);
+      savePushPrefsLocal();
+      // Si el servidor dice que la campana general esta activa y aqui no se veia, se enciende (nunca se apaga desde aqui: ver initPushUI)
+      if(r.prefs.general&&!pushIsEnabled()){ try{ localStorage.setItem('vp_push_enabled','1'); }catch(e){} updatePushBtnUI(true); }
+    }
   }catch(e){ console.warn('syncPushFollowsFromServer error',e); }
 }
 // Alterna seguir/dejar de seguir un equipo o torneo. Si el dispositivo todavia no tiene
@@ -1046,6 +1111,88 @@ async function toggleFollow(scopeType,scopeId,btnEl){
     if(btnEl){ btnEl.classList.toggle('on',!nowFollowing); btnEl.innerHTML=!nowFollowing?'&#128276;':'&#128277;'; }
     toast('No se pudo guardar, intenta de nuevo','error');
   }
+}
+
+// ── Modulo Notificaciones (solo app nativa de Android) ────────────────────────────────────
+// Cada tipo de aviso se activa/desactiva por separado y se guarda en el servidor por dispositivo (token).
+var NOTIF_MOD={id:'notifications',lbl:'Notificaciones',ico:'🔔',sec:'General'};
+function nfEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function nfTime12(hm){
+  var m=/^(\d{1,2}):(\d{2})$/.exec(String(hm||''));if(!m)return '';
+  var h=parseInt(m[1],10),ap=h>=12?'p. m.':'a. m.';h=h%12;if(h===0)h=12;
+  return h+':'+m[2]+' '+ap;
+}
+async function setNotifPref(key,on,el){
+  if(key==='general'){
+    var okG=await setGeneralPush(on);
+    if(!okG){ if(el)el.checked=!on; }
+    else toast(on?'Te avisaremos de todos los juegos en vivo':'Ya no recibirás avisos de todos los juegos','success');
+    return;
+  }
+  var token=await ensurePushToken();
+  if(!token){ if(el)el.checked=!on; return; }
+  var d={token:token};d[key]=!!on;
+  var r=await api('savePushPrefs',d);
+  if(r&&r.ok){
+    _pushPrefs[key]=!!on;savePushPrefsLocal();
+    var msgs={live:['Avisos de juegos en vivo activados','Avisos de juegos en vivo desactivados'],
+      runs:['Te avisaremos de cada carrera','Avisos de carreras desactivados'],
+      fantasy:['Recordatorio de Fantasy activado','Recordatorio de Fantasy desactivado']}[key];
+    if(msgs)toast(on?msgs[0]:msgs[1],'success');
+  } else {
+    if(el)el.checked=!on;
+    toast((r&&r.error)||'No se pudo guardar, intenta de nuevo','error');
+  }
+}
+async function notifUnfollow(scopeType,scopeId){
+  await toggleFollow(scopeType,scopeId,null);
+  if(curP==='notifications')renderNotifPage();
+}
+function notifRow(ico,title,desc,key,on){
+  return '<div class="nrow"><div style="font-size:22px;width:30px;text-align:center;flex-shrink:0">'+ico+'</div>'
+    +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+title+'</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5">'+desc+'</div></div>'
+    +'<label class="nsw"><input type="checkbox" '+(on?'checked ':'')+'onchange="setNotifPref(\''+key+'\',this.checked,this)"><span></span></label></div>';
+}
+function renderNotifPage(){
+  var P=_pushPrefs,cfg=S.config||{};
+  var ft=nfTime12(cfg.fantasyReminderTime);
+  var fdesc=ft?'Te recuerda ajustar tu plantilla todos los días a las <b>'+ft+'</b> (hora de República Dominicana), si hay juegos ese día.'
+    :'Te recuerda ajustar tu plantilla antes de los juegos. El administrador aún no ha fijado la hora del recordatorio.';
+  var html='<div class="stl">Notificaciones</div><div class="ssb">Elige qué avisos quieres recibir en este teléfono</div>';
+  if(!IS_NATIVE_APP){
+    html+='<div class="card"><div class="empty"><div style="font-size:36px">&#128276;</div><div>Las notificaciones funcionan en la app de Android.</div></div></div>';
+    ct(html);return;
+  }
+  html+='<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128276; Avisos</div></div>'
+    +notifRow('&#128308;','Juegos en vivo','Cuando comienza un juego de los equipos o torneos que sigues.','live',P.live!==false)
+    +notifRow('&#128225;','Todos los juegos','Avisarme también de los juegos de equipos que no sigo (requiere “Juegos en vivo” activado).','general',!!P.general)
+    +notifRow('&#128293;','Carreras','Cada carrera que se anota en los juegos de los equipos que sigues, con marcador y jugada.','runs',P.runs!==false)
+    +notifRow('&#127919;','Recordatorio de Fantasy',fdesc,'fantasy',!!P.fantasy)
+    +'</div>';
+  var tids=Object.keys(_followedTeams||{}),oids=Object.keys(_followedTournaments||{}),rows='';
+  tids.forEach(function(id){
+    var t=(S.teams||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    var tr=t?(S.tournaments||[]).filter(function(x){return String(x.id)===String(t.tournamentId);})[0]:null;
+    rows+='<div class="nrow"><div style="font-size:20px;width:30px;text-align:center;flex-shrink:0">&#128101;</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'
+      +nfEsc(t?t.name:'Equipo (ya no disponible)')+'</div>'+(tr?'<div style="font-size:12px;color:var(--t3)">'+nfEsc(tr.name)+(tr.year?' · '+nfEsc(tr.year):'')+'</div>':'')
+      +'</div><button class="btn bs" onclick="notifUnfollow(\'team\',\''+nfEsc(id)+'\')">Dejar de seguir</button></div>';
+  });
+  oids.forEach(function(id){
+    var tr=(S.tournaments||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    rows+='<div class="nrow"><div style="font-size:20px;width:30px;text-align:center;flex-shrink:0">&#127942;</div><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'
+      +nfEsc(tr?tr.name:'Torneo (ya no disponible)')+'</div>'+(tr&&tr.year?'<div style="font-size:12px;color:var(--t3)">Torneo · '+nfEsc(tr.year)+'</div>':'')
+      +'</div><button class="btn bs" onclick="notifUnfollow(\'tournament\',\''+nfEsc(id)+'\')">Dejar de seguir</button></div>';
+  });
+  html+='<div class="card"><div class="chd"><div class="ctl">&#128101; Equipos y torneos que sigo</div></div>'
+    +(rows||'<div style="font-size:13px;color:var(--t3);line-height:1.6">Aún no sigues ningún equipo. Toca la campanita &#128276; junto a un equipo o torneo para recibir sus avisos de juego en vivo y de carreras.</div>')
+    +'</div>';
+  ct(html);
+}
+function pgNotif(){
+  renderNotifPage();
+  // Refrescar desde el servidor (puede haber cambiado desde otro dispositivo o tras reinstalar la app)
+  syncPushFollowsFromServer().then(function(){ if(curP==='notifications')renderNotifPage(); });
 }
 
 // Aplica la marca a los pocos elementos de HTML estatico que no se
@@ -2538,8 +2685,9 @@ function pfPlayOutSound(){
 // vez que se revisó (_pfSeenEventIds) para detectar jugadas nuevas sin volver a mostrar la
 // animación de jugadas ya vistas (ej. al cambiar de pestaña y volver).
 var _pfSeenEventIds={};
-function checkForNewPlaysAndFlash(gameId){
-  if(!gameId)return;
+// Devuelve la jugada nueva (o null) y la marca como vista, sin animar. Primera revision del juego: solo registra lo existente.
+function pfDetectNewPlay(gameId){
+  if(!gameId)return null;
   var evs=S.events.filter(function(e){return e.gameId===gameId;});
   var seen=_pfSeenEventIds[gameId];
   if(!seen){
@@ -2548,7 +2696,7 @@ function checkForNewPlaysAndFlash(gameId){
     // un juego que ya lleva varias entradas jugadas).
     _pfSeenEventIds[gameId]={};
     evs.forEach(function(e){_pfSeenEventIds[gameId][e.id]=true;});
-    return;
+    return null;
   }
   var newPlay=null;
   evs.forEach(function(e){
@@ -2557,6 +2705,10 @@ function checkForNewPlaysAndFlash(gameId){
       if(!e.undoneType && ['H1','H2','H3','HR','K','OUT'].indexOf(e.type)>=0) newPlay=e;
     }
   });
+  return newPlay;
+}
+function checkForNewPlaysAndFlash(gameId){
+  var newPlay=pfDetectNewPlay(gameId);
   if(newPlay) showPlayFlashAnimation(newPlay.type);
 }
 function showPlayFlashAnimation(type){
@@ -2714,7 +2866,10 @@ async function _doPoll(){
         try{
           // Detectar jugadas nuevas ANTES de re-renderizar, solo para visitantes viendo un
           // juego EN VIVO (ver checkForNewPlaysAndFlash/showPlayFlashAnimation).
-          if(S.user&&S.user.role==='public'&&_pollGm&&_pollGm.status==='live'){
+          if(_pollGm&&_pollGm.status==='live'&&String(_pollGm.id).indexOf('mlb')===0){
+            // Juego de la API de MLB: primero la zona de strike (3 s) y, si hubo jugada, despues la bola y el bate.
+            try{ var _np=pfDetectNewPlay(S.game); mlbFxRun(String(S.game),_np?_np.type:null); }catch(e5){}
+          } else if(S.user&&S.user.role==='public'&&_pollGm&&_pollGm.status==='live'){
             try{ checkForNewPlaysAndFlash(S.game); }catch(e4){}
           }
           var _savedTab=_gcTab||'bs-a';
@@ -2812,6 +2967,7 @@ var ALL_MOD=[
 var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
 var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
 
@@ -3134,7 +3290,15 @@ function profHasMod(mods,id){
   if(mods.indexOf(id)>=0)return true;
   return id==='streaks'&&mods.indexOf('stats')>=0&&mods.indexOf('-streaks')<0;
 }
+// Notificaciones es un modulo de la app nativa: aparece para TODOS los roles (admin, perfiles, Google y visitantes) sin depender de
+// los modulos del perfil, justo despues del ultimo modulo de la seccion General. En la web no se ofrece (no hay push).
 function getUserMods(u){
+  var list=getUserModsBase(u);
+  if(!IS_NATIVE_APP||!u)return list;
+  var at=-1;list.forEach(function(m,i){if(m.sec==='General')at=i;});
+  var out=list.slice();out.splice(at+1,0,NOTIF_MOD);return out;
+}
+function getUserModsBase(u){
   if(!u)return[];
   if(u.role==='admin')return ALL_MOD;
   if(u.role==='public')return ALL_MOD.filter(function(m){return BASE_PUB.indexOf(m.id)>=0;});
@@ -3375,7 +3539,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -6523,6 +6687,150 @@ function openTransmissionPanel(gameId){
   w.document.write(html);
   w.document.close();
 }
+// ── Zona de strike (juegos que vienen de la API de MLB): lanzamientos de cada turno al bate ──────────────
+// Los datos los guarda el worker al sincronizar (tabla mlb_lanzamientos). Solo hay ubicacion/velocidad si la liga tiene seguimiento
+// de lanzamientos; si no, se avisa. Se ve desde la vista del receptor (el lado derecho de la zona es el derecho del receptor).
+var _MLBZ={gid:'',data:null,sel:-1,busy:false,at:0,loaded:false,missing:false};
+var MLBZ_TYPES={FF:'Recta (4 costuras)',FA:'Recta',FT:'Recta (2 costuras)',SI:'Sinker',FC:'Cutter',SL:'Slider',ST:'Sweeper',SV:'Slurve',CU:'Curva',KC:'Curva de nudillo',CS:'Curva lenta',CH:'Cambio',FS:'Splitter',FO:'Forkball',KN:'Nudillo',EP:'Eephus',SC:'Screwball',PO:'Pitchout',IN:'Base intencional',AB:'Bola automatica',AS:'Strike automatico',UN:'Desconocido'};
+var MLBZ_CALL={B:['Bola','b'],'*B':['Bola (en el suelo)','b'],I:['Bola intencional','b'],P:['Pitchout','b'],V:['Bola automatica','b'],H:['Golpeado','b'],
+  C:['Strike cantado','s'],S:['Strike al swing','s'],W:['Strike al swing','s'],Q:['Strike al swing','s'],M:['Bunt fallido','s'],F:['Foul','s'],T:['Foul tip','s'],L:['Foul de bunt','s'],R:['Foul de bunt','s'],A:['Strike automatico','s'],K:['Strike','s'],
+  X:['En juego (out)','x'],D:['En juego (hit)','x'],E:['En juego (carrera)','x'],G:['En juego','x']};
+var MLBZ_RES={K:'Ponche',BB:'Base por bolas',HBP:'Golpeado',H1:'Sencillo',H2:'Doble',H3:'Triple',HR:'Jonron',OUT:'Out',FO:'Out forzado',FC:'Seleccion',DP:'Doble play',SAC:'Sacrificio',E:'Error'};
+function mlbZoneCard(inner){return'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:8px">'+inner+'</div>';}
+var MLBZ_COL={b:'#3b82f6',s:'var(--red)',x:'var(--acc)'};
+// Dibuja la zona de un turno al bate. hl = {numeroDeLanzamiento:true} resalta los lanzamientos nuevos (los demas se atenuan).
+function mlbZoneDraw(ab,hl){
+  var W=220,H=250,sx=W/3.5,sz=H/4.3;                       // x: -1.75..1.75 pies, z: 0.3..4.6 pies (vista del receptor)
+  var X=function(x){return(x+1.75)*sx;},Y=function(z){return H-(z-0.3)*sz;};
+  var zt=(ab.z&&ab.z[0])||3.5,zb=(ab.z&&ab.z[1])||1.6,pw=0.708,COL=MLBZ_COL;
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:240px;display:block;margin:0 auto" role="img" aria-label="Zona de strike">'
+    +'<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="8" style="fill:var(--bg2)"/>'
+    +'<rect x="'+X(-pw)+'" y="'+Y(zt)+'" width="'+(X(pw)-X(-pw))+'" height="'+(Y(zb)-Y(zt))+'" style="fill:none;stroke:var(--t2);stroke-width:1.6"/>';
+  for(var k=1;k<3;k++){
+    var gx=X(-pw)+(X(pw)-X(-pw))*k/3,gy=Y(zt)+(Y(zb)-Y(zt))*k/3;
+    svg+='<line x1="'+gx+'" y1="'+Y(zt)+'" x2="'+gx+'" y2="'+Y(zb)+'" style="stroke:var(--bdr2);stroke-width:1"/>'
+       +'<line x1="'+X(-pw)+'" y1="'+gy+'" x2="'+X(pw)+'" y2="'+gy+'" style="stroke:var(--bdr2);stroke-width:1"/>';
+  }
+  svg+='<polygon points="'+X(-pw)+','+Y(0.62)+' '+X(pw)+','+Y(0.62)+' '+X(pw)+','+Y(0.45)+' '+X(0)+','+Y(0.3)+' '+X(-pw)+','+Y(0.45)+'" style="fill:var(--bdr2);stroke:var(--t3);stroke-width:1"/>';
+  var rows='',located=0;
+  ab.ps.forEach(function(p){
+    var cl=MLBZ_CALL[p[3]]||['—','s'],cx,cy,isNew=!!(hl&&hl[p[0]]);
+    if(p[1]!=null&&p[2]!=null){
+      cx=Math.max(8,Math.min(W-8,X(p[1])));cy=Math.max(8,Math.min(H-8,Y(p[2])));located++;
+      if(isNew)svg+='<circle class="mfx-new" cx="'+cx+'" cy="'+cy+'" r="12" style="fill:none;stroke:#fff;stroke-width:2.6"/>';
+      svg+='<circle cx="'+cx+'" cy="'+cy+'" r="8" style="fill:'+COL[cl[1]]+';stroke:#fff;stroke-width:1.2;opacity:'+(hl&&!isNew?'.6':'.95')+'"/>'
+         +'<text x="'+cx+'" y="'+(cy+3.5)+'" text-anchor="middle" style="font-size:10px;font-weight:800;fill:#fff;font-family:Barlow Condensed,sans-serif">'+p[0]+'</text>';
+    }
+    rows+='<tr><td style="padding:4px 6px;font-weight:800">'+p[0]+'</td><td style="padding:4px 6px">'+(MLBZ_TYPES[p[4]]||p[4]||'&mdash;')+'</td>'
+      +'<td style="padding:4px 6px;white-space:nowrap">'+(p[5]!=null?p[5].toFixed(1)+' mph':'&mdash;')+'</td>'
+      +'<td style="padding:4px 6px"><span style="color:'+COL[cl[1]]+';font-weight:700">'+cl[0]+'</span></td>'
+      +'<td style="padding:4px 6px;color:var(--t3);white-space:nowrap">'+(p[6]!=null&&p[7]!=null?p[6]+'-'+p[7]:'')+'</td></tr>';
+  });
+  svg+='</svg>';
+  return{svg:svg,rows:rows,located:located};
+}
+function mlbZoneHtml(gid){
+  var head='<div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:800;letter-spacing:.5px;margin-bottom:6px">&#127919; ZONA DE STRIKE</div>';
+  var muted=function(t){return'<div style="font-size:12px;color:var(--t3);line-height:1.5">'+t+'</div>';};
+  if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
+  if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
+  var d=_MLBZ.data,abs=(d&&d.abs)||[];
+  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
+  var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
+  var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
+  var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
+  var leg='<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;font-size:11px;color:var(--t2);margin:8px 0"><span><span style="color:#3b82f6">&#9679;</span> Bola</span><span><span style="color:var(--red)">&#9679;</span> Strike / Foul</span><span><span style="color:var(--acc)">&#9679;</span> En juego</span></div>';
+  return mlbZoneCard(head
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px">'+btn('&#9664;',-1,i===0)
+    +'<div style="text-align:center;font-size:12px;line-height:1.4"><b>'+(ab.h==='t'?'&#9650;':'&#9660;')+ab.i+' &middot; '+(ab.bn||'?')+'</b> vs '+(ab.pn||'?')
+    +'<div style="color:var(--t3)">Turno '+(i+1)+' de '+n+(ab.c&&ab.rs?' &middot; '+(MLBZ_RES[ab.rs]||ab.rs):(ab.c?'':' &middot; en curso'))+'</div></div>'+btn('&#9654;',1,latest)+'</div>'
+    +(latest?'':'<div style="text-align:center;margin-bottom:6px"><button class="btn bp bsm" onclick="mlbZoneNav(999)">Ir al turno actual</button></div>')
+    +svg+leg
+    +(located?'':'<div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:6px">Esta liga no publica la ubicacion de los lanzamientos; se muestran tipo, velocidad y resultado.</div>')
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--t3);text-align:left;font-size:10px;letter-spacing:.5px"><th style="padding:3px 6px">#</th><th style="padding:3px 6px">LANZAMIENTO</th><th style="padding:3px 6px">VELOCIDAD</th><th style="padding:3px 6px">RESULTADO</th><th style="padding:3px 6px">CUENTA</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center">Vista del receptor &middot; se actualiza con cada sincronizacion de la API</div>');
+}
+// ── Zona de strike como "flash" de 3 s (juegos de la API de MLB que un usuario esta viendo) ─────────────
+// Cada vez que llegan lanzamientos nuevos (bola/strike/foul/en juego) aparece 3 s la zona del turno al bate con la ubicacion real de
+// cada lanzamiento, su tipo y velocidad, y se apaga sola. Cuando llega una jugada (hit, out, ponche), sale PRIMERO la zona y despues
+// la animacion de la bola y el bate. Los datos llegan con cada sincronizacion de la API, no lanzamiento a lanzamiento.
+var _MLBFX={seen:{},busy:false,pending:null},MLBFX_MS=3000;
+function mlbFxKey(ab,p){return ab.n+':'+p[0];}
+function mlbFxShow(ab,hl,resultLbl){
+  return new Promise(function(done){
+    var old=document.getElementById('mlbFxOverlay');if(old)old.remove();
+    var dr=mlbZoneDraw(ab,hl),news=ab.ps.filter(function(p){return hl[p[0]];}).slice(-3);
+    var lines=news.map(function(p){
+      var cl=MLBZ_CALL[p[3]]||['—','s'];
+      return'<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><span><b>#'+p[0]+'</b> '+(MLBZ_TYPES[p[4]]||p[4]||'Lanzamiento')+'</span>'
+        +'<span style="white-space:nowrap">'+(p[5]!=null?'<b>'+p[5].toFixed(1)+'</b> mph &middot; ':'')+'<span style="color:'+MLBZ_COL[cl[1]]+';font-weight:700">'+cl[0]+'</span></span></div>';
+    }).join('');
+    var div=document.createElement('div');div.id='mlbFxOverlay';
+    div.innerHTML='<div class="mfx-card">'
+      +'<div style="text-align:center;font-size:12px;line-height:1.35;margin-bottom:6px"><b>'+(ab.h==='t'?'&#9650;':'&#9660;')+ab.i+' &middot; '+(ab.bn||'?')+'</b> vs '+(ab.pn||'?')
+      +(resultLbl?'<div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--acc)">'+resultLbl+'</div>':'')+'</div>'
+      +dr.svg+'<div style="margin-top:6px">'+lines+'</div></div>';
+    document.body.appendChild(div);
+    setTimeout(function(){var el=document.getElementById('mlbFxOverlay');if(el)el.classList.add('mfx-out');},MLBFX_MS-350);
+    setTimeout(function(){var el=document.getElementById('mlbFxOverlay');if(el)el.remove();done();},MLBFX_MS);
+  });
+}
+async function mlbFxRun(gid,playType){
+  if(_MLBFX.busy){if(playType)_MLBFX.pending={gid:gid,t:playType};return;}   // no se pierde la animacion de una jugada
+  _MLBFX.busy=true;
+  try{
+    var d=await mlbZoneFetch(gid,true),abs=(d&&d.abs)||[],seen=_MLBFX.seen[gid],fresh=[];
+    if(!seen){                                                   // primera vez en la sesion: no animar lo que ya habia
+      seen=_MLBFX.seen[gid]={};
+      abs.forEach(function(ab){ab.ps.forEach(function(p){seen[mlbFxKey(ab,p)]=true;});});
+      if(playType)showPlayFlashAnimation(playType);
+      return;
+    }
+    abs.forEach(function(ab,i){ab.ps.forEach(function(p){var k=mlbFxKey(ab,p);if(!seen[k]){seen[k]=true;fresh.push({i:i,n:p[0]});}});});
+    var idx=-1,hl={};
+    if(playType){                                                // jugada: el turno que acaba de terminar
+      for(var j=abs.length-1;j>=0;j--){if(abs[j].c){idx=j;break;}}
+      if(idx>=0)fresh.forEach(function(f){if(f.i===idx)hl[f.n]=true;});
+      if(idx>=0&&!Object.keys(hl).length&&abs[idx].ps.length)hl[abs[idx].ps[abs[idx].ps.length-1][0]]=true;
+    }else if(fresh.length){                                      // lanzamientos nuevos del turno mas reciente con novedades
+      idx=fresh[fresh.length-1].i;
+      fresh.forEach(function(f){if(f.i===idx)hl[f.n]=true;});
+    }
+    if(idx>=0&&abs[idx].ps.length)await mlbFxShow(abs[idx],hl,playType&&abs[idx].rs?(MLBZ_RES[abs[idx].rs]||abs[idx].rs):'');
+    if(playType)showPlayFlashAnimation(playType);                // despues del cuadro: la bola y el bate
+  }catch(e){ if(playType){try{showPlayFlashAnimation(playType);}catch(e2){}} }
+  finally{
+    _MLBFX.busy=false;
+    if(_MLBFX.pending){var pd=_MLBFX.pending;_MLBFX.pending=null;mlbFxRun(pd.gid,pd.t);}
+  }
+}
+function mlbZoneNav(dl){
+  var abs=(_MLBZ.data&&_MLBZ.data.abs)||[];if(!abs.length)return;
+  var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel;
+  i=dl>=999?n-1:Math.max(0,Math.min(n-1,i+dl));
+  _MLBZ.sel=(i===n-1)?-1:i;                                     // -1 = seguir el turno mas reciente
+  var el=document.getElementById('mlb-zone');if(el)el.innerHTML=mlbZoneHtml(_MLBZ.gid);
+}
+// Una sola consulta en vuelo a la vez (el panel y el overlay comparten datos). force=true ignora el limite de 6 s.
+function mlbZoneFetch(gid,force){
+  if(_MLBZ.gid!==gid){_MLBZ.gid=gid;_MLBZ.data=null;_MLBZ.sel=-1;_MLBZ.loaded=false;_MLBZ.missing=false;_MLBZ.at=0;_MLBZ.p=null;}
+  if(_MLBZ.p)return _MLBZ.p;
+  if(!force&&Date.now()-_MLBZ.at<6000)return Promise.resolve(_MLBZ.data);
+  _MLBZ.p=(async function(){
+    try{
+      var r=await api('getMlbPitches',{gameId:gid});
+      if(r&&r.ok){_MLBZ.data=r.data||null;_MLBZ.missing=!!r.missingTable;}
+      _MLBZ.loaded=true;_MLBZ.at=Date.now();
+    }catch(e){}finally{_MLBZ.p=null;}
+    return _MLBZ.data;
+  })();
+  return _MLBZ.p;
+}
+async function mlbZoneLoad(gid){
+  await mlbZoneFetch(gid,false);
+  var el=document.getElementById('mlb-zone');
+  if(el&&curP==='gamecontrol'&&String(S.game)===String(gid))el.innerHTML=mlbZoneHtml(gid);
+}
 function pgGC(){
   if(!S.game){
     var gs=visibleGames().filter(function(g){return g.status==='live'||g.status==='scheduled';});
@@ -6654,6 +6962,7 @@ function pgGC(){
     +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:10px 16px;margin-bottom:8px;opacity:.6">'
     +'<div class="bslbl">EN EL CIRCULO</div>'
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:16px">#'+(nb?nb.number||'?':'?')+' '+(nb?nb.name:'&mdash;')+'</div></div>'
+    +(String(gm.id).indexOf('mlb')===0?'<div id="mlb-zone">'+mlbZoneHtml(String(gm.id))+'</div>':'')
     +(cs?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
       +'<button class="btn bs bsm" onclick="openSubM(\'emergente\')">&#128100; Emergente</button>'
       +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Pitcher</button>'
@@ -6720,6 +7029,7 @@ function pgGC(){
     +'<div class="card" style="margin-top:14px"><div class="chd"><div class="ctl">Box Score</div></div>'
     +'<div class="tabs">'    +'<div class="tab'+(_gcTab==='bs-a'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-a&quot;;showTab(this,&quot;bs-a&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128202; '+aw.name+'</div>'    +'<div class="tab'+(_gcTab==='bs-h'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-h&quot;;showTab(this,&quot;bs-h&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128202; '+hw.name+'</div>'    +'<div class="tab'+(_gcTab==='bs-p'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-p&quot;;showTab(this,&quot;bs-p&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_gcTab==='bs-l'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-l&quot;;showTab(this,&quot;bs-l&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128221; Jugadas</div>'    +'</div>'    +'<div id="bs-a" style="'+(_gcTab==='bs-a'?'':'display:none')+'">'+bsHTML(gm.id,gm.awayTeamId)+'</div>'    +'<div id="bs-h" style="'+(_gcTab==='bs-h'?'':'display:none')+'">'+bsHTML(gm.id,gm.homeTeamId)+'</div>'    +'<div id="bs-p" style="'+(_gcTab==='bs-p'?'':'display:none')+'">'+pitHTML(gm.id,gm.awayTeamId,gm.homeTeamId)+'</div>'    +'<div id="bs-l" style="'+(_gcTab==='bs-l'?'min-height:400px;max-height:70vh;overflow-y:auto;padding-bottom:20px':'display:none')+'">'+playLog(gm.id)+'</div>'
     +'</div></div>');
+  if(String(gm.id).indexOf('mlb')===0)mlbZoneLoad(String(gm.id));
 }
 
 // BOX SCORE & PLAY LOG
@@ -14651,6 +14961,11 @@ function fnCfgCard(){
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">COLA DE TURNOS AL "CREAR PLANTILLA" (cada tipo de plantilla con sus propios valores)</div>'+qblock('Fase','Plantillas POR TORNEO (fase)')+qblock('Dia','Plantillas DIARIAS')
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">BLOQUEO DE JUGADORES LIBERADOS (minutos en que solo quien lo liberó puede volver a tomarlo; 0 = sin bloqueo)</div>'
     +'<div style="'+g+'">'+hinp('fnhold-Fase','fantasyHoldMinFase','Plantillas por torneo (min)')+hinp('fnhold-Dia','fantasyHoldMinDia','Plantillas diarias (min)')+'</div>'
+    +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">&#128276; RECORDATORIO PUSH PARA AJUSTAR LA PLANTILLA (app Android)</div>'
+    +'<div class="fg" style="margin-top:6px"><label class="fl" style="font-size:11px">Hora de envío, hora de República Dominicana (vacío = recordatorio apagado)</label><input class="fi" id="fnremT" type="time" value="'+nfEsc(c.fantasyReminderTime||'')+'" style="max-width:160px"></div>'
+    +'<div class="fg"><label class="fl" style="font-size:11px">Mensaje (opcional; vacío = “Revisa tu plantilla antes de que empiecen los juegos de hoy.”)</label><input class="fi" id="fnremM" type="text" maxlength="120" value="'+nfEsc(c.fantasyReminderMsg||'')+'"></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px;line-height:1.5">Se envía una vez al día, solo si hay juegos programados ese día, y solo a los teléfonos que activaron “Recordatorio de Fantasy” en el módulo Notificaciones. Guarda antes de enviar la prueba.</div>'
+    +'<button class="btn bs" style="margin-bottom:10px" onclick="testFantasyReminder()">Enviar recordatorio de prueba ahora</button>'
     +'<div class="alert ai" style="font-size:12px;margin:10px 0">Con 0 en todos los campos el sistema de acceso queda desactivado. Pasados 5 días seguidos (o 5 sin acceder) se aplica el valor de la fila "5 o más". El día se cuenta en hora de República Dominicana.</div>'
     +'<button class="btn bp" onclick="saveFantasyCfg()">Guardar Liga de Fantasía</button></div>';
 }
@@ -14672,12 +14987,21 @@ async function saveFantasyCfg(){
       ['fantasyPickMax'+sx,Math.max(1,parseInt(fv('fnq-pick'+sx))||3)],['fantasyTurnSec'+sx,Math.max(5,parseInt(fv('fnq-sec'+sx))||60)]);
   });
   items.push(['fantasyHoldMinFase',Math.max(0,parseInt(fv('fnhold-Fase'))||0)],['fantasyHoldMinDia',Math.max(0,parseInt(fv('fnhold-Dia'))||0)]);
+  var newRemT=(fv('fnremT')||'').trim();
+  items.push(['fantasyReminderTime',newRemT],['fantasyReminderMsg',(fv('fnremM')||'').trim()]);
+  // Si cambia la hora, se reinicia el "ya enviado hoy" para que el nuevo horario pueda disparar hoy mismo
+  if(newRemT!==String((S.config||{}).fantasyReminderTime||''))items.push(['fantasyReminderLast','']);
   var ok=true;
   for(var j=0;j<items.length;j++){
     var r=await api('saveConfig',{key:items[j][0],value:items[j][1]});
     if(r&&r.ok){S.config=S.config||{};S.config[items[j][0]]=String(items[j][1]);}else ok=false;
   }
   toast(ok?'Liga de Fantasía guardada':'Error al guardar',ok?'success':'error');
+}
+async function testFantasyReminder(){
+  var r=await api('sendFantasyReminderNow',{});
+  if(r&&r.ok)toast(r.sent>0?'Recordatorio enviado a '+r.sent+' dispositivo(s)':(r.note||'No se envió a ningún dispositivo'),r.sent>0?'success':'info');
+  else toast((r&&r.error)||'No se pudo enviar el recordatorio','error');
 }
 function openRankingListM(isPit){
   _RK.modalIsPit=isPit;_RK.search='';
