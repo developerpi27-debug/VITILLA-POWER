@@ -126,6 +126,24 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .nsw span:before{content:'';position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;}
 .nsw input:checked+span{background:var(--acc);}
 .nsw input:checked+span:before{transform:translateX(20px);}
+/* Modulo Videos */
+.vchips{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.vchips::-webkit-scrollbar{display:none;}
+.vchip{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:8px 16px;border-radius:26px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.vchip.on{background:var(--red);border-color:var(--red);color:#fff;}
+.vcard{display:flex;background:var(--card);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:12px;cursor:pointer;}
+.vcard.off{opacity:.55;}
+.vthumb{position:relative;flex:0 0 38%;max-width:240px;aspect-ratio:16/9;background:linear-gradient(135deg,var(--card2),var(--bg3));}
+.vthumb img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+.vplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;padding-left:3px;}
+.vinfo{flex:1;min-width:0;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;}
+.vtitle{font-weight:700;font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.vmeta{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);min-width:0;}
+.vmeta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.modal.vidm{max-width:760px;padding:0;overflow:hidden;}
+.vwrap{position:relative;width:100%;padding-top:56.25%;background:#000;}
+.vwrap.tall{padding-top:0;height:min(72vh,640px);}
+.vwrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;}
 .bg{background:rgba(34,197,94,.15);color:#4ade80;}.br{background:rgba(239,68,68,.15);color:#f87171;}
 .bb{background:rgba(59,130,246,.15);color:#60a5fa;}.bo{background:rgba(245,166,35,.15);color:#f5a623;}
 .bgr{background:rgba(148,163,184,.1);color:var(--t2);}
@@ -1155,10 +1173,10 @@ function notifRow(ico,title,desc,key,on){
     +'<label class="nsw"><input type="checkbox" '+(on?'checked ':'')+'onchange="setNotifPref(\''+key+'\',this.checked,this)"><span></span></label></div>';
 }
 function renderNotifPage(){
-  var P=_pushPrefs,cfg=S.config||{};
-  var ft=nfTime12(cfg.fantasyReminderTime);
-  var fdesc=ft?'Te recuerda ajustar tu plantilla todos los días a las <b>'+ft+'</b> (hora de República Dominicana), si hay juegos ese día.'
-    :'Te recuerda ajustar tu plantilla antes de los juegos. El administrador aún no ha fijado la hora del recordatorio.';
+  var P=_pushPrefs;
+  var frs=(S.tournaments||[]).filter(function(x){return x.fantasyReminderTime;});
+  var fdesc=frs.length?'Te recuerda ajustar tu plantilla antes de los juegos: '+frs.slice(0,4).map(function(x){return nfEsc(x.name)+' a las <b>'+nfTime12(x.fantasyReminderTime)+'</b>';}).join(' · ')+(frs.length>4?' y '+(frs.length-4)+' más':'')+' (hora de República Dominicana). Solo si tienes plantilla en ese torneo y hay juegos ese día.'
+    :'Te recuerda ajustar tu plantilla antes de los juegos. El administrador aún no ha fijado la hora en los torneos.';
   var html='<div class="stl">Notificaciones</div><div class="ssb">Elige qué avisos quieres recibir en este teléfono</div>';
   if(!IS_NATIVE_APP){
     html+='<div class="card"><div class="empty"><div style="font-size:36px">&#128276;</div><div>Las notificaciones funcionan en la app de Android.</div></div></div>';
@@ -1193,6 +1211,209 @@ function pgNotif(){
   renderNotifPage();
   // Refrescar desde el servidor (puede haber cambiado desde otro dispositivo o tras reinstalar la app)
   syncPushFollowsFromServer().then(function(){ if(curP==='notifications')renderNotifPage(); });
+}
+
+// ═══════════════════════════════════════════════════════════
+// VIDEOS — canales con logo + lista de videos que se reproducen DENTRO de la app (iframe en un modal).
+// El admin enlaza canales de YouTube (se importan solos) o videos sueltos de YouTube/Vimeo/Facebook/TikTok/Instagram/Twitch.
+// Permisos por perfil (modulo "videos": crear/editar/eliminar) y anuncios (patrocinador fijado en "Videos") como el resto de modulos.
+// ═══════════════════════════════════════════════════════════
+var _vid={loaded:false,loading:false,ts:0,needsSetup:false,failed:false,limit:30};
+var VID_PLAT={youtube:{n:'YouTube',i:'&#9654;&#65039;'},vimeo:{n:'Vimeo',i:'&#127902;&#65039;'},facebook:{n:'Facebook',i:'&#128216;'},tiktok:{n:'TikTok',i:'&#127925;'},instagram:{n:'Instagram',i:'&#128247;'},twitch:{n:'Twitch',i:'&#127918;'},other:{n:'el navegador',i:'&#128279;'}};
+function vidChannel(id){return (S.videoChannels||[]).filter(function(c){return c.id===id;})[0]||null;}
+function vidCan(op){return !!(S.user&&S.user.role!=='public'&&canDo(op||'create','videos'));}
+function vidDate(iso){
+  if(!iso)return '';var d=new Date(iso);if(isNaN(d.getTime()))return '';
+  try{return d.toLocaleDateString('es-DO',{weekday:'short',day:'numeric',month:'short'}).replace(/\./g,'');}catch(e){return d.toISOString().slice(0,10);}
+}
+function vidAgo(iso){
+  if(!iso)return 'nunca';var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
+  if(isNaN(m))return 'nunca';if(m<2)return 'hace un momento';if(m<60)return 'hace '+m+' min';
+  var h=Math.round(m/60);if(h<24)return 'hace '+h+' h';return 'hace '+Math.round(h/24)+' d';
+}
+function vidLogo(ch,px){
+  var st='width:'+px+'px;height:'+px+'px;border-radius:50%;flex-shrink:0;';
+  if(ch&&ch.logoUrl)return '<img src="'+nfEsc(ch.logoUrl)+'" alt="" style="'+st+'object-fit:contain;background:rgba(255,255,255,.08)" onerror="this.style.visibility=\'hidden\'">';
+  var ini=ch&&ch.name?nfEsc(ch.name.charAt(0).toUpperCase()):'&#127916;';
+  return '<span style="'+st+'display:inline-flex;align-items:center;justify-content:center;background:var(--bg3);color:var(--t2);font-size:'+Math.round(px*0.5)+'px;font-weight:800">'+ini+'</span>';
+}
+// URL embebible por plataforma (null = no se puede incrustar: el modal ofrece abrirlo en el navegador)
+function vidEmbed(v){
+  var p=v.platform||'other',ref=v.ref||'',o='';
+  try{if(location.protocol.indexOf('http')===0)o=location.origin;}catch(e){}
+  if(p==='youtube'&&ref)return {src:'https://www.youtube-nocookie.com/embed/'+ref+'?autoplay=1&rel=0&playsinline=1&modestbranding=1'+(o?'&origin='+encodeURIComponent(o):''),tall:false};
+  if(p==='vimeo'&&ref)return {src:'https://player.vimeo.com/video/'+ref+'?autoplay=1',tall:false};
+  if(p==='facebook')return {src:'https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&href='+encodeURIComponent(v.url||''),tall:false};
+  if(p==='tiktok'&&ref)return {src:'https://www.tiktok.com/embed/v2/'+ref,tall:true};
+  if(p==='instagram'&&ref)return {src:'https://www.instagram.com/'+ref+'/embed',tall:true};
+  if(p==='twitch'&&ref){var h='localhost';try{h=location.hostname||'localhost';}catch(e){}return {src:'https://player.twitch.tv/?video=v'+ref+'&parent='+encodeURIComponent(h)+'&autoplay=true',tall:false};}
+  return null;
+}
+function openVideo(id){
+  var v=(S.videos||[]).filter(function(x){return x.id===id;})[0];if(!v)return;
+  var ch=vidChannel(v.channelId),em=vidEmbed(v),pm=VID_PLAT[v.platform]||VID_PLAT.other;
+  var body=em
+    ?'<div class="vwrap'+(em.tall?' tall':'')+'"><iframe src="'+nfEsc(em.src)+'" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
+    :'<div class="empty" style="padding:34px 20px"><div style="font-size:30px">'+pm.i+'</div><div style="margin-top:8px">Este enlace no se puede reproducir dentro de la app.</div></div>';
+  showM('<div class="mhd"><div class="mtl" style="font-size:14px;line-height:1.35;padding-right:10px">'+nfEsc(v.title||'Video')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +body
+    +'<div class="mbd" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<div class="vmeta">'+(ch?vidLogo(ch,20)+'<span>'+nfEsc(ch.name)+'</span>':'')+(vidDate(v.publishedAt)?'<span>&middot; '+vidDate(v.publishedAt)+'</span>':'')+'</div>'
+    +'<button class="btn bs bsm" data-url="'+nfEsc(v.url)+'" onclick="window.open(this.dataset.url,\'_blank\')">Abrir en '+pm.n+' &#8599;</button></div>','vidm');
+}
+async function vidLoad(force){
+  if(_vid.loading)return;
+  if(!force&&_vid.loaded&&Date.now()-_vid.ts<45000)return;
+  _vid.loading=true;
+  var r=null;try{r=await api('getVideos',{});}catch(e){}
+  _vid.loading=false;
+  if(r&&r.ok){S.videoChannels=r.channels||[];S.videos=r.videos||[];_vid.loaded=true;_vid.failed=false;_vid.ts=Date.now();_vid.needsSetup=!!r.needsSetup;}
+  else if(!_vid.loaded)_vid.failed=true;
+}
+function setVidCh(id){S.vidCh=id||'';_vid.limit=30;renderVideos();}
+function vidMore(){_vid.limit+=30;renderVideos();}
+function pgVideos(){
+  renderVideos();
+  vidLoad(false).then(function(){if(curP==='videos')renderVideos();});
+}
+function renderVideos(){
+  var mg=vidCan('create'),canE=vidCan('edit'),canD=vidCan('delete');
+  var head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">'
+    +'<div><div class="stl">&#127916; Videos</div><div class="ssb">Mira los videos de los canales sin salir de la app</div></div>'
+    +(mg?'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bs" onclick="openVideoChannelM(\'\')">+ Canal</button><button class="btn bp" onclick="openVideoM(\'\')">+ Video</button></div>':'')+'</div>';
+  var ads=sponsorPinnedBanner('pinVideos','&#127916; Videos presentados gracias a');
+  if(!_vid.loaded){
+    ct(head+ads+'<div class="card"><div class="empty">'+(_vid.failed?'<div>No se pudieron cargar los videos</div><button class="btn bs" style="margin-top:12px" onclick="vidLoad(true).then(renderVideos)">Reintentar</button>':'<div>Cargando videos...</div>')+'</div></div>');
+    return;
+  }
+  var chs=(S.videoChannels||[]).filter(function(c){return mg||c.activo;});
+  var sel=S.vidCh||'';if(sel&&!chs.some(function(c){return c.id===sel;})){sel='';S.vidCh='';}
+  var vids=(S.videos||[]).filter(function(v){
+    if(!mg&&!v.activo)return false;
+    var c=vidChannel(v.channelId);if(c&&!c.activo&&!mg)return false;
+    return !sel||v.channelId===sel;
+  });
+  var total=vids.length;vids=vids.slice(0,_vid.limit);
+  var setup=(_vid.needsSetup&&mg)?'<div class="alert aw" style="margin-bottom:14px;font-size:12px">Faltan las tablas de Videos en Supabase. Ejecuta el SQL que aparece en el encabezado del archivo del Worker (video_canales y video_items).</div>':'';
+  var chips=chs.length?'<div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--acc);margin:4px 0 10px">CANALES</div>'
+    +'<div class="vchips"><button class="vchip'+(!sel?' on':'')+'" onclick="setVidCh(\'\')">Todos</button>'
+    +chs.map(function(c){return '<button class="vchip'+(sel===c.id?' on':'')+'" data-cid="'+nfEsc(c.id)+'" onclick="setVidCh(this.dataset.cid)">'+vidLogo(c,26)+'<span>'+nfEsc(c.name)+(c.activo?'':' (oculto)')+'</span></button>';}).join('')+'</div>':'';
+  var cards=vids.map(function(v){
+    var c=vidChannel(v.channelId),pm=VID_PLAT[v.platform]||VID_PLAT.other;
+    var adm=(canE||canD)?'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      +(canE?'<button class="btn bs bsm" data-vid="'+nfEsc(v.id)+'" onclick="event.stopPropagation();openVideoM(this.dataset.vid)">Editar</button>':'')
+      +(canD?'<button class="btn bd bsm" data-vid="'+nfEsc(v.id)+'" onclick="event.stopPropagation();delVideo(this.dataset.vid)">&#128465;</button>':'')+'</div>':'';
+    return '<div class="vcard'+(v.activo?'':' off')+'" data-vid="'+nfEsc(v.id)+'" onclick="openVideo(this.dataset.vid)">'
+      +'<div class="vthumb">'+(v.thumbnailUrl?'<img loading="lazy" src="'+nfEsc(v.thumbnailUrl)+'" alt="" onerror="this.remove()">':'')+'<span class="vplay">&#9654;</span></div>'
+      +'<div class="vinfo"><div class="vtitle">'+nfEsc(v.title||'Video de '+pm.n)+(v.activo?'':' <span class="badge bgr" style="font-size:10px">Oculto</span>')+'</div>'
+      +'<div class="vmeta">'+(c?vidLogo(c,18)+'<span>'+nfEsc(c.name)+'</span>':'')+(vidDate(v.publishedAt)?'<span>&middot; '+vidDate(v.publishedAt)+'</span>':'')+'</div>'+adm+'</div></div>';
+  }).join('');
+  var list=cards||'<div class="card"><div class="empty"><div style="font-size:30px">&#127916;</div><div>'+(mg?'Aún no hay videos. Agrega un canal de YouTube o un video.':'Aún no hay videos disponibles')+'</div></div></div>';
+  var more=total>vids.length?'<div style="text-align:center;margin:6px 0 14px"><button class="btn bs" onclick="vidMore()">Ver más ('+(total-vids.length)+')</button></div>':'';
+  var panel='';
+  if(mg){
+    var rows=(S.videoChannels||[]).map(function(c){
+      var auto=c.feedUrl&&c.autoSync;
+      return '<div class="nrow">'+vidLogo(c,36)+'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+nfEsc(c.name)+(c.activo?'':' <span class="badge bgr" style="font-size:10px">Oculto</span>')+'</div>'
+        +'<div style="font-size:12px;color:var(--t3)">'+(auto?'Importa de YouTube automáticamente · actualizado '+vidAgo(c.lastSync):(c.feedUrl?'Importación automática desactivada':'Solo videos agregados a mano'))+'</div></div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
+        +(c.feedUrl&&canE?'<button class="btn bs bsm" data-cid="'+nfEsc(c.id)+'" onclick="syncVideoNow(this.dataset.cid)">&#8635;</button>':'')
+        +(canE?'<button class="btn bs bsm" data-cid="'+nfEsc(c.id)+'" onclick="openVideoChannelM(this.dataset.cid)">Editar</button>':'')
+        +(canD?'<button class="btn bd bsm" data-cid="'+nfEsc(c.id)+'" onclick="delVideoChannel(this.dataset.cid)">&#128465;</button>':'')+'</div></div>';
+    }).join('');
+    panel='<div class="card" style="margin-top:18px"><div class="chd"><div class="ctl">&#9881;&#65039; Administrar canales</div></div>'
+      +(rows||'<div style="font-size:13px;color:var(--t3)">Aún no hay canales. Toca “+ Canal” y pega la URL del canal de YouTube.</div>')+'</div>';
+  }
+  ct(head+ads+setup+chips+list+more+panel);
+}
+async function syncVideoNow(id){
+  toast('Actualizando videos...','info');
+  var r=await api('syncVideoChannel',{id:id});
+  if(r&&r.ok){toast(r.added?('Se agregaron '+r.added+' video(s) nuevos'):'Sin videos nuevos','success');await vidLoad(true);if(curP==='videos')renderVideos();}
+  else toast((r&&r.error)||'No se pudo actualizar','error');
+}
+function openVideoChannelM(id){
+  var c=id?vidChannel(id):null;if(!c)c={};
+  showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Canal de Videos</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'
+    +'<div class="fg"><label class="fl">URL del canal o lista de YouTube</label><div style="display:flex;gap:8px"><input class="fi" id="vchu" value="'+nfEsc(c.sourceUrl||'')+'" placeholder="https://www.youtube.com/@canal" style="flex:1"><button class="btn bs" onclick="vidDetectChannel()">Detectar</button></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px">Con YouTube, sus videos se importan solos. Para otras plataformas deja vacío y agrega los videos a mano.</div></div>'
+    +'<div class="fg"><label class="fl">Nombre del canal *</label><input class="fi" id="vchn" value="'+nfEsc(c.name||'')+'" placeholder="Ej: Escogido"></div>'
+    +'<div class="fg"><label class="fl">Logo (URL de imagen)</label><div style="display:flex;gap:10px;align-items:center"><input class="fi" id="vchl" value="'+nfEsc(c.logoUrl||'')+'" placeholder="https://..." style="flex:1" oninput="document.getElementById(\'vchlp\').src=this.value"><img id="vchlp" src="'+nfEsc(c.logoUrl||'')+'" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,.08)" onerror="this.style.visibility=\'hidden\'" onload="this.style.visibility=\'visible\'"></div></div>'
+    +'<div class="fg"><label class="fl">Orden (menor aparece primero)</label><input class="fi" id="vcho" type="number" value="'+(c.orden||0)+'" style="max-width:120px"></div>'
+    +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:8px 0"><input type="checkbox" id="vcha" '+(c.activo===false?'':'checked')+' style="accent-color:var(--acc);width:16px;height:16px"> Visible para los usuarios</label>'
+    +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:8px 0"><input type="checkbox" id="vchs" '+(c.autoSync===false?'':'checked')+' style="accent-color:var(--acc);width:16px;height:16px"> Importar videos nuevos automáticamente (YouTube)</label>'
+    +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" data-cid="'+nfEsc(id||'')+'" onclick="saveVideoChannel(this.dataset.cid)">Guardar</button></div>');
+}
+async function vidDetectChannel(){
+  var url=fv('vchu').trim();if(!url){toast('Pega primero la URL del canal','error');return;}
+  toast('Detectando canal...','info');
+  var r=await api('resolveVideoChannel',{url:url});
+  if(r&&r.ok){
+    var n=document.getElementById('vchn'),l=document.getElementById('vchl');
+    if(n&&r.name&&!n.value)n.value=r.name;
+    if(l&&r.logoUrl&&!l.value){l.value=r.logoUrl;var p=document.getElementById('vchlp');if(p)p.src=r.logoUrl;}
+    toast(r.note||(r.feedUrl?'Canal detectado: sus videos se importarán automáticamente':'No se encontró un feed de videos para esa URL'),r.feedUrl?'success':'info');
+  } else toast((r&&r.error)||'No se pudo detectar el canal','error');
+}
+async function saveVideoChannel(id){
+  var name=fv('vchn').trim();if(!name){toast('El nombre del canal es requerido','error');return;}
+  var old=id?vidChannel(id):null;
+  var c={id:id||null,name:name,logoUrl:fv('vchl').trim(),sourceUrl:fv('vchu').trim(),orden:parseInt(fv('vcho'))||0,
+    activo:!!document.getElementById('vcha').checked,autoSync:!!document.getElementById('vchs').checked,createdAt:old?old.createdAt:new Date().toISOString()};
+  toast('Guardando canal...','info');
+  var r=await api('saveVideoChannel',{channel:c});
+  if(r&&r.ok){
+    cM();await vidLoad(true);if(curP==='videos')renderVideos();
+    toast(r.warn||(r.synced&&r.synced.added?('Canal guardado: '+r.synced.added+' video(s) importados'):'Canal guardado'),r.warn?'info':'success');
+  } else toast((r&&r.error)||'Error al guardar el canal','error');
+}
+async function delVideoChannel(id){
+  if(!confirm('¿Eliminar este canal y TODOS sus videos?'))return;
+  var r=await api('deleteVideoChannel',{id:id});
+  if(r&&r.ok){if(S.vidCh===id)S.vidCh='';await vidLoad(true);if(curP==='videos')renderVideos();toast('Canal eliminado','info');}
+  else toast((r&&r.error)||'Error','error');
+}
+function openVideoM(id){
+  var v=id?(S.videos||[]).filter(function(x){return x.id===id;})[0]:null;if(!v)v={};
+  var chs=(S.videoChannels||[]);
+  var opts='<option value="">-- Sin canal --</option>'+chs.map(function(c){return '<option value="'+nfEsc(c.id)+'" '+((v.channelId||S.vidCh)===c.id?'selected':'')+'>'+nfEsc(c.name)+'</option>';}).join('');
+  showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Video</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'
+    +'<div class="fg"><label class="fl">URL del video *</label><div style="display:flex;gap:8px"><input class="fi" id="vidu" value="'+nfEsc(v.url||'')+'" placeholder="https://youtu.be/... (YouTube, Vimeo, Facebook, TikTok, Instagram, Twitch)" style="flex:1"><button class="btn bs" onclick="vidDetectUrl()">Detectar</button></div></div>'
+    +'<div class="fg"><label class="fl">Canal</label><select class="fs" id="vidc">'+opts+'</select></div>'
+    +'<div class="fg"><label class="fl">Título</label><input class="fi" id="vidt" value="'+nfEsc(v.title||'')+'" placeholder="Se completa solo con “Detectar” en YouTube y Vimeo"></div>'
+    +'<div class="fg"><label class="fl">Miniatura (URL de imagen, opcional)</label><input class="fi" id="vidth" value="'+nfEsc(v.thumbnailUrl||'')+'" placeholder="YouTube la trae sola; en otras plataformas pega una imagen"></div>'
+    +'<div class="fg"><label class="fl">Fecha</label><input class="fi" id="vidd" type="date" value="'+nfEsc((v.publishedAt||'').slice(0,10))+'" style="max-width:180px"></div>'
+    +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:8px 0"><input type="checkbox" id="vida" '+(v.activo===false?'':'checked')+' style="accent-color:var(--acc);width:16px;height:16px"> Visible para los usuarios</label>'
+    +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" data-vid="'+nfEsc(id||'')+'" onclick="saveVideo(this.dataset.vid)">Guardar</button></div>');
+}
+async function vidDetectUrl(){
+  var url=fv('vidu').trim();if(!url){toast('Pega primero la URL del video','error');return;}
+  toast('Detectando video...','info');
+  var r=await api('resolveVideoUrl',{url:url});
+  if(r&&r.ok){
+    var t=document.getElementById('vidt'),th=document.getElementById('vidth');
+    if(t&&r.title&&!t.value)t.value=r.title;
+    if(th&&r.thumbnailUrl&&!th.value)th.value=r.thumbnailUrl;
+    toast(r.title?'Video detectado':(r.ref?'Detectado, escribe el título':'No se reconoció el video; se abrirá en el navegador'),r.title?'success':'info');
+  } else toast((r&&r.error)||'No se pudo detectar el video','error');
+}
+async function saveVideo(id){
+  var url=fv('vidu').trim();if(!url){toast('La URL del video es requerida','error');return;}
+  var old=id?(S.videos||[]).filter(function(x){return x.id===id;})[0]:null;
+  var d=fv('vidd'),pub=old&&old.publishedAt&&old.publishedAt.slice(0,10)===d?old.publishedAt:(d?new Date(d+'T12:00:00').toISOString():'');
+  var v={id:id||null,url:url,channelId:fv('vidc')||'',title:fv('vidt').trim(),thumbnailUrl:fv('vidth').trim(),publishedAt:pub,
+    activo:!!document.getElementById('vida').checked,source:old?old.source:'manual',createdAt:old?old.createdAt:''};
+  toast('Guardando video...','info');
+  var r=await api('saveVideo',{video:v});
+  if(r&&r.ok){cM();await vidLoad(true);if(curP==='videos')renderVideos();toast('Video guardado','success');}
+  else toast((r&&r.error)||'Error al guardar el video','error');
+}
+async function delVideo(id){
+  var v=(S.videos||[]).filter(function(x){return x.id===id;})[0];
+  if(!confirm(v&&v.source==='auto'?'Este video se importó automáticamente de YouTube. Se ocultará y no volverá a aparecer. ¿Continuar?':'¿Eliminar este video?'))return;
+  var r=await api('deleteVideo',{id:id});
+  if(r&&r.ok){await vidLoad(true);if(curP==='videos')renderVideos();toast(r.hidden?'Video oculto':'Video eliminado','info');}
+  else toast((r&&r.error)||'Error','error');
 }
 
 // Aplica la marca a los pocos elementos de HTML estatico que no se
@@ -2948,6 +3169,7 @@ var ALL_MOD=[
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
+  {id:'videos',lbl:'Videos',ico:'🎬',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
   {id:'streaks',lbl:'En Racha',ico:'🔥',sec:'Estadisticas'},
@@ -2964,9 +3186,10 @@ var ALL_MOD=[
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
   {id:'gsimport',lbl:'Importar desde GSheets',ico:'📥',sec:'Admin'},
 ];
-var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels'];
+var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','videos'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
 var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
@@ -3454,7 +3677,19 @@ function canScoreNow(gm){
   return !isGameLockedByOther(gm);
 }
 
+// El recordatorio de Fantasy por subtorneo necesita saber de qué usuario es este teléfono: al iniciar/retomar sesión se liga el token
+// (el servidor usa el usuario del JWT; un visitante lo desliga). Se repite solo si cambia el usuario.
+var _pushLinkedUser=null;
+function pushLinkUser(){
+  if(!IS_NATIVE_APP||!S.user)return;
+  var uid=String(S.user.id||S.user.role||'');if(_pushLinkedUser===uid)return;
+  var token=null;try{token=localStorage.getItem('vp_push_token');}catch(e){}
+  if(!token)return;
+  _pushLinkedUser=uid;
+  api('savePushPrefs',{token:token,link:true});
+}
 function renderApp(){
+  pushLinkUser();
   ensureOfflineUI();
   applyOfflineNavLock();
   if(!_connCheckTimer)startConnCheck();
@@ -3539,7 +3774,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif,videos:pgVideos};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -4260,10 +4495,20 @@ function openTM(id){
     +'<div class="fg"><label class="fl">L (derrota)</label><input class="fi" id="taplpit" type="number" step="0.5" value="'+(t.asPtsLPit!==undefined&&t.asPtsLPit!==null?t.asPtsLPit:2)+'"></div></div>'
     +'<div class="alert ai" style="font-size:12px">Estos puntos determinan los candidatos a MVP, Cy Young, Novato del Año, MVP Serie Final y el Top 3 por posición del Juego de Estrellas, visibles en el módulo de Premiaciones.</div>'
     +tmlbSection(t)
+    +tfrSection(t)
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveT(this.dataset.tid)">Guardar</button></div>');
   if(id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb'))tmlbLoadStatus(id);
+}
+// ── Recordatorio de Fantasía del subtorneo (SOLO admin; el servidor también lo valida). Cada subtorneo tiene su propia hora. ──
+function tfrSection(t){
+  if(!(S.user&&S.user.role==='admin'))return'';
+  return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128276; RECORDATORIO DE FANTASY (solo administrador)</div>'
+    +'<div class="alert ai" style="font-size:12px">Notificación push que recuerda ajustar la plantilla de <b>este subtorneo</b>. Se envía una vez al día a esta hora (hora de República Dominicana), solo si el subtorneo tiene juegos ese día, y solo a quienes tienen plantilla en él y activaron “Recordatorio de Fantasy” en Notificaciones. Vacío = sin recordatorio.</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Hora de envío</label><input class="fi" id="tfr-time" type="time" value="'+nfEsc(t.fantasyReminderTime||'')+'"></div><div class="fg"></div></div>'
+    +'<div class="fg"><label class="fl">Mensaje (opcional)</label><input class="fi" id="tfr-msg" type="text" maxlength="120" value="'+nfEsc(t.fantasyReminderMsg||'')+'" placeholder="Vacío = “Revisa tu plantilla de [subtorneo] antes de que empiecen los juegos de hoy.”"></div>'
+    +(t.id?'<button class="btn bs bsm" type="button" onclick="testFantasyReminder(\''+nfEsc(t.id)+'\')">Enviar recordatorio de prueba ahora</button><div style="font-size:11px;color:var(--t3);margin-top:4px">Si cambiaste la hora o el mensaje, guarda primero.</div>':'');
 }
 // ── Fuente de datos MLB del subtorneo (SOLO admin; el servidor también lo valida) ──
 function tmlbSection(t){
@@ -4354,6 +4599,7 @@ async function saveT(id){
     t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
+  if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok){
     if(!id)S.tournaments.push(r.item);else S.tournaments=S.tournaments.map(function(x){return x.id===id?r.item:x;});
@@ -14961,11 +15207,6 @@ function fnCfgCard(){
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">COLA DE TURNOS AL "CREAR PLANTILLA" (cada tipo de plantilla con sus propios valores)</div>'+qblock('Fase','Plantillas POR TORNEO (fase)')+qblock('Dia','Plantillas DIARIAS')
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">BLOQUEO DE JUGADORES LIBERADOS (minutos en que solo quien lo liberó puede volver a tomarlo; 0 = sin bloqueo)</div>'
     +'<div style="'+g+'">'+hinp('fnhold-Fase','fantasyHoldMinFase','Plantillas por torneo (min)')+hinp('fnhold-Dia','fantasyHoldMinDia','Plantillas diarias (min)')+'</div>'
-    +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">&#128276; RECORDATORIO PUSH PARA AJUSTAR LA PLANTILLA (app Android)</div>'
-    +'<div class="fg" style="margin-top:6px"><label class="fl" style="font-size:11px">Hora de envío, hora de República Dominicana (vacío = recordatorio apagado)</label><input class="fi" id="fnremT" type="time" value="'+nfEsc(c.fantasyReminderTime||'')+'" style="max-width:160px"></div>'
-    +'<div class="fg"><label class="fl" style="font-size:11px">Mensaje (opcional; vacío = “Revisa tu plantilla antes de que empiecen los juegos de hoy.”)</label><input class="fi" id="fnremM" type="text" maxlength="120" value="'+nfEsc(c.fantasyReminderMsg||'')+'"></div>'
-    +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px;line-height:1.5">Se envía una vez al día, solo si hay juegos programados ese día, y solo a los teléfonos que activaron “Recordatorio de Fantasy” en el módulo Notificaciones. Guarda antes de enviar la prueba.</div>'
-    +'<button class="btn bs" style="margin-bottom:10px" onclick="testFantasyReminder()">Enviar recordatorio de prueba ahora</button>'
     +'<div class="alert ai" style="font-size:12px;margin:10px 0">Con 0 en todos los campos el sistema de acceso queda desactivado. Pasados 5 días seguidos (o 5 sin acceder) se aplica el valor de la fila "5 o más". El día se cuenta en hora de República Dominicana.</div>'
     +'<button class="btn bp" onclick="saveFantasyCfg()">Guardar Liga de Fantasía</button></div>';
 }
@@ -14987,10 +15228,6 @@ async function saveFantasyCfg(){
       ['fantasyPickMax'+sx,Math.max(1,parseInt(fv('fnq-pick'+sx))||3)],['fantasyTurnSec'+sx,Math.max(5,parseInt(fv('fnq-sec'+sx))||60)]);
   });
   items.push(['fantasyHoldMinFase',Math.max(0,parseInt(fv('fnhold-Fase'))||0)],['fantasyHoldMinDia',Math.max(0,parseInt(fv('fnhold-Dia'))||0)]);
-  var newRemT=(fv('fnremT')||'').trim();
-  items.push(['fantasyReminderTime',newRemT],['fantasyReminderMsg',(fv('fnremM')||'').trim()]);
-  // Si cambia la hora, se reinicia el "ya enviado hoy" para que el nuevo horario pueda disparar hoy mismo
-  if(newRemT!==String((S.config||{}).fantasyReminderTime||''))items.push(['fantasyReminderLast','']);
   var ok=true;
   for(var j=0;j<items.length;j++){
     var r=await api('saveConfig',{key:items[j][0],value:items[j][1]});
@@ -14998,8 +15235,9 @@ async function saveFantasyCfg(){
   }
   toast(ok?'Liga de Fantasía guardada':'Error al guardar',ok?'success':'error');
 }
-async function testFantasyReminder(){
-  var r=await api('sendFantasyReminderNow',{});
+async function testFantasyReminder(tid){
+  toast('Enviando recordatorio de prueba...','info');
+  var r=await api('sendFantasyReminderNow',{tournamentId:tid});
   if(r&&r.ok)toast(r.sent>0?'Recordatorio enviado a '+r.sent+' dispositivo(s)':(r.note||'No se envió a ningún dispositivo'),r.sent>0?'success':'info');
   else toast((r&&r.error)||'No se pudo enviar el recordatorio','error');
 }
@@ -16981,6 +17219,7 @@ function pgSponsors(){
       if(s.pinCalendario)pins.push('Calendario');
       if(s.pinRankings)pins.push('Rankings');
       if(s.pinToVsTo)pins.push('To vs To');
+      if(s.pinVideos)pins.push('Videos');
     }
     return'<div class="card" style="margin-bottom:12px">'
       +'<div style="display:flex;align-items:center;gap:12px">'
@@ -17077,6 +17316,7 @@ function openSponsorM(id,tipo){
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppc" '+(s.pinCalendario?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Calendario</label>'
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppr" '+(s.pinRankings?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Rankings</label>'
       +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="spptv" '+(s.pinToVsTo?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo To vs To</label>'
+      +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:6px"><input type="checkbox" id="sppv" '+(s.pinVideos?'checked':'')+' style="accent-color:var(--acc);width:16px;height:16px"> Modulo Videos</label>'
       +'</div>':'')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
@@ -17104,6 +17344,7 @@ async function saveSponsorItem(id){
     pinCalendario:isPat&&!!(document.getElementById('sppc')&&document.getElementById('sppc').checked),
     pinRankings:isPat&&!!(document.getElementById('sppr')&&document.getElementById('sppr').checked),
     pinToVsTo:isPat&&!!(document.getElementById('spptv')&&document.getElementById('spptv').checked),
+    pinVideos:isPat&&!!(document.getElementById('sppv')&&document.getElementById('sppv').checked),
     createdAt:new Date().toISOString()
   };
   var r=await api('saveSponsor',{sponsor:s});
