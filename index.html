@@ -143,7 +143,11 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .modal.vidm{max-width:760px;padding:0;overflow:hidden;}
 .vwrap{position:relative;width:100%;padding-top:56.25%;background:#000;}
 .vwrap.tall{padding-top:0;height:min(72vh,640px);}
-.vwrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;}
+.vwrap iframe,.vwrap video{position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;}
+.chposter{cursor:pointer;}
+.chposter .vwrap{background:linear-gradient(135deg,var(--card2),var(--bg3));border-radius:12px;overflow:hidden;}
+.chpbg{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.vplay.big{position:static;transform:none;width:58px;height:58px;font-size:22px;}
 .bg{background:rgba(34,197,94,.15);color:#4ade80;}.br{background:rgba(239,68,68,.15);color:#f87171;}
 .bb{background:rgba(59,130,246,.15);color:#60a5fa;}.bo{background:rgba(245,166,35,.15);color:#f5a623;}
 .bgr{background:rgba(148,163,184,.1);color:var(--t2);}
@@ -6981,7 +6985,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -17092,14 +17096,108 @@ function setChTour(val){
 // visitantes viendo un juego EN VIVO cuando el torneo de ese juego tiene al
 // menos un canal configurado. Con un solo canal abre directo; con varios,
 // pregunta cual usar.
+// ── Reproductor de Canales en Vivo ────────────────────────────────────────────────────────
+// Devuelve cómo reproducir la URL DENTRO de la app, o null si no se puede (entonces se abre en el navegador):
+//  {kind:'iframe',src,tall} (YouTube, Facebook, Twitch, Kick, Vimeo, TikTok, Instagram o un enlace de reproductor/embed)
+//  {kind:'video',src} (archivo directo .mp4/.webm)   ·   {kind:'hls',src} (transmisión .m3u8)
+function liveEmbed(raw){
+  var url=String(raw||'').trim(),u;
+  try{u=new URL(url);}catch(e){return null;}
+  var h=u.hostname.toLowerCase().replace(/^(www\.|m\.)/,''),p=u.pathname,m,o='',host='localhost';
+  try{if(location.protocol.indexOf('http')===0)o=location.origin;host=location.hostname||'localhost';}catch(e){}
+  var ifr=function(src,tall){return {kind:'iframe',src:src,tall:!!tall};};
+  var yt=function(id){return ifr('https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&playsinline=1&modestbranding=1'+(o?'&origin='+encodeURIComponent(o):''));};
+  if(/\.m3u8$/i.test(p))return {kind:'hls',src:url};
+  if(/\.(mp4|webm|ogv|m4v)$/i.test(p))return {kind:'video',src:url};
+  if(h==='youtu.be'){m=/^\/([\w-]{11})/.exec(p);return m?yt(m[1]):null;}
+  if(h==='youtube.com'||h==='youtube-nocookie.com'){
+    var v=u.searchParams.get('v');if(v&&/^[\w-]{11}$/.test(v))return yt(v);
+    m=/^\/(?:shorts|embed|live|v)\/([\w-]{11})/.exec(p);if(m)return yt(m[1]);
+    m=/^\/channel\/(UC[\w-]{22})/.exec(p);   // la transmisión en vivo actual del canal
+    if(m)return ifr('https://www.youtube.com/embed/live_stream?channel='+m[1]+'&autoplay=1&playsinline=1&rel=0'+(o?'&origin='+encodeURIComponent(o):''));
+    return null;
+  }
+  if(h==='facebook.com'||h==='fb.watch'||h==='fb.com'){
+    if(h==='fb.watch'||/\/(videos?|watch|reels?|share\/[vr])(\/|$|\?)/.test(p+'/'))return ifr('https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&href='+encodeURIComponent(url));
+    return null;
+  }
+  if(h==='twitch.tv'){
+    m=/^\/videos\/(\d+)/.exec(p);if(m)return ifr('https://player.twitch.tv/?video=v'+m[1]+'&parent='+encodeURIComponent(host)+'&autoplay=true');
+    m=/^\/([\w]{2,25})\/?$/.exec(p);if(m&&['directory','videos','downloads','jobs','turbo'].indexOf(m[1].toLowerCase())<0)return ifr('https://player.twitch.tv/?channel='+m[1]+'&parent='+encodeURIComponent(host)+'&autoplay=true');
+    return null;
+  }
+  if(h==='kick.com'){m=/^\/([\w-]{2,30})\/?$/.exec(p);return m?ifr('https://player.kick.com/'+m[1]):null;}
+  if(h==='vimeo.com'){
+    m=/^\/event\/(\d+)/.exec(p);if(m)return ifr('https://vimeo.com/event/'+m[1]+'/embed');
+    m=/\/(\d{6,})/.exec(p);return m?ifr('https://player.vimeo.com/video/'+m[1]+'?autoplay=1'):null;
+  }
+  if(h==='tiktok.com'){m=/\/video\/(\d+)/.exec(p);return m?ifr('https://www.tiktok.com/embed/v2/'+m[1],true):null;}
+  if(h==='instagram.com'){m=/^\/(?:[\w.]+\/)?(p|reels?|tv)\/([\w-]+)/.exec(p);return m?ifr('https://www.instagram.com/'+(m[1]==='reels'?'reel':m[1])+'/'+m[2]+'/embed',true):null;}
+  // enlaces que ya son de reproductor/embed
+  if(h==='player.twitch.tv'||h==='player.vimeo.com'||h==='player.kick.com'||(h==='youtube.com'&&/\/embed\//.test(p)))return ifr(url);
+  return null;
+}
+function liveEmbedHtml(em){
+  if(em.kind==='iframe')return '<div class="vwrap'+(em.tall?' tall':'')+'"><iframe src="'+nfEsc(em.src)+'" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>';
+  return '<div class="vwrap"><video controls autoplay playsinline '+(em.kind==='video'?'src="'+nfEsc(em.src)+'"':'')+'></video></div>';
+}
+// .m3u8: Safari/algunos WebView lo reproducen nativo; en el resto se carga hls.js (solo cuando hace falta)
+function attachHls(el,src){
+  if(!el)return;
+  var play=function(){var pr=el.play();if(pr&&pr.catch)pr.catch(function(){});};
+  if(el.canPlayType&&el.canPlayType('application/vnd.apple.mpegurl')){el.src=src;play();return;}
+  var go=function(){
+    try{var hls=new window.Hls();hls.loadSource(src);hls.attachMedia(el);hls.on(window.Hls.Events.MANIFEST_PARSED,play);}
+    catch(e){toast('No se pudo reproducir esta transmisión aquí','error');}
+  };
+  if(window.Hls){go();return;}
+  var sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js';sc.onload=go;
+  sc.onerror=function(){toast('No se pudo cargar el reproductor de la transmisión','error');};
+  document.head.appendChild(sc);
+}
+var _chActive=null;
+function chChannel(id){return (S.channels||[]).filter(function(x){return x.id===id;})[0]||null;}
+function chPosterInner(c){
+  var ico=PLATFORM_ICONS[getPlatform(c.url)]||'📺';
+  return '<div class="chposter" data-cid="'+nfEsc(c.id)+'" onclick="chPlay(this.dataset.cid)"><div class="vwrap"><div class="chpbg"><div style="font-size:34px">'+ico+'</div><span class="vplay big">&#9654;</span>'
+    +'<div style="font-size:13px;font-weight:700;color:var(--t2)">Ver transmisión aquí</div></div></div></div>';
+}
+function chPlay(id){
+  var c=chChannel(id);if(!c)return;
+  var em=liveEmbed(c.url);
+  if(!em){window.open(c.url,'_blank');return;}
+  var box=document.getElementById('chp-'+id);if(!box)return;
+  if(_chActive&&_chActive!==id){var pc=chChannel(_chActive),pb=document.getElementById('chp-'+_chActive);if(pc&&pb)pb.innerHTML=chPosterInner(pc);}
+  box.innerHTML=liveEmbedHtml(em)
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn bs bsm" data-url="'+nfEsc(c.url)+'" onclick="window.open(this.dataset.url,\'_blank\')">&#8599; Abrir en otra app</button>'
+    +'<button class="btn bs bsm" data-cid="'+nfEsc(id)+'" onclick="chStop(this.dataset.cid)">&#10005; Cerrar</button></div>';
+  _chActive=id;
+  if(em.kind==='hls')attachHls(box.querySelector('video'),em.src);
+  try{box.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}
+}
+function chStop(id){
+  var c=chChannel(id),box=document.getElementById('chp-'+id);
+  if(c&&box)box.innerHTML=chPosterInner(c);   // al quitar el iframe/video se detiene la reproducción
+  if(_chActive===id)_chActive=null;
+}
+// Botón "Ver Transmisión en Vivo" de un juego: si el canal se puede reproducir en la app, lleva al módulo Canales en Vivo y lo reproduce;
+// si no (o no hay acceso al módulo), abre el enlace como antes. Con varios canales pregunta cuál.
+function watchChannel(cid){
+  var c=chChannel(cid);if(!c)return;
+  if(liveEmbed(c.url)&&hasModuleAccess('channels')){
+    S.chPlay=c.id;
+    if(c.tournamentId)setSharedTour(c.tournamentId);
+    goNav('channels');
+  } else window.open(c.url,'_blank');
+}
 function watchLiveChannel(tid){
   var chs=(S.channels||[]).filter(function(c){return c.tournamentId===tid;});
   if(!chs.length)return;
-  if(chs.length===1){window.open(chs[0].url,'_blank');return;}
+  if(chs.length===1){watchChannel(chs[0].id);return;}
   var rows=chs.map(function(c){
-    return'<button class="btn bs" style="width:100%;text-align:left;margin-bottom:8px;display:block" data-url="'+(c.url||'').replace(/"/g,'&quot;')+'" onclick="window.open(this.dataset.url,\'_blank\');cM()">'
-      +'<div style="font-weight:700">&#128250; '+c.name+'</div>'
-      +(c.description?'<div style="font-size:11px;color:var(--t3)">'+c.description+'</div>':'')
+    return'<button class="btn bs" style="width:100%;text-align:left;margin-bottom:8px;display:block" data-cid="'+nfEsc(c.id)+'" onclick="cM();watchChannel(this.dataset.cid)">'
+      +'<div style="font-weight:700">&#128250; '+nfEsc(c.name)+(liveEmbed(c.url)?' <span class="badge bg" style="font-size:10px">En la app</span>':'')+'</div>'
+      +(c.description?'<div style="font-size:11px;color:var(--t3)">'+nfEsc(c.description)+'</div>':'')
       +'</button>';
   }).join('');
   showM('<div class="mhd"><div class="mtl">&#128250; Elige un canal</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'+rows+'</div>');
@@ -17107,53 +17205,65 @@ function watchLiveChannel(tid){
 function pgChannels(){
   var isA=S.user&&S.user.role!=='public'&&canDo('create','channels');
   S.chTourFilter=sharedTourId();
-  var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.chTourFilter===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(S.chTourFilter===t.id?'selected':'')+'>'+nfEsc(t.name)+'</option>';}).join('');
   var chScopeIds=toursByYear().map(function(t){return String(t.id);});
   var chs=(S.channels||[]).filter(function(c){
     if(S.chTourFilter) return c.tournamentId===S.chTourFilter;
     if(!c.tournamentId) return true; // canal global, sin torneo asignado — siempre visible
-    // "Todos" (sin subtorneo especifico): antes mostraba TODOS los canales sin importar el
-    // torneo padre filtrado arriba. Ahora se acota a los subtorneos del padre seleccionado.
+    // "Todos" (sin subtorneo especifico): se acota a los subtorneos del padre seleccionado.
     return chScopeIds.indexOf(String(c.tournamentId))>=0;
   });
+  // Si se llegó desde "Ver Transmisión en Vivo" de un juego, ese canal siempre debe estar en la lista
+  if(S.chPlay&&!chs.some(function(c){return c.id===S.chPlay;})){var pc0=chChannel(S.chPlay);if(pc0)chs.unshift(pc0);}
+  _chActive=null;
   var cards=chs.map(function(c){
-    var plt=getPlatform(c.url);
-    var ico=PLATFORM_ICONS[plt]||'📺';
+    var ico=PLATFORM_ICONS[getPlatform(c.url)]||'📺';
     var tm=toursByYear().filter(function(t){return t.id===c.tournamentId;})[0];
+    var area=liveEmbed(c.url)
+      ?'<div id="chp-'+nfEsc(c.id)+'" style="margin-top:12px">'+chPosterInner(c)+'</div>'
+      :'<div style="margin-top:12px"><button class="btn bp" data-url="'+nfEsc(c.url)+'" onclick="window.open(this.dataset.url,\'_blank\')">&#8599; Abrir transmisión</button><div style="font-size:11px;color:var(--t3);margin-top:4px">Esta transmisión se abre en el navegador o en su app.</div></div>';
     return'<div class="card" style="margin-bottom:12px">'
       +'<div style="display:flex;align-items:center;gap:12px">'
-      +'<div style="font-size:32px;width:48px;text-align:center">'+ico+'</div>'
+      +'<div style="font-size:28px;width:40px;text-align:center">'+ico+'</div>'
       +'<div style="flex:1;min-width:0">'
-      +'<div style="font-weight:700;font-size:15px">'+c.name+'</div>'
-      +(tm?'<div style="font-size:12px;color:var(--acc);margin-top:2px">'+tm.name+'</div>':'')
-      +(c.description?'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+c.description+'</div>':'')
-      +'<a href="'+c.url+'" target="_blank" style="font-size:12px;color:var(--grn);word-break:break-all">'+c.url+'</a>'
+      +'<div style="font-weight:700;font-size:15px">'+nfEsc(c.name)+'</div>'
+      +(tm?'<div style="font-size:12px;color:var(--acc);margin-top:2px">'+nfEsc(tm.name)+'</div>':'')
+      +(c.description?'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+nfEsc(c.description)+'</div>':'')
+      +(isA?'<div style="font-size:11px;color:var(--t3);word-break:break-all;margin-top:2px">'+nfEsc(c.url)+'</div>':'')
       +'</div>'
-      +'<div style="display:flex;flex-direction:column;gap:6px">'
-      +'<a href="'+c.url+'" target="_blank" class="btn bp bsm" style="text-decoration:none;text-align:center">&#9654; Ver</a>'
-      +(isA?'<button class="btn bs bsm" data-cid="'+c.id+'" onclick="openChannelM(this.dataset.cid)">Editar</button>':'')
-      +(isA?'<button class="btn bd bsm" data-cid="'+c.id+'" onclick="delChannel(this.dataset.cid)">&#128465;</button>':'')
-      +'</div>'
-      +'</div></div>';
+      +(isA?'<div style="display:flex;flex-direction:column;gap:6px"><button class="btn bs bsm" data-cid="'+nfEsc(c.id)+'" onclick="openChannelM(this.dataset.cid)">Editar</button>'
+        +'<button class="btn bd bsm" data-cid="'+nfEsc(c.id)+'" onclick="delChannel(this.dataset.cid)">&#128465;</button></div>':'')
+      +'</div>'+area+'</div>';
   }).join('');
   ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-    +'<div><div class="stl">&#128250; Canales en Vivo</div><div class="ssb">Accede a los medios de transmision de los torneos</div></div>'
+    +'<div><div class="stl">&#128250; Canales en Vivo</div><div class="ssb">Mira las transmisiones de los torneos sin salir de la app</div></div>'
     +(isA?'<button class="btn bp" onclick="openChannelM(\'\')">+ Agregar Canal</button>':'')+'</div>'
     +'<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label><select class="fs" style="width:220px" onchange="setChTour(this.value)">'+tOpts+'</select></div></div>'
     +(cards||'<div class="card"><div class="empty"><div>&#128250; Sin canales registrados</div><div style="font-size:12px;color:var(--t3)">El administrador puede agregar enlaces de transmision</div></div></div>'));
+  if(S.chPlay){var pid=S.chPlay;S.chPlay=null;setTimeout(function(){chPlay(pid);},60);}   // autoplay al llegar desde un juego
 }
 function openChannelM(id){
   var c=id?(S.channels||[]).filter(function(x){return x.id===id;})[0]:{};if(!c)c={};
   var tOpts='<option value="">-- Sin torneo --</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(c.tournamentId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Canal</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
-    +'<div class="fg"><label class="fl">Nombre del canal *</label><input class="fi" id="chn" value="'+(c.name||'')+'" placeholder="Ej: Canal Oficial Liga A"></div>'
-    +'<div class="fg"><label class="fl">URL del enlace *</label><input class="fi" id="chu" value="'+(c.url||'')+'" placeholder="https://youtube.com/live/..."></div>'
+    +'<div class="fg"><label class="fl">Nombre del canal *</label><input class="fi" id="chn" value="'+nfEsc(c.name||'')+'" placeholder="Ej: Canal Oficial Liga A"></div>'
+    +'<div class="fg"><label class="fl">URL del enlace *</label><input class="fi" id="chu" value="'+nfEsc(c.url||'')+'" placeholder="https://youtube.com/live/..." oninput="chUrlHint()">'
+    +'<div id="chuh" style="font-size:11px;margin-top:4px;color:var(--t3)"></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:2px">Se reproduce dentro de la app si es de YouTube, Facebook, Twitch, Kick, Vimeo, TikTok, Instagram o un enlace directo (.mp4 / .m3u8). En otros casos se abre en el navegador.</div></div>'
     +'<div class="fg"><label class="fl">Torneo</label><select class="fs" id="cht">'+tOpts+'</select></div>'
-    +'<div class="fg"><label class="fl">Descripcion (opcional)</label><input class="fi" id="chd" value="'+(c.description||'')+'" placeholder="Descripcion breve"></div>'
+    +'<div class="fg"><label class="fl">Descripcion (opcional)</label><input class="fi" id="chd" value="'+nfEsc(c.description||'')+'" placeholder="Descripcion breve"></div>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-cid="'+(id||'')+'" onclick="saveChannel(this.dataset.cid)">Guardar</button></div>');
+  chUrlHint();
+}
+function chUrlHint(){
+  var el=document.getElementById('chuh');if(!el)return;
+  var u=(document.getElementById('chu')||{}).value||'';
+  if(!u.trim()){el.innerHTML='';return;}
+  var em=liveEmbed(u);
+  el.innerHTML=em?'<span style="color:var(--grn)">&#10003; Se reproducirá dentro de la app</span>':'Se abrirá en el navegador (este enlace no se puede incrustar)';
 }
 async function saveChannel(id){
   var name=fv('chn'),url=fv('chu');
@@ -17164,7 +17274,7 @@ async function saveChannel(id){
     var saved=r.item||c;
     if(!id)S.channels.push(saved);
     else S.channels=S.channels.map(function(x){return x.id===id?saved:x;});
-    cM();pgChannels();toast('Canal guardado','success');
+    cM();pgChannels();toast(saved.url&&saved.url!==url?'Canal guardado (enlace de YouTube convertido para reproducirse en la app)':'Canal guardado','success');
   } else toast(r&&r.error||'Error','error');
 }
 async function delChannel(id){
