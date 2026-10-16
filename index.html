@@ -1512,6 +1512,12 @@ async function api(action,data){
       setOnlineState(false);
       return synthOfflineResult(action,data);
     }
+    if(e&&e.httpStatus){
+      // El servidor SI respondio (con un error): no es falta de conexión; se muestra su motivo en vez de solo "HTTP 500"
+      var smsg=e.serverMessage||('Error del servidor (HTTP '+e.httpStatus+')');
+      toast(smsg,'error');
+      return{ok:false,error:smsg};
+    }
     toast('Error de conexión: '+e.message,'error');
     setOnlineState(false);
     return{ok:false,error:e.message};
@@ -1678,7 +1684,11 @@ async function apiRaw(action,data){
     headers:hdrs,
     body:JSON.stringify(Object.assign({action:action},data||{}))
   },API_TIMEOUT_MS);
-  if(!r.ok){ var he=new Error('HTTP '+r.status); he.httpStatus=r.status; throw he; }
+  if(!r.ok){
+    var he=new Error('HTTP '+r.status); he.httpStatus=r.status;
+    try{ var eb=await r.json(); if(eb&&eb.error)he.serverMessage=String(eb.error); }catch(x){}   // el Worker responde {ok:false,error} tambien en 500: se conserva el motivo
+    throw he;
+  }
   return await r.json();
 }
 
@@ -3063,7 +3073,9 @@ async function _doPoll(){
     // 'gamecontrol' se maneja aparte mas abajo (no aqui) porque necesita logica especial
     // para no pisar el estado del anotador activo mientras esta registrando jugadas.
     var refreshableMods=['standings','stats','streaks','leaders','leaderslife','statslife','schedule','dashboard','channels'];
-    if(!_isViewingGame&&curP&&refreshableMods.indexOf(curP)>=0&&typeof PGS!=='undefined'&&PGS[curP]){
+    // Canales en Vivo: mientras hay un video reproduciéndose (_chActive) NO se repinta la página — reconstruir la lista destruiría el
+    // reproductor (el video se cerraba solo a los segundos y volvía el botón ▶). Al cerrarlo con la X, el refresco se reanuda.
+    if(!_isViewingGame&&curP&&refreshableMods.indexOf(curP)>=0&&!(curP==='channels'&&_chActive)&&typeof PGS!=='undefined'&&PGS[curP]){
       try{
         if(curP==='stats'&&(_ST.search||'')){
           initPGS();PGS[curP]();filterStatsDisplay();
