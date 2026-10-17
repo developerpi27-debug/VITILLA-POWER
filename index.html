@@ -2671,11 +2671,12 @@ function adTimedTick(){
 if(IS_NATIVE_APP&&!_adTimedTimer)_adTimedTimer=setInterval(adTimedTick,AD_TIMED_STEP*1000);
 // ── Aviso "Califica la app" (solo app nativa de Android) ─────────────────────────────────────────────
 // El admin lo enciende y fija cada cuantos dias sale en Configuracion > Calificar la app (claves ratePromptEnabled y
-// ratePromptDays). El primer aviso sale pasados N dias desde la primera vez que el usuario abre la app (no apenas se instala).
+// ratePromptDays). El primer aviso sale a los ~3 minutos de la primera vez que el usuario abre la app; los siguientes, cada N dias.
 // "Calificar ahora" abre la ficha de la app en Google Play (AndroidPlay.openStore, ver PlayBridge.java) donde se dan las
 // estrellas y ya no se vuelve a preguntar; "Mas tarde" reinicia el conteo de dias; "No volver a preguntar" lo apaga en ese
 // dispositivo. Nunca interrumpe Control de Juego, una ventana abierta ni mientras el usuario escribe.
 var RATE_LS={first:'vp_rate_first',last:'vp_rate_last',state:'vp_rate_state'};
+var RATE_FIRST_MIN=3;   // minutos desde la primera apertura hasta el primer aviso
 function rateLsGet(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
 function rateLsSet(k,v){try{localStorage.setItem(k,String(v));}catch(e){}}
 function rateOpenStore(){
@@ -2696,8 +2697,10 @@ function rateMaybePrompt(){
   if(st==='done'||st==='never')return;
   var now=Date.now();
   if(!rateLsGet(RATE_LS.first))rateLsSet(RATE_LS.first,now);
-  var ref=parseInt(rateLsGet(RATE_LS.last))||parseInt(rateLsGet(RATE_LS.first))||now;
-  if(now-ref<days*86400000)return;
+  // La PRIMERA vez sale a los pocos minutos de usar la app (RATE_FIRST_MIN); las siguientes, cada N dias desde la ultima vez.
+  var lastTs=parseInt(rateLsGet(RATE_LS.last))||0,firstTs=parseInt(rateLsGet(RATE_LS.first))||now;
+  if(lastTs){if(now-lastTs<days*86400000)return;}
+  else if(now-firstTs<RATE_FIRST_MIN*60000)return;
   if(curP==='gamecontrol'||document.hidden)return;
   var ae=document.activeElement,mo=document.getElementById('modals');
   if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;
@@ -18288,7 +18291,7 @@ function pgSet(){
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#11088; Calificar la app (Google Play)</div></div>'
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ratePromptEnabled" '+(S.config&&S.config.ratePromptEnabled==='true'?'checked':'')+'> Pedir a los usuarios que califiquen la app</label></div>'
       +'<div class="fg"><label class="fl">Cada cuantos dias vuelve a salir el mensaje</label><input class="fi" id="ratePromptDays" type="number" min="1" step="1" value="'+(parseInt(S.config&&S.config.ratePromptDays)||'')+'" placeholder="Ej: 7"></div>'
-      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Solo en la app de Android. Sale a los N dias de que el usuario abrio la app por primera vez y luego cada N dias si elige "Mas tarde". "Calificar ahora" lo lleva a la ficha de la app en Google Play para dar las estrellas y ya no se le vuelve a preguntar; "No volver a preguntar" lo apaga en ese dispositivo. Nunca sale dentro de Control de Juego ni sobre otra ventana.</div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Solo en la app de Android. La primera vez sale a los pocos minutos de usar la app (~3 min) y luego cada N dias si elige "Mas tarde". "Calificar ahora" lo lleva a la ficha de la app en Google Play para dar las estrellas y ya no se le vuelve a preguntar; "No volver a preguntar" lo apaga en ese dispositivo. Nunca sale dentro de Control de Juego ni sobre otra ventana.</div>'
       +'<button class="btn bp" onclick="saveRateConfig()">Guardar</button></div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128241; Anuncios (AdMob)</div></div>'
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledVisitors" '+(S.config&&S.config.adsEnabledVisitors==='true'?'checked':'')+'> Mostrar anuncios a Visitantes</label></div>'
