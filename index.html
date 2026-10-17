@@ -144,6 +144,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .vwrap{position:relative;width:100%;padding-top:56.25%;background:#000;}
 .vwrap.tall{padding-top:0;height:min(72vh,640px);}
 .vwrap iframe,.vwrap video{position:absolute;top:0;left:0;width:100%;height:100%;border:0;background:#000;}
+/* Pantalla completa: el video directo (.mp4/.m3u8) llena toda la pantalla (recorta los bordes en vez de dejar barras negras). */
+.vwrap video:fullscreen{object-fit:cover;width:100vw;height:100vh;}
+.vwrap video:-webkit-full-screen{object-fit:cover;width:100vw;height:100vh;}
 .chposter{cursor:pointer;}
 .chposter .vwrap{background:linear-gradient(135deg,var(--card2),var(--bg3));border-radius:12px;overflow:hidden;}
 .chpbg{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
@@ -2659,11 +2662,55 @@ function adTimedTick(){
   _adTimedDwell+=AD_TIMED_STEP;
   if(_adTimedDwell<mins*60)return;
   var ae=document.activeElement,mo=document.getElementById('modals');
-  if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;  // escribiendo: esperar
-  if(mo&&mo.innerHTML.trim()!=='')return;                      // ventana abierta: esperar
+  if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;  // escribiendo: esperar (un iframe de video con el foco NO bloquea)
+  // ventana abierta: esperar... salvo que sea el reproductor de un video (modulo Videos): ahi el usuario esta viendo
+  // un video y es justo cuando debe salir el anuncio. Tampoco cuenta como "escribiendo" un iframe de video con el foco.
+  if(mo&&mo.innerHTML.trim()!==''&&!mo.querySelector('.vwrap'))return;
   showInterstitialNow();                                       // tambien reinicia el contador
 }
 if(IS_NATIVE_APP&&!_adTimedTimer)_adTimedTimer=setInterval(adTimedTick,AD_TIMED_STEP*1000);
+// ── Aviso "Califica la app" (solo app nativa de Android) ─────────────────────────────────────────────
+// El admin lo enciende y fija cada cuantos dias sale en Configuracion > Calificar la app (claves ratePromptEnabled y
+// ratePromptDays). El primer aviso sale pasados N dias desde la primera vez que el usuario abre la app (no apenas se instala).
+// "Calificar ahora" abre la ficha de la app en Google Play (AndroidPlay.openStore, ver PlayBridge.java) donde se dan las
+// estrellas y ya no se vuelve a preguntar; "Mas tarde" reinicia el conteo de dias; "No volver a preguntar" lo apaga en ese
+// dispositivo. Nunca interrumpe Control de Juego, una ventana abierta ni mientras el usuario escribe.
+var RATE_LS={first:'vp_rate_first',last:'vp_rate_last',state:'vp_rate_state'};
+function rateLsGet(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
+function rateLsSet(k,v){try{localStorage.setItem(k,String(v));}catch(e){}}
+function rateOpenStore(){
+  try{if(window.AndroidPlay&&window.AndroidPlay.openStore){window.AndroidPlay.openStore();return;}}catch(e){}
+  window.open('https://play.google.com/store/apps/details?id=com.vitillapower.app','_blank');   // apps instaladas con un puente anterior
+}
+function rateAnswer(what){
+  cM();
+  if(what==='now'){rateLsSet(RATE_LS.state,'done');rateOpenStore();}
+  else if(what==='never')rateLsSet(RATE_LS.state,'never');
+  else rateLsSet(RATE_LS.last,Date.now());
+}
+function rateMaybePrompt(){
+  if(!IS_NATIVE_APP||!S.user||!S.config||S.config.ratePromptEnabled!=='true')return;
+  var days=parseInt(S.config.ratePromptDays)||0;
+  if(days<1)return;
+  var st=rateLsGet(RATE_LS.state);
+  if(st==='done'||st==='never')return;
+  var now=Date.now();
+  if(!rateLsGet(RATE_LS.first))rateLsSet(RATE_LS.first,now);
+  var ref=parseInt(rateLsGet(RATE_LS.last))||parseInt(rateLsGet(RATE_LS.first))||now;
+  if(now-ref<days*86400000)return;
+  if(curP==='gamecontrol'||document.hidden)return;
+  var ae=document.activeElement,mo=document.getElementById('modals');
+  if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))return;
+  if(mo&&mo.innerHTML.trim()!=='')return;
+  rateLsSet(RATE_LS.last,now);   // si lo cierra con la X o con atras tambien cuenta como "mas tarde"
+  showM('<div class="mhd"><div class="mtl">&#11088; ¿Te gusta VBS Power?</div><button class="bx" onclick="rateAnswer(\'later\')">&#10005;</button></div>'
+    +'<div class="mbd" style="text-align:center"><div style="font-size:44px;letter-spacing:4px;margin-bottom:8px">&#11088;&#11088;&#11088;&#11088;&#11088;</div>'
+    +'<div style="font-size:14px;line-height:1.5">Tu calificación en Google Play nos ayuda a seguir mejorando la app y a que más personas la encuentren. ¡Toma solo un momento!</div></div>'
+    +'<div class="mft" style="flex-wrap:wrap;gap:8px"><button class="btn bs" onclick="rateAnswer(\'never\')">No volver a preguntar</button>'
+    +'<button class="btn bs" onclick="rateAnswer(\'later\')">Más tarde</button>'
+    +'<button class="btn bp" onclick="rateAnswer(\'now\')">Calificar ahora</button></div>');
+}
+if(IS_NATIVE_APP){setTimeout(rateMaybePrompt,12000);setInterval(rateMaybePrompt,60000);}
 
 var VP_PDF_STYLE=`
   /* App color palette */
@@ -4132,18 +4179,22 @@ function teamOf(id){
   return S.teams.filter(function(t){return t.id===id;})[0]||null;
 }
 
+// Logos que vienen del API de MLB (mlbstatic.com): son figuras con fondo transparente, asi que NO deben
+// llevar el color del equipo detras (se veia como un marco amarillo, el color por defecto #f5a623) ni recortarse.
+function isApiLogo(u){return /mlbstatic\.com/i.test(String(u||''));}
 function teamLogoHtml(t,size,radius){
   if(!t)return'';
   var sz=size||40; var rd=radius||8;
+  var _api=isApiLogo(t.logoUrl);
   // Estilos inline autocontenidos (tamaño, recorte y encuadre de la imagen) en vez de
   // depender solo de las clases .team-badge/.team-logo-img: esas clases solo existen en
   // la hoja de estilos de la app en vivo, y los reportes PDF (To vs To, Estadisticas, etc.)
   // abren una ventana nueva con su propia hoja de estilos aparte que no las incluye — sin
   // estos inline, el logo se mostraba a su tamaño natural (sin recortar) y se desbordaba
   // sobre el resto del contenido del PDF. Las clases se conservan por compatibilidad.
-  var style='width:'+sz+'px;height:'+sz+'px;border-radius:'+rd+'px;background:'+(t.color||'var(--acc)')+';display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-family:Barlow Condensed,sans-serif;font-weight:800;color:#000;';
+  var style='width:'+sz+'px;height:'+sz+'px;border-radius:'+rd+'px;background:'+(_api&&t.logoUrl?'transparent':(t.color||'var(--acc)'))+';display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-family:Barlow Condensed,sans-serif;font-weight:800;color:#000;';
   if(t.logoUrl){
-    return'<div class="team-badge" style="'+style+'"><img class="team-logo-img" src="'+t.logoUrl+'" alt="'+t.name+'" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display=\'none\';this.parentNode.textContent=\''+((t.abbreviation||t.name.slice(0,2)).replace(/'/g,''))+'\'"></div>';
+    return'<div class="team-badge" style="'+style+'"><img class="team-logo-img" src="'+t.logoUrl+'" alt="'+t.name+'" style="width:100%;height:100%;object-fit:'+(_api?'contain':'cover')+';border-radius:inherit" onerror="this.style.display=\'none\';this.parentNode.style.background=\''+(t.color||'#f5a623')+'\';this.parentNode.textContent=\''+((t.abbreviation||t.name.slice(0,2)).replace(/'/g,''))+'\'"></div>';
   }
   return'<div class="team-badge" style="'+style+';font-size:'+Math.round(sz*0.35)+'px;color:#000">'+(t.abbreviation||t.name.slice(0,2).toUpperCase())+'</div>';
 }
@@ -4414,12 +4465,28 @@ async function saveParentT(id){
     cM();pgTour();toast('Torneo padre guardado','success');
   } else toast(r&&r.error||'Error','error');
 }
-async function delParentT(id){
+function delParentT(id){
+  var pt=(S.parentTournaments||[]).filter(function(x){return x.id===id;})[0];
+  if(!pt)return;
   var subs=S.tournaments.filter(function(t){return t.parentTournamentId===id;});
-  if(subs.length&&!confirm('Este torneo padre tiene '+subs.length+' subtorneo(s). ¿Eliminar de todas formas?'))return;
-  var r=await api('deleteRow',{sheet:'TorneoPadre',id:id});
-  if(r&&r.ok){S.parentTournaments=S.parentTournaments.filter(function(x){return x.id!==id;});pgTour();toast('Eliminado','info');}
-  else toast(r&&r.error||'Error','error');
+  showM('<div class="mhd"><div class="mtl">&#9888; Eliminar Torneo Padre</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ae" style="font-size:12px">Esta accion es <b>irreversible</b>. Se eliminara el torneo padre <b>'+pt.name+'</b>.'
+    +(subs.length?'<br><br>Tiene <b>'+subs.length+' subtorneo(s)</b> asociado(s).':'')
+    +'</div>'
+    +'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delPTPwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
+    +'<button class="btn bd" data-ptid="'+id+'" onclick="confirmDelParentT(this.dataset.ptid)">Eliminar Permanentemente</button></div>');
+  setTimeout(function(){var el=document.getElementById('delPTPwd');if(el)el.focus();},60);
+}
+async function confirmDelParentT(id){
+  var pwd=fv('delPTPwd');
+  if(!pwd){toast('Ingresa tu contraseña','error');return;}
+  _saving=true;
+  var r=await api('deleteRow',{sheet:'TorneoPadre',id:id,username:S.user.username,password:pwd});
+  _saving=false;
+  if(r&&r.ok){S.parentTournaments=S.parentTournaments.filter(function(x){return x.id!==id;});cM();pgTour();toast('Torneo padre eliminado','success');}
+  else toast(r&&r.error||'Contraseña incorrecta o error al eliminar','error');
 }
 // Borrado en cascada de un SUBTORNEO: arrastra equipos, jugadores, juegos, lineups, jugadas,
 // pitcheo, premiaciones y puntos defensivos de ese subtorneo (ver actionDeleteTournamentCascade
@@ -4721,7 +4788,7 @@ function exportRosterPDF(teamId){
   // Color de encabezado del equipo
   var teamColor=t.color||'#f5a623';
   var logoHtml=t.logoUrl
-    ?'<img src="'+t.logoUrl+'" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:'+teamColor+'" onerror="this.style.display=\'none\'">'
+    ?'<img src="'+t.logoUrl+'" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:'+(isApiLogo(t.logoUrl)?'transparent':teamColor)+'" onerror="this.style.display=\'none\'">'
     :'<div style="width:56px;height:56px;border-radius:8px;background:'+teamColor+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;color:#000;">'+(t.abbreviation||(t.name||'').slice(0,2).toUpperCase())+'</div>';
 
   var rows=pls.map(function(p){
@@ -4789,7 +4856,7 @@ function exportAllRostersPDF(){
     var tour=S.tournaments.filter(function(x){return x.id===t.tournamentId;})[0];
     var teamColor=t.color||'#f5a623';
     var logoHtml=t.logoUrl
-      ?'<img src="'+t.logoUrl+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:'+teamColor+'" onerror="this.style.display=\'none\'">'
+      ?'<img src="'+t.logoUrl+'" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:'+(isApiLogo(t.logoUrl)?'transparent':teamColor)+'" onerror="this.style.display=\'none\'">'
       :'<div style="width:44px;height:44px;border-radius:6px;background:'+teamColor+';display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:900;color:#000">'+(t.abbreviation||(t.name||'').slice(0,2).toUpperCase())+'</div>';
     var pls=S.players.filter(function(p){return p.teamId===t.id;}).slice().sort(function(a,b){
       var na=parseInt(a.number)||999,nb=parseInt(b.number)||999;
@@ -4977,7 +5044,7 @@ function openEM(id){
   // filtrado en pantalla (S.tourFilter), para no tener que volver a seleccionarlo manualmente.
   var preselTourId=t.tournamentId||(!id?(S.tourFilter||''):'');
   var tOpts=visibleTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(x){return'<option value="'+x.id+'" '+(preselTourId===x.id?'selected':'')+'>'+x.name+'</option>';}).join('');
-  var logoPreviewStyle='display:'+(t.logoUrl?'flex':'none')+';width:60px;height:60px;border-radius:10px;background:'+(t.color||'#f5a623')+';overflow:hidden;align-items:center;justify-content:center;margin-bottom:8px;';
+  var logoPreviewStyle='display:'+(t.logoUrl?'flex':'none')+';width:60px;height:60px;border-radius:10px;background:'+(isApiLogo(t.logoUrl)?'transparent':(t.color||'#f5a623'))+';overflow:hidden;align-items:center;justify-content:center;margin-bottom:8px;';
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Nuevo')+' Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +'<div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="en" value="'+(t.name||'')+'" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
@@ -4988,7 +5055,7 @@ function openEM(id){
     +'<div class="fg"><label class="fl">Division</label><input class="fi" id="ediv" value="'+(t.division||'')+'" placeholder="Ej: Norte, Sur, A, B..."></div>'
     +'<div class="fg"><label class="fl">Color</label><input class="fi" id="ecl" type="color" value="'+(t.color||'#f5a623')+'" style="height:40px;padding:4px"></div></div>'
     +'<div class="fg"><label class="fl">&#128247; URL del Logo (imagen PNG/JPG pública)</label>'
-    +'<div style="'+logoPreviewStyle+'" id="logo-prev">'+(t.logoUrl?'<img src="'+t.logoUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentNode.style.display=\'none\'">':'')+'</div>'
+    +'<div style="'+logoPreviewStyle+'" id="logo-prev">'+(t.logoUrl?'<img src="'+t.logoUrl+'" style="width:100%;height:100%;object-fit:'+(isApiLogo(t.logoUrl)?'contain':'cover')+';border-radius:10px" onerror="this.parentNode.style.display=\'none\'">':'')+'</div>'
     +'<input class="fi" id="elogo" value="'+(t.logoUrl||'')+'" placeholder="https://... (opcional)" oninput="previewLogo(this.value)" style="font-size:12px">'
     +'<div style="font-size:11px;color:var(--t3);margin-top:4px">Pega la URL de una imagen pública (imgur, github, etc.). Déjalo vacío para usar el color con las iniciales.</div></div>'
     +'<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-top:10px;cursor:pointer">'
@@ -5001,7 +5068,7 @@ function openEM(id){
 }
 function previewLogo(url){
   var prev=document.getElementById('logo-prev');if(!prev)return;
-  if(url){prev.style.display='flex';prev.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px" onerror="this.parentNode.style.display=\'none\'">';}
+  if(url){prev.style.display='flex';prev.style.background=isApiLogo(url)?'transparent':(fv('ecl')||'#f5a623');prev.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:'+(isApiLogo(url)?'contain':'cover')+';border-radius:10px" onerror="this.parentNode.style.display=\'none\'">';}
   else prev.style.display='none';
 }
 async function saveE(id){
@@ -14456,7 +14523,7 @@ function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)
 function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
-  if(_FN.tab==='rank')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='rank'||_FN.tab==='trades')return{kind:'fase',phase:_FN.phase,day:''};
   if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
   return{kind:_FN.kind,phase:_FN.phase,day:''};
 }
@@ -14501,7 +14568,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:''};}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -14520,6 +14587,7 @@ async function fnLoad(){
     _FN.skew=(r.now||Date.now())-Date.now();
     if(!_FN.editing)Object.keys(_FN.slots).forEach(function(k){if(!fnP(_FN.slots[k]))delete _FN.slots[k];});
     if(!_FN.editing)fnMaybeArrange();
+    if(_FN.tab==='trades'){var rt=await api('getFantasyTrades',{tournamentId:tid,phase:cx.phase});if(key!==_FN.ckey||curP!=='fantasy')return;_FN.trades=(rt&&rt.ok)?rt:{error:(rt&&rt.error)||'No se pudieron cargar los cambios',trades:[],participants:[]};}
     fnRender();fnMaybeInfo();return;}
   else{_FN.err=(r&&r.error)||'No se pudo cargar la Liga de Fantasía';}
   fnRender();
@@ -15029,7 +15097,7 @@ function fnCtxBar(){
   if(_FN.tab==='team'){
     inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
       +(_FN.kind==='fase'?lb('Fase',phSel):'');
-  }else if(_FN.tab==='rank')inner=lb('Fase',phSel);
+  }else if(_FN.tab==='rank'||_FN.tab==='trades')inner=lb('Fase',phSel);
   else{
     var today=_FN.data?_FN.data.today:'';
     inner=lb('Día','<input type="date" class="fi" '+(today?'max="'+today+'"':'')+' value="'+fnEsc(_FN.day||(_FN.data?_FN.data.day:''))+'" onchange="fnSetDay(this.value)">');
@@ -15079,6 +15147,84 @@ function fnInactiveAlert(list){
     +'No suman puntos mientras estén inactivos (lesión, ligas menores, etc.). Entra a <b>Mi Plantilla</b> y reemplázalos por otro del roster; el inactivo queda en tu lista y podrás usarlo de nuevo cuando se active.'
     +rows+'</div>';
 }
+// ── Cambios (intercambios) entre plantillas del mismo subtorneo/fase ─────────────────────────────────
+// Se propone un jugador propio por uno de otro usuario; la solicitud se ejecuta cuando TODOS los usuarios con plantilla en ese
+// concurso la aprueban (el Worker valida y aplica; ver actionRespondFantasyTrade).
+function fnTeamPlayerIds(tm){
+  var a=[];Object.keys(tm.slots||{}).forEach(function(k){if(tm.slots[k])a.push(String(tm.slots[k]));});
+  (tm.bench||[]).concat(tm.relievers||[]).forEach(function(x){if(x)a.push(String(x));});
+  return a;
+}
+function fnTrOpt(id,cur){var p=fnP(id);return'<option value="'+fnEsc(id)+'" '+(String(cur)===String(id)?'selected':'')+'>'+fnEsc(p?(p.name+(p.position?' ('+p.position+')':'')+(p.abbr?' · '+p.abbr:'')):id)+'</option>';}
+function fnTrSet(k,v){
+  _FN.tr=_FN.tr||{from:'',uid:'',to:''};_FN.tr[k]=v;
+  if(k==='uid')_FN.tr.to='';
+  fnRender();
+}
+async function fnTrPropose(){
+  var t=_FN.tr||{};
+  if(!t.from||!t.uid||!t.to){toast('Elige tu jugador, el usuario y el jugador que quieres a cambio','error');return;}
+  var cx=fnCtx();_FN.busy=true;
+  var r=await api('proposeFantasyTrade',{tournamentId:_FN.tid,kind:'fase',phase:cx.phase,fromPlayerId:t.from,toUserId:t.uid,toPlayerId:t.to});
+  _FN.busy=false;
+  if(r&&r.ok){toast('Solicitud enviada: falta la aprobación de los demás usuarios','success');_FN.tr={from:'',uid:'',to:''};fnLoad();}
+  else toast((r&&r.error)||'No se pudo enviar la solicitud','error');
+}
+async function fnTrRespond(id,approve){
+  if(!approve&&!confirm('¿Rechazar esta solicitud? Se cerrará para todos.'))return;
+  _FN.busy=true;
+  var r=await api('respondFantasyTrade',{tradeId:id,approve:!!approve});
+  _FN.busy=false;
+  if(r&&r.ok){toast(r.status==='approved'?'Cambio aprobado y aplicado a las plantillas':(r.status==='rejected'?'Solicitud rechazada':'Aprobación registrada'),'success');fnLoad();}
+  else{toast((r&&r.error)||'No se pudo registrar tu voto','error');fnLoad();}
+}
+async function fnTrCancel(id){
+  if(!confirm('¿Cancelar tu solicitud de cambio?'))return;
+  var r=await api('cancelFantasyTrade',{tradeId:id});
+  if(r&&r.ok){toast('Solicitud cancelada','info');fnLoad();}else toast((r&&r.error)||'No se pudo cancelar','error');
+}
+function fnTradesTab(d,mine){
+  var T=_FN.trades;
+  if(!T)return'<div class="card"><div class="empty">Cargando cambios...</div></div>';
+  if(T.error)return'<div class="card"><div class="empty"><div style="color:#f87171">'+fnEsc(T.error)+'</div></div></div>';
+  var h='<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#128257; <b>Cambios entre plantillas</b> ('+FN_PH[d.phase]+'): propón un jugador tuyo por uno de otro usuario. El cambio se aplica cuando <b>todos</b> los usuarios con plantilla en este concurso lo aprueban. Los puntos que cada jugador sumó antes del cambio se quedan en la plantilla donde los consiguió; el jugador que llega empieza a sumar desde que esté colocado en el cuadro.</div>';
+  if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para proponer o votar cambios.</div></div>';
+  var tr=_FN.tr||(_FN.tr={from:'',uid:'',to:''});
+  var others=d.teams.filter(function(x){return !x.isMine;});
+  var otherTm=others.filter(function(x){return String(x.userId)===tr.uid;})[0];
+  var mineIds=fnTeamPlayerIds(mine);
+  var form='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px">Proponer un cambio</div>';
+  if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
+  else{
+    form+='<div class="fg"><label class="fl">Tu jugador</label><select class="fs" onchange="fnTrSet(\'from\',this.value)"><option value="">Elige...</option>'+mineIds.map(function(i){return fnTrOpt(i,tr.from);}).join('')+'</select></div>'
+      +'<div class="fg"><label class="fl">Plantilla del otro usuario</label><select class="fs" onchange="fnTrSet(\'uid\',this.value)"><option value="">Elige...</option>'+others.map(function(x){return'<option value="'+fnEsc(x.userId)+'" '+(tr.uid===String(x.userId)?'selected':'')+'>'+fnEsc(x.teamName)+' — '+fnEsc(x.userName)+'</option>';}).join('')+'</select></div>';
+    if(otherTm)form+='<div class="fg"><label class="fl">Jugador que quieres a cambio</label><select class="fs" onchange="fnTrSet(\'to\',this.value)"><option value="">Elige...</option>'+fnTeamPlayerIds(otherTm).map(function(i){return fnTrOpt(i,tr.to);}).join('')+'</select></div>';
+    form+='<button class="btn bp" style="margin-top:6px" onclick="fnTrPropose()">Enviar solicitud</button>';
+  }
+  form+='</div>';
+  h+=form;
+  var pend=T.trades.filter(function(x){return x.status==='pending';}),done=T.trades.filter(function(x){return x.status!=='pending';});
+  var stLbl={approved:'&#9989; Aprobado y aplicado',rejected:'&#10060; Rechazado',cancelled:'&#9898; Cancelado'};
+  function card(x){
+    var s='<div style="padding:10px 0;border-top:1px solid var(--bdr)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:200px"><div style="font-weight:700">'+fnEsc(x.fromUserName)+' &#8644; '+fnEsc(x.toUserName)+'</div>'
+      +'<div style="font-size:12px;margin-top:2px"><b>'+fnEsc(x.fromUserName)+'</b> da <b>'+fnEsc(x.fromPlayerName||'?')+'</b> &middot; <b>'+fnEsc(x.toUserName)+'</b> da <b>'+fnEsc(x.toPlayerName||'?')+'</b></div>';
+    if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">Aprobado por '+x.approvals.length+' de '+T.participants.length+(x.pendingUsers.length?' &middot; falta: '+x.pendingUsers.map(fnEsc).join(', '):'')+'</div>';
+    else s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">'+(stLbl[x.status]||x.status)+(x.note?' &middot; '+fnEsc(x.note):'')+'</div>';
+    s+='</div>';
+    if(x.status==='pending'){
+      s+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      if(x.needMine)s+='<button class="btn bp bsm" onclick="fnTrRespond(\''+x.id+'\',true)">Aprobar</button><button class="btn bd bsm" onclick="fnTrRespond(\''+x.id+'\',false)">Rechazar</button>';
+      else if(!x.isMine)s+='<span class="badge bg" style="font-size:10px">Ya votaste</span>';
+      if(x.isMine)s+='<button class="btn bs bsm" onclick="fnTrCancel(\''+x.id+'\')">Cancelar</button>';
+      s+='</div>';
+    }
+    return s+'</div></div>';
+  }
+  h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">Solicitudes pendientes ('+pend.length+')</div>'+(pend.length?pend.map(card).join(''):'<div class="empty" style="padding:10px">No hay solicitudes pendientes</div>')+'</div>';
+  if(done.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:4px">Historial</div>'+done.slice(0,20).map(card).join('')+'</div>';
+  return h;
+}
 function fnRender(){
   var sel=fnResolveSel(),d=_FN.data;
   var mine=d?d.teams.filter(function(x){return x.isMine;})[0]:null;
@@ -15092,7 +15238,7 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('daily','Diaria')+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('daily','Diaria')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
@@ -15110,7 +15256,8 @@ function fnRender(){
           +'<div style="flex:1;min-width:0"><div style="font-weight:700">&#128081; '+fnEsc(w.teamName)+'</div><div style="font-size:11px;color:var(--t3)">'+fnEsc(w.userName)+' &middot; '+FN_PH[w.phase]+(d.dailyWin>0?' &middot; +'+fnPts(d.dailyWin)+' pts':'')+'</div></div>'
           +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">'+fnPts(w.score)+'</div></div>';
       }).join(''):'<div class="empty">Aún no hay días cerrados con ganador</div>')+'</div>';
-  }else h+=fnTeamTab(d,mine);
+  }else if(_FN.tab==='trades')h+=fnTradesTab(d,mine);
+  else h+=fnTeamTab(d,mine);
   ct(h);
   fnDraftTimers();
 }
@@ -18138,12 +18285,17 @@ function pgSet(){
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo. En cualquier caso, un jugador que ya pertenezca a un equipo del subtorneo actual nunca aparece para "importar" (ya esta ahi).</div>'
       +'<button class="btn bp" onclick="saveGoogleAccessConfig()">Guardar Acceso con Google</button>'
       +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#11088; Calificar la app (Google Play)</div></div>'
+      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ratePromptEnabled" '+(S.config&&S.config.ratePromptEnabled==='true'?'checked':'')+'> Pedir a los usuarios que califiquen la app</label></div>'
+      +'<div class="fg"><label class="fl">Cada cuantos dias vuelve a salir el mensaje</label><input class="fi" id="ratePromptDays" type="number" min="1" step="1" value="'+(parseInt(S.config&&S.config.ratePromptDays)||'')+'" placeholder="Ej: 7"></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Solo en la app de Android. Sale a los N dias de que el usuario abrio la app por primera vez y luego cada N dias si elige "Mas tarde". "Calificar ahora" lo lleva a la ficha de la app en Google Play para dar las estrellas y ya no se le vuelve a preguntar; "No volver a preguntar" lo apaga en ese dispositivo. Nunca sale dentro de Control de Juego ni sobre otra ventana.</div>'
+      +'<button class="btn bp" onclick="saveRateConfig()">Guardar</button></div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128241; Anuncios (AdMob)</div></div>'
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledVisitors" '+(S.config&&S.config.adsEnabledVisitors==='true'?'checked':'')+'> Mostrar anuncios a Visitantes</label></div>'
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="adsEnabledGoogle" '+(S.config&&S.config.adsEnabledGoogle==='true'?'checked':'')+'> Mostrar anuncios a usuarios de Google</label></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Nunca se muestran a usuarios con usuario/contraseña (staff/anotadores), sin importar estos interruptores.</div>'
       +'<div class="fg"><label class="fl">Modulos donde se muestra el banner</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+adModOptions().map(function(m){
         var sel=safeAdsList(S.config&&S.config.adBannerModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adBannerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
@@ -18165,12 +18317,12 @@ function pgSet(){
         return '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTrigger" value="'+t[0]+'" '+(sel?'checked':'')+'>'+t[1]+'</label>';
       }).join('')+'</div></div>'
       +'<div class="fg"><label class="fl">Modulos que disparan el intersticial al entrar (solo si "Acceder a un modulo especifico" esta marcado arriba)</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+adModOptions().map(function(m){
         var sel=safeAdsList(S.config&&S.config.adInterstitialModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTriggerMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
       +'<div class="fg"><label class="fl">Intersticial continuo — modulos donde se repite mientras el usuario permanece en ellos</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';}).map(function(m){
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+adModOptions().map(function(m){
         var sel=safeAdsList(S.config&&S.config.adInterstitialTimedModules).indexOf(m.id)>=0;
         return '<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" class="adTimedMod" value="'+m.id+'" '+(sel?'checked':'')+'>'+m.lbl+'</label>';
       }).join('')+'</div></div>'
@@ -18271,6 +18423,13 @@ async function saveContactInfo(){
 }
 // Convierte un valor de config (guardado como JSON string) en un arreglo de forma segura —
 // usado por todas las listas de seleccion multiple de Configuracion > Anuncios (AdMob).
+// Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
+// internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
+function adModOptions(){
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';});
+  if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
+  return l;
+}
 function safeAdsList(jsonStr){
   if(!jsonStr)return[];
   try{var v=JSON.parse(jsonStr);return Array.isArray(v)?v:[];}catch(e){return[];}
@@ -18324,6 +18483,16 @@ async function saveGoogleAccessConfig(){
     S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxGamesPerWeekVitilla=String(maxGWVitilla);S.config.googleMaxGamesPerWeekBaseball=String(maxGWBaseball);S.config.googleMaxGamesPerWeekSoftball=String(maxGWSoftball);S.config.googleMaxGamesPerMonthVitilla=String(maxGMVitilla);S.config.googleMaxGamesPerMonthBaseball=String(maxGMBaseball);S.config.googleMaxGamesPerMonthSoftball=String(maxGMSoftball);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleMaxPlayersPerTeamVitilla=String(maxPlVitilla);S.config.googleMaxPlayersPerTeamBaseball=String(maxPlBaseball);S.config.googleMaxPlayersPerTeamSoftball=String(maxPlSoftball);S.config.googleMaxInningsVitilla=String(maxInnVitilla);S.config.googleMaxInningsBaseball=String(maxInnBaseball);S.config.googleMaxInningsSoftball=String(maxInnSoftball);S.config.googleImportScope=importScope;
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
+}
+async function saveRateConfig(){
+  var on=document.getElementById('ratePromptEnabled').checked;
+  var days=parseInt(fv('ratePromptDays'))||0;
+  if(on&&days<1){toast('Indica cada cuantos dias (minimo 1) sale el mensaje','error');return;}
+  _saving=true;
+  var rs=await Promise.all([api('saveConfig',{key:'ratePromptEnabled',value:on?'true':'false'}),api('saveConfig',{key:'ratePromptDays',value:String(days||'')})]);
+  _saving=false;
+  if(rs.every(function(r){return r&&r.ok;})){S.config=S.config||{};S.config.ratePromptEnabled=on?'true':'false';S.config.ratePromptDays=String(days||'');toast('Configuracion guardada','success');}
+  else toast('Error al guardar','error');
 }
 async function saveAdsConfig(){
   var enabledVisitors=document.getElementById('adsEnabledVisitors').checked;
