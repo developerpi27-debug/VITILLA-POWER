@@ -14527,7 +14527,7 @@ function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)
 function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
-  if(_FN.tab==='rank'||_FN.tab==='trades')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges')return{kind:'fase',phase:_FN.phase,day:''};
   if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
   return{kind:_FN.kind,phase:_FN.phase,day:''};
 }
@@ -14572,7 +14572,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:''};}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:''};_FN.chal=null;_FN.cf=null;}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -14592,6 +14592,7 @@ async function fnLoad(){
     if(!_FN.editing)Object.keys(_FN.slots).forEach(function(k){if(!fnP(_FN.slots[k]))delete _FN.slots[k];});
     if(!_FN.editing)fnMaybeArrange();
     if(_FN.tab==='trades'){var rt=await api('getFantasyTrades',{tournamentId:tid,phase:cx.phase});if(key!==_FN.ckey||curP!=='fantasy')return;_FN.trades=(rt&&rt.ok)?rt:{error:(rt&&rt.error)||'No se pudieron cargar los cambios',trades:[],participants:[]};}
+    if(_FN.tab==='challenges'){var rc=await api('getFantasyChallenges',{tournamentId:tid,kind:'fase',phase:cx.phase});if(key!==_FN.ckey||curP!=='fantasy')return;_FN.chal=(rc&&rc.ok)?rc:{error:(rc&&rc.error)||'No se pudieron cargar los desafíos',challenges:[],participants:[]};}
     fnRender();fnMaybeInfo();return;}
   else{_FN.err=(r&&r.error)||'No se pudo cargar la Liga de Fantasía';}
   fnRender();
@@ -15085,7 +15086,7 @@ async function fnDraftPoll(){
 function fnRankRows(d,closedDay){
   if(!d.teams.length)return'<div class="empty">Aún no hay plantillas en este concurso</div>';
   return d.teams.map(function(x,i){
-    var sub=fnEsc(x.userName)+' &middot; &#9918; '+fnPts(x.playPts)+(d.kind==='dia'?'':' &middot; &#128293; '+fnPts(x.accessPts)+((x.winPts>0||d.dailyWin>0)?' &middot; &#127942; '+fnPts(x.winPts):''));
+    var sub=fnEsc(x.userName)+' &middot; &#9918; '+fnPts(x.playPts)+(d.kind==='dia'?'':' &middot; &#128293; '+fnPts(x.accessPts)+((x.winPts>0||d.dailyWin>0)?' &middot; &#127942; '+fnPts(x.winPts):'')+(x.chPts?' &middot; &#9876; '+(x.chPts>0?'+':'')+fnPts(x.chPts):''));
     return'<div '+(x.slots?'onclick="fnViewTeam('+i+')" ':'')+'style="display:flex;align-items:center;gap:10px;padding:9px 6px;'+(i?'border-top:1px solid var(--bdr);':'')+(x.isMine?'background:rgba(255,200,0,.08);':'')+(x.slots?'cursor:pointer':'')+'">'
       +'<div style="width:26px;text-align:center;font-weight:800;color:'+(i===0?'var(--acc)':'var(--t3)')+'">'+(i===0&&closedDay&&x.total>0?'&#128081;':(i+1))+'</div>'
       +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+fnEsc(x.teamName)+(x.isMine?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</div>'
@@ -15101,7 +15102,7 @@ function fnCtxBar(){
   if(_FN.tab==='team'){
     inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
       +(_FN.kind==='fase'?lb('Fase',phSel):'');
-  }else if(_FN.tab==='rank'||_FN.tab==='trades')inner=lb('Fase',phSel);
+  }else if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges')inner=lb('Fase',phSel);
   else{
     var today=_FN.data?_FN.data.today:'';
     inner=lb('Día','<input type="date" class="fi" '+(today?'max="'+today+'"':'')+' value="'+fnEsc(_FN.day||(_FN.data?_FN.data.day:''))+'" onchange="fnSetDay(this.value)">');
@@ -15229,6 +15230,76 @@ function fnTradesTab(d,mine){
   if(done.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:4px">Historial</div>'+done.slice(0,20).map(card).join('')+'</div>';
   return h;
 }
+// ── Desafios entre plantillas (apostando puntos) ─────────────────────────────────────────────────────
+// El retador elige rival, puntos, fecha de inicio y dias; solo el retado debe aprobarlo (ver actionRespondFantasyChallenge).
+function fnChSet(k,v){_FN.cf=_FN.cf||{uid:'',stake:'',days:'5',start:''};_FN.cf[k]=v;}
+async function fnChPropose(){
+  var f=_FN.cf||{},T=_FN.chal;
+  if(!f.uid||!(parseFloat(f.stake)>0)||!(parseInt(f.days)>=1)||!f.start){toast('Completa rival, puntos, dias y fecha de inicio','error');return;}
+  var cx=fnCtx();_FN.busy=true;
+  var r=await api('proposeFantasyChallenge',{tournamentId:_FN.tid,kind:'fase',phase:cx.phase,toUserId:f.uid,stake:f.stake,days:f.days,startDate:f.start});
+  _FN.busy=false;
+  if(r&&r.ok){toast('Desafío enviado: falta que tu rival lo apruebe','success');_FN.cf={uid:'',stake:'',days:'5',start:''};fnLoad();}
+  else toast((r&&r.error)||'No se pudo enviar el desafío','error');
+}
+async function fnChRespond(id,accept){
+  if(!accept&&!confirm('¿Rechazar este desafío?'))return;
+  _FN.busy=true;
+  var r=await api('respondFantasyChallenge',{challengeId:id,accept:!!accept});
+  _FN.busy=false;
+  if(r&&r.ok){toast(accept?'¡Desafío aceptado!':'Desafío rechazado','success');fnLoad();}
+  else{toast((r&&r.error)||'No se pudo responder','error');fnLoad();}
+}
+async function fnChCancel(id){
+  if(!confirm('¿Cancelar tu desafío?'))return;
+  var r=await api('cancelFantasyChallenge',{challengeId:id});
+  if(r&&r.ok){toast('Desafío cancelado','info');fnLoad();}else toast((r&&r.error)||'No se pudo cancelar','error');
+}
+function fnChallengesTab(d,mine){
+  var T=_FN.chal;
+  if(!T)return'<div class="card"><div class="empty">Cargando desafíos...</div></div>';
+  if(T.error)return'<div class="card"><div class="empty"><div style="color:#f87171">'+fnEsc(T.error)+'</div></div></div>';
+  var h='<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#9876; <b>Desafíos</b> ('+FN_PH[d.phase]+'): reta a otro usuario apostando puntos. Eliges desde qué fecha empieza y por cuántos días; solo tu rival debe aprobarlo. Gana quien sume <b>más puntos de jugadores dentro de esos días</b> (no el total general): el perdedor pierde lo apostado y el ganador lo recibe. Si empatan, nadie pierde puntos. Los puntos apostados quedan reservados mientras el desafío esté pendiente o en juego.</div>';
+  if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para retar o responder desafíos.</div></div>';
+  var me=T.participants.filter(function(p){return p.userId===String(mine.userId);})[0];
+  var avail=me?me.available:0;
+  var f=_FN.cf||(_FN.cf={uid:'',stake:'',days:'5',start:T.today});
+  if(!f.start)f.start=T.today;
+  var others=T.participants.filter(function(p){return !me||p.userId!==me.userId;});
+  var form='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:2px">Lanzar un desafío</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px">Puntos disponibles para apostar: <b>'+avail+'</b>'+(me&&me.reserved?' <span>('+me.reserved+' ya apostados)</span>':'')+'</div>';
+  if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
+  else form+='<div class="fg"><label class="fl">Rival</label><select class="fs" onchange="fnChSet(\'uid\',this.value)"><option value="">Elige...</option>'+others.map(function(p){return'<option value="'+fnEsc(p.userId)+'" '+(f.uid===p.userId?'selected':'')+'>'+fnEsc(p.teamName)+' — '+fnEsc(p.userName)+' ('+p.available+' disp.)</option>';}).join('')+'</select></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Puntos a apostar</label><input class="fi" type="number" min="0.01" step="0.01" max="'+avail+'" value="'+fnEsc(f.stake)+'" oninput="fnChSet(\'stake\',this.value)" placeholder="Máx. '+avail+'"></div>'
+    +'<div class="fg"><label class="fl">Duración (días)</label><input class="fi" type="number" min="1" max="30" step="1" value="'+fnEsc(f.days)+'" oninput="fnChSet(\'days\',this.value)"></div></div>'
+    +'<div class="fg"><label class="fl">Empieza el</label><input class="fi" type="date" min="'+T.today+'" value="'+fnEsc(f.start)+'" onchange="fnChSet(\'start\',this.value)"></div>'
+    +'<button class="btn bp" style="margin-top:6px" onclick="fnChPropose()">Enviar desafío</button>';
+  form+='</div>';
+  h+=form;
+  var act=T.challenges.filter(function(x){return x.status==='pending'||x.status==='active';}),done=T.challenges.filter(function(x){return x.status!=='pending'&&x.status!=='active';});
+  var stLbl={finished:'&#127942; Terminado',rejected:'&#10060; Rechazado',cancelled:'&#9898; Cancelado'};
+  function card(x){
+    var s='<div style="padding:10px 0;border-top:1px solid var(--bdr)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="flex:1;min-width:200px">'
+      +'<div style="font-weight:700">'+fnEsc(x.fromTeamName)+' &#9876; '+fnEsc(x.toTeamName)+'</div>'
+      +'<div style="font-size:12px;margin-top:2px">Apuesta: <b>'+x.stake+' pts</b> &middot; '+x.days+' día(s): '+fnEsc(x.startDate)+' → '+fnEsc(x.endDate)+'</div>';
+    if(x.fromPts!==undefined)s+='<div style="font-size:12px;margin-top:2px">'+fnEsc(x.fromUserName)+': <b>'+x.fromPts+'</b> &nbsp;|&nbsp; '+fnEsc(x.toUserName)+': <b>'+x.toPts+'</b></div>';
+    if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">&#9203; Esperando que '+fnEsc(x.toUserName)+' lo apruebe</div>';
+    else if(x.status==='active')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">&#128293; En juego'+(x.fromPts===undefined?' (empieza el '+fnEsc(x.startDate)+')':'')+'</div>';
+    else if(x.status==='finished')s+='<div style="font-size:11px;margin-top:3px">'+(x.winnerUserId?'&#127942; Ganó <b>'+fnEsc(x.winnerUserId===x.fromUserId?x.fromUserName:x.toUserName)+'</b> (+'+x.amount+' pts)'+(x.debtLeft>0?' &middot; &#9888; el perdedor aún debe <b>'+x.debtLeft+'</b> pts: se le descuentan conforme sume puntos':(x.debt>0?' &middot; deuda saldada':'')):'&#129309; Empate: nadie pierde puntos')+'</div>';
+    else s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">'+(stLbl[x.status]||x.status)+(x.note?' &middot; '+fnEsc(x.note):'')+'</div>';
+    s+='</div>';
+    if(x.status==='pending'){
+      s+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      if(x.needMine)s+='<button class="btn bp bsm" onclick="fnChRespond(\''+x.id+'\',true)">Aceptar</button><button class="btn bd bsm" onclick="fnChRespond(\''+x.id+'\',false)">Rechazar</button>';
+      if(x.isMine)s+='<button class="btn bs bsm" onclick="fnChCancel(\''+x.id+'\')">Cancelar</button>';
+      s+='</div>';
+    }
+    return s+'</div></div>';
+  }
+  h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">Pendientes y en juego ('+act.length+')</div>'+(act.length?act.map(card).join(''):'<div class="empty" style="padding:10px">No hay desafíos activos</div>')+'</div>';
+  if(done.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:4px">Historial</div>'+done.slice(0,20).map(card).join('')+'</div>';
+  return h;
+}
 function fnRender(){
   var sel=fnResolveSel(),d=_FN.data;
   var mine=d?d.teams.filter(function(x){return x.isMine;})[0]:null;
@@ -15242,7 +15313,7 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('daily','Diaria')+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
@@ -15260,7 +15331,8 @@ function fnRender(){
           +'<div style="flex:1;min-width:0"><div style="font-weight:700">&#128081; '+fnEsc(w.teamName)+'</div><div style="font-size:11px;color:var(--t3)">'+fnEsc(w.userName)+' &middot; '+FN_PH[w.phase]+(d.dailyWin>0?' &middot; +'+fnPts(d.dailyWin)+' pts':'')+'</div></div>'
           +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">'+fnPts(w.score)+'</div></div>';
       }).join(''):'<div class="empty">Aún no hay días cerrados con ganador</div>')+'</div>';
-  }else if(_FN.tab==='trades')h+=fnTradesTab(d,mine);
+  }else if(_FN.tab==='challenges')h+=fnChallengesTab(d,mine);
+  else if(_FN.tab==='trades')h+=fnTradesTab(d,mine);
   else h+=fnTeamTab(d,mine);
   ct(h);
   fnDraftTimers();
