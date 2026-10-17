@@ -950,7 +950,7 @@ function initPushChannels(){
   if(!CapPush||!CapPush.createChannel)return;
   [{id:'live',name:'Juegos en vivo',description:'Aviso cuando comienza un juego'},
    {id:'runs',name:'Carreras',description:'Carreras anotadas en los juegos de tus equipos'},
-   {id:'fantasy',name:'Recordatorio de Fantasy',description:'Recordatorio para ajustar tu plantilla'}].forEach(function(c){
+   {id:'fantasy',name:'Recordatorio de Fantasy',description:'Recordatorio para ajustar tu plantilla y avisos de novedades de Fantasy'}].forEach(function(c){
     try{ var pr=CapPush.createChannel({id:c.id,name:c.name,description:c.description,importance:4,visibility:1,vibration:true}); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){}
   });
 }
@@ -1184,6 +1184,7 @@ function renderNotifPage(){
   var frs=(S.tournaments||[]).filter(function(x){return x.fantasyReminderTime;});
   var fdesc=frs.length?'Te recuerda ajustar tu plantilla antes de los juegos: '+frs.slice(0,4).map(function(x){return nfEsc(x.name)+' a las <b>'+nfTime12(x.fantasyReminderTime)+'</b>';}).join(' · ')+(frs.length>4?' y '+(frs.length-4)+' más':'')+' (hora de República Dominicana). Solo si tienes plantilla en ese torneo y hay juegos ese día.'
     :'Te recuerda ajustar tu plantilla antes de los juegos. El administrador aún no ha fijado la hora en los torneos.';
+fdesc+=' También te avisa cuando el administrador te habilita proponer cambios de jugadores o crear desafíos.';
   var html='<div class="stl">Notificaciones</div><div class="ssb">Elige qué avisos quieres recibir en este teléfono</div>';
   if(!IS_NATIVE_APP){
     html+='<div class="card"><div class="empty"><div style="font-size:36px">&#128276;</div><div>Las notificaciones funcionan en la app de Android.</div></div></div>';
@@ -3234,6 +3235,8 @@ var ALL_MOD=[
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
+  {id:'fantasytrades',lbl:'Fantasía: crear cambios de jugadores',ico:'🔁',sec:'General'},
+  {id:'fantasychallenges',lbl:'Fantasía: crear desafíos',ico:'⚔️',sec:'General'},
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
   {id:'videos',lbl:'Videos',ico:'🎬',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
@@ -3801,7 +3804,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -4582,12 +4585,22 @@ function openTM(id){
     +'<div class="alert ai" style="font-size:12px">Estos puntos determinan los candidatos a MVP, Cy Young, Novato del Año, MVP Serie Final y el Top 3 por posición del Juego de Estrellas, visibles en el módulo de Premiaciones.</div>'
     +tmlbSection(t)
     +tfrSection(t)
+    +tfmSection(t)
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveT(this.dataset.tid)">Guardar</button></div>');
   if(id&&(t.mlbStatsSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb'))tmlbLoadStatus(id);
 }
 // ── Recordatorio de Fantasía del subtorneo (SOLO admin; el servidor también lo valida). Cada subtorneo tiene su propia hora. ──
+// ── Limites de movimientos de Fantasia del subtorneo (SOLO admin; el servidor tambien lo valida). 0 = sin limite. ──
+function tfmSection(t){
+  if(!(S.user&&S.user.role==='admin'))return'';
+  function inp(id,v){return'<input class="fi" id="'+id+'" type="number" min="0" max="1000" step="1" value="'+(parseInt(v)||0)+'">';}
+  return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
+    +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es liberar un jugador y/o fichar uno de la agencia libre (liberar 1 y fichar 1 cuenta como 1). <b>No cuentan</b> los jugadores liberados por estar inactivos, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Por mes</label>'+inp('tfm-month',t.fantasyMaxMonth)+'</div><div class="fg"></div></div>';
+}
 function tfrSection(t){
   if(!(S.user&&S.user.role==='admin'))return'';
   return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128276; RECORDATORIO DE FANTASY (solo administrador)</div>'
@@ -4686,6 +4699,7 @@ async function saveT(id){
     t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';t.mlbRosterSyncMin=parseInt(fv('tmlb-rsync'))||0;
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
+  if(document.getElementById('tfm-day')){t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok){
@@ -15113,6 +15127,12 @@ function fnTeamTab(d,mine){
   var h='';
   if(d.kind==='dia')h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128197; Plantilla del día <b>'+fnDateTxt(d.today)+'</b> (hora de República Dominicana): solo suman los puntos de hoy y solo puedes elegir jugadores de equipos con juego programado hoy. Se cierra al iniciar el primer juego; podrás crear otra cuando sean las 12:00 a. m.</div>';
   else h+=fnAccessCard(d);
+  var ml=d.moveLimits;
+  if(d.kind==='fase'&&ml&&(ml.day||ml.week||ml.month)){
+    var mu=d.moveUsage||{day:0,week:0,month:0};
+    function mvTxt(lbl,k){return ml[k]?'<span style="white-space:nowrap">'+lbl+': <b'+(mu[k]>=ml[k]?' style="color:#f87171"':'')+'>'+mu[k]+'/'+ml[k]+'</b></span>':'';}
+    h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128260; <b>Movimientos</b> (liberar/fichar) &middot; '+[mvTxt('hoy','day'),mvTxt('esta semana','week'),mvTxt('este mes','month')].filter(Boolean).join(' &middot; ')+'<div style="font-size:11px;color:var(--t3);margin-top:3px">No cuentan los jugadores liberados por estar inactivos.</div></div>';
+  }
   if(mine&&!_FN.editing){
     var map=fnTeamMap(mine);
     var ids=fnMineIds(map,mine.parked);
@@ -15196,10 +15216,12 @@ function fnTradesTab(d,mine){
   if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para proponer o votar cambios.</div></div>';
   var tr=_FN.tr||(_FN.tr={from:'',uid:'',to:''});
   var others=d.teams.filter(function(x){return !x.isMine;});
+  var canTr=d.canTrade!==false;
   var otherTm=others.filter(function(x){return String(x.userId)===tr.uid;})[0];
   var mineIds=fnTeamPlayerIds(mine);
   var form='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px">Proponer un cambio</div>';
-  if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
+  if(!canTr)form+='<div class="alert ai" style="font-size:12px">&#128274; Tu perfil no tiene habilitado crear cambios de jugadores. Aún puedes aprobar o rechazar las solicitudes que te lleguen. Pídele al administrador que lo active en Perfiles.</div>';
+  else if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
   else{
     form+='<div class="fg"><label class="fl">Tu jugador</label><select class="fs" onchange="fnTrSet(\'from\',this.value)"><option value="">Elige...</option>'+mineIds.map(function(i){return fnTrOpt(i,tr.from);}).join('')+'</select></div>'
       +'<div class="fg"><label class="fl">Plantilla del otro usuario</label><select class="fs" onchange="fnTrSet(\'uid\',this.value)"><option value="">Elige...</option>'+others.map(function(x){return'<option value="'+fnEsc(x.userId)+'" '+(tr.uid===String(x.userId)?'selected':'')+'>'+fnEsc(x.teamName)+' — '+fnEsc(x.userName)+'</option>';}).join('')+'</select></div>';
@@ -15263,12 +15285,14 @@ function fnChallengesTab(d,mine){
   if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para retar o responder desafíos.</div></div>';
   var me=T.participants.filter(function(p){return p.userId===String(mine.userId);})[0];
   var avail=me?me.available:0;
+  var canCh=d.canChallenge!==false;
   var f=_FN.cf||(_FN.cf={uid:'',stake:'',days:'5',start:T.today});
   if(!f.start)f.start=T.today;
   var others=T.participants.filter(function(p){return !me||p.userId!==me.userId;});
   var form='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:2px">Lanzar un desafío</div>'
     +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px">Puntos disponibles para apostar: <b>'+avail+'</b>'+(me&&me.reserved?' <span>('+me.reserved+' ya apostados)</span>':'')+'</div>';
-  if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
+  if(!canCh)form+='<div class="alert ai" style="font-size:12px">&#128274; Tu perfil no tiene habilitado crear desafíos. Aún puedes aceptar o rechazar los que te lleguen. Pídele al administrador que lo active en Perfiles.</div>';
+  else if(!others.length)form+='<div class="empty" style="padding:10px">Aún no hay otras plantillas en este concurso.</div>';
   else form+='<div class="fg"><label class="fl">Rival</label><select class="fs" onchange="fnChSet(\'uid\',this.value)"><option value="">Elige...</option>'+others.map(function(p){return'<option value="'+fnEsc(p.userId)+'" '+(f.uid===p.userId?'selected':'')+'>'+fnEsc(p.teamName)+' — '+fnEsc(p.userName)+' ('+p.available+' disp.)</option>';}).join('')+'</select></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Puntos a apostar</label><input class="fi" type="number" min="0.01" step="0.01" max="'+avail+'" value="'+fnEsc(f.stake)+'" oninput="fnChSet(\'stake\',this.value)" placeholder="Máx. '+avail+'"></div>'
     +'<div class="fg"><label class="fl">Duración (días)</label><input class="fi" type="number" min="1" max="30" step="1" value="'+fnEsc(f.days)+'" oninput="fnChSet(\'days\',this.value)"></div></div>'
@@ -18502,7 +18526,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
