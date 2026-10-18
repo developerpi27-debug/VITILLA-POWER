@@ -1014,9 +1014,32 @@ async function registerPush(){
   }catch(e){ console.warn('registerPush error',e); return false; }
 }
 // Token del dispositivo: el guardado, o (si aun no hay) pide permiso, registra y espera a que FCM lo entregue.
+// ¿Android permite a la app mostrar notificaciones? Si el usuario las bloqueo en Ajustes del telefono, un token guardado de antes NO sirve:
+// el servidor enviaria el aviso pero Android lo descartaria. Se vuelve a pedir el permiso y, si sigue bloqueado, se explica como activarlo.
+async function pushPermissionOk(){
+  var CapPush=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.PushNotifications;
+  if(!CapPush||!CapPush.checkPermissions)return true;
+  try{
+    var perm=await CapPush.checkPermissions();
+    if(perm.receive==='granted')return true;
+    perm=await CapPush.requestPermissions();
+    if(perm.receive==='granted')return true;
+  }catch(e){ return true; }
+  pushBlockedModal();
+  return false;
+}
+function pushOpenSystemSettings(){
+  try{ if(window.AndroidPlay&&window.AndroidPlay.openNotificationSettings){ window.AndroidPlay.openNotificationSettings(); return; } }catch(e){}
+  toast('Abre Ajustes > Aplicaciones > VBS Power > Notificaciones y actívalas','info');
+}
+function pushBlockedModal(){
+  showM('<div class="mhd"><div class="mtl">&#128277; Notificaciones bloqueadas</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div style="font-size:14px;line-height:1.6">Android tiene <b>bloqueadas las notificaciones</b> de VBS Power en este teléfono, por eso los avisos no te llegan aunque estén activados aquí.<br><br>Actívalas en <b>Ajustes del teléfono &gt; Aplicaciones &gt; VBS Power &gt; Notificaciones</b> y vuelve a activar el aviso.</div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" onclick="cM();pushOpenSystemSettings()">Abrir ajustes</button></div>');
+}
 async function ensurePushToken(){
   var token=null; try{ token=localStorage.getItem('vp_push_token'); }catch(e){}
-  if(token)return token;
+  if(token){ if(!(await pushPermissionOk()))return null; return token; }
   var ok=await registerPush();
   if(!ok)return null;
   for(var i=0;i<20&&!_lastPushToken;i++){ await new Promise(function(res){setTimeout(res,150);}); }
@@ -1179,13 +1202,21 @@ function notifRow(ico,title,desc,key,on){
     +'<div style="font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5">'+desc+'</div></div>'
     +'<label class="nsw"><input type="checkbox" '+(on?'checked ':'')+'onchange="setNotifPref(\''+key+'\',this.checked,this)"><span></span></label></div>';
 }
+async function pushPermBanner(){
+  try{
+    var CapPush=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.PushNotifications;
+    var el=document.getElementById('nf-perm');if(!CapPush||!CapPush.checkPermissions||!el)return;
+    var perm=await CapPush.checkPermissions();
+    if(perm.receive!=='granted')el.innerHTML='<div class="alert ae" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#128277; <b>Las notificaciones están bloqueadas en este teléfono.</b> Aunque actives los avisos aquí, Android no los mostrará hasta que las permitas en Ajustes &gt; Aplicaciones &gt; VBS Power &gt; Notificaciones. <button class="btn bp bsm" style="margin-left:6px" onclick="pushOpenSystemSettings()">Abrir ajustes</button></div>';
+  }catch(e){}
+}
 function renderNotifPage(){
   var P=_pushPrefs;
   var frs=(S.tournaments||[]).filter(function(x){return x.fantasyReminderTime;});
   var fdesc=frs.length?'Te recuerda ajustar tu plantilla antes de los juegos: '+frs.slice(0,4).map(function(x){return nfEsc(x.name)+' a las <b>'+nfTime12(x.fantasyReminderTime)+'</b>';}).join(' · ')+(frs.length>4?' y '+(frs.length-4)+' más':'')+' (hora de República Dominicana). Solo si tienes plantilla en ese torneo y hay juegos ese día.'
     :'Te recuerda ajustar tu plantilla antes de los juegos. El administrador aún no ha fijado la hora en los torneos.';
 fdesc+=' También te avisa cuando el administrador te habilita proponer cambios de jugadores o crear desafíos.';
-  var html='<div class="stl">Notificaciones</div><div class="ssb">Elige qué avisos quieres recibir en este teléfono</div>';
+  var html='<div class="stl">Notificaciones</div><div class="ssb">Elige qué avisos quieres recibir en este teléfono</div><div id="nf-perm"></div>';
   if(!IS_NATIVE_APP){
     html+='<div class="card"><div class="empty"><div style="font-size:36px">&#128276;</div><div>Las notificaciones funcionan en la app de Android.</div></div></div>';
     ct(html);return;
@@ -1214,6 +1245,7 @@ fdesc+=' También te avisa cuando el administrador te habilita proponer cambios 
     +(rows||'<div style="font-size:13px;color:var(--t3);line-height:1.6">Aún no sigues ningún equipo. Toca la campanita &#128276; junto a un equipo o torneo para recibir sus avisos de juego en vivo y de carreras.</div>')
     +'</div>';
   ct(html);
+  pushPermBanner();
 }
 function pgNotif(){
   renderNotifPage();
@@ -4597,7 +4629,7 @@ function tfmSection(t){
   if(!(S.user&&S.user.role==='admin'))return'';
   function inp(id,v){return'<input class="fi" id="'+id+'" type="number" min="0" max="1000" step="1" value="'+(parseInt(v)||0)+'">';}
   return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
-    +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es liberar un jugador y/o fichar uno de la agencia libre (liberar 1 y fichar 1 cuenta como 1). <b>No cuentan</b> los jugadores liberados por estar inactivos, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
+    +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es fichar un jugador de la agencia libre (liberar 1 y fichar 1 cuenta como 1; liberar sin fichar no cuenta). <b>No cuentan</b> los jugadores inactivos que se liberan y se reemplazan en el mismo guardado, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por mes</label>'+inp('tfm-month',t.fantasyMaxMonth)+'</div><div class="fg"></div></div>';
 }
@@ -14586,7 +14618,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:''};_FN.chal=null;_FN.cf=null;}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -15186,13 +15218,15 @@ function fnTrSet(k,v){
   if(k==='uid')_FN.tr.to='';
   fnRender();
 }
+function fnTrOffer(uid,v){_FN.tr=_FN.tr||{from:'',uid:'',to:'',offers:{}};_FN.tr.offers=_FN.tr.offers||{};_FN.tr.offers[uid]=v;}
 async function fnTrPropose(){
   var t=_FN.tr||{};
   if(!t.from||!t.uid||!t.to){toast('Elige tu jugador, el usuario y el jugador que quieres a cambio','error');return;}
   var cx=fnCtx();_FN.busy=true;
-  var r=await api('proposeFantasyTrade',{tournamentId:_FN.tid,kind:'fase',phase:cx.phase,fromPlayerId:t.from,toUserId:t.uid,toPlayerId:t.to});
+  var offers=[];Object.keys(t.offers||{}).forEach(function(u){var p=parseFloat(t.offers[u]);if(p>0)offers.push({userId:u,points:p});});
+  var r=await api('proposeFantasyTrade',{tournamentId:_FN.tid,kind:'fase',phase:cx.phase,fromPlayerId:t.from,toUserId:t.uid,toPlayerId:t.to,offers:offers});
   _FN.busy=false;
-  if(r&&r.ok){toast('Solicitud enviada: falta la aprobación de los demás usuarios','success');_FN.tr={from:'',uid:'',to:''};fnLoad();}
+  if(r&&r.ok){toast('Solicitud enviada: falta la aprobación de los demás usuarios','success');_FN.tr={from:'',uid:'',to:'',offers:{}};fnLoad();}
   else toast((r&&r.error)||'No se pudo enviar la solicitud','error');
 }
 async function fnTrRespond(id,approve){
@@ -15226,6 +15260,10 @@ function fnTradesTab(d,mine){
     form+='<div class="fg"><label class="fl">Tu jugador</label><select class="fs" onchange="fnTrSet(\'from\',this.value)"><option value="">Elige...</option>'+mineIds.map(function(i){return fnTrOpt(i,tr.from);}).join('')+'</select></div>'
       +'<div class="fg"><label class="fl">Plantilla del otro usuario</label><select class="fs" onchange="fnTrSet(\'uid\',this.value)"><option value="">Elige...</option>'+others.map(function(x){return'<option value="'+fnEsc(x.userId)+'" '+(tr.uid===String(x.userId)?'selected':'')+'>'+fnEsc(x.teamName)+' — '+fnEsc(x.userName)+'</option>';}).join('')+'</select></div>';
     if(otherTm)form+='<div class="fg"><label class="fl">Jugador que quieres a cambio</label><select class="fs" onchange="fnTrSet(\'to\',this.value)"><option value="">Elige...</option>'+fnTeamPlayerIds(otherTm).map(function(i){return fnTrOpt(i,tr.to);}).join('')+'</select></div>';
+    var availT=Math.max(0,Math.round(((mine.total||0)-(mine.reserved||0))*100)/100);
+    form+='<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bdr)"><div style="font-weight:700;font-size:13px">&#127873; Ofrecer puntos (opcional)</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px;line-height:1.5">Puedes ofrecer puntos de los que tienes acumulados al dueño de la otra plantilla y/o a los demás usuarios que deben aprobar el cambio. Solo se descuentan de tu total y se les asignan <b>si el cambio se aprueba y se efectúa</b>. Disponibles: <b>'+availT+'</b></div>'
+      +d.teams.filter(function(x){return !x.isMine;}).map(function(x){return'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="flex:1;min-width:0;font-size:12px">'+fnEsc(x.teamName)+' <span style="color:var(--t3)">— '+fnEsc(x.userName)+(String(x.userId)===tr.uid?' (dueño del jugador)':'')+'</span></div><input class="fi" style="width:90px" type="number" min="0" step="0.01" max="'+availT+'" placeholder="0" value="'+fnEsc((tr.offers&&tr.offers[x.userId])||'')+'" oninput="fnTrOffer(\''+fnEsc(x.userId)+'\',this.value)"></div>';}).join('')+'</div>';
     form+='<button class="btn bp" style="margin-top:6px" onclick="fnTrPropose()">Enviar solicitud</button>';
   }
   form+='</div>';
@@ -15236,6 +15274,7 @@ function fnTradesTab(d,mine){
     var s='<div style="padding:10px 0;border-top:1px solid var(--bdr)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:200px"><div style="font-weight:700">'+fnEsc(x.fromUserName)+' &#8644; '+fnEsc(x.toUserName)+'</div>'
       +'<div style="font-size:12px;margin-top:2px"><b>'+fnEsc(x.fromUserName)+'</b> da <b>'+fnEsc(x.fromPlayerName||'?')+'</b> &middot; <b>'+fnEsc(x.toUserName)+'</b> da <b>'+fnEsc(x.toPlayerName||'?')+'</b></div>';
+    if(x.offerTotal>0)s+='<div style="font-size:12px;margin-top:3px">&#127873; <b>'+fnEsc(x.fromUserName)+'</b> ofrece <b>'+x.offerTotal+' pts</b>: '+x.offers.map(function(o){return fnEsc(o.userName)+' +'+o.points;}).join(' &middot; ')+(x.status==='approved'?' <span style="color:var(--t3)">(entregados)</span>':(x.status==='pending'?' <span style="color:var(--t3)">(solo si se aprueba)</span>':''))+'</div>';
     if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">Aprobado por '+x.approvals.length+' de '+T.participants.length+(x.pendingUsers.length?' &middot; falta: '+x.pendingUsers.map(fnEsc).join(', '):'')+'</div>';
     else s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">'+(stLbl[x.status]||x.status)+(x.note?' &middot; '+fnEsc(x.note):'')+'</div>';
     s+='</div>';
