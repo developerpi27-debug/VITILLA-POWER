@@ -1556,9 +1556,11 @@ async function ltLoadInto(){
     (by[r.type]=by[r.type]||[]).push(r.type==='ev'?Object.assign({},r.data,{_saved:true}):r.data);
     if(r.type==='team'||r.type==='g')LT.tidOf[r.type+':'+r.data.id]=r.tid;
   });
-  S.tournaments=S.tournaments.concat(by.t||[]);S.teams=S.teams.concat(by.team||[]);S.players=S.players.concat(by.pl||[]);
-  S.games=S.games.concat(by.g||[]);S.lineups=S.lineups.concat(by.lu||[]);S.events=S.events.concat(by.ev||[]);
-  S.pitching=S.pitching.concat(by.pi||[]);S.awards=S.awards.concat(by.aw||[]);S.defensivePoints=S.defensivePoints.concat(by.dp||[]);
+  // Idempotente: primero se quitan los registros locales que ya estuvieran en S.* (p. ej. los que trae el cache offline) y luego se suman los de IndexedDB
+  var nl=function(x){return !ltLoc(x.id);};
+  S.tournaments=(S.tournaments||[]).filter(nl).concat(by.t||[]);S.teams=(S.teams||[]).filter(nl).concat(by.team||[]);S.players=(S.players||[]).filter(nl).concat(by.pl||[]);
+  S.games=(S.games||[]).filter(nl).concat(by.g||[]);S.lineups=(S.lineups||[]).filter(function(x){return !ltLoc(x.gameId);}).concat(by.lu||[]);S.events=(S.events||[]).filter(nl).concat(by.ev||[]);
+  S.pitching=(S.pitching||[]).filter(nl).concat(by.pi||[]);S.awards=(S.awards||[]).filter(nl).concat(by.aw||[]);S.defensivePoints=(S.defensivePoints||[]).filter(nl).concat(by.dp||[]);
 }
 // ¿Esta llamada pertenece a un subtorneo local? (sincrono: decide solo por los ids)
 function ltRoute(action,data){
@@ -1662,16 +1664,21 @@ async function ltHandle(action,data){
   }
   if(action==='deleteGameCascade'){
     var gg=S.games.filter(function(x){return x.id===data.gameId;})[0];
-    if(gg&&gg.status!=='final'&&gg.status!=='suspended')return{ok:false,error:'Solo se pueden eliminar juegos finalizados o suspendidos/no oficiales'};
+    if(gg&&gg.status==='live')return{ok:false,error:'No se puede eliminar un juego en vivo: finalízalo o suspéndelo primero'};
     await delWhere(tidOfGame(data.gameId),function(ty,d){return (ty==='g'&&d.id===data.gameId)||((ty==='ev'||ty==='pi'||ty==='lu'||ty==='dp')&&d.gameId===data.gameId);});
     return{ok:true};
   }
   if(action==='deleteTeamCascade'){
-    var tmid=data.teamId;
-    await delWhere(tidOfTeam(tmid),function(ty,d){
-      return (ty==='team'&&d.id===tmid)||(ty==='pl'&&d.teamId===tmid)||(ty==='ev'&&d.battingTeamId===tmid)||((ty==='lu'||ty==='pi'||ty==='aw'||ty==='dp')&&d.teamId===tmid);
+    var tmid=data.teamId,tidT=tidOfTeam(tmid);
+    // Igual que en la nube: un juego en vivo bloquea; los programados del equipo se eliminan con el equipo; los jugados se conservan
+    var tgRows=(await ltIndexAll('tid',tidT)).filter(function(r){return r.type==='g'&&(r.data.awayTeamId===tmid||r.data.homeTeamId===tmid);});
+    if(tgRows.some(function(r){return r.data.status==='live';}))return{ok:false,error:'El equipo tiene un juego en vivo. Finalízalo o suspéndelo antes de eliminar el equipo.'};
+    var schedSet={};tgRows.forEach(function(r){if(r.data.status==='scheduled')schedSet[r.data.id]=true;});
+    await delWhere(tidT,function(ty,d){
+      return (ty==='team'&&d.id===tmid)||(ty==='pl'&&d.teamId===tmid)||(ty==='ev'&&d.battingTeamId===tmid)||((ty==='lu'||ty==='pi'||ty==='aw'||ty==='dp')&&d.teamId===tmid)
+        ||(ty==='g'&&schedSet[d.id])||((ty==='ev'||ty==='pi'||ty==='lu'||ty==='dp')&&schedSet[d.gameId]);
     });
-    return{ok:true};
+    return{ok:true,deletedGames:Object.keys(schedSet).length,keptGames:tgRows.length-Object.keys(schedSet).length};
   }
   if(action==='deleteTournamentCascade'){
     var rows=await ltIndexAll('tid',data.tournamentId);
@@ -2169,6 +2176,8 @@ async function loadOfflineCache(){
   S.games=d.games||[];S.teams=d.teams||[];S.players=d.players||[];S.lineups=d.lineups||[];
   S.events=d.events||[];S.pitching=d.pitching||[];S.tournaments=d.tournaments||[];
   S.parentTournaments=d.parentTournaments||[];S.profiles=d.profiles||[];
+  // Si se abre la app sin conexion (o getAll fallo), el cache no trae lo creado localmente despues de su ultimo guardado: se vuelve a sumar desde IndexedDB
+  try{await ltLoadInto();}catch(e){console.warn('ltLoadInto',e);}
   return true;
 }
 
@@ -3813,6 +3822,20 @@ function gamesByYear(){
   var tours=toursByYear().map(function(t){return String(t.id);});
   return visibleGames().filter(function(g){return !g.tournamentId||tours.indexOf(String(g.tournamentId))>=0;});
 }
+// Eliminar juegos del Calendario: admin siempre; los demas SOLO si su perfil tiene marcada la opcion "Eliminar" del modulo Calendario de forma
+// explicita (un perfil sin permisos configurados no puede, a diferencia de canDo que lo trata como acceso total).
+// Un subtorneo/equipo/juego LOCAL es del usuario de Google dueño del dispositivo: puede borrarlos sin depender de perfiles ni permisos.
+function isMyLocal(id){return !!(S.user&&S.user.role==='google'&&ltLoc(String(id||'')));}
+// ¿Puede eliminar ESTE juego? Local: siempre (dueño). Nube: admin o perfil con "Eliminar" marcado en Calendario (ver canDeleteGames).
+function canDeleteGame(g){return !!g&&(isMyLocal(g.tournamentId)||isMyLocal(g.id)||canDeleteGames());}
+function canDeleteGames(){
+  var u=S.user;if(!u)return false;
+  if(u.role==='admin')return true;
+  if(u.role==='public')return false;
+  var prof=S.profile||(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
+  var mp=prof&&prof.permissions&&prof.permissions.schedule;
+  return !!(mp&&mp.delete===true);
+}
 function canDo(action,moduleId){
   // action: 'create','edit','delete'
   var u=S.user;if(!u)return false;
@@ -4508,13 +4531,15 @@ function gcH(g){
   if(g.date){var dp=String(g.date).split('-');if(dp.length>=3){day=parseInt(dp[2]);var mnames=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];mon=mnames[parseInt(dp[1])-1]||'';}}
   var rgt='';
   var _isAdmin=S.user&&S.user.role==='admin';
+  var _canDel=canDeleteGame(g);
+  var _delBtn=_canDel?'<button class="reopen-btn" style="margin-top:4px;background:#7a1220" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)">&#128465; Eliminar</button>':'';
   // Editar/revertir un forfeit es una accion de edicion de calendario (schedule), no exclusiva
   // de administradores: cualquier usuario con permiso canDo('edit','schedule') (ej. un Anotador
   // con perfil personalizado que ya pudo declarar el forfeit) debe poder corregirlo despues.
   var _canEditFF=S.user&&S.user.role!=='public'&&canDo('edit','schedule');
   if(g.forfeit){
     var _ffLbl=g.forfeit==='both'?'DOBLE FORFEIT':('FORFEIT &middot; gana '+(g.forfeit==='away'?hw.name:aw.name));
-    rgt='<div style="text-align:right"><span class="badge br">&#128683; '+_ffLbl+'</span>'+(_canEditFF?'<button class="reopen-btn" data-gid="'+g.id+'" onclick="event.stopPropagation();openForfeitM(this.dataset.gid)">&#9999; Editar</button>':'')+'</div>';
+    rgt='<div style="text-align:right"><span class="badge br">&#128683; '+_ffLbl+'</span>'+(_canEditFF?'<button class="reopen-btn" data-gid="'+g.id+'" onclick="event.stopPropagation();openForfeitM(this.dataset.gid)">&#9999; Editar</button>':'')+_delBtn+'</div>';
   }
   else if(g.status==='final'){
     var _awR=parseInt(g.awayRuns)||0,_hmR=parseInt(g.homeRuns)||0;
@@ -4527,11 +4552,11 @@ function gcH(g){
     rgt='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700">'+_awR+' - '+_hmR+'</div>'
       +(_canReopen?'<button class="reopen-btn" data-gid="'+g.id+'" onclick="event.stopPropagation();reopenGame(this.dataset.gid)">&#128275; Reabrir</button>':'')
       +(_canRestart?'<button class="reopen-btn" style="margin-top:4px;background:var(--rd, #c0392b)" data-gid="'+g.id+'" onclick="event.stopPropagation();restartGame(this.dataset.gid)">&#9851; Reiniciar</button>':'')
-      +(_isAdmin?'<button class="reopen-btn" style="margin-top:4px;background:#7a1220" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)">&#128465; Eliminar</button>':'')
-      +(!_canReopen&&!_canRestart&&!_isAdmin?'<span class="badge bg">FINAL</span>':'')
+      +_delBtn
+      +(!_canReopen&&!_canRestart&&!_canDel?'<span class="badge bg">FINAL</span>':'')
       +'</div>';
   }
-  else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div>'+(_isAdmin?'<button class="reopen-btn" style="margin-top:4px;background:#7a1220" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)">&#128465; Eliminar</button>':'')+'</div>';
+  else if(g.status==='suspended')rgt='<div style="text-align:right"><span class="badge '+(g.official==='false'?'br':'bo')+'">'+(g.official==='false'?'&#10007; NO OFICIAL':'&#9888; SUSP. OFICIAL')+'</span><div style="font-size:13px;color:var(--t2)">'+(g.official==='false'?'—':((+g.awayRuns||0)+' - '+(+g.homeRuns||0)))+'</div>'+_delBtn+'</div>';
   else if(g.status==='live')rgt='<div style="text-align:right"><span class="badge '+(g.paused?'bo':'br')+'">'+(g.paused?'&#9646;&#9646; PAUSADO':'&#128308; EN VIVO')+'</span><div style="font-size:16px;font-weight:700">'+(+g.awayRuns||0)+' - '+(+g.homeRuns||0)+'</div></div>';
   else rgt='<div style="text-align:right"><span class="badge bb">PROG.</span><div style="font-size:12px;color:var(--t3)">'+(g.time&&g.time.indexOf&&g.time.indexOf('1899')<0&&g.time.indexOf('1900')<0?g.time:'TBD')+'</div></div>';
   return'<div class="gcrd" onclick="openGD(\''+g.id+'\')"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div><div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+' &middot; '+tmNm(g.tournamentId)+'</div></div>'+rgt+'</div>';
@@ -4655,7 +4680,9 @@ function pgTour(){
   var ptRows=scopedParentTournaments().slice().sort(function(a,b){return a.name<b.name?-1:1;}).map(function(pt){
     var subCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id;}).length;
     var spLbl={vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[pt.type]||'Vitilla';
-    return'<tr><td><b>'+pt.name+'</b></td><td><span class="badge bb">'+spLbl+'</span></td><td>'+subCount+' subtorneo(s)</td>'
+    var localSubCount=S.tournaments.filter(function(t){return t.parentTournamentId===pt.id&&t.storageMode==='local';}).length;
+    var localIco=localSubCount?' <span title="'+localSubCount+' subtorneo(s) con almacenamiento LOCAL (solo en este dispositivo)" style="white-space:nowrap;margin-left:4px">&#128190;'+(localSubCount>1?' '+localSubCount:'')+'</span>':'';
+    return'<tr><td><b>'+pt.name+'</b></td><td><span class="badge bb">'+spLbl+'</span></td><td>'+subCount+' subtorneo(s)'+localIco+'</td>'
       +((isA||canDo('edit','tournaments'))?'<td><div style="display:flex;gap:5px">'
         +'<button class="btn bs bsm" data-ptid="'+pt.id+'" onclick="openParentTM(this.dataset.ptid)">Editar</button>'
         +(isA?'<button class="btn bd bsm" data-ptid="'+pt.id+'" onclick="delParentT(this.dataset.ptid)">&#10005;</button>':'')
@@ -4673,10 +4700,10 @@ function pgTour(){
     return'<tr><td><b>'+t.name+'</b>'+stBadge+'</td><td>'+(pt?pt.name:'-')+'</td><td>'+(t.year||'-')+'</td><td>'+(t.category||'-')+'</td>'
       +'<td>'+tc+'</td><td>'+gc+'</td><td>'+ph+'</td>'
       +'<td><span class="badge '+cls+'">'+{draft:'Borrador',active:'Activo',completed:'Completado'}[t.status]+'</span></td>'
-      +((isA||canDo('edit','tournaments')||canDo('delete','tournaments')||syncBtn)?'<td><div style="display:flex;gap:5px;flex-wrap:wrap">'
+      +((isA||canDo('edit','tournaments')||canDo('delete','tournaments')||syncBtn||isMyLocal(t.id))?'<td><div style="display:flex;gap:5px;flex-wrap:wrap">'
         +syncBtn
         +((isA||canDo('edit','tournaments'))?'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openTM(this.dataset.tid)">Editar</button>':'')
-        +((isA||canDo('delete','tournaments'))?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTournament(this.dataset.tid)">&#10005;</button>':'')
+        +((isA||canDo('delete','tournaments')||isMyLocal(t.id))?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTournament(this.dataset.tid)">&#10005;</button>':'')
         +'</div></td>':'')+'</tr>';
   }).join('');
   ct(yearBar()
@@ -4758,6 +4785,16 @@ async function delTournament(id){
   if(!confirm('¿Eliminar el subtorneo "'+(t?t.name:id)+'"? Esto borrará también sus '+tc+' equipo(s), '+gc+' juego(s), y todas las jugadas/estadísticas asociadas. Esta acción no se puede deshacer.'))return;
   var r=await api('deleteTournamentCascade',{tournamentId:id});
   if(r&&r.ok){
+    if(ltLoc(id)){   // subtorneo local: quitarlo ya de la memoria (loadAll lo vuelve a armar desde IndexedDB, donde ya no esta)
+      S.tournaments=S.tournaments.filter(function(x){return x.id!==id;});
+      var _gone={};S.games.forEach(function(g){if(g.tournamentId===id)_gone[g.id]=true;});
+      var _tg={};S.teams.forEach(function(x){if(x.tournamentId===id)_tg[x.id]=true;});
+      S.teams=S.teams.filter(function(x){return x.tournamentId!==id;});S.players=S.players.filter(function(x){return !_tg[x.teamId];});
+      S.games=S.games.filter(function(g){return !_gone[g.id];});S.events=S.events.filter(function(x){return !_gone[x.gameId];});
+      S.lineups=S.lineups.filter(function(x){return !_gone[x.gameId];});S.pitching=S.pitching.filter(function(x){return !_gone[x.gameId];});
+      S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return !_gone[x.gameId];});S.awards=S.awards.filter(function(x){return x.tournamentId!==id;});
+      if(S.tourFilter===id)S.tourFilter='';
+    }
     await loadAll();
     pgTour();toast('Subtorneo eliminado','info');
   } else toast(r&&r.error||'Error al eliminar el subtorneo','error');
@@ -4984,6 +5021,15 @@ async function tmlbLoadLeagues(){
   var cur=(document.getElementById('tmlb-lgid')||{}).value;if(cur)el.value=String(cur);
   if(m){m.style.color='var(--t3)';m.textContent=r.leagues.length+' ligas cargadas.';}
 }
+function focusTournamentFilters(t){
+  if(!t)return;
+  var pt=(S.parentTournaments||[]).filter(function(p){return String(p.id)===String(t.parentTournamentId);})[0];
+  if(pt&&S.sportFilter&&!S._sportLocked&&(pt.type||'vitilla')!==S.sportFilter)S.sportFilter=pt.type||'vitilla';
+  if(t.parentTournamentId)S.parentTourFilter=String(t.parentTournamentId);
+  S.yearFilter=parseInt(t.year)||0;
+  S.tourFilter=String(t.id);
+  try{initPGS();}catch(e){}
+}
 async function saveT(id){
   var t={id:id||null,name:fv('tn'),year:parseInt(fv('ty'))||new Date().getFullYear(),
     parentTournamentId:fv('tpt')||null,
@@ -5029,6 +5075,9 @@ async function saveT(id){
   if(r&&r.ok){
     if(!id)S.tournaments.push(r.item);else S.tournaments=S.tournaments.map(function(x){return x.id===id?r.item:x;});
     try{refreshUnlimitedBadge();}catch(e){}
+    // Los filtros globales (deporte / torneo padre / año / subtorneo) conservaban la seleccion anterior, asi que un subtorneo de otro
+    // padre, deporte o año quedaba oculto en las listas y selectores hasta cerrar y abrir la app. Ahora se apuntan al recien guardado.
+    focusTournamentFilters(r.item);
     // After saving subtorneo, offer to import teams from previous year
     var savedT=r.item;
     if(!id && savedT && savedT.parentTournamentId && savedT.year){
@@ -5341,7 +5390,7 @@ function pgTeams(){
         +(canDo('edit','teams')?'<button class="btn bs bsm" data-tid="'+t.id+'" onclick="openEM(this.dataset.tid)">&#9998; Editar</button>':'')
         +(canDo('create','teams')?'<button class="btn bp bsm" data-tid="'+t.id+'" onclick="openPM(\'\',this.dataset.tid)">+ Jugador</button>':'')
         +(canDo('edit','teams')?'<button class="btn '+(t.active==='false'?'bg2':'bd')+' bsm" data-tid="'+t.id+'" onclick="togTeam(this.dataset.tid)">'+(t.active==='false'?'Activar':'Inact.')+'</button>':'')
-        +(canDo('delete','teams')?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>':'')
+        +((canDo('delete','teams')||isMyLocal(t.tournamentId))?'<button class="btn bd bsm" data-tid="'+t.id+'" onclick="delTeam(this.dataset.tid)">&#128465;</button>':'')
         +'</div></div>';
   }).join('');
   var followingTour=IS_NATIVE_APP&&S.tourFilter&&isFollowingTournament(S.tourFilter);
@@ -5815,11 +5864,16 @@ async function togTeam(id){
 }
 function delTeam(id){
   var t=S.teams.filter(function(x){return x.id===id;})[0];if(!t)return;
-  if(!S.user||S.user.role!=='admin'){toast('Solo un administrador puede eliminar equipos','error');return;}
+  var _locT=isMyLocal(t.tournamentId);   // equipo de un subtorneo LOCAL: lo borra su dueño, sin contraseña de administrador
+  if(!_locT&&(!S.user||S.user.role!=='admin')){toast('Solo un administrador puede eliminar equipos','error');return;}
   var plCount=S.players.filter(function(p){return p.teamId===id;}).length;
   var evCount=S.events.filter(function(e){return e.battingTeamId===id;}).length;
   var pitCount=S.pitching.filter(function(p){return p.teamId===id;}).length;
   var awCount=S.awards.filter(function(a){return a.teamId===id;}).length;
+  var _tg=S.games.filter(function(g){return g.awayTeamId===id||g.homeTeamId===id;});
+  var schedCount=_tg.filter(function(g){return g.status==='scheduled';}).length;
+  var playedCount=_tg.filter(function(g){return g.status==='final'||g.status==='suspended';}).length;
+  var liveCount=_tg.filter(function(g){return g.status==='live';}).length;
   showM('<div class="mhd"><div class="mtl">&#9888; Eliminar Equipo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="alert ae" style="font-size:12px">Esta accion es <b>irreversible</b> y eliminara permanentemente:'
     +'<ul style="margin:6px 0 0 18px;padding:0">'
@@ -5829,18 +5883,23 @@ function delTeam(id){
     +'<li>Los lineups guardados de este equipo</li>'
     +'<li>'+pitCount+' registro(s) de picheo de este equipo</li>'
     +'<li>'+awCount+' premiacion(es) atadas a este equipo</li>'
-    +'</ul></div>'
-    +'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delTeamPwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>'
+    +'<li><b>'+schedCount+' juego(s) programado(s)</b> de este equipo (con sus lineups)</li>'
+    +'</ul>'
+    +(playedCount?'<div style="margin-top:8px"><b>'+playedCount+' juego(s) ya jugado(s)</b> NO se eliminan: quedan como historial del rival, pero dejan de verse en el calendario. Si los quieres borrar, elimínalos primero desde Calendario &gt; Eliminar.</div>':'')
+    +(liveCount?'<div style="margin-top:8px;color:var(--red)"><b>&#9888; Hay '+liveCount+' juego(s) en vivo</b>: finalízalos o suspéndelos antes de eliminar el equipo.</div>':'')
+    +'</div>'
+    +(_locT?'':'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delTeamPwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bd" data-tid="'+id+'" onclick="confirmDelTeam(this.dataset.tid)">Eliminar Permanentemente</button></div>');
   setTimeout(function(){var el=document.getElementById('delTeamPwd');if(el)el.focus();},60);
 }
 async function confirmDelTeam(id){
-  var pwd=fv('delTeamPwd');
-  if(!pwd){toast('Ingresa tu contraseña','error');return;}
+  var _tm0=S.teams.filter(function(x){return x.id===id;})[0],_loc=!!(_tm0&&isMyLocal(_tm0.tournamentId));
+  var pwd=_loc?'':fv('delTeamPwd');
+  if(!_loc&&!pwd){toast('Ingresa tu contraseña','error');return;}
   _saving=true;
-  var r=await api('deleteTeamCascade',{teamId:id,username:S.user.username,password:pwd});
+  var r=await api('deleteTeamCascade',_loc?{teamId:id}:{teamId:id,username:S.user.username,password:pwd});
   _saving=false;
   if(r&&r.ok){
     S.teams=S.teams.filter(function(x){return x.id!==id;});
@@ -5849,8 +5908,15 @@ async function confirmDelTeam(id){
     S.lineups=S.lineups.filter(function(x){return x.teamId!==id;});
     S.pitching=S.pitching.filter(function(x){return x.teamId!==id;});
     S.awards=S.awards.filter(function(x){return x.teamId!==id;});
+    // Juegos programados del equipo (el servidor ya los elimino): sacarlos tambien de la memoria
+    var gone={};S.games.forEach(function(g){if((g.awayTeamId===id||g.homeTeamId===id)&&g.status==='scheduled')gone[g.id]=true;});
+    S.games=S.games.filter(function(g){return !gone[g.id];});
+    S.lineups=S.lineups.filter(function(x){return !gone[x.gameId];});
+    S.events=S.events.filter(function(x){return !gone[x.gameId];});
+    S.pitching=S.pitching.filter(function(x){return !gone[x.gameId];});
+    S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return !gone[x.gameId];});
     cM();pgTeams();
-    toast('Equipo y todos sus registros eliminados','success');
+    toast('Equipo eliminado'+(r.deletedGames?' junto con '+r.deletedGames+' juego(s) programado(s)':'')+'. Todos sus registros fueron borrados','success');
   } else {
     toast(r&&r.error||'Contraseña incorrecta o error al eliminar','error');
   }
@@ -6355,9 +6421,10 @@ function pgSched(){
       var day=day2,mon=mon2;
       return'<div class="gcrd"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div>'
         +'<div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+(g.time&&g.time.indexOf('1899')<0?' &#128336; '+g.time:'')+'</div></div>'
-        +'<div style="display:flex;gap:6px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
         +(canDo('edit','schedule')?'<button class="btn bs bsm" data-gid="'+g.id+'" onclick="openGM(this.dataset.gid)">Editar</button>':'')
         +(canDo('edit','schedule')?'<button class="btn bd bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();openForfeitM(this.dataset.gid)" title="Declarar Forfeit">&#128683; Forfeit</button>':'')
+        +(canDeleteGame(g)?'<button class="btn bd bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)" title="Eliminar este juego">&#128465; Eliminar</button>':'')
         +(S.user&&S.user.role==='public'?(g.status==='live'?'<button class="btn bp bsm" data-gid="'+g.id+'" onclick="startGame(this.dataset.gid)">&#128065; Ver en vivo</button>':'<span class="badge bgr" style="font-size:11px">No iniciado</span>'):canScore(g)||S.user&&S.user.role==='admin'?'<button class="btn bp bsm" data-gid="'+g.id+'" onclick="startGame(this.dataset.gid)">&#9654; Iniciar</button>':'<button class="btn bs bsm" data-gid="'+g.id+'" onclick="startGame(this.dataset.gid)">&#128065; Ver</button>')
         +'</div></div>';
     }).join(''):'<div class="empty"><div>Sin juegos programados</div></div>')
@@ -7512,7 +7579,7 @@ function mlbZoneHtml(gid){
     +svg+leg
     +(located?'':'<div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:6px">Esta liga no publica la ubicacion de los lanzamientos; se muestran tipo, velocidad y resultado.</div>')
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--t3);text-align:left;font-size:10px;letter-spacing:.5px"><th style="padding:3px 6px">#</th><th style="padding:3px 6px">LANZAMIENTO</th><th style="padding:3px 6px">VELOCIDAD</th><th style="padding:3px 6px">RESULTADO</th><th style="padding:3px 6px">CUENTA</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-    +'<div style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center">Vista del receptor &middot; se actualiza con cada sincronizacion</div>');
+    +'<div style="font-size:10px;color:var(--t3);margin-top:6px;text-align:center">Vista del receptor &middot; se actualiza con cada sincronizacion de la API</div>');
 }
 // ── Zona de strike como "flash" de 3 s (juegos de la API de MLB que un usuario esta viendo) ─────────────
 // Cada vez que llegan lanzamientos nuevos (bola/strike/foul/en juego) aparece 3 s la zona del turno al bate con la ubicacion real de
@@ -10795,37 +10862,39 @@ async function restartGame(gid){
 // confirmar con la contraseña de administrador -- mismo flujo que "Eliminar Equipo".
 function delGame(id){
   var g=S.games.filter(function(x){return x.id===id;})[0];if(!g)return;
-  if(!S.user||S.user.role!=='admin'){toast('Solo un administrador puede eliminar juegos','error');return;}
-  if(g.status!=='final'&&g.status!=='suspended'){toast('Solo se pueden eliminar juegos finalizados o suspendidos/no oficiales','error');return;}
+  if(!canDeleteGame(g)){toast('Tu perfil no tiene permiso para eliminar juegos','error');return;}
+  if(g.status==='live'){toast('No se puede eliminar un juego en vivo: finalízalo o suspéndelo primero','error');return;}
+  var isAdm=S.user&&S.user.role==='admin'&&!isMyLocal(g.tournamentId);
   var hw=teamOf(g.homeTeamId),aw=teamOf(g.awayTeamId);
   var evCount=S.events.filter(function(e){return e.gameId===id;}).length;
   var pitCount=S.pitching.filter(function(p){return p.gameId===id;}).length;
   var luCount=S.lineups.filter(function(l){return l.gameId===id;}).length;
+  var stTxt=g.status==='scheduled'?'programado':(g.status==='final'?'finalizado':'suspendido');
   showM('<div class="mhd"><div class="mtl">&#9888; Eliminar Juego</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div class="alert ae" style="font-size:12px">Esta accion es <b>irreversible</b> y eliminara permanentemente:'
     +'<ul style="margin:6px 0 0 18px;padding:0">'
-    +'<li>El juego <b>'+(aw?aw.name:'?')+' vs '+(hw?hw.name:'?')+'</b>'+(g.date?' ('+g.date+')':'')+'</li>'
-    +'<li>'+evCount+' jugada(s)/evento(s) registrados</li>'
-    +'<li>'+pitCount+' registro(s) de picheo</li>'
-    +'<li>'+luCount+' lineup(s) guardado(s) de este juego</li>'
+    +'<li>El juego '+stTxt+' <b>'+(aw?aw.name:'?')+' vs '+(hw?hw.name:'?')+'</b>'+(g.date?' ('+g.date+')':'')+'</li>'
+    +(evCount||pitCount||luCount?'<li>'+evCount+' jugada(s)/evento(s) registrados</li><li>'+pitCount+' registro(s) de picheo</li><li>'+luCount+' lineup(s) guardado(s) de este juego</li>':'')
     +'</ul></div>'
-    +'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delGamePwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>'
+    +(isAdm?'<div class="fg" style="margin-top:14px"><label class="fl">Contraseña de administrador *</label><input class="fi" id="delGamePwd" type="password" placeholder="Confirma tu contraseña para continuar"></div>':'')
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bd" data-gid="'+id+'" onclick="confirmDelGame(this.dataset.gid)">Eliminar Permanentemente</button></div>');
   setTimeout(function(){var el=document.getElementById('delGamePwd');if(el)el.focus();},60);
 }
 async function confirmDelGame(id){
-  var pwd=fv('delGamePwd');
-  if(!pwd){toast('Ingresa tu contraseña','error');return;}
+  var gg0=S.games.filter(function(x){return x.id===id;})[0];
+  var isAdm=S.user&&S.user.role==='admin'&&!(gg0&&isMyLocal(gg0.tournamentId)),pwd=isAdm?fv('delGamePwd'):'';
+  if(isAdm&&!pwd){toast('Ingresa tu contraseña','error');return;}
   _saving=true;
-  var r=await api('deleteGameCascade',{gameId:id,username:S.user.username,password:pwd});
+  var r=await api('deleteGameCascade',isAdm?{gameId:id,username:S.user.username,password:pwd}:{gameId:id});
   _saving=false;
   if(r&&r.ok){
     S.games=S.games.filter(function(x){return x.id!==id;});
     S.events=S.events.filter(function(x){return x.gameId!==id;});
     S.pitching=S.pitching.filter(function(x){return x.gameId!==id;});
     S.lineups=S.lineups.filter(function(x){return x.gameId!==id;});
+    S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return x.gameId!==id;});
     if(S.game===id)S.game=null;
     cM();pgSched();
     toast('Juego y todos sus registros eliminados','success');
