@@ -3282,10 +3282,22 @@ function showPlayFlashAnimation(type){
     setTimeout(function(){var el2=document.getElementById('playFlashOverlay');if(el2)el2.remove();},550);
   },4200);
 }
+var _pollLive=null,_lastPollAt=0;
+// Refresco acelerado: mientras alguien VE un juego de MLB que esta en vivo (Control de Juego), el celular consulta cada
+// Configuracion > "Refresco al ver un juego de MLB en vivo" segundos (0 = usa el intervalo general). Solo consulta ese juego (liviano).
+function liveMlbPollMs(){
+  var sec=parseInt(S.config&&S.config.mlbLiveClientSeconds)||0;
+  if(sec<3)return 0;
+  if(!(curP==='gamecontrol'&&S.game&&String(S.game).indexOf('mlb')===0))return 0;
+  var g=S.games.filter(function(x){return x.id===S.game;})[0];
+  return(g&&g.status==='live')?sec*1000:0;
+}
 function startPolling(){
   if(_poll)clearInterval(_poll);
   _curPollMs=Math.max(10,(S.pollInterval||30))*1000;
   _poll=setInterval(_doPoll, _curPollMs);
+  if(_pollLive)clearInterval(_pollLive);
+  _pollLive=setInterval(function(){var ms=liveMlbPollMs();if(ms&&Date.now()-_lastPollAt>=ms-400)_doPoll();},1000);   // revisa cada segundo si toca el sondeo acelerado
 }
 async function _doPoll(){
   if(!S.user||document.hidden||_saving||_rPlayBusy||_undoBusy)return;
@@ -3298,6 +3310,7 @@ async function _doPoll(){
   // disparos del timer hasta que termina, en vez de correr en paralelo con ellos.
   if(_pollBusy)return;
   _pollBusy=true;
+  _lastPollAt=Date.now();
   var prevPoll=S.pollInterval||30;
   try{
     // Guardar el juego activo COMPLETO (no solo el indice de bateador) ANTES de recargar,
@@ -7657,7 +7670,7 @@ function mlbZoneNav(dl){
 function mlbZoneFetch(gid,force){
   if(_MLBZ.gid!==gid){_MLBZ.gid=gid;_MLBZ.data=null;_MLBZ.sel=-1;_MLBZ.loaded=false;_MLBZ.missing=false;_MLBZ.at=0;_MLBZ.p=null;}
   if(_MLBZ.p)return _MLBZ.p;
-  if(!force&&Date.now()-_MLBZ.at<6000)return Promise.resolve(_MLBZ.data);
+  if(!force&&Date.now()-_MLBZ.at<Math.max(2000,Math.min(6000,(liveMlbPollMs()||6000)-500)))return Promise.resolve(_MLBZ.data);
   _MLBZ.p=(async function(){
     try{
       var r=await api('getMlbPitches',{gameId:gid});
@@ -19024,6 +19037,11 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Intervalo de actualizacion automatica (segundos)</label><input class="fi" id="spoll" type="number" min="10" max="300" value="'+(S.pollInterval||30)+'"></div>'
       +'</div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; La actualización automática refresca todos los módulos de datos (posiciones, estadísticas, calendario, etc.) sin interrumpir al usuario. Mínimo 10 segundos. Los visitantes y otros usuarios verán los cambios en el próximo ciclo automáticamente.</div>'
+      +'<div style="font-weight:700;margin:14px 0 6px">&#9918; Juegos de MLB en vivo (rapidez de bolas, strikes y jugadas)</div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">Repetir la sincronización de MLB cada (segundos)</label><input class="fi" id="smlbsync" type="number" min="0" max="30" value="'+((S.config&&parseInt(S.config.mlbLiveSyncSeconds))||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">0 = desactivado (una vez por minuto, como el cron). Mínimo 5, máximo 30. Recomendado: 10.</div></div>'
+      +'<div class="fg"><label class="fl">Refrescar alineaciones y pitcheo cada (segundos)</label><input class="fi" id="smlbbox" type="number" min="10" max="300" value="'+((S.config&&parseInt(S.config.mlbBoxscoreSeconds))||30)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">En las repeticiones rápidas. Mínimo 10. Por defecto 30.</div></div></div>'
+      +'<div class="fg"><label class="fl">Refresco del celular al ver un juego de MLB en vivo (segundos)</label><input class="fi" id="smlbclient" type="number" min="0" max="30" value="'+((S.config&&parseInt(S.config.mlbLiveClientSeconds))||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">0 = usa el intervalo general. Mínimo 3. Recomendado: 5. Solo aplica mientras se mira un juego de MLB en vivo.</div></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9201; Las repeticiones corren dentro de cada minuto del cron de Cloudflare y solo cuando hay juegos de MLB en vivo. Con 10 s se hacen unas 5 pasadas extra por minuto. Si MLB responde con error 429 o 403, se detienen hasta el siguiente minuto.</div>'
       +'<button class="btn bp" onclick="saveSessParams()">Guardar Parametros</button>'
       +'</div>'
       +fnCfgCard()
@@ -19170,14 +19188,22 @@ async function saveSessParams(){
   var p=parseInt(fv('spoll'))||30;
   if(t<5||t>480){toast('Inactividad debe ser entre 5 y 480 minutos','error');return;}
   if(p<10||p>300){toast('Intervalo debe ser entre 10 y 300 segundos','error');return;}
+  var ms=parseInt(fv('smlbsync'))||0,mb=parseInt(fv('smlbbox'))||30,mc=parseInt(fv('smlbclient'))||0;
+  if(ms!==0&&(ms<5||ms>30)){toast('La repetición de MLB debe ser 0 (desactivada) o entre 5 y 30 segundos','error');return;}
+  if(mb<10||mb>300){toast('Alineaciones y pitcheo: entre 10 y 300 segundos','error');return;}
+  if(mc!==0&&(mc<3||mc>30)){toast('El refresco del celular debe ser 0 (usar el general) o entre 3 y 30 segundos','error');return;}
   _saving=true;
   S.sessionTimeout=t; S.pollInterval=p;
   var r1=await api('saveConfig',{key:'sessionTimeout',value:String(t)});
   var r2=await api('saveConfig',{key:'pollInterval',value:String(p)});
+  var r3=await api('saveConfig',{key:'mlbLiveSyncSeconds',value:String(ms)});
+  var r4=await api('saveConfig',{key:'mlbBoxscoreSeconds',value:String(mb)});
+  var r5=await api('saveConfig',{key:'mlbLiveClientSeconds',value:String(mc)});
   _saving=false;
-  if(r1&&r1.ok&&r2&&r2.ok){
+  if(r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok){
+    S.config=S.config||{};S.config.mlbLiveSyncSeconds=String(ms);S.config.mlbBoxscoreSeconds=String(mb);S.config.mlbLiveClientSeconds=String(mc);
     startSessionTimer(); startPolling();
-    toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s','success');
+    toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s'+(ms?' / MLB cada '+ms+'s':''),'success');
   } else toast('Error al guardar parametros','error');
 }
 async function savePlayLogLimit(){
