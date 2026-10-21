@@ -4785,16 +4785,7 @@ async function delTournament(id){
   if(!confirm('¿Eliminar el subtorneo "'+(t?t.name:id)+'"? Esto borrará también sus '+tc+' equipo(s), '+gc+' juego(s), y todas las jugadas/estadísticas asociadas. Esta acción no se puede deshacer.'))return;
   var r=await api('deleteTournamentCascade',{tournamentId:id});
   if(r&&r.ok){
-    if(ltLoc(id)){   // subtorneo local: quitarlo ya de la memoria (loadAll lo vuelve a armar desde IndexedDB, donde ya no esta)
-      S.tournaments=S.tournaments.filter(function(x){return x.id!==id;});
-      var _gone={};S.games.forEach(function(g){if(g.tournamentId===id)_gone[g.id]=true;});
-      var _tg={};S.teams.forEach(function(x){if(x.tournamentId===id)_tg[x.id]=true;});
-      S.teams=S.teams.filter(function(x){return x.tournamentId!==id;});S.players=S.players.filter(function(x){return !_tg[x.teamId];});
-      S.games=S.games.filter(function(g){return !_gone[g.id];});S.events=S.events.filter(function(x){return !_gone[x.gameId];});
-      S.lineups=S.lineups.filter(function(x){return !_gone[x.gameId];});S.pitching=S.pitching.filter(function(x){return !_gone[x.gameId];});
-      S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return !_gone[x.gameId];});S.awards=S.awards.filter(function(x){return x.tournamentId!==id;});
-      if(S.tourFilter===id)S.tourFilter='';
-    }
+    if(ltLoc(id))dropLocalTournamentFromMemory(id);   // subtorneo local: quitarlo ya de la memoria (loadAll lo vuelve a armar desde IndexedDB, donde ya no esta)
     await loadAll();
     pgTour();toast('Subtorneo eliminado','info');
   } else toast(r&&r.error||'Error al eliminar el subtorneo','error');
@@ -4805,7 +4796,7 @@ function canSyncToCloud(){return !!(S.user&&S.user.role==='google'&&hasModuleAcc
 function tStorageSection(id,t){
   if(!(S.user&&S.user.role==='google'))return'';
   var ud=parseInt(S.config&&S.config.googleUnlimitedDays)||0;
-  var cloudTxt='Se guarda en el servidor y lo ves desde cualquier dispositivo. Respeta los límites de equipos, jugadores, juegos y entradas de la configuración'+(ud>0?', <b>excepto los primeros '+ud+' días, que son ilimitados</b>':'')+'.';
+  var cloudTxt='Se guarda en el servidor y lo ves desde cualquier dispositivo. Respeta los límites de equipos, jugadores, juegos y entradas de la configuración'+(ud>0?', <b>excepto los primeros '+ud+' días de tu primer subtorneo en la nube, que son ilimitados</b>':'')+'.';
   var localTxt='Se guarda <b>solo en este dispositivo</b> (IndexedDB), <b>sin límites</b>. Si borras los datos del navegador o desinstalas la app se pierden, y no se ve desde otros dispositivos ni en Fantasía.'
     +'<br><b style="color:#f59e0b">&#9888; Si luego deseas cambiar este torneo a la nube, deberás comunicarte con el administrador.</b>';
   var hd='<div class="fg"><label class="fl">Almacenamiento de los datos del torneo</label>';
@@ -4854,8 +4845,14 @@ async function syncLocalToCloud(tid){
     var r=await api('syncLocalTournament',pay);
     if(r&&r.ok){
       await ltDelKeys(rows.map(function(x){return x.k;}));
+      dropLocalTournamentFromMemory(tid);
       await loadAll();
-      pgTour();toast('Torneo sincronizado a la nube ('+r.counts.teams+' equipos, '+r.counts.players+' jugadores, '+r.counts.games+' juegos)'+(imgsFailed?'. No se pudieron subir '+imgsFailed+' imagen(es): súbelas de nuevo desde el torneo en la nube':''),'success');
+      // El torneo en la nube tiene OTRO id (el mismo sin el prefijo "lc_"): los filtros seguian apuntando al local ya borrado, por eso
+      // equipos/jugadores "desaparecian" hasta moverse por la app. Se apuntan al nuevo y se redibuja el modulo actual de inmediato.
+      var newT=S.tournaments.filter(function(x){return x.id===String(tid).replace(/^lc_/,'');})[0];
+      if(newT)focusTournamentFilters(newT);
+      try{initPGS();if(PGS[curP])PGS[curP]();else pgTour();}catch(e){try{pgTour();}catch(e2){}}
+      toast('Torneo sincronizado a la nube ('+r.counts.teams+' equipos, '+r.counts.players+' jugadores, '+r.counts.games+' juegos)'+(imgsFailed?'. No se pudieron subir '+imgsFailed+' imagen(es): súbelas de nuevo desde el torneo en la nube':''),'success');
     }else toast((r&&r.error)||'No se pudo sincronizar','error');
   }catch(e){toast('Error al sincronizar: '+(e&&e.message||e),'error');}
   _syncBusyCloud=false;
@@ -5020,6 +5017,17 @@ async function tmlbLoadLeagues(){
   el.innerHTML='<option value="">— elige la liga —</option>'+r.leagues.map(function(l){return'<option value="'+l.id+'">'+mlbEsc(l.name)+' (ID '+l.id+')</option>';}).join('');
   var cur=(document.getElementById('tmlb-lgid')||{}).value;if(cur)el.value=String(cur);
   if(m){m.style.color='var(--t3)';m.textContent=r.leagues.length+' ligas cargadas.';}
+}
+// Quita de la memoria (S.*) un subtorneo local y todo lo suyo; IndexedDB se borra aparte
+function dropLocalTournamentFromMemory(id){
+  S.tournaments=S.tournaments.filter(function(x){return x.id!==id;});
+  var _gone={};S.games.forEach(function(g){if(g.tournamentId===id)_gone[g.id]=true;});
+  var _tg={};S.teams.forEach(function(x){if(x.tournamentId===id)_tg[x.id]=true;});
+  S.teams=S.teams.filter(function(x){return x.tournamentId!==id;});S.players=S.players.filter(function(x){return !_tg[x.teamId];});
+  S.games=S.games.filter(function(g){return !_gone[g.id];});S.events=S.events.filter(function(x){return !_gone[x.gameId];});
+  S.lineups=S.lineups.filter(function(x){return !_gone[x.gameId];});S.pitching=S.pitching.filter(function(x){return !_gone[x.gameId];});
+  S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return !_gone[x.gameId];});S.awards=S.awards.filter(function(x){return x.tournamentId!==id;});
+  if(S.tourFilter===id)S.tourFilter='';
 }
 function focusTournamentFilters(t){
   if(!t)return;
@@ -5401,22 +5409,25 @@ function pgTeams(){
     // Visitantes: solo filtros (deporte/torneo/año/subtorneo via yearBar()+selector de
     // subtorneo) y, en la tarjeta del equipo, unicamente el boton "Jugadores" (roster de
     // solo lectura). Sin boton de acciones superior, sin pestaña/tabla global de Jugadores.
-    ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-      +'<div><div class="stl">Equipos & Rosters</div><div class="ssb">Consulta equipos y sus rosters</div></div>'
-      +'<div style="display:flex;gap:8px;align-items:center">'
-      +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-      +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
+    ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px 12px;margin-bottom:16px">'
+      +'<div style="flex:1 1 200px;min-width:0"><div class="stl">Equipos & Rosters</div><div class="ssb">Consulta equipos y sus rosters</div></div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex:1 1 240px;min-width:0">'
+      +'<label style="font-size:12px;color:var(--t2);white-space:nowrap">&#127942; Subtorneo:</label>'
+      +'<select class="fs" style="flex:1;min-width:0;max-width:260px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
       +tourFollowBtn
       +'</div></div>'
       +'<div class="g3">'+(cards||'<div class="empty" style="grid-column:span 3"><div style="font-size:30px">&#128101;</div><div>Sin equipos</div></div>')+'</div>');
     return;
   }
-  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
-    +'<div><div class="stl">Equipos & Rosters</div><div class="ssb">Gestiona equipos y jugadores</div></div>'
-    +'<div style="display:flex;gap:8px;align-items:center">'
-    +'<label style="font-size:12px;color:var(--t2)">&#127942; Subtorneo:</label>'
-    +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
-    +tourFollowBtn
+  // Encabezado que se ajusta al ancho: titulo, selector de subtorneo y botones pasan a la linea siguiente en pantallas angostas
+  // (antes todo iba en una sola fila y en el celular los botones quedaban cortados fuera de la pantalla)
+  ct(yearBar()+'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px 12px;margin-bottom:16px">'
+    +'<div style="flex:1 1 200px;min-width:0"><div class="stl">Equipos & Rosters</div><div class="ssb">Gestiona equipos y jugadores</div></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1 1 280px;min-width:0">'
+    +'<div style="display:flex;gap:8px;align-items:center;flex:1 1 100%;min-width:0">'
+    +'<label style="font-size:12px;color:var(--t2);white-space:nowrap">&#127942; Subtorneo:</label>'
+    +'<select class="fs" style="flex:1;min-width:0;max-width:260px" onchange="setSharedTour(this.value);pgTeams()">'+tOpts+'</select>'
+    +tourFollowBtn+'</div>'
     +(canDo('create','teams')?'<button class="btn bp" onclick="openEM(\'\')">+ Equipo</button>':'')
     +(canDo('create','teams')?'<button class="btn bs" onclick="openImportTeamM()">&#128228; Importar Equipo</button>':'')
     +(isA?'<button class="btn bs" onclick="openMlbImportM()" title="Importar roster desde la API de MLB (solo admin)">&#9918; Importar de MLB</button>':'')
@@ -18519,6 +18530,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -19062,7 +19074,7 @@ function pgSet(){
       +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Baseball</label><input class="fi" id="gAccMaxGMBaseball" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerMonthBaseball||0)+'"></div>'
       +'<div class="fg"><label class="fl" style="font-weight:400;font-size:11px">Softball</label><input class="fi" id="gAccMaxGMSoftball" type="number" min="0" value="'+(S.config&&S.config.googleMaxGamesPerMonthSoftball||0)+'"></div>'
       +'</div></div>'
-      +'<div class="fg"><label class="fl">Días de uso ilimitado al crear un subtorneo en la nube (0 = sin periodo ilimitado)</label><input class="fi" id="gAccUnlimDays" type="number" min="0" value="'+(S.config&&S.config.googleUnlimitedDays||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Desde que un usuario de Google crea un subtorneo con almacenamiento en la nube, durante estos días no se aplican los límites de equipos, jugadores, juegos ni entradas de abajo. Al terminar se aplican. Se le muestra en el encabezado cuántos días le quedan. Los subtorneos locales nunca tienen límites.</div></div>'
+      +'<div class="fg"><label class="fl">Días de uso ilimitado al crear un subtorneo en la nube (0 = sin periodo ilimitado)</label><input class="fi" id="gAccUnlimDays" type="number" min="0" value="'+(S.config&&S.config.googleUnlimitedDays||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Aplica solo al PRIMER subtorneo con almacenamiento en la nube que crea cada usuario de Google: durante estos días no se aplican los límites de equipos, jugadores, juegos ni entradas de abajo. Al terminar se aplican, y los subtorneos que cree después (incluso mientras corren estos días) ya se rigen por esos límites. Se le muestra en el encabezado cuántos días le quedan. Los subtorneos locales nunca tienen límites.</div></div>'
       +'<div class="fg"><label class="fl">Limite de equipos que puede crear por subtorneo (0 = sin limite)</label><input class="fi" id="gAccMaxTeams" type="number" min="0" value="'+(S.config&&S.config.googleMaxTeamsPerTournament||0)+'"></div>'
       +'<div class="fg"><label class="fl">Limite de jugadores por equipo, por deporte (0 = sin limite)</label>'
       +'<div class="fr c3">'
