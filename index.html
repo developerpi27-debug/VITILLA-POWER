@@ -940,7 +940,7 @@ function brandTagline(){ return brandLbl()+', más que un juego es pasión, herm
 var _lastPushToken=null;
 // Preferencias de avisos de ESTE dispositivo (modulo Notificaciones). La fuente de verdad es el servidor (se refresca al abrir
 // la app y al abrir el modulo); esto solo pinta al instante. live/runs por defecto activados, fantasy apagado hasta que el usuario lo active.
-var _pushPrefs={general:false,live:true,runs:true,fantasy:false};
+var _pushPrefs={general:false,live:true,runs:true,fantasy:false,favs:true};
 try{ var _pp=JSON.parse(localStorage.getItem('vp_push_prefs')||'null'); if(_pp&&typeof _pp==='object')_pushPrefs=Object.assign(_pushPrefs,_pp); }catch(e){}
 function savePushPrefsLocal(){ try{ localStorage.setItem('vp_push_prefs',JSON.stringify(_pushPrefs)); }catch(e){} }
 // Canales de notificacion de Android: el usuario puede silenciar o cambiar el sonido de cada tipo desde Ajustes del telefono.
@@ -950,6 +950,7 @@ function initPushChannels(){
   if(!CapPush||!CapPush.createChannel)return;
   [{id:'live',name:'Juegos en vivo',description:'Aviso cuando comienza un juego'},
    {id:'runs',name:'Carreras',description:'Carreras anotadas en los juegos de tus equipos'},
+   {id:'favs',name:'Jugadores favoritos',description:'Cada turno de tus jugadores favoritos y de tu plantilla de Fantasy'},
    {id:'fantasy',name:'Recordatorio de Fantasy',description:'Recordatorio para ajustar tu plantilla, solicitudes de cambios y desafíos, y avisos de novedades de Fantasy'}].forEach(function(c){
     try{ var pr=CapPush.createChannel({id:c.id,name:c.name,description:c.description,importance:4,visibility:1,vibration:true}); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){}
   });
@@ -1122,7 +1123,7 @@ async function syncPushFollowsFromServer(){
     _followedTeams=teams;_followedTournaments=tours;
     saveFollowsToLocal();
     if(r.prefs){
-      _pushPrefs=Object.assign({general:false,live:true,runs:true,fantasy:false},r.prefs);
+      _pushPrefs=Object.assign({general:false,live:true,runs:true,fantasy:false,favs:true},r.prefs);
       savePushPrefsLocal();
       // Si el servidor dice que la campana general esta activa y aqui no se veia, se enciende (nunca se apaga desde aqui: ver initPushUI)
       if(r.prefs.general&&!pushIsEnabled()){ try{ localStorage.setItem('vp_push_enabled','1'); }catch(e){} updatePushBtnUI(true); }
@@ -1189,7 +1190,8 @@ async function setNotifPref(key,on,el){
     _pushPrefs[key]=!!on;savePushPrefsLocal();
     var msgs={live:['Avisos de juegos en vivo activados','Avisos de juegos en vivo desactivados'],
       runs:['Te avisaremos de cada carrera','Avisos de carreras desactivados'],
-      fantasy:['Recordatorio de Fantasy activado','Recordatorio de Fantasy desactivado']}[key];
+      fantasy:['Recordatorio de Fantasy activado','Recordatorio de Fantasy desactivado'],
+      favs:['Avisos de jugadores favoritos activados','Avisos de jugadores favoritos desactivados']}[key];
     if(msgs)toast(on?msgs[0]:msgs[1],'success');
   } else {
     if(el)el.checked=!on;
@@ -1230,6 +1232,7 @@ fdesc+=' También te avisa cuando otro usuario con plantilla en tu subtorneo pro
     +notifRow('&#128225;','Todos los juegos','Avisarme también de los juegos de equipos que no sigo (requiere “Juegos en vivo” activado).','general',!!P.general)
     +notifRow('&#128293;','Carreras','Cada carrera que se anota en los juegos de los equipos que sigues, con marcador y jugada.','runs',P.runs!==false)
     +notifRow('&#127919;','Recordatorio de Fantasy',fdesc,'fantasy',!!P.fantasy)
+    +notifRow('&#11088;','Jugadores favoritos y mi Fantasy','Cada turno de los jugadores que marcaste como favoritos (Estadísticas) o activaste en tu plantilla de Fantasy, con lo que sumaron o restaron. Solo en juegos en vivo.','favs',P.favs!==false)
     +'</div>';
   var tids=Object.keys(_followedTeams||{}),oids=Object.keys(_followedTournaments||{}),rows='';
   tids.forEach(function(id){
@@ -13245,7 +13248,7 @@ function openPlayerStatsM(pid,role){
       }
     };
 
-    showM('<div class="mhd"><div class="mtl">&#127952; '+p.name+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    showM('<div class="mhd"><div class="mtl">&#127952; '+p.name+'</div><div style="display:flex;align-items:center;gap:8px">'+favBtnHtml(pid)+'<button class="bx" onclick="cM()">&#10005;</button></div></div>'
       +'<div class="mbd">'
       +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">'
       +playerAvatarHtml(p.photoUrl,p.name,44,'square',p.number)
@@ -13413,7 +13416,7 @@ function openPlayerStatsM(pid,role){
       }).join('');
     }
 
-    showM('<div class="mhd"><div class="mtl">&#9918; '+p.name+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    showM('<div class="mhd"><div class="mtl">&#9918; '+p.name+'</div><div style="display:flex;align-items:center;gap:8px">'+favBtnHtml(pid)+'<button class="bx" onclick="cM()">&#10005;</button></div></div>'
       +'<div class="mbd">'
       +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">'
       +playerAvatarHtml(p.photoUrl,p.name,44,'square',p.number)
@@ -15295,6 +15298,75 @@ function fnBench(map,edit,contrib){
 function fnHoldMs(p){return p&&p.hold?p.hold.until-(Date.now()+(_FN.skew||0)):0;}
 function fnHoldTxt(ms){var m=Math.max(1,Math.ceil(ms/60000));return m>=60?Math.floor(m/60)+' h '+(m%60)+' min':m+' min';}
 function fnHoldLocked(p){return fnHoldMs(p)>0&&!p.hold.mine;}
+// ── Favoritos y avisos por turno ─────────────────────────────────────────────────────────────────────
+// Favorito (modulo Estadisticas) y "avisarme cada turno" de mis jugadores de Fantasy: el servidor manda una notificacion push por cada turno
+// de esos jugadores en juegos en vivo (bateadores: cada turno con sus puntos; lanzadores: ponches, jonrones, carreras en contra).
+var _MYF={loaded:false,loading:false,favs:{},fan:{},all:false,busy:false};
+async function ensureMyFollows(force){
+  if(!S.user||S.user.role==='public')return;
+  if((_MYF.loaded&&!force)||_MYF.loading)return;
+  _MYF.loading=true;
+  try{
+    var r=await api('getMyPlayerFollows',{});
+    if(r&&r.ok){
+      _MYF.favs={};(r.favs||[]).forEach(function(id){_MYF.favs[id]=true;});
+      _MYF.fan={};((r.fantasy&&r.fantasy.ids)||[]).forEach(function(id){_MYF.fan[id]=true;});
+      _MYF.all=!!(r.fantasy&&r.fantasy.all);_MYF.loaded=true;
+    }
+  }catch(e){}
+  _MYF.loading=false;
+}
+// Un jugador puede tener un registro por torneo/equipo: se siguen todos juntos para que el aviso llegue en cualquier torneo donde juegue
+function favIdsOf(pid){
+  var ids=[String(pid)];
+  try{careerInstances(pid).forEach(function(x){x=String(x);if(ids.indexOf(x)<0)ids.push(x);});}catch(e){}
+  return ids;
+}
+function isFavPlayer(pid){return favIdsOf(pid).some(function(x){return _MYF.favs[x];});}
+function favBtnLabel(pid){return isFavPlayer(pid)?'&#11088; Favorito':'&#9734; Favorito';}
+function favBtnHtml(pid){
+  if(!S.user||S.user.role==='public')return'';
+  if(!_MYF.loaded)ensureMyFollows().then(function(){var b=document.getElementById('fav-btn');if(b&&b.dataset.pid===String(pid))b.innerHTML=favBtnLabel(pid);});
+  return'<button class="btn bs bsm" id="fav-btn" data-pid="'+pid+'" onclick="toggleFavPlayer(this.dataset.pid)" title="Recibir una notificación por cada turno de este jugador en los juegos en vivo">'+favBtnLabel(pid)+'</button>';
+}
+async function favEnsurePush(){
+  if(!IS_NATIVE_APP){toast('Guardado. Las notificaciones llegan en la app de Android','info');return;}
+  try{await ensurePushToken();}catch(e){}   // pide el permiso de notificaciones y liga este telefono a tu usuario
+}
+async function toggleFavPlayer(pid){
+  if(_MYF.busy)return;
+  var on=!isFavPlayer(pid),p=playerOf(pid);
+  _MYF.busy=true;
+  var r=await api('setPlayerFollow',{kind:'fav',playerIds:favIdsOf(pid),on:on});
+  _MYF.busy=false;
+  if(r&&r.ok){
+    favIdsOf(pid).forEach(function(x){if(on)_MYF.favs[x]=true;else delete _MYF.favs[x];});
+    var b=document.getElementById('fav-btn');if(b)b.innerHTML=favBtnLabel(pid);
+    toast(on?'Te avisaremos de cada turno de '+(p?p.name:'este jugador')+' en juegos en vivo':'Ya no recibirás avisos de '+(p?p.name:'este jugador'),'success');
+    if(on)favEnsurePush();
+  }else toast((r&&r.error)||'No se pudo guardar, intenta de nuevo','error');
+}
+// Fantasy: avisos por turno de un jugador de MI plantilla, o de todos
+function fnAlertHtml(pid){
+  if(!S.user||S.user.role==='public')return'';
+  if(!_MYF.loaded)ensureMyFollows().then(function(){if(_FN&&_FN.editing)fnRender();});
+  var all=!!_MYF.all;
+  return'<div style="flex-basis:100%;display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:2px;padding-top:8px;border-top:1px dashed var(--bdr)">'
+    +'<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" '+((_MYF.fan[pid]||all)?'checked ':'')+(all?'disabled ':'')+'data-pid="'+pid+'" onchange="toggleFanAlert(this.dataset.pid,this.checked)"> &#128276; Avisarme cada turno de este jugador</label>'
+    +'<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" '+(all?'checked ':'')+'onchange="toggleFanAlertAll(this.checked)"> &#128276; De todos mis jugadores</label></div>';
+}
+async function toggleFanAlert(pid,on){
+  var r=await api('setPlayerFollow',{kind:'fantasy',playerId:pid,on:!!on});
+  if(r&&r.ok){if(on)_MYF.fan[pid]=true;else delete _MYF.fan[pid];toast(on?'Te avisaremos de cada turno de este jugador':'Avisos de este jugador desactivados','success');if(on)favEnsurePush();}
+  else{toast((r&&r.error)||'No se pudo guardar, intenta de nuevo','error');}
+  fnRender();
+}
+async function toggleFanAlertAll(on){
+  var r=await api('setFantasyAlertsAll',{on:!!on});
+  if(r&&r.ok){_MYF.all=!!on;toast(on?'Te avisaremos de cada turno de todos tus jugadores de Fantasy':'Avisos generales de Fantasy desactivados','success');if(on)favEnsurePush();}
+  else toast((r&&r.error)||'No se pudo guardar, intenta de nuevo','error');
+  fnRender();
+}
 function fnChip(p,tag,opts){
   opts=opts||{};
   var hms=fnHoldMs(p);
@@ -15305,7 +15377,7 @@ function fnChip(p,tag,opts){
   return'<div '+(opts.tap?'data-pid="'+p.id+'" onclick="fnDraftTap(this.dataset.pid)" ':(opts.noSel?'':'draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" '))
     +'style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;'+(opts.tap?'cursor:pointer;':(opts.noSel?'':'cursor:grab;'))+'background:var(--card);border:1px solid '+((_FN.sel===p.id||(opts.tap&&_FN.dsel.indexOf(String(p.id))>=0))?'var(--acc)':'var(--bdr)')+';opacity:'+(opts.dim?'.4':'1')+'">'
     +playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)
-    +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#'+fnEsc(p.number||'?')+' '+fnEsc(p.name)+fnRk(p)+'</div>'
+    +'<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#'+fnEsc(p.number||'?')+' '+fnEsc(p.name)+fnRk(p)+(p.isNew&&opts.showNew?' <span style="display:inline-block;background:#16a34a;color:#fff;font-size:9px;font-weight:800;letter-spacing:.5px;border-radius:6px;padding:1px 5px;vertical-align:middle" title="Agregado al roster hace pocos días">NUEVO</span>':'')+'</div>'
     +'<div style="font-size:10px;color:var(--t3)">'+fnEsc(p.position||'—')+' &middot; '+fnEsc(p.abbr||p.teamName)+(tag?' &middot; '+tag:'')+(p.inactive?' &middot; <span style="color:#f87171">inactivo</span>':'')+'</div>'
     +'<div style="font-size:10px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+fnEsc(fnStat(p))+'</div></div>'
     +'<div style="font-size:11px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div></div>';
@@ -15331,7 +15403,7 @@ function fnListHtml(){
     return ia-ib||(a.name||'').localeCompare(b.name||'');
   });
   if(!list.length)return '<div class="empty">Sin jugadores disponibles</div>';
-  return fnGrid(list.map(function(p){return fnChip(p,used[p.id]?fnTagOf(p.id):'',{dim:!!used[p.id]&&!_FN.editing});}).join(''));
+  return fnGrid(list.map(function(p){return fnChip(p,used[p.id]?fnTagOf(p.id):'',{dim:!!used[p.id]&&!_FN.editing,showNew:true});}).join(''));
 }
 // Mi roster: todos mis jugadores (cuadro, banca, relevistas e inactivos) con su estado
 function fnMineIds(map,parked){
@@ -15494,7 +15566,8 @@ function fnActionBar(){
   return'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,200,0,.1);border:1px solid var(--acc);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:12px">'
     +'<div style="flex:1;min-width:150px">Seleccionado: <b>'+fnEsc(p.name)+'</b>'+(own?' &middot; toca otra posición/espacio para moverlo o intercambiarlo':' (agente libre) &middot; toca un espacio vacío para fichar')+'</div>'
     +(own?'<button class="btn bs bsm" style="color:#f87171" onclick="fnRelease()">Liberar jugador</button>':'')
-    +'<button class="btn bs bsm" onclick="_FN.sel=\'\';fnRender()">Quitar selección</button></div>';
+    +'<button class="btn bs bsm" onclick="_FN.sel=\'\';fnRender()">Quitar selección</button>'
+    +(own?fnAlertHtml(p.id):'')+'</div>';
 }
 function fnCounters(){
   var d=_FN.data,n=0,b=0;
@@ -15563,7 +15636,7 @@ function fnDraftListHtml(){
   });
   if(!list.length)return'<div class="empty">Sin jugadores disponibles</div>';
   var turn=dr.status==='drafting'&&dr.mine.myTurn;
-  return fnGrid(list.map(function(p){return fnChip(p,'',{tap:turn,noSel:!turn});}).join(''));
+  return fnGrid(list.map(function(p){return fnChip(p,'',{tap:turn,noSel:!turn,showNew:true});}).join(''));
 }
 function fnDraftSelHtml(){
   return'Seleccionados: <b>'+_FN.dsel.length+'/'+fnDraftNeed()+'</b>'+(_FN.dsel.length?' &middot; '+_FN.dsel.map(function(i){var p=fnP(i);return p?fnEsc(p.name):'';}).join(', '):'');
@@ -16179,6 +16252,7 @@ function fnCfgCard(){
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin:12px 0 6px">MÁXIMO DE JUGADORES DE LA PLANTILLA POR DEPORTE (cuadro + banca; el resto del máximo va a la banca; 0 = cuadro + 3)</div>'
     +'<div style="'+g+'">'+inp('fnmpv','fantasyMaxPlayersVitilla','Vitilla (cuadro de 7)')+inp('fnmpb','fantasyMaxPlayersBaseball','Baseball (cuadro de 10)')+inp('fnmps','fantasyMaxPlayersSoftball','Softball (cuadro de 10)')+inp('fnmrel','fantasyMaxRelievers','Máx. relevistas (por defecto 3)')+'</div>'
     +'<div class="fg" style="margin-top:12px"><label class="fl">&#127942; Puntos por VICTORIA DIARIA (ganador de cada día en la clasificación Diaria; se suman a su plantilla de fase)</label><input class="fi" id="fnwin" type="number" min="0" step="0.5" value="'+(c.fantasyDailyWinPts||0)+'"></div>'
+    +'<div class="fg"><label class="fl">&#127381; Días que un jugador recién agregado al roster muestra la etiqueta "NUEVO" en la agencia libre (0 = sin etiqueta)</label><input class="fi" id="fnnew" type="number" min="0" max="30" value="'+((c.fantasyNewPlayerDays!==undefined&&c.fantasyNewPlayerDays!=='')?c.fantasyNewPlayerDays:3)+'"></div>'
     +'<div class="fg"><label class="fl">No permitir crear plantilla de FASE si en esa fase del subtorneo ya se jugaron (finalizados) este número de juegos (0 = sin límite)</label><input class="fi" id="fnmg" type="number" min="0" value="'+(c.fantasyMaxGamesCreate||0)+'"></div>'
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">COLA DE TURNOS AL "CREAR PLANTILLA" (cada tipo de plantilla con sus propios valores)</div>'+qblock('Fase','Plantillas POR TORNEO (fase)')+qblock('Dia','Plantillas DIARIAS')
     +'<div style="font-size:11px;font-weight:800;color:var(--acc);margin:16px 0 0;letter-spacing:.5px">BLOQUEO DE JUGADORES LIBERADOS (minutos en que solo quien lo liberó puede volver a tomarlo; 0 = sin bloqueo)</div>'
@@ -16194,6 +16268,7 @@ async function saveFantasyCfg(){
   }
   items.push(['fantasyMaxGamesCreate',Math.max(0,parseInt(fv('fnmg'))||0)]);
   items.push(['fantasyDailyWinPts',Math.max(0,parseFloat(fv('fnwin'))||0)]);
+  var nw=fv('fnnew');items.push(['fantasyNewPlayerDays',nw===''?3:Math.max(0,Math.min(30,parseInt(nw)||0))]);
   items.push(['fantasyMaxPlayersVitilla',Math.max(0,parseInt(fv('fnmpv'))||0)]);
   items.push(['fantasyMaxPlayersBaseball',Math.max(0,parseInt(fv('fnmpb'))||0)]);
   items.push(['fantasyMaxPlayersSoftball',Math.max(0,parseInt(fv('fnmps'))||0)]);
