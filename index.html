@@ -15540,9 +15540,25 @@ function fnAccessCard(d){
       +(r.penalty>0?' <b style="color:var(--red)">&minus;'+fnPts(r.penalty)+'</b>':'')+(r.bonus>0?' <b style="color:#3ecf6e">+'+fnPts(r.bonus)+'</b>':'')+'</span>';
   }).join(' ');
   return'<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><div style="font-weight:700">&#128293; Puntos por acceso diario</div>'
-    +'<div style="font-size:11px;color:var(--t3)">Racha actual: '+a.streak+' día(s) &middot; se suman aparte de los puntos de jugadas</div></div>'
+    +'<div style="font-size:11px;color:var(--t3)">Racha actual: '+a.streak+' día(s) &middot; cada plantilla acumula los suyos, desde el día siguiente a crearla &middot; aparte de los puntos de jugadas</div></div>'
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:30px;font-weight:800;color:var(--acc)">'+fnPts(a.total)+'</div></div>'
     +(chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+chips+'</div>':'')+'</div>';
+}
+// Puntos ganados o perdidos en DESAFIOS, por fecha (el dia en que termino cada desafio): 1 vs 1, equipos y Royal Rumble.
+function fnChallengeDaysCard(d){
+  var rows=d.chDays||[],other=d.chOther||0;
+  if(d.kind!=='fase'||(!rows.length&&!other))return'';
+  var sum=0;rows.forEach(function(x){sum+=x.pts;});
+  var chips=rows.slice(-20).map(function(r){
+    var c=r.pts>0?'#3ecf6e':'var(--red)';
+    return'<span style="font-size:11px;border:1px solid var(--bdr);border-radius:8px;padding:2px 7px">'+fnEsc((r.day||'').slice(5))+' &middot; '+fnEsc(r.label)+' <b style="color:'+c+'">'+(r.pts>0?'+':'')+fnPts(r.pts)+'</b></span>';
+  }).join(' ');
+  var oth=Math.abs(other)>=0.005?'<div style="font-size:11px;color:var(--t3);margin-top:6px">Cambios de jugadores con puntos ofrecidos: <b style="color:'+(other<0?'var(--red)':'#3ecf6e')+'">'+(other>0?'+':'')+fnPts(other)+'</b></div>':'';
+  var tot=Math.round((sum+other)*100)/100;
+  return'<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><div style="font-weight:700">&#9876; Puntos por desafíos</div>'
+    +'<div style="font-size:11px;color:var(--t3)">Lo que ganó o perdió tu plantilla en cada desafío terminado'+(rows.length>20?' &middot; últimos 20':'')+'</div></div>'
+    +'<div style="font-family:Barlow Condensed,sans-serif;font-size:30px;font-weight:800;color:'+(tot<0?'var(--red)':'var(--acc)')+'">'+(tot>0?'+':'')+fnPts(tot)+'</div></div>'
+    +(chips?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'+chips+'</div>':'')+oth+'</div>';
 }
 // Puntos por JUGADA de cada dia (aparte de los de acceso): cuanto sumo o resto la plantilla cada dia de la fase.
 function fnDayPlayCard(d,mine){
@@ -15808,7 +15824,7 @@ function fnCtxBar(){
 function fnTeamTab(d,mine){
   var h='';
   if(d.kind==='dia')h+='<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128197; Plantilla del día <b>'+fnDateTxt(d.today)+'</b> (hora de República Dominicana): solo suman los puntos de hoy y solo puedes elegir jugadores de equipos con juego programado hoy. Se cierra al iniciar el primer juego; podrás crear otra cuando sean las 12:00 a. m.</div>';
-  else{h+=fnAccessCard(d);h+=fnDayPlayCard(d,mine);}
+  else{h+=fnAccessCard(d);h+=fnDayPlayCard(d,mine);h+=fnChallengeDaysCard(d);}
   var ml=d.moveLimits;
   if(d.kind==='fase'&&ml&&(ml.day||ml.week||ml.month)){
     var mu=d.moveUsage||{day:0,week:0,month:0};
@@ -16221,7 +16237,7 @@ function fnAccessMsg(a){
   if(a&&a.error&&S.user&&S.user.role==='admin'){toast('Acceso diario: '+a.error,'error');return;}
   if(!a||!a.firstToday||!(a.bonus>0||a.penalty>0))return;
   var m='';
-  if(a.penalty>0)m+='<div class="alert ae" style="font-size:13px;margin-bottom:10px">Estuviste <b>'+a.missed+'</b> '+(a.missed===1?'día':'días')+' sin acceder: se descontaron <b>'+fnPts(a.penalty)+'</b> puntos de tus puntos por acceso.</div>';
+  if(a.penalty>0)m+='<div class="alert ae" style="font-size:13px;margin-bottom:10px">Estuviste <b>'+a.missed+'</b> '+(a.missed===1?'día':'días')+' sin acceder: a cada una de tus plantillas se le descontaron hasta <b>'+fnPts(a.penalty)+'</b> puntos de sus puntos por acceso (nunca bajan de 0).</div>';
   if(a.bonus>0)m+='<div style="font-size:14px;line-height:1.6">&#127881; <b>¡Felicitaciones!</b> '+(a.streak>1?'Por haber accedido <b>'+a.streak+' días seguidos</b> a la app':'Por acceder hoy a la app')+' has ganado <b>'+fnPts(a.bonus)+'</b> puntos adicionales para ser considerados en tu Fantasy.</div>';
   var html='<div class="mhd"><div class="mtl">&#128293; Acceso diario</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'+m
     +'<div style="font-size:12px;color:var(--t3);margin-top:8px">Puntos por acceso acumulados: <b>'+fnPts(a.total)+'</b></div></div><div class="mft"><button class="btn bp" onclick="cM()">Genial</button></div>';
