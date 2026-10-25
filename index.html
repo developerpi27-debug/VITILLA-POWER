@@ -7492,13 +7492,27 @@ function openScoreboardWindow(page,gameId,extra){
 // accesos a Pizarra/Marcador/Lineup/Defensiva, para no saturar de botones el modulo de
 // Control de Juego. Se genera 100% en la ventana nueva (URLs absolutas ya resueltas), asi que
 // sigue funcionando aunque el usuario cierre o navegue la pestaña principal.
+// Se inyecta (via toString) dentro de la ventana del Panel de Transmision. Esa ventana comparte origen con la app y con los overlays,
+// asi que puede leer los colores que cada overlay guardo en localStorage y armar el MISMO enlace que genera su boton "Copiar enlace".
+function _ptCopyUrl(btn){
+  var u=new URL(btn.getAttribute('data-href')),c=JSON.parse(decodeURIComponent(btn.getAttribute('data-cfg'))),s={};
+  try{s=JSON.parse(localStorage.getItem(c.key)||'{}');}catch(e){}
+  (c.colors||[]).forEach(function(k){if(s[k])u.searchParams.set(k,String(s[k]).replace('#',''));});
+  (c.flags||[]).forEach(function(k){if(s[k]!==undefined)u.searchParams.set(k,s[k]?'1':'0');});
+  (c.strs||[]).forEach(function(k){if(s[k]!==undefined&&s[k]!=='')u.searchParams.set(k,String(s[k]));});
+  u.searchParams.set('edit','0');
+  var old=btn.textContent;
+  function ok(){btn.textContent='\u2713 URL copiada';setTimeout(function(){btn.textContent=old;},2200);}
+  function fb(){window.prompt('Copia este enlace y pegalo en OBS/vMix:',u.href);}
+  try{navigator.clipboard.writeText(u.href).then(ok,fb);}catch(e){fb();}
+}
 function openTransmissionPanel(gameId){
   var winName='panel_transmision_'+gameId;
   // IMPORTANTE: aqui NO se usa 'noopener' — con esa opcion el navegador SI abre la ventana,
   // pero por especificacion window.open() devuelve null (no da la referencia), asi que no
   // podriamos escribirle el contenido (queda en blanco) y el chequeo de abajo pensaria,
   // incorrectamente, que el popup fue bloqueado.
-  var w=window.open('',winName,'width=300,height=460,resizable=yes');
+  var w=window.open('',winName,'width=320,height=560,resizable=yes,scrollbars=yes');
   if(!w){toast('El navegador bloqueo la ventana emergente. Habilita las ventanas emergentes para este sitio.','error');return;}
   function abs(page,extra){
     var u=new URL(page,window.location.href);
@@ -7512,6 +7526,10 @@ function openTransmissionPanel(gameId){
     {label:'&#9878; Comparaciones',sub:'Numeros de por vida de ambos equipos: general, por fase y enfrentamiento directo',page:'comparacion.html'},
     {label:'&#128250; Marcador G.',sub:'Pizarra de transmision (inning, bases, outs, bateador, pitcher)',page:'overlay.html'},
     {label:'&#127942; Marcador S.',sub:'Marcador simple (torneo, equipos, carreras)',page:'scoreboard.html'},
+    {label:'&#127916; Transmisi\u00f3n Completa (todo en uno)',sub:'Un solo HTML 1920x1080: pizarra de todas las entradas, lineups con foto de ambos equipos, bases, bolas/strikes/outs, bateador y pitcher',page:'transmision.html',w:1280,h:760,
+      copy:{key:'vp_transmision_colors',colors:['bg','hdr','ac','hl','title','t2','ball','strike','out'],flags:['transp','backdrop','lu','bat','pit','tint'],strs:['scope']}},
+    {label:'&#128203; Lineups Visitante + Local',sub:'Alineaci\u00f3n de ambos equipos lado a lado, con foto de cada jugador y logo del equipo en el encabezado',page:'lineupduo.html',w:1060,h:840,
+      copy:{key:'vp_lineupduo_colors',colors:['bg','hdr','title','pos','ord','name','avg','hl','text2'],flags:['transp','tint','showAvg'],strs:['statScope','zoom']}},
     {label:'&#128202; Pizarra (Linescore)',sub:'Marcador entrada por entrada con R/H/E y logos de ambos equipos',page:'pizarra.html'},
     {label:'&#127908; Bateador al Plato',sub:'Cintillo con foto, equipo y AVG/OPS/HR/RBI del bateador actual (sigue al equipo al bate)',page:'batter.html'},
     {label:'&#128165; Cuadrangular',sub:'Aparece solo cuando el bateador anterior conecto un HR, con la cantidad actualizada',page:'cuadrangular.html'},
@@ -7528,11 +7546,14 @@ function openTransmissionPanel(gameId){
     {label:'&#127916; Repeticion',sub:'Grafico animado de "REPETICION" para usar junto al Replay Buffer de tu software de transmision',page:'replay.html'}
   ];
   var rows=items.map(function(it,i){
-    var r=abs(it.page,it.extra);
-    return'<button class="pt-btn" onclick="window.open(\''+r.href.replace(/'/g,"\\'")+'\',\''+r.winName+'\',\'width=460,height=340,resizable=yes,noopener\')">'
+    var r=abs(it.page,it.extra),dim='width='+(it.w||460)+',height='+(it.h||340)+',resizable=yes,noopener';
+    var main='<button class="pt-btn" onclick="window.open(\''+r.href.replace(/'/g,"\\'")+'\',\''+r.winName+'\',\''+dim+'\')">'
       +'<span class="pt-lbl">'+it.label+'</span>'
       +'<span class="pt-sub">'+it.sub+'</span>'
       +'</button>';
+    if(!it.copy)return main;
+    var cp='<button class="pt-cp" data-href="'+r.href.replace(/"/g,'&quot;')+'" data-cfg="'+encodeURIComponent(JSON.stringify(it.copy))+'" onclick="_ptCopyUrl(this)">&#128279; Copiar URL (con tus colores)</button>';
+    return'<div class="pt-wrap">'+main+cp+'</div>';
   }).join('');
   var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -7544,12 +7565,17 @@ function openTransmissionPanel(gameId){
     +'.pt-hint{font-size:11px;color:#8a97ab;margin:0 0 14px;line-height:1.4}'
     +'.pt-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:#141f33;color:#e6edf5;cursor:pointer}'
     +'.pt-btn:hover{background:#1c2b47;border-color:rgba(245,166,35,.4)}'
+    +'.pt-wrap{margin-bottom:8px;border-radius:8px;border:1px solid rgba(245,166,35,.35);background:#141f33;overflow:hidden}'
+    +'.pt-wrap .pt-btn{margin:0;border:none;border-radius:0}'
+    +'.pt-cp{display:block;width:100%;padding:6px 12px;font-size:11px;font-weight:700;text-align:left;color:#f5a623;background:#0f1828;border:none;border-top:1px solid rgba(255,255,255,.08);cursor:pointer}'
+    +'.pt-cp:hover{background:#1c2b47}'
     +'.pt-lbl{font-size:13px;font-weight:700}'
     +'.pt-sub{font-size:10.5px;color:#8a97ab}'
     +'</style></head><body>'
     +'<h2>&#127916; Panel de Transmisión</h2>'
-    +'<p class="pt-hint">Cada boton abre una ventana aparte que se actualiza sola. Usalas como fuente en OBS/vMix o mostralas en otra pantalla.</p>'
+    +'<p class="pt-hint">Cada boton abre una ventana aparte que se actualiza sola. Usalas como fuente en OBS/vMix o mostralas en otra pantalla. En cada ventana, el engranaje &#9881; (esquina superior derecha) permite cambiar los colores y copiar el enlace. En Transmisi\u00f3n Completa y Lineups tambien puedes copiar la URL desde aqui, ya con tus colores guardados.</p>'
     +rows
+    +'<script>'+_ptCopyUrl.toString()+'<\/script>'
     +'</body></html>';
   w.document.open();
   w.document.write(html);
@@ -15516,6 +15542,7 @@ function fnPayload(){
 }
 function fnComplete(){return _FN.data.slots.every(function(k){return _FN.slots[k];});}
 async function fnSave(){
+  if(_FN.busy)return;
   var n=(_FN.name||'').trim();
   if(!n){toast('Escribe un nombre para tu plantilla','error');return;}
   if(!fnComplete()){toast('Completa todas las posiciones del cuadro','error');return;}
@@ -15551,18 +15578,29 @@ async function fnBuyMoves(){
   if(r.ok){toast('Compraste '+q+' movimiento(s). Créditos disponibles: '+r.credits,'success');await fnLoad();}
   else toast(r.error||'No se pudo comprar','error');
 }
-async function fnSaveEdit(){
+async function fnSaveEdit(confirmRelease){
+  // Un guardado a la vez y solo con la pantalla de edicion abierta. Antes, tras guardar con exito la pantalla seguia mostrando "Guardar cambios"
+  // mientras se recargaba (slots ya vaciados): un segundo toque enviaba una plantilla VACIA y el servidor liberaba a todos los jugadores.
+  if(_FN.busy||!_FN.editing)return;
   var err=fnLayoutErr();if(err){toast(err,'error');return;}
+  var pl=fnPayload();if(confirmRelease===true)pl.confirmRelease=true;
   _FN.busy=true;
-  var r=await api('updateFantasyTeam',fnPayload());
-  _FN.busy=false;
-  if(r&&r.ok){toast('Cambios guardados','success');_FN.editing=false;_FN.slots={};_FN.parked=[];await fnLoad();}
+  var r;try{r=await api('updateFantasyTeam',pl);}finally{_FN.busy=false;}
+  if(r&&r.ok){
+    toast('Cambios guardados','success');
+    _FN.busy=true;_FN.editing=false;_FN.slots={};_FN.parked=[];fnRender();   // cierra el editor YA (no queda ningun boton de guardar visible) y mantiene el bloqueo hasta recargar
+    try{await fnLoad();}finally{_FN.busy=false;}
+  }
+  else if(r&&r.needConfirm){
+    // El servidor detecto una liberacion masiva: confirmar de forma explicita (o seguir editando)
+    if(confirm(r.error+'\n\nSi no era lo que querias, toca Cancelar y revisa tu plantilla.\n\n¿Confirmas que quieres liberar a esos jugadores?'))return fnSaveEdit(true);
+  }
   else if(r&&r.needMoves>0&&r.moveCost>0){
     // Se agotaron los movimientos: ofrecer comprar los que faltan y guardar de una vez
     var tot=Math.round(r.needMoves*r.moveCost*100)/100;
     if(confirm((r.error||'')+'\n\n¿Comprar '+r.needMoves+' movimiento(s) adicional(es) por '+tot+' pts y guardar los cambios?')){
       var rb=await fnBuyApi(r.needMoves);
-      if(rb.ok){toast('Compraste '+r.needMoves+' movimiento(s)','success');return fnSaveEdit();}
+      if(rb.ok){toast('Compraste '+r.needMoves+' movimiento(s)','success');return fnSaveEdit(confirmRelease===true);}
       toast(rb.error||'No se pudo comprar','error');
     }
     fnLoad();
@@ -16380,11 +16418,12 @@ function fnOpenInfo(){
     +(dlTxt?'<li '+li+'>&#9200; <b>Fecha límite</b>: hasta el <b>'+dlTxt+'</b> (hora RD) se pueden proponer, ofertar y aprobar cambios y ofertas.</li>':'')
     +'<li '+li+'>Los cambios y ofertas no se aplican mientras haya juegos del día en curso (plantilla bloqueada) y no cuentan como movimientos.</li>'
     +'<li '+li+'>&#128276; Recibes notificación de solicitudes de cambio, desafíos y ofertas si tienes activado el recordatorio de Fantasía en tus notificaciones.</li></ul>';
+  var gmRaw=cfg.fantasyGroupMax,gmN=(gmRaw===undefined||gmRaw===null||String(gmRaw).trim()==='')?16:(parseInt(gmRaw,10)||0),gmTxt=gmN>0?', hasta '+gmN+' en total':', sin límite de plantillas';
   var chl=sec('Desafíos entre plantillas')
     +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'><b>1 vs 1</b> (pestaña Desafíos): retas a otro usuario apostando puntos. Eliges desde qué fecha (hora RD) empieza y por cuántos días; <b>solo tu rival</b> debe aprobarlo.</li>'
     +'<li '+li+'>Gana quien sume <b>más puntos de jugadores (cuadro y relevistas) dentro de esos días</b>, no el total general; no cuentan los puntos por acceso ni las victorias diarias. El perdedor pierde lo apostado y el ganador lo recibe. Si empatan, nadie pierde puntos.</li>'
-    +'<li '+li+'><b>Equipo vs equipo</b> (2 vs 2, 3 vs 3...): mismo número de plantillas en cada lado. Gana el lado cuya <b>suma</b> de puntos sea mayor. Lo apostado es el total que se mueve y se reparte en partes iguales entre perdedores y ganadores (ej. 2 vs 2 con 50 pts: &minus;25 a cada perdedor y +25 a cada ganador).</li>'
-    +'<li '+li+'>&#128081; <b>Royal Rumble</b> (3 o más plantillas, hasta 16): gana la que más puntos sume y se lleva el premio; los demás pagan en partes iguales (ej. 200 pts entre 8: cada perdedor paga 28.57).</li>'
+    +'<li '+li+'><b>Equipo vs equipo</b> (2 vs 2, 3 vs 3...): mismo número de plantillas en cada lado. Gana el lado cuya <b>suma</b> de puntos sea mayor'+(gmN>0?' (máximo '+gmN+' plantillas entre los dos lados)':'')+'. Lo apostado es el total que se mueve y se reparte en partes iguales entre perdedores y ganadores (ej. 2 vs 2 con 50 pts: &minus;25 a cada perdedor y +25 a cada ganador).</li>'
+    +'<li '+li+'>&#128081; <b>Royal Rumble</b> (3 o más plantillas'+gmTxt+'): gana la que más puntos sume y se lleva el premio; los demás pagan en partes iguales (ej. 200 pts entre 8: cada perdedor paga 28.57).</li>'
     +'<li '+li+'>En los desafíos grupales <b>todos los invitados deben aceptar</b>. Tu parte de los puntos queda <b>reservada</b> mientras el desafío esté pendiente o en juego, y no puedes usarla en otro desafío, oferta o compra. Si un perdedor ya no tiene su parte completa, paga lo que tenga.</li>'
     +'<li '+li+'>Los desafíos solo existen en plantillas de <b>fase</b> y su resultado se suma o resta a tu puntaje.</li></ul>';
   showM('<div class="mhd"><div class="mtl">&#127919; Liga de Fantasía — Cómo funciona</div><button class="bx" onclick="cM()">&#10005;</button></div>'
@@ -19416,6 +19455,7 @@ function pgSet(){
       +fnCfgCard()
       +followLimitsCard()
       +fantasyMoveCostCard()
+      +fantasyGroupMaxCard()
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128221; Registro de Jugadas (Control de Juego)</div></div>'
       +'<div class="fg"><label class="fl">Maximo de jugadas a mostrar en la pestaña "Jugadas"</label><input class="fi" id="splaylim" type="number" min="0" max="5000" value="'+(S.playLogLimit||0)+'" placeholder="0 = sin limite"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Controla cuantas jugadas recientes se listan en la pestaña "Jugadas" del Box Score dentro de Control de Juego. Deja en <b>0</b> (o vacio) para mostrar TODAS las jugadas del juego sin limite, desde el 1er inning. Si estableces un numero, solo se mostraran las jugadas mas recientes hasta ese limite (util si tienes equipos con conexiones muy lentas y prefieres una carga mas liviana).</div>'
@@ -19597,6 +19637,21 @@ function fantasyMoveCostCard(){
     +'<div class="fg"><label class="fl">Costo en puntos por cada movimiento adicional</label><input class="fi" id="fmcost" type="number" min="0" step="0.01" value="'+v+'" style="max-width:200px"></div>'
     +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Cuando un usuario agota los movimientos diarios, semanales o mensuales de su subtorneo, puede <b>comprar movimientos adicionales</b> pagando estos puntos por cada uno; se le descuentan del total de su plantilla y no se devuelven. <b>0 = no se permite comprar</b>. Solo aplica en subtorneos que tengan límites de movimientos.</div>'
     +'<button class="btn bp" onclick="saveFantasyMoveCost()">Guardar Costo</button></div>';
+}
+// ── Configuracion: maximo de plantillas por desafio grupal (equipo vs equipo / Royal Rumble) ──
+function fantasyGroupMaxCard(){
+  var raw=(S.config||{}).fantasyGroupMax,v=(raw===undefined||raw===null||String(raw).trim()==='')?16:(parseInt(raw,10)||0);
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128081; Fantasía: máximo de plantillas por desafío grupal</div></div>'
+    +'<div class="fg"><label class="fl">Máximo de plantillas en un desafío grupal</label><input class="fi" id="fgmax" type="number" min="0" max="500" step="1" value="'+v+'" style="max-width:200px"></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Aplica a <b>Equipo vs equipo</b> (cuenta las plantillas de los dos lados) y al <b>Royal Rumble</b>. Por defecto <b>16</b>. Mínimo <b>3</b>; <b>0 = sin límite</b>. Los desafíos ya creados no se ven afectados.</div>'
+    +'<button class="btn bp" onclick="saveFantasyGroupMax()">Guardar Máximo</button></div>';
+}
+async function saveFantasyGroupMax(){
+  var raw=fv('fgmax').trim(),v=raw===''?16:parseInt(raw,10);
+  if(isNaN(v)||(v!==0&&(v<3||v>500))){toast('Debe ser 0 (sin límite) o un número entre 3 y 500','error');return;}
+  _saving=true;var r=await api('saveConfig',{key:'fantasyGroupMax',value:String(v)});_saving=false;
+  if(r&&r.ok){S.config=S.config||{};S.config.fantasyGroupMax=String(v);toast(v===0?'Desafíos grupales sin límite de plantillas':'Máximo guardado: '+v+' plantillas','success');}
+  else toast('Error al guardar el máximo','error');
 }
 async function saveFantasyMoveCost(){
   var raw=fv('fmcost').trim(),v=raw===''?0:parseFloat(raw);
