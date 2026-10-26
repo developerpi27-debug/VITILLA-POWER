@@ -3527,6 +3527,7 @@ var ALL_MOD=[
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
+  {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
   {id:'fantasytrades',lbl:'Fantasía: crear cambios de jugadores',ico:'🔁',sec:'General'},
   {id:'fantasychallenges',lbl:'Fantasía: crear desafíos',ico:'⚔️',sec:'General'},
   {id:'synctocloud',lbl:'Torneos locales: sincronizar a la nube (usuarios de Google)',ico:'☁️',sec:'General'},
@@ -3550,7 +3551,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','videos'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
@@ -4111,7 +4112,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -6496,6 +6497,7 @@ function pgSched(){
       return'<div class="gcrd"><div style="min-width:40px;text-align:center"><div class="gday">'+day+'</div><div class="gmon">'+mon+'</div></div>'
         +'<div style="flex:1;min-width:0"><div class="gvs" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+teamLogoHtml(aw,24,6)+'<span>'+aw.name+'</span><span style="color:var(--t3)">vs</span>'+teamLogoHtml(hw,24,6)+'<span>'+hw.name+'</span></div><div class="ginf">&#127967; '+(g.venue||'TBD')+(g.time&&g.time.indexOf('1899')<0?' &#128336; '+g.time:'')+'</div></div>'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
+        +(hasModuleAccess('gameid')?'<button class="btn bs bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();copyGameId(this)" title="Copiar el ID de este juego">&#127380; ID</button>':'')
         +(canDo('edit','schedule')?'<button class="btn bs bsm" data-gid="'+g.id+'" onclick="openGM(this.dataset.gid)">Editar</button>':'')
         +(canDo('edit','schedule')?'<button class="btn bd bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();openForfeitM(this.dataset.gid)" title="Declarar Forfeit">&#128683; Forfeit</button>':'')
         +(canDeleteGame(g)?'<button class="btn bd bsm" data-gid="'+g.id+'" onclick="event.stopPropagation();delGame(this.dataset.gid)" title="Eliminar este juego">&#128465; Eliminar</button>':'')
@@ -6508,6 +6510,24 @@ function pgSched(){
     +'<input type="date" class="fi" style="width:150px;font-size:12px" value="'+(_fnQ||'')+'" onchange="S._schedDateFilter=this.value;pgSched()" title="Filtrar resultados por fecha">'
     +(S._schedDateFilter?'<button class="btn bs bsm" onclick="S._schedDateFilter=\'\';pgSched()">&#10005;</button>':'')+'</div></div>'
     +(fn.length?fn.map(gcH).join(''):'<div class="empty"><div>'+(S._schedDateFilter?'Sin resultados para esta fecha':'Sin resultados')+'</div></div>')+'</div>');
+}
+// Copia al portapapeles el ID del juego (boton "ID" de Calendario; visibilidad = permiso "gameid" en Perfiles).
+// Funciona en navegador y en la app Android (Capacitor): clipboard API -> execCommand -> ventana con el ID para copiarlo a mano.
+function copyGameId(btn){
+  var gid=btn&&btn.getAttribute('data-gid');if(!gid)return;
+  var old=btn.innerHTML;
+  function ok(){toast('ID copiado: '+gid,'success');btn.innerHTML='&#10003; Copiado';setTimeout(function(){btn.innerHTML=old;},1800);}
+  function fb(){
+    try{
+      var ta=document.createElement('textarea');ta.value=gid;ta.setAttribute('readonly','');
+      ta.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,gid.length);
+      var done=document.execCommand('copy');document.body.removeChild(ta);
+      if(done){ok();return;}
+    }catch(e){}
+    window.prompt('ID del juego (copialo):',gid);
+  }
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(gid).then(ok,fb);return;}}catch(e){}
+  fb();
 }
 function openGM(id){
   var g=id?S.games.filter(function(x){return x.id===id;})[0]:{};if(!g)g={};
@@ -18989,7 +19009,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -19792,7 +19812,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
