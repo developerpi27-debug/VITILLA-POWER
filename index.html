@@ -7563,8 +7563,8 @@ function openTransmissionPanel(gameId){
     {label:'&#9878; Comparaciones',sub:'Numeros de por vida de ambos equipos: general, por fase y enfrentamiento directo',page:'comparacion.html'},
     {label:'&#128250; Marcador G.',sub:'Pizarra de transmision (inning, bases, outs, bateador, pitcher)',page:'overlay.html'},
     {label:'&#127942; Marcador S.',sub:'Marcador simple (torneo, equipos, carreras)',page:'scoreboard.html'},
-    {label:'&#127916; Transmisi\u00f3n Completa (todo en uno)',sub:'Un solo HTML 1920x1080: pizarra de todas las entradas, lineups con foto de ambos equipos, bases, bolas/strikes/outs, bateador y pitcher',page:'transmision.html',w:1280,h:760,
-      copy:{key:'vp_transmision_colors',colors:['bg','hdr','ac','hl','title','t2','ball','strike','out'],flags:['transp','backdrop','lu','bat','pit','tint'],strs:['scope']}},
+    {label:'&#127916; Transmisi\u00f3n Completa (todo en uno)',sub:'Un solo HTML 1920x1080: pizarra de todas las entradas, lineups con foto de ambos equipos, bases, bolas/strikes/outs, bateador y pitcher, m\u00e1s una animaci\u00f3n al registrarse cada jugada (hit, out, ponche, home run...)',page:'transmision.html',w:1280,h:760,
+      copy:{key:'vp_transmision_colors',colors:['bg','hdr','ac','hl','title','t2','ball','strike','out'],flags:['transp','backdrop','lu','bat','pit','tint','anim'],strs:['scope','brand']}},
     {label:'&#128203; Lineups Visitante + Local',sub:'Alineaci\u00f3n de ambos equipos lado a lado, con foto de cada jugador y logo del equipo en el encabezado',page:'lineupduo.html',w:1060,h:840,
       copy:{key:'vp_lineupduo_colors',colors:['bg','hdr','title','pos','ord','name','avg','hl','text2'],flags:['transp','tint','showAvg'],strs:['statScope','zoom']}},
     {label:'&#128202; Pizarra (Linescore)',sub:'Marcador entrada por entrada con R/H/E y logos de ambos equipos',page:'pizarra.html'},
@@ -7666,7 +7666,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('No han publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -15318,11 +15318,11 @@ function fnLast(p){
 }
 // Tarjeta de jugador: tamaño fijo en proporción al ancho del cuadro (cqw) para que no se deforme; la foto de
 // Equipos si la tiene (si no, el número); el nombre en UNA línea para que todas midan lo mismo.
-function fnCard(key,label,p,edit,badge,dim,showPos){
+function fnCard(key,label,p,edit,badge,dim,showPos,compact){
   var sel=edit&&p&&_FN.sel===p.id;
   return'<div data-slot="'+key+'" '+(edit?'ondragover="event.preventDefault()" ondrop="fnDrop(event,this.dataset.slot)" onclick="fnTapSlot(this.dataset.slot)"':'')
     +' style="width:74px;width:min(88px,19cqw);text-align:center;'+(edit?'cursor:pointer;':'')+(dim?'opacity:.55;':'')+'">'
-    +'<div style="min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">'+(badge||'')+'</div>'
+    +'<div style="min-height:'+(compact?46:50)+'px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">'+(badge||'')+'</div>'
     +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid,\'slot\')"':'')+' style="background:rgba(0,0,0,.68);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:2px 1px;color:#fff;line-height:1.15;overflow:hidden">'
     +'<div style="font-size:9px;font-weight:800;color:var(--acc);white-space:nowrap">'+label+'</div>'
     +(p?'<div style="display:flex;justify-content:center;margin:1px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,26,'circle',p.number)+'</div>':'<div style="height:26px;margin:1px 0"></div>')
@@ -15334,21 +15334,21 @@ function fnCard(key,label,p,edit,badge,dim,showPos){
 }
 function fnField(map,edit,contrib){
   var d=_FN.data,vit=d.sport==='vitilla';
-  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/200;container-type:inline-size;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
-   +'<svg viewBox="0 0 100 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,162 88,126 50,90 12,126" fill="#b98b55" opacity=".5"/><polygon points="50,149 74,126 50,103 26,126" fill="#2a7a35"/><circle cx="50" cy="126" r="3" fill="#b98b55" opacity=".7"/></svg>';
+  var h='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/186;container-type:inline-size;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
+   +'<svg viewBox="0 0 100 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,174.2 88,135.5 50,96.8 12,135.5" fill="#b98b55" opacity=".5"/><polygon points="50,160.2 74,135.5 50,110.8 26,135.5" fill="#2a7a35"/><circle cx="50" cy="135.5" r="3" fill="#b98b55" opacity=".7"/></svg>';
   d.slots.forEach(function(pos){
     var xy=(vit&&FN_XY_VIT[pos])||FN_XY[pos]||[50,50];
     var p=fnP(map[pos]);
     var badge=(!edit&&p)?fnLast(p)+fnBadge(contrib&&contrib[p.id]!==undefined?contrib[p.id]:p.pts):'';
-    h+='<div style="position:absolute;left:'+xy[0]+'%;top:'+xy[1]+'%;transform:translate(-50%,-50%)">'+fnCard(pos,pos,p,edit,badge)+'</div>';
+    h+='<div style="position:absolute;left:'+xy[0]+'%;top:'+(xy[1]/0.93).toFixed(2)+'%;transform:translate(-50%,-50%)">'+fnCard(pos,pos,p,edit,badge)+'</div>';
   });
   return h+'</div>';
 }
-function fnCells(keys,labelFn,map,edit,contrib,muted,locked,showPos){
+function fnCells(keys,labelFn,map,edit,contrib,muted,locked,showPos,compact){
   return keys.map(function(k,i){
     var p=fnP(map[k]);
     var badge=(!edit&&p)?fnLast(p)+fnBadge(contrib&&contrib[p.id]!==undefined?contrib[p.id]:p.pts,muted&&!(contrib&&contrib[p.id]!==undefined)):'';
-    return fnCard(k,labelFn(i),p,edit&&!locked,badge,locked,showPos);
+    return fnCard(k,labelFn(i),p,edit&&!locked,badge,locked,showPos,compact);   // compact: banca y relevistas
   }).join('');
 }
 // Banca y relevistas (la banca + los relevistas comparten el cupo "banca" del deporte)
@@ -15361,9 +15361,9 @@ function fnBench(map,edit,contrib){
   var head=function(t,x){return'<div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;margin:10px 0 4px">'+t+' <span style="font-weight:400">'+x+'</span></div>';};
   return'<div style="max-width:460px;margin:0 auto">'
     +head('BANCA','('+nb+'/'+bk.length+(edit?'':' &middot; no suma puntos')+')')
-    +'<div style="'+box+'">'+fnCells(bk,function(i){return'BANCA '+(i+1);},map,edit,contrib,true,false,true)+'</div>'
+    +'<div style="'+box+';row-gap:2px;padding-top:6px;padding-bottom:6px">'+fnCells(bk,function(i){return'BANCA '+(i+1);},map,edit,contrib,true,false,true,true)+'</div>'
     +(rk.length?head('RELEVISTAS','('+nr+'/'+rk.length+' &middot; '+(relLocked?'&#128274; se habilitan al gestionar tu plantilla guardada':'suman solo sus puntos de pitcheo')+')')
-      +'<div style="'+box+'">'+fnCells(rk,function(i){return'RELEV. '+(i+1);},map,edit,contrib,false,relLocked)+'</div>':'')
+      +'<div style="'+box+';row-gap:2px;padding-top:6px;padding-bottom:6px">'+fnCells(rk,function(i){return'RELEV. '+(i+1);},map,edit,contrib,false,relLocked,false,true)+'</div>':'')
     +'</div>';
 }
 // Fila de jugador (listas): foto, #número nombre, posición · equipo · estado, números y puntos
@@ -16083,7 +16083,8 @@ function fnTradesTab(d,mine){
     var s='<div style="padding:10px 0;border-top:1px solid var(--bdr)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:200px"><div style="font-weight:700">'+fnEsc(x.fromUserName)+' &#8644; '+fnEsc(x.toUserName)+'</div>'
       +'<div style="font-size:12px;margin-top:2px"><b>'+fnEsc(x.fromUserName)+'</b> da <b>'+fnEsc(x.fromPlayerName||'?')+'</b> &middot; <b>'+fnEsc(x.toUserName)+'</b> da <b>'+fnEsc(x.toPlayerName||'?')+'</b></div>';
-    if(x.offerTotal>0)s+='<div style="font-size:12px;margin-top:3px">&#127873; <b>'+fnEsc(x.fromUserName)+'</b> ofrece <b>'+x.offerTotal+' pts</b>: '+x.offers.map(function(o){return fnEsc(o.userName)+' +'+o.points;}).join(' &middot; ')+(x.status==='approved'?' <span style="color:var(--t3)">(entregados)</span>':(x.status==='pending'?' <span style="color:var(--t3)">(solo si se aprueba)</span>':''))+'</div>';
+    // Quien propuso ve el detalle completo; los demas usuarios solo ven los puntos que se le ofrecieron a ellos (el Worker ya filtra).
+    if(x.offerTotal>0)s+='<div style="font-size:12px;margin-top:3px">&#127873; <b>'+fnEsc(x.fromUserName)+'</b> '+(x.isMine?'ofrece <b>'+x.offerTotal+' pts</b>: '+x.offers.map(function(o){return fnEsc(o.userName)+' +'+o.points;}).join(' &middot; '):'te ofrece <b>'+x.offerTotal+' pts</b>')+(x.status==='approved'?' <span style="color:var(--t3)">(entregados)</span>':(x.status==='pending'?' <span style="color:var(--t3)">(solo si se aprueba)</span>':''))+'</div>';
     if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">Aprobado por '+x.approvals.length+' de '+(T.needed||T.participants.length)+(x.rejections&&x.rejections.length?' &middot; en contra: '+x.rejections.length:'')+(x.pendingUsers.length?' &middot; falta: '+x.pendingUsers.map(fnEsc).join(', '):'')+'</div>';
     else s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">'+(stLbl[x.status]||x.status)+(x.note?' &middot; '+fnEsc(x.note):'')+'</div>';
     s+='</div>';
@@ -17162,9 +17163,19 @@ function allStarCandidates(tourId,divFilter){
   });
   return{hasGames:true,byPos:top3,points:P,frozen:!!cutoffDate,cutoffDate:cutoffDate,jdeDate:jdeGame?jdeGame.date:null};
 }
+// Foto del candidato: la del registro del jugador o, si no tiene, la de cualquier otro registro de su carrera
+function candPhoto(p){
+  if(!p)return'';
+  if(p.photoUrl)return p.photoUrl;
+  try{
+    var ids=careerInstances(p.id)||[];
+    for(var i=0;i<ids.length;i++){var r=playerOf(ids[i]);if(r&&r.photoUrl)return r.photoUrl;}
+  }catch(e){}
+  return'';
+}
 function candRow(x,statHtml){
   return'<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--bdr)">'
-    +'<div style="width:26px;height:26px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:800;color:#000">'+(x.p.name?x.p.name[0].toUpperCase():'?')+'</div>'
+    +playerAvatarHtml(candPhoto(x.p),x.p.name,32,'circle',(x.p.name?x.p.name[0]:'?'))
     +'<div style="flex:1"><div style="font-weight:700;font-size:13px">#'+(x.p.number||'?')+' '+x.p.name+(x.rookie?' &#127881;':'')+'</div><div style="font-size:11px;color:var(--t3)">'+((x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;'))+'</div></div>'
     +'<div style="text-align:right;font-size:12px;color:var(--acc);font-weight:700">'+statHtml+'</div></div>';
 }
@@ -17204,6 +17215,7 @@ function pgAllStarCandidates(tourId,divFilter){
         var isA2=S.user&&(S.user.role==='admin'||canDo('create','awards'));
         return'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;'+(i<list.length-1?'border-bottom:1px solid var(--bdr)':'')+'">'
           +'<div style="width:22px;height:22px;border-radius:50%;background:'+(i===0?'var(--acc)':'var(--bdr2)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:'+(i===0?'#000':'var(--t2)')+'">'+(i+1)+'</div>'
+          +playerAvatarHtml(candPhoto(x.p),x.p.name,28,'circle',(x.p.name?x.p.name[0]:'?'))
           +'<div style="flex:1"><div style="font-weight:700;font-size:12px">#'+(x.p.number||'?')+' '+x.p.name+'</div><div style="font-size:10px;color:var(--t3)">'+((x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;'))+'</div></div>'
           +'<div style="text-align:right;font-size:13px;font-weight:800;color:var(--acc)">'+x.totalPts.toFixed(2)+'<div style="font-size:9px;color:var(--t3);font-weight:400">pts</div></div>'
           +(isA2?'<button class="btn bs bsm" style="padding:3px 7px;font-size:10px" data-pid="'+x.p.id+'" data-tid="'+tourId+'" data-pos="'+pos+'" data-pts="'+x.totalPts.toFixed(2)+'" onclick="quickRegisterAllStar(this.dataset.pid,this.dataset.tid,this.dataset.pos,this.dataset.pts)" title="Registrar oficialmente como premio">&#10003;</button>':'')
