@@ -1724,6 +1724,23 @@ function refreshUnlimitedBadge(){
   var old=document.getElementById('unlb');if(old)old.parentNode.removeChild(old);
   el.insertAdjacentHTML('beforeend',unlimitedBadgeHtml());
 }
+// Jugadores guardados/borrados hace instantes. El sondeo automatico (loadAll) reemplaza S.players completo con la foto del servidor; si esa foto se
+// pidio ANTES de terminar el guardado (o la base aun no replica la escritura) el jugador recien agregado "desaparecia" del equipo hasta el
+// siguiente sondeo. Estos cambios se reaplican sobre lo que traiga el servidor hasta que este los confirme (maximo 90 s).
+var _recentPl={};
+var _PL_CMP=['teamId','name','number','position','bats','throws','dob','photoUrl','active','rookie'];
+function mergeRecentPlayers(list){
+  var now=Date.now(),out=list.slice(),idx={};out.forEach(function(p,i){if(p)idx[p.id]=i;});
+  Object.keys(_recentPl).forEach(function(id){
+    var r=_recentPl[id];
+    if(now-r.at>90000){delete _recentPl[id];return;}
+    if(r.del){if(idx[id]!==undefined)out[idx[id]]=null;else delete _recentPl[id];return;}   // aun viene en la lista: se oculta; si ya no viene, confirmado
+    if(idx[id]===undefined){out.push(r.item);return;}                                          // el servidor aun no lo trae: se conserva el local
+    var sv=out[idx[id]],same=_PL_CMP.every(function(k){return String(sv[k]==null?'':sv[k])===String(r.item[k]==null?'':r.item[k]);});
+    if(same)delete _recentPl[id];else out[idx[id]]=r.item;                                     // igual = confirmado; distinto = el servidor aun tiene la version vieja
+  });
+  return out.filter(Boolean);
+}
 async function api(action,data){
   if(ltRoute(action,data))return ltHandle(action,data);   // subtorneo LOCAL de un usuario de Google: nunca llega al servidor
   if(FRIENDLY_WRITE_ACTIONS[action]){
@@ -1746,6 +1763,8 @@ async function api(action,data){
     }
     if(!S_isOnline) setOnlineState(true); // esta llamada SI tuvo respuesta real del servidor
     if(res&&res.ok){
+      if(action==='savePlayer'&&res.item&&res.item.id)_recentPl[res.item.id]={item:res.item,at:Date.now()};
+      else if(action==='deleteRow'&&data&&data.sheet==='Jugadores'&&data.id)_recentPl[data.id]={del:true,at:Date.now()};
       // Anotar una jugada (saveEvent/savePitching/saveDefensivePoints) usa su PROPIO gatillo
       // ("markPlay"), separado del generico "al hacer clic en un boton de guardado": son la
       // MISMA llamada api('save...') que cualquier otro guardado (crear equipo, programar
@@ -3081,7 +3100,7 @@ async function loadAll(){
   // sesion para que Configuracion > Solicitud de Acceso siempre muestre el valor mas reciente.
   S.contactWhatsapp=(d.config&&d.config.contactWhatsapp)||'';
   S.contactEmail=(d.config&&d.config.contactEmail)||'';
-  S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=d.players||[];
+  S.tournaments=d.tournaments||[];S.parentTournaments=d.parentTournaments||[];S.teams=d.teams||[];S.players=mergeRecentPlayers(d.players||[]);
   var pendingGameIds=await outboxPendingGameIds();
   if(Object.keys(pendingGameIds).length>0){
     var prevGamesById={};
@@ -5963,7 +5982,10 @@ function previewPlayerPhoto(url){
   if(url){prev.style.display='block';prev.innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.style.display=\'none\'">';}
   else prev.style.display='none';
 }
+var _pmBusy=false,_pmDraftId='';
+function pmLock(on){document.querySelectorAll('.mft .btn, #pm-exist .btn').forEach(function(b){b.disabled=on;});}
 function openPM(id,tid){
+  _pmDraftId=id?'':('id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8));   // mismo formato que el servidor; un doble toque reescribe la MISMA fila
   var p=id?S.players.filter(function(x){return x.id===id;})[0]:{teamId:tid||null};if(!p)p={teamId:tid||null};
   // Solo mostrar equipos del subtorneo especifico filtrado actualmente en Equipos (S.tourFilter).
   // Si el filtro esta en "Todos los torneos", se cae a toursByYear() (todo el torneo padre
@@ -6143,10 +6165,23 @@ function pmTab(el,idx){
   var ids=['pm-new','pm-exist'];var sib=tabs.nextElementSibling;
   while(sib){if(sib.id)sib.style.display=(sib.id===ids[idx]?'':'none');sib=sib.nextElementSibling;}
 }
+// Un guardado a la vez: antes, tocar Guardar varias veces seguidas enviaba varias solicitudes (jugadores duplicados) y mientras tanto el sondeo
+// automatico podia pisar la lista de jugadores. Mientras se guarda se bloquean los botones del formulario y el sondeo.
 async function saveP(id){
+  if(_pmBusy)return;
+  _pmBusy=true;var prevSaving=_saving;_saving=true;pmLock(true);
+  try{return await _saveP(id);}finally{_pmBusy=false;_saving=prevSaving;pmLock(false);}
+}
+async function importPlayer(destTeamId){
+  if(_pmBusy)return;
+  _pmBusy=true;var prevSaving=_saving;_saving=true;pmLock(true);
+  try{return await _importPlayer(destTeamId);}finally{_pmBusy=false;_saving=prevSaving;pmLock(false);}
+}
+async function _saveP(id){
   var rookEl=document.getElementById('prook');
   var p={id:id||null,name:fv('pn'),number:fv('pnum'),position:fv('ppos'),bats:fv('pb'),throws:fv('pt'),teamId:fv('ptm')||null,dob:fv('pdob')||null,photoUrl:(fv('pphoto-data')||fv('pphoto')||'').trim(),rookie:(rookEl&&rookEl.checked)?'true':'false'};
   if(!p.name){toast('Nombre requerido','error');return;}
+  if(!id&&_pmDraftId)p.id=_pmDraftId;
   if(!id){
     var dupSport=effectiveLifeSport();
     var dupName=S.players.filter(function(x){
@@ -6163,6 +6198,8 @@ async function saveP(id){
       return;
     }
   }
+  // Un jugador nuevo sin equipo no aparece en ningun roster: pedir confirmacion para que no quede "en el limbo" por olvidar elegir el equipo.
+  if(!id&&!p.teamId&&!confirm('Este jugador se guardará SIN equipo y no aparecerá en el roster de ningún equipo hasta que se lo asignes.\n\n¿Guardarlo sin equipo?'))return;
   // Si se está editando y el NOMBRE cambió, verificar si hay otras instancias del mismo jugador
   // (mismo nombre anterior, en otros equipos/torneos) que tambien deban renombrarse, ya que las
   // estadisticas de carrera/Por Vida/To vs To consolidan por nombre.
@@ -6244,7 +6281,7 @@ function pmExistSelChange(){
   numEl.style.opacity=lock?'.4':'1';posEl.style.opacity=lock?'.4':'1';
   if(note)note.style.display=lock?'block':'none';
 }
-async function importPlayer(destTeamId){
+async function _importPlayer(destTeamId){
   var sel=document.getElementById('pexist');
   if(!sel){toast('Error: campo no encontrado','error');return;}
   var selectedIds=Array.from(sel.selectedOptions).map(function(o){return o.value;}).filter(function(v){return v;});
@@ -7629,7 +7666,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No han publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -15281,14 +15318,15 @@ function fnLast(p){
 }
 // Tarjeta de jugador: tamaño fijo en proporción al ancho del cuadro (cqw) para que no se deforme; la foto de
 // Equipos si la tiene (si no, el número); el nombre en UNA línea para que todas midan lo mismo.
-function fnCard(key,label,p,edit,badge,dim){
+function fnCard(key,label,p,edit,badge,dim,showPos){
   var sel=edit&&p&&_FN.sel===p.id;
   return'<div data-slot="'+key+'" '+(edit?'ondragover="event.preventDefault()" ondrop="fnDrop(event,this.dataset.slot)" onclick="fnTapSlot(this.dataset.slot)"':'')
     +' style="width:74px;width:min(88px,19cqw);text-align:center;'+(edit?'cursor:pointer;':'')+(dim?'opacity:.55;':'')+'">'
     +'<div style="min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">'+(badge||'')+'</div>'
-    +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid)"':'')+' style="background:rgba(0,0,0,.68);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:2px 1px;color:#fff;line-height:1.15;overflow:hidden">'
+    +'<div '+(edit&&p?'draggable="true" data-pid="'+p.id+'" ondragstart="fnDrag(event,this.dataset.pid,\'slot\')"':'')+' style="background:rgba(0,0,0,.68);border:2px '+(p?'solid':'dashed')+' '+(sel?'#fff':p?'var(--acc)':'rgba(255,255,255,.55)')+';border-radius:10px;padding:2px 1px;color:#fff;line-height:1.15;overflow:hidden">'
     +'<div style="font-size:9px;font-weight:800;color:var(--acc);white-space:nowrap">'+label+'</div>'
     +(p?'<div style="display:flex;justify-content:center;margin:1px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,26,'circle',p.number)+'</div>':'<div style="height:26px;margin:1px 0"></div>')
+    +(showPos&&p&&p.position?'<div style="display:inline-block;margin:1px 0;padding:0 6px;border-radius:7px;background:#fff;color:#000;font-size:9px;font-weight:800;line-height:12px" title="Posición registrada">'+fnEsc(p.position)+'</div>':'')
     +(p&&p.inactive?'<div style="font-size:8px;font-weight:800;color:#f87171;line-height:10px">INACTIVO</div>':'')+'</div>'
     // Nombre DEBAJO de la carta (fuera del recuadro): hasta 2 lineas, sin cortarse con puntos suspensivos
     +'<div title="'+(p?fnEsc(p.name):'')+'" style="margin:2px -8px 0;min-height:22px;font-size:9px;line-height:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'
@@ -15306,11 +15344,11 @@ function fnField(map,edit,contrib){
   });
   return h+'</div>';
 }
-function fnCells(keys,labelFn,map,edit,contrib,muted,locked){
+function fnCells(keys,labelFn,map,edit,contrib,muted,locked,showPos){
   return keys.map(function(k,i){
     var p=fnP(map[k]);
     var badge=(!edit&&p)?fnLast(p)+fnBadge(contrib&&contrib[p.id]!==undefined?contrib[p.id]:p.pts,muted&&!(contrib&&contrib[p.id]!==undefined)):'';
-    return fnCard(k,labelFn(i),p,edit&&!locked,badge,locked);
+    return fnCard(k,labelFn(i),p,edit&&!locked,badge,locked,showPos);
   }).join('');
 }
 // Banca y relevistas (la banca + los relevistas comparten el cupo "banca" del deporte)
@@ -15323,7 +15361,7 @@ function fnBench(map,edit,contrib){
   var head=function(t,x){return'<div style="font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1px;margin:10px 0 4px">'+t+' <span style="font-weight:400">'+x+'</span></div>';};
   return'<div style="max-width:460px;margin:0 auto">'
     +head('BANCA','('+nb+'/'+bk.length+(edit?'':' &middot; no suma puntos')+')')
-    +'<div style="'+box+'">'+fnCells(bk,function(i){return'BANCA '+(i+1);},map,edit,contrib,true)+'</div>'
+    +'<div style="'+box+'">'+fnCells(bk,function(i){return'BANCA '+(i+1);},map,edit,contrib,true,false,true)+'</div>'
     +(rk.length?head('RELEVISTAS','('+nr+'/'+rk.length+' &middot; '+(relLocked?'&#128274; se habilitan al gestionar tu plantilla guardada':'suman solo sus puntos de pitcheo')+')')
       +'<div style="'+box+'">'+fnCells(rk,function(i){return'RELEV. '+(i+1);},map,edit,contrib,false,relLocked)+'</div>':'')
     +'</div>';
@@ -15453,7 +15491,7 @@ function fnListHtml(){
     return ia-ib||(a.name||'').localeCompare(b.name||'');
   });
   if(!list.length)return '<div class="empty">Sin jugadores disponibles</div>';
-  return fnGrid(list.map(function(p){return fnChip(p,used[p.id]?fnTagOf(p.id):'',{dim:!!used[p.id]&&!_FN.editing,showNew:true});}).join(''));
+  return fnGrid(list.map(function(p){return fnChip(p,used[p.id]?fnTagOf(p.id):'',{dim:!!used[p.id],noSel:!!used[p.id]&&_FN.editing,showNew:true});}).join(''));
 }
 // Mi roster: todos mis jugadores (cuadro, banca, relevistas e inactivos) con su estado
 function fnMineIds(map,parked){
@@ -15469,8 +15507,8 @@ function fnMineHtml(ids,sel){
   return fnGrid(list.map(function(p){return fnChip(p,fnTagOf(p.id),{noSel:!sel});}).join(''));
 }
 function fnFilterList(){var el=document.getElementById('fn-list');if(el)el.innerHTML=(fnDraftMode()?fnDraftListHtml():fnListHtml());}
-function fnDrag(e,pid){e.dataTransfer.setData('text/plain',pid);e.dataTransfer.effectAllowed='move';}
-function fnDrop(e,key){e.preventDefault();var pid=e.dataTransfer.getData('text/plain');if(pid)fnAssign(key,pid);}
+function fnDrag(e,pid,from){e.dataTransfer.setData('text/plain',pid);e.dataTransfer.setData('text/fn-from',from||'list');e.dataTransfer.effectAllowed='move';}
+function fnDrop(e,key){e.preventDefault();var pid=e.dataTransfer.getData('text/plain');if(pid)fnAssign(key,pid,e.dataTransfer.getData('text/fn-from')||'list');}
 function fnWarn(m){toast(m,'error');_FN.sel='';fnRender();}
 // Reglas de la distribución: máximo de jugadores (cuadro + banca/relevistas) y cupo de banca + relevistas
 function fnLayoutErr(){
@@ -15483,7 +15521,7 @@ function fnLayoutErr(){
 // Mover / intercambiar / fichar. Al CREAR todo es libre (dentro de los máximos). Al GESTIONAR: mover o intercambiar
 // entre mis jugadores; fichar un agente libre solo en un espacio vacío (o sobre un INACTIVO, que pasa a mi lista de
 // inactivos); un inactivo ya activo vuelve a un espacio vacío.
-function fnAssign(target,pid){
+function fnAssign(target,pid,from){
   var snap=JSON.stringify([_FN.slots,_FN.parked]);
   var src=null;Object.keys(_FN.slots).forEach(function(k){if(_FN.slots[k]===pid)src=k;});
   if(src===target){_FN.sel='';fnRender();return;}
@@ -15493,6 +15531,15 @@ function fnAssign(target,pid){
   if(_FN.editing){
     var pl=fnP(pid);
     if(!_FN.orig[pid]){                       // agente libre
+      // Ya lo coloque en esta edicion (aun sin guardar): desde la LISTA no se permite colocarlo otra vez; solo se puede MOVER desde su posicion.
+      if(src&&from!=='slot')return fnWarn((pl?pl.name:'Ese jugador')+' ya está en tu plantilla ('+fnTagOf(pid)+'). Un jugador no puede estar dos veces: muévelo desde esa posición o quítalo primero.');
+      if(src){                                // mover / intercambiar dentro de mi borrador (arrastrado desde su posicion)
+        if(occ)_FN.slots[src]=occ;else delete _FN.slots[src];
+        _FN.slots[target]=pid;
+        var errM=fnLayoutErr();
+        if(errM){var sM=JSON.parse(snap);_FN.slots=sM[0];_FN.parked=sM[1];return fnWarn(errM);}
+        _FN.sel='';fnRender();return;
+      }
       if(pl&&fnHoldLocked(pl))return fnWarn('Ese jugador fue liberado por otro usuario y sigue bloqueado '+fnHoldTxt(fnHoldMs(pl))+' más: solo quien lo liberó puede volver a tomarlo.');
       if(occ){
         var o=fnP(occ);
@@ -15517,10 +15564,10 @@ function fnAssign(target,pid){
   if(err){var s=JSON.parse(snap);_FN.slots=s[0];_FN.parked=s[1];return fnWarn(err);}
   _FN.sel='';fnRender();
 }
-function fnTapPlayer(pid){_FN.sel=_FN.sel===pid?'':pid;fnRender();}
+function fnTapPlayer(pid){_FN.sel=_FN.sel===pid?'':pid;_FN.selFrom='list';fnRender();}
 function fnTapSlot(key){
-  if(_FN.sel){fnAssign(key,_FN.sel);return;}
-  if(_FN.slots[key]){_FN.sel=_FN.slots[key];fnRender();}
+  if(_FN.sel){fnAssign(key,_FN.sel,_FN.selFrom||'list');return;}
+  if(_FN.slots[key]){_FN.sel=_FN.slots[key];_FN.selFrom='slot';fnRender();}
 }
 function fnClear(){_FN.slots={};_FN.sel='';fnRender();}
 // Liberar: sale de mi plantilla, conservo los puntos que ya sumó y vuelve a la agencia libre
