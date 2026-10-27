@@ -278,6 +278,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 #slogan-bar{background:linear-gradient(90deg,#0d1628 0%,#1a2235 40%,#0d1628 100%);border-bottom:1px solid rgba(245,166,35,.18);padding:7px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
 #slogan-bar .sl-main{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);letter-spacing:.5px;}
 #slogan-bar .sl-sub{font-size:11px;color:var(--t2);font-style:italic;}
+:root[data-theme="light"] #slogan-bar{background:linear-gradient(90deg,#fff3e0 0%,#ffe9c7 50%,#fff3e0 100%);border-bottom:1px solid rgba(198,106,0,.35);}
+:root[data-theme="light"] #slogan-bar .sl-main{color:var(--acc2);}
+:root[data-theme="light"] #slogan-bar .sl-sub{color:#334155;}
 /* ── FOOTER ── */
 .spg-bar-wrap{background:linear-gradient(90deg,var(--mq-g1),var(--mq-g2),var(--mq-g1));border-bottom:1px solid rgba(245,166,35,.2);padding:8px 14px 12px;flex-shrink:0;}
 .spg-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--acc);text-align:center;margin-bottom:6px;text-transform:uppercase;}
@@ -16121,7 +16124,7 @@ function fnTradesTab(d,mine){
       +'<div style="font-size:12px;margin-top:2px"><b>'+fnEsc(x.fromUserName)+'</b> da <b>'+fnEsc(x.fromPlayerName||'?')+'</b> &middot; <b>'+fnEsc(x.toUserName)+'</b> da <b>'+fnEsc(x.toPlayerName||'?')+'</b></div>';
     // Quien propuso ve el detalle completo; los demas usuarios solo ven los puntos que se le ofrecieron a ellos (el Worker ya filtra).
     if(x.offerTotal>0)s+='<div style="font-size:12px;margin-top:3px">&#127873; <b>'+fnEsc(x.fromUserName)+'</b> '+(x.isMine?'ofrece <b>'+x.offerTotal+' pts</b>: '+x.offers.map(function(o){return fnEsc(o.userName)+' +'+o.points;}).join(' &middot; '):'te ofrece <b>'+x.offerTotal+' pts</b>')+(x.status==='approved'?' <span style="color:var(--t3)">(entregados)</span>':(x.status==='pending'?' <span style="color:var(--t3)">(solo si se aprueba)</span>':''))+'</div>';
-    if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">Aprobado por '+x.approvals.length+' de '+(T.needed||T.participants.length)+(x.rejections&&x.rejections.length?' &middot; en contra: '+x.rejections.length:'')+(x.pendingUsers.length?' &middot; falta: '+x.pendingUsers.map(fnEsc).join(', '):'')+'</div>';
+    if(x.status==='pending')s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">Aprobado por '+x.approvals.length+' de '+(T.needed||T.participants.length)+(x.rejections&&x.rejections.length?' &middot; en contra: '+x.rejections.length:'')+(x.pendingUsers.length?' &middot; falta: '+x.pendingUsers.map(fnEsc).join(', '):'')+'</div>'+(x.expiresAt?'<div style="font-size:11px;color:var(--t3);margin-top:2px">&#9203; Vence el '+fnEsc(new Date(x.expiresAt).toLocaleString('es-DO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))+'. Si no se completan las aprobaciones, el sistema decide por mayoría de los votos.</div>':'');
     else s+='<div style="font-size:11px;color:var(--t3);margin-top:3px">'+(stLbl[x.status]||x.status)+(x.note?' &middot; '+fnEsc(x.note):'')+'</div>';
     s+='</div>';
     if(x.status==='pending'){
@@ -16377,11 +16380,57 @@ function fnChGroupCard(x){
   }
   return s+'</div>';
 }
+// Sub-pestañas de Desafíos: lista/lanzar y Ranking de ganadores
+function fnChView(v){_FN.chView=v;fnRender();}
+function fnChRankBy(m){_FN.chRankBy=m;fnRender();}
+function fnChSubTabs(){
+  var v=_FN.chView==='rank'?'rank':'main';
+  var b=function(id,l){return'<button class="btn '+(v===id?'bp':'bs')+' bsm" onclick="fnChView(\''+id+'\')">'+l+'</button>';};
+  return'<div style="display:flex;gap:6px;margin-bottom:12px">'+b('main','&#9876; Desafíos')+b('rank','&#127942; Ranking de ganadores')+'</div>';
+}
+// Ranking de ganadores de desafíos (1 vs 1, equipo vs equipo y Royal Rumble de esta fase), por puntos o por eficiencia
+function fnChRanking(T,mine){
+  var by=_FN.chRankBy==='eff'?'eff':'pts';
+  var list=(T.ranking||[]).filter(function(x){return x.played>0;});
+  var h='<div class="card"><div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<button class="btn '+(by==='pts'?'bp':'bs')+' bsm" onclick="fnChRankBy(\'pts\')">&#128176; Por puntos</button>'
+    +'<button class="btn '+(by==='eff'?'bp':'bs')+' bsm" onclick="fnChRankBy(\'eff\')">&#127919; Por eficiencia</button></div>';
+  if(!list.length)return h+'<div class="empty">Aún no hay desafíos terminados en esta fase</div></div>';
+  list=list.slice().sort(function(a,b){
+    return by==='eff'?(b.eff-a.eff)||(b.won-a.won)||(b.net-a.net)||(b.played-a.played)
+                     :(b.net-a.net)||(b.ptsWon-a.ptsWon)||(b.won-a.won);
+  });
+  var medal=['&#129351;','&#129352;','&#129353;'],meId=mine?String(mine.userId):'';
+  h+=list.map(function(x,i){
+    var isMe=meId&&String(x.userId)===meId;
+    var main=by==='eff'?x.eff+'%':(x.net>0?'+':'')+x.net;
+    var sub=by==='eff'?x.won+' ganados de '+x.played:'+'+x.ptsWon+' / −'+x.ptsLost+' pts';
+    return'<div style="display:flex;align-items:center;gap:10px;padding:8px '+(isMe?'6px':'0')+';border-top:1px solid var(--bdr);'+(isMe?'background:rgba(245,158,11,.12);border-radius:8px':'')+'">'
+      +'<div style="width:30px;text-align:center;font-family:Barlow Condensed,sans-serif;font-size:'+(i<3?'20':'16')+'px;font-weight:800;color:var(--t3)">'+(i<3?medal[i]:(i+1))+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+fnEsc(x.teamName||x.userName)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+fnEsc(x.userName)+' &middot; G '+x.won+' &middot; P '+x.lost+' &middot; E '+x.tied+' &middot; '+sub+'</div></div>'
+      +'<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:'+(by==='pts'&&x.net<0?'#f87171':'var(--acc)')+'">'+main+'</div>'
+      +(by==='eff'?'<div style="font-size:10px;color:var(--t3)">'+(x.net>0?'+':'')+x.net+' pts netos</div>':'<div style="font-size:10px;color:var(--t3)">'+x.eff+'% efic.</div>')+'</div></div>';
+  }).join('');
+  return h+'<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5"><b>Por puntos:</b> puntos ganados menos puntos perdidos en desafíos terminados. <b>Por eficiencia:</b> % de desafíos ganados sobre los jugados (empate cuenta como jugado); si hay igualdad, desempata quien tenga más victorias. G = ganados, P = perdidos, E = empates. Incluye 1 vs 1, equipo vs equipo y Royal Rumble de '+FN_PH[_FN.data?_FN.data.phase:'regular']+'.</div></div>';
+}
+function fnChWeeklyBanner(T){
+  var W=T.weekly;if(!W||!W.configured)return'';
+  function dd(x){var p=String(x).split('-');return p[2]+'/'+p[1];}
+  var rng=(W.max>0?W.min+' y '+W.max:'al menos '+W.min)+' pts';
+  var base='<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#128197; <b>Desafío semanal obligatorio</b>: lugares <b>'+W.places.join(', ')+'</b> de la clasificación deben lanzar 1 desafío 1 vs 1 por semana (apuesta '+(W.max>0?'entre '+rng:rng)+'); si no, penalidad de <b>'+W.penalty+' pts</b>. ';
+  if(!W.started)return base+'Empieza a regir el lunes '+dd(W.since)+'.</div>';
+  if(!W.active)return base+'<span style="color:var(--t3)">Hoy no está activa: '+(W.hasRef?'el promedio de esos lugares ('+W.avg+') supera al lugar '+W.refPos+' ('+W.refPts+') por '+W.gap+' pts y se requieren '+W.minAvg+'.':'no hay un lugar '+W.refPos+' con el cual comparar.')+'</span></div>';
+  if(W.mine.required)return'<div class="alert '+(W.mine.done?'as':'aw')+'" style="font-size:12px;margin-bottom:12px;line-height:1.5">'+(W.mine.done?'&#9989; <b>Ya cumpliste tu desafío de la semana</b> (lugar '+W.mine.position+').':'&#9888; <b>Eres obligatorio esta semana (lugar '+W.mine.position+')</b>: lanza un desafío 1 vs 1 con apuesta '+(W.max>0?'entre '+rng:rng)+' antes del domingo '+dd(W.weekEnd)+' o se te descontarán <b>'+W.penalty+' pts</b>. Si el retado lo rechaza, cuenta como cumplido (salvo que él también sea de los lugares obligados).')+'</div>';
+  return base+'Semana del '+dd(W.weekStart)+' al '+dd(W.weekEnd)+'.</div>';
+}
 function fnChallengesTab(d,mine){
   var T=_FN.chal;
   if(!T)return'<div class="card"><div class="empty">Cargando desafíos...</div></div>';
   if(T.error)return'<div class="card"><div class="empty"><div style="color:#f87171">'+fnEsc(T.error)+'</div></div></div>';
-  var h='<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#9876; <b>Desafíos</b> ('+FN_PH[d.phase]+'): reta a otro usuario apostando puntos. Eliges desde qué fecha empieza y por cuántos días; solo tu rival debe aprobarlo. Gana quien sume <b>más puntos de jugadores dentro de esos días</b> (no el total general): el perdedor pierde lo apostado y el ganador lo recibe. Si empatan, nadie pierde puntos. Los puntos apostados quedan reservados mientras el desafío esté pendiente o en juego. También puedes hacerlos <b>grupales</b> (2 vs 2, 3 vs 3...) o un <b>Royal Rumble</b>.</div>';
+  var sub=fnChSubTabs();
+  if(_FN.chView==='rank')return sub+fnChRanking(T,mine);
+  var h=sub+fnChWeeklyBanner(T)+'<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#9876; <b>Desafíos</b> ('+FN_PH[d.phase]+'): reta a otro usuario apostando puntos. Eliges desde qué fecha empieza y por cuántos días; solo tu rival debe aprobarlo. Gana quien sume <b>más puntos de jugadores dentro de esos días</b> (no el total general): el perdedor pierde lo apostado y el ganador lo recibe. Si empatan, nadie pierde puntos. Los puntos apostados quedan reservados mientras el desafío esté pendiente o en juego. También puedes hacerlos <b>grupales</b> (2 vs 2, 3 vs 3...) o un <b>Royal Rumble</b>.</div>';
   if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para retar o responder desafíos.</div></div>';
   var me=T.participants.filter(function(p){return p.userId===String(mine.userId);})[0];
   var avail=me?me.available:0;
@@ -16424,6 +16473,7 @@ function fnChallengesTab(d,mine){
     return s+'</div></div>';
   }
   h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">Pendientes y en juego ('+(act.length+gAct.length)+')</div>'+((act.length||gAct.length)?act.map(card).join('')+gAct.map(fnChGroupCard).join(''):'<div class="empty" style="padding:10px">No hay desafíos activos</div>')+'</div>';
+  if(T.penalties&&T.penalties.length)h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#9888; Penalidades semanales</div>'+T.penalties.slice(0,15).map(function(p){var q=String(p.weekStart).split('-');return'<div style="font-size:12px;padding:6px 0;border-top:1px solid var(--bdr)"><b>'+fnEsc(p.teamName||p.userName)+'</b> <span style="color:var(--t3)">('+fnEsc(p.userName)+', lugar '+p.position+')</span> &middot; semana del '+q[2]+'/'+q[1]+' &middot; <b style="color:#f87171">−'+p.points+' pts</b></div>';}).join('')+'</div>';
   if(done.length||gDone.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:4px">Historial</div>'+done.slice(0,20).map(card).join('')+gDone.slice(0,20).map(fnChGroupCard).join('')+'</div>';
   return h;
 }
@@ -16494,10 +16544,17 @@ function fnOpenInfo(){
   var D=_FN.data||{},ml=D.moveLimits,hasLim=!!(ml&&(ml.day||ml.week||ml.month)),mcost=(D.moveExtra&&D.moveExtra.cost>0)?D.moveExtra.cost:0;
   var limTxt=hasLim?[ml.day?ml.day+' por día':'',ml.week?ml.week+' por semana':'',ml.month?ml.month+' por mes':''].filter(Boolean).join(', '):'';
   var minA=D.minApprovals||0,dl=D.tradeDeadline||'',dlTxt=dl?dl.slice(8,10)+'/'+dl.slice(5,7)+'/'+dl.slice(0,4):'';
+  var tdays=parseInt(cfg.fantasyTradeDays,10)||0,trem=(cfg.fantasyTradeRemindDays===undefined||String(cfg.fantasyTradeRemindDays).trim()==='')?1:(parseInt(cfg.fantasyTradeRemindDays,10)||0);
+  var wpl=String(cfg.fantasyWeeklyPlaces||'').split(',').map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=5;});
+  var wmin=parseFloat(cfg.fantasyWeeklyMin)||0,wmax=parseFloat(cfg.fantasyWeeklyMax)||0,wpen=parseFloat(cfg.fantasyWeeklyPenalty)||0,wgap=parseFloat(cfg.fantasyWeeklyMinAvg)||0;
+  var wt1=cfg.fantasyWeeklyFirstTime===undefined?'09:00':String(cfg.fantasyWeeklyFirstTime),wt2=cfg.fantasyWeeklyLastTime===undefined?'12:00':String(cfg.fantasyWeeklyLastTime);
+  var wref=wpl.length?Math.max.apply(null,wpl)+1:0,wrng=wmax>0?'entre <b>'+fnPts(wmin)+'</b> y <b>'+fnPts(wmax)+'</b> pts':'de al menos <b>'+fnPts(wmin)+'</b> pts';
   var mov=sec('Movimientos, cambios y ofertas')
     +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'><b>Movimientos</b>: cada jugador que fichas de la agencia libre cuenta como un movimiento (liberar solo no cuenta, ni reemplazar a un inactivo). '+(hasLim?'En este subtorneo el máximo es <b>'+limTxt+'</b>.':'Este subtorneo no tiene límite de movimientos.')+'</li>'
     +(hasLim&&mcost>0?'<li '+li+'><b>Movimientos adicionales</b>: cuando agotas tus movimientos puedes <b>comprar más por '+fnPts(mcost)+' pts cada uno</b> (botón Comprar en tu plantilla, o al guardar tus cambios). Los puntos se descuentan de tu total y no se devuelven, y los movimientos comprados no cuentan contra los límites. <b>Todos los usuarios pueden ver</b> en la clasificación y en cada plantilla cuántos movimientos extra compró cada quien y cuántos puntos gastó.</li>':'')
     +'<li '+li+'><b>Cambios</b> (pestaña Cambios): propones dar un jugador tuyo por uno de otro usuario, pudiendo ofrecer puntos. Se aplica cuando lo aprueban '+(minA>0?'al menos <b>'+minA+'</b> usuarios con plantilla (los dos del cambio siempre deben aprobar)':'<b>todos</b> los usuarios con plantilla')+'; si una de las dos partes lo rechaza, se cierra.</li>'
+    +'<li '+li+'>&#127873; Los <b>puntos ofrecidos</b> en un cambio son privados: cada usuario solo ve los puntos que se le ofrecieron a <b>él</b> (no los ofrecidos a los demás aprobadores); quien propone ve el detalle completo. Se reservan mientras el cambio esté pendiente y pasan a los elegidos cuando se aprueba.</li>'
+    +(tdays>0?'<li '+li+'>&#9203; <b>Plazo</b>: cada solicitud de cambio vence a los <b>'+tdays+' día(s)</b> de enviarse.'+(trem>0?' Cuando falten <b>'+trem+' día(s)</b> se avisa a quien aún no ha aprobado ni rechazado.':'')+' Si vence sin llegar al mínimo de aprobaciones ni de rechazos (ni cancelarse), el sistema decide por <b>mayoría de los votos emitidos</b>: más a favor que en contra se ejecuta (siempre que quien lo pidió y el dueño del otro jugador lo hayan aprobado); empate o más en contra se rechaza. Si lo aprueba el sistema, los puntos ofrecidos <b>solo se pagan a quienes aceptaron</b>; el resto vuelve a quedar disponible para quien los ofreció.</li>':'')
     +'<li '+li+'><b>Ofertas</b> (Cambios &gt; Ofertas): pones uno o varios jugadores tuyos en oferta exigiendo un mínimo de jugadores y/o de puntos a cambio. Los demás usuarios con plantilla reciben un aviso y pueden ofertar (tú recibes un aviso por cada oferta) y tú eliges la que más te convenga. Si la oferta elegida es <b>solo por puntos</b>, basta con tu aprobación y se aplica de inmediato; si incluye <b>jugadores</b>, se aprueba como un cambio (mismas aprobaciones de arriba). Los puntos ofertados se reservan mientras la oferta esté activa.</li>'
     +(dlTxt?'<li '+li+'>&#9200; <b>Fecha límite</b>: hasta el <b>'+dlTxt+'</b> (hora RD) se pueden proponer, ofertar y aprobar cambios y ofertas.</li>':'')
     +'<li '+li+'>Los cambios y ofertas no se aplican mientras haya juegos del día en curso (plantilla bloqueada) y no cuentan como movimientos.</li>'
@@ -16509,6 +16566,8 @@ function fnOpenInfo(){
     +'<li '+li+'><b>Equipo vs equipo</b> (2 vs 2, 3 vs 3...): mismo número de plantillas en cada lado. Gana el lado cuya <b>suma</b> de puntos sea mayor'+(gmN>0?' (máximo '+gmN+' plantillas entre los dos lados)':'')+'. Lo apostado es el total que se mueve y se reparte en partes iguales entre perdedores y ganadores (ej. 2 vs 2 con 50 pts: &minus;25 a cada perdedor y +25 a cada ganador).</li>'
     +'<li '+li+'>&#128081; <b>Royal Rumble</b> (3 o más plantillas'+gmTxt+'): gana la que más puntos sume y se lleva el premio; los demás pagan en partes iguales (ej. 200 pts entre 8: cada perdedor paga 28.57).</li>'
     +'<li '+li+'>En los desafíos grupales <b>todos los invitados deben aceptar</b>. Tu parte de los puntos queda <b>reservada</b> mientras el desafío esté pendiente o en juego, y no puedes usarla en otro desafío, oferta o compra. Si un perdedor ya no tiene su parte completa, paga lo que tenga.</li>'
+    +'<li '+li+'>&#127942; <b>Ranking de ganadores</b> (Desafíos &gt; Ranking de ganadores): clasifica a los usuarios por <b>puntos netos</b> (ganados menos perdidos) o por <b>eficiencia</b> (% de desafíos ganados sobre los jugados; el empate cuenta como jugado). Incluye 1 vs 1, equipo vs equipo y Royal Rumble terminados de la fase.</li>'
+    +((wpl.length&&wgap>0&&wmin>0)?'<li '+li+'>&#128197; <b>Desafío semanal obligatorio</b>: los lugares <b>'+wpl.join(', ')+'</b> de la clasificación deben lanzar al menos <b>un desafío 1 vs 1 por semana</b> (lunes a domingo, hora RD) con una apuesta '+wrng+'. Solo rige cuando el promedio de puntos de esos lugares supera en <b>'+fnPts(wgap)+' pts</b> o más a los del lugar '+wref+'. Quien no cumpla pierde <b>'+fnPts(wpen)+' pts</b> (nunca bajan de 0). Si el retado rechaza el desafío cuenta como cumplido, salvo que él también esté entre los lugares obligados; si lo cancelas tú, no cuenta. '+((wt1||wt2)?'Recibes un recordatorio si aún no lo has hecho: '+(wt1?'el lunes a las <b>'+fnEsc(wt1)+'</b>':'')+((wt1&&wt2)?' y ':'')+(wt2?'el domingo a las <b>'+fnEsc(wt2)+'</b>':'')+'.':'')+'</li>':'')
     +'<li '+li+'>Los desafíos solo existen en plantillas de <b>fase</b> y su resultado se suma o resta a tu puntaje.</li></ul>';
   showM('<div class="mhd"><div class="mtl">&#127919; Liga de Fantasía — Cómo funciona</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd" style="font-size:13px;color:var(--t2);line-height:1.55">'
@@ -16524,7 +16583,7 @@ function fnOpenInfo(){
     +'<li '+li+'>&#128274; Desde que inicia el <b>primer juego del día</b> (hora RD) la plantilla se bloquea hasta que terminen todos los juegos del día en el subtorneo. Las plantillas diarias tampoco se pueden crear una vez inicia el primer juego.</li>'
     +'<li '+li+'>Solo suman los jugadores del <b>cuadro</b>, desde que entran a él; la banca no suma. Los puntos ganados por quien sale se conservan.</li>'
     +(mg>0?'<li '+li+'>Solo puedes crear tu plantilla mientras el subtorneo tenga menos de <b>'+mg+'</b> juegos finalizados.</li>':'')
-    +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado, m\u00e1s o menos los puntos de <b>desafíos, cambios y ofertas</b> y menos los gastados en <b>movimientos adicionales</b>.</li>'
+    +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado, m\u00e1s o menos los puntos de <b>desafíos, cambios y ofertas</b> y menos los gastados en <b>movimientos adicionales</b> y las <b>penalidades</b> del desafío semanal obligatorio.</li>'
     +'<li '+li+'>El usuario con más puntos en la clasificación <b>Diaria</b> de cada día cerrado gana '+(((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts)||0)>0?'<b>'+fnPts((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts))+' puntos de victoria diaria</b>':'puntos de victoria diaria')+', que se suman a tu plantilla de la fase de ese día.</li></ul>'
     +mov+chl
     +sec('Puntos por jugada ('+fnEsc(tour.name||'subtorneo')+')')
@@ -19551,6 +19610,8 @@ function pgSet(){
       +followLimitsCard()
       +fantasyMoveCostCard()
       +fantasyGroupMaxCard()
+      +fantasyTradeDaysCard()
+      +fantasyWeeklyCard()
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128221; Registro de Jugadas (Control de Juego)</div></div>'
       +'<div class="fg"><label class="fl">Maximo de jugadas a mostrar en la pestaña "Jugadas"</label><input class="fi" id="splaylim" type="number" min="0" max="5000" value="'+(S.playLogLimit||0)+'" placeholder="0 = sin limite"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Controla cuantas jugadas recientes se listan en la pestaña "Jugadas" del Box Score dentro de Control de Juego. Deja en <b>0</b> (o vacio) para mostrar TODAS las jugadas del juego sin limite, desde el 1er inning. Si estableces un numero, solo se mostraran las jugadas mas recientes hasta ese limite (util si tienes equipos con conexiones muy lentas y prefieres una carga mas liviana).</div>'
@@ -19734,6 +19795,54 @@ function fantasyMoveCostCard(){
     +'<button class="btn bp" onclick="saveFantasyMoveCost()">Guardar Costo</button></div>';
 }
 // ── Configuracion: maximo de plantillas por desafio grupal (equipo vs equipo / Royal Rumble) ──
+function fantasyWeeklyCard(){
+  var cf=S.config||{},pl=String(cf.fantasyWeeklyPlaces||'').split(',').map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=5;});
+  function nv(k,d){var v=parseFloat(cf[k]);return isNaN(v)?d:v;}
+  var chk=[1,2,3,4,5].map(function(p){return'<label style="display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:13px"><input type="checkbox" class="fwplace" value="'+p+'" '+(pl.indexOf(p)>=0?'checked':'')+'> Lugar '+p+'</label>';}).join('');
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#9876; Fantasía: desafío semanal obligatorio (top 5)</div></div>'
+    +'<div class="fg"><label class="fl">Lugares de la clasificación obligados (ninguno = regla apagada)</label><div>'+chk+'</div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Apuesta mínima (pts)</label><input class="fi" id="fwmin" type="number" min="0" step="0.01" value="'+nv('fantasyWeeklyMin',0)+'"></div>'
+    +'<div class="fg"><label class="fl">Apuesta máxima (pts, 0 = sin máximo)</label><input class="fi" id="fwmax" type="number" min="0" step="0.01" value="'+nv('fantasyWeeklyMax',0)+'"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Penalidad por no cumplir (pts)</label><input class="fi" id="fwpen" type="number" min="0" step="0.01" value="'+nv('fantasyWeeklyPenalty',0)+'"></div>'
+    +'<div class="fg"><label class="fl">Diferencia mínima para activar (pts)</label><input class="fi" id="fwavg" type="number" step="0.01" value="'+nv('fantasyWeeklyMinAvg',0)+'"></div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Recordatorio del lunes (hora RD, vacío = no enviar)</label><input class="fi" id="fwt1" type="time" value="'+(cf.fantasyWeeklyFirstTime===undefined?'09:00':String(cf.fantasyWeeklyFirstTime))+'"></div>'
+    +'<div class="fg"><label class="fl">Recordatorio del domingo (hora RD, vacío = no enviar)</label><input class="fi" id="fwt2" type="time" value="'+(cf.fantasyWeeklyLastTime===undefined?'12:00':String(cf.fantasyWeeklyLastTime))+'"></div></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Quienes estén en esos lugares de la clasificación deben <b>lanzar al menos un desafío 1 vs 1 por semana</b> (lunes a domingo) con una apuesta entre el mínimo y el máximo. Si no lo hacen, se les descuenta la <b>penalidad</b> (sin bajar de 0). Si su desafío es <b>rechazado</b> por el retado, cuenta como cumplido, salvo que el retado también esté en esos lugares obligados; si lo cancela quien lo lanzó, no cuenta. La regla solo se activa cuando la <b>diferencia</b> entre el <b>promedio de puntos</b> de los lugares elegidos y los puntos del <b>lugar siguiente</b> al último elegido (ej.: eliges 1, 2 y 3 → se compara con el lugar 4) es igual o mayor al valor indicado. Debes marcar lugares y poner un valor mayor que 0 para que aplique. Los <b>recordatorios</b> se envían a los obligados que aún no han cumplido: el lunes (primer día) y el domingo (último día) a las horas indicadas. Se evalúa el lunes con la semana cerrada y la clasificación de ese momento, solo en semanas con juegos; empieza a regir desde el próximo lunes después de guardar.</div>'
+    +'<button class="btn bp" onclick="saveFantasyWeekly()">Guardar desafío semanal</button></div>';
+}
+async function saveFantasyWeekly(){
+  var places=[].slice.call(document.querySelectorAll('.fwplace')).filter(function(c){return c.checked;}).map(function(c){return c.value;}).join(',');
+  var mn=parseFloat(fv('fwmin')||'0'),mx=parseFloat(fv('fwmax')||'0'),pen=parseFloat(fv('fwpen')||'0'),av=parseFloat(fv('fwavg')||'0');
+  if([mn,mx,pen,av].some(isNaN)||mn<0||mx<0||pen<0){toast('Revisa los valores: no pueden ser negativos','error');return;}
+  if(places&&mx>0&&mx<mn){toast('La apuesta máxima no puede ser menor que la mínima','error');return;}
+  if(places&&!(mn>0)){toast('Indica una apuesta mínima mayor que 0','error');return;}
+  if(places&&!(av>0)){toast('Indica la diferencia mínima (mayor que 0) para activar la regla','error');return;}
+  if(places&&!(pen>0)){toast('Indica la penalidad (mayor que 0)','error');return;}
+  var kv=[['fantasyWeeklyPlaces',places],['fantasyWeeklyMin',String(mn)],['fantasyWeeklyMax',String(mx)],['fantasyWeeklyPenalty',String(pen)],['fantasyWeeklyMinAvg',String(av)],['fantasyWeeklyFirstTime',fv('fwt1').trim()],['fantasyWeeklyLastTime',fv('fwt2').trim()],['fantasyWeeklySince','']];
+  _saving=true;var ok=true;
+  for(var i=0;i<kv.length&&ok;i++){var r=await api('saveConfig',{key:kv[i][0],value:kv[i][1]});ok=!!(r&&r.ok);if(ok){S.config=S.config||{};S.config[kv[i][0]]=kv[i][1];}}
+  _saving=false;
+  if(ok)toast(places?'Desafío semanal guardado (rige desde el próximo lunes)':'Desafío semanal desactivado','success');else toast('Error al guardar el desafío semanal','error');
+}
+function fantasyTradeDaysCard(){
+  var cf=S.config||{},d=parseInt(cf.fantasyTradeDays,10),r=cf.fantasyTradeRemindDays===undefined||String(cf.fantasyTradeRemindDays).trim()===''?1:parseInt(cf.fantasyTradeRemindDays,10);
+  if(isNaN(d))d=0;if(isNaN(r))r=1;
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128260; Fantasía: plazo para aprobar o rechazar cambios</div></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Días para aprobar/rechazar</label><input class="fi" id="ftdays" type="number" min="0" max="365" step="1" value="'+d+'"></div>'
+    +'<div class="fg"><label class="fl">Avisar cuando falten (días)</label><input class="fi" id="ftremind" type="number" min="0" max="365" step="1" value="'+r+'"></div></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Los usuarios tienen esos <b>días</b> (contados desde que se envía la solicitud) para votar. Cuando falten los días indicados en <b>Avisar</b>, se envía una notificación a quien aún no ha aprobado ni rechazado. Si vence el plazo sin llegar al mínimo de aprobaciones ni al de rechazos (ni cancelarse), el sistema decide por <b>mayoría de los votos emitidos</b>: más a favor que en contra se ejecuta (siempre que quien lo pidió y el dueño del otro jugador lo hayan aprobado); empate o más en contra se rechaza. Si el sistema lo aprueba, los puntos ofrecidos <b>solo se pagan a quienes aceptaron</b>; el resto vuelve a estar disponible para quien los ofreció. <b>0 días = sin vencimiento</b>; <b>0 en Avisar = no avisar</b>.</div>'
+    +'<button class="btn bp" onclick="saveFantasyTradeDays()">Guardar plazo</button></div>';
+}
+async function saveFantasyTradeDays(){
+  var d=parseInt(fv('ftdays').trim()||'0',10),r=parseInt(fv('ftremind').trim()||'0',10);
+  if(isNaN(d)||d<0||d>365||isNaN(r)||r<0||r>365){toast('Los días deben estar entre 0 y 365','error');return;}
+  _saving=true;
+  var r1=await api('saveConfig',{key:'fantasyTradeDays',value:String(d)});
+  var r2=r1&&r1.ok?await api('saveConfig',{key:'fantasyTradeRemindDays',value:String(r)}):null;
+  _saving=false;
+  if(r1&&r1.ok&&r2&&r2.ok){S.config=S.config||{};S.config.fantasyTradeDays=String(d);S.config.fantasyTradeRemindDays=String(r);toast(d===0?'Cambios sin vencimiento':'Plazo guardado: '+d+' día(s), aviso '+(r?'a '+r+' día(s) del vencimiento':'desactivado'),'success');}
+  else toast('Error al guardar el plazo','error');
+}
 function fantasyGroupMaxCard(){
   var raw=(S.config||{}).fantasyGroupMax,v=(raw===undefined||raw===null||String(raw).trim()==='')?16:(parseInt(raw,10)||0);
   return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128081; Fantasía: máximo de plantillas por desafío grupal</div></div>'
