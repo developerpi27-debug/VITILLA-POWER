@@ -216,6 +216,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   z-index:9998;display:none;align-items:center;justify-content:center;padding:20px;}
 .lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:min(400px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(0,0,0,.45);}
 .llogo{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--acc);text-align:center;}
+.lsportnav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:-14px -10px 18px}
+.lsportnav a{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--bdr2);border-radius:999px;background:var(--bg3,transparent);color:var(--t2,inherit);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-decoration:none;white-space:nowrap}
+.lsportnav a:hover,.lsportnav a:active{border-color:var(--acc);color:var(--acc)}
 .lsub{font-size:12px;letter-spacing:3px;color:var(--t3);margin-bottom:26px;font-family:'Barlow Condensed',sans-serif;text-align:center;}
 .lgate-hint{font-size:13px;color:var(--t2);text-align:center;margin-bottom:22px;}
 .lgate-btn{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:16px 16px;border-radius:12px;cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif;}
@@ -676,6 +679,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 <!-- LOGIN -->
 <div id="lscr">
   <div class="lbox">
+    <div class="lsportnav" id="lsportnav" style="display:none"></div>
     <div class="llogo" style="display:flex;align-items:center;justify-content:center;gap:10px"><img src="" id="login-logo-img" style="width:48px;height:48px;object-fit:contain" alt="Vitilla Power"> <span id="brandWordLogin">VITILLA</span></div>
     <div class="lsub">Power</div>
 
@@ -1468,6 +1472,18 @@ async function delVideo(id){
 // tagline, credito del pie de pagina). Se llama una vez al cargar.
 function applyBrandToStaticDOM(){
   try{
+    // Accesos a los otros dos deportes (solo version web, no en la app nativa de Android).
+    // Los subdominios redirigen a powerrdapp.com/?sport=..., asi que BRAND ya dice en cual estamos.
+    var nav=document.getElementById('lsportnav');
+    if(nav){
+      if(IS_NATIVE_APP){nav.style.display='none';}
+      else{
+        nav.innerHTML=['vitilla','baseball','softball'].filter(function(k){return k!==BRAND;}).map(function(k){
+          return '<a href="/?sport='+k+'">Ir a '+BRAND_LABELS[k]+' Power &#8599;</a>';
+        }).join('');
+        nav.style.display='flex';
+      }
+    }
     if(document.getElementById('pageTitle')) document.getElementById('pageTitle').textContent=brandName();
     document.title=brandName();
     ['brandWordLogin','brandWordSidebar'].forEach(function(id){
