@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6950590988970114"
+     crossorigin="anonymous"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google-adsense-account" content="ca-pub-6950590988970114">
 <title id="pageTitle">Vitilla Power</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a0e1a">
@@ -216,6 +219,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
   z-index:9998;display:none;align-items:center;justify-content:center;padding:20px;}
 .lbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;padding:38px;width:min(400px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(0,0,0,.45);}
 .llogo{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--acc);text-align:center;}
+.ad-wrap{margin:8px auto;max-width:970px;width:100%;text-align:center;overflow:hidden;box-sizing:border-box;padding:0 8px}
+.ad-wrap .ad-lbl{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
 .lsportnav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:-14px -10px 18px}
 .lsportnav a{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--bdr2);border-radius:999px;background:var(--bg3,transparent);color:var(--t2,inherit);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-decoration:none;white-space:nowrap}
 .lsportnav a:hover,.lsportnav a:active{border-color:var(--acc);color:var(--acc)}
@@ -727,6 +732,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <div id="lmsg" style="font-size:13px;color:var(--t2);margin-top:10px">Verificando...</div>
       </div>
     </div>
+    <div style="text-align:center;margin-top:14px;font-size:11px"><a href="https://powerrdapp.com/privacidad.html" target="_blank" rel="noopener" style="color:var(--t3);text-decoration:underline">Política de privacidad</a></div>
   </div>
 </div>
 
@@ -798,7 +804,9 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         </div>
       </div>
     </div>
+    <div id="ad-top" class="ad-wrap" style="display:none"></div>
     <div id="ct"></div>
+    <div id="ad-bottom" class="ad-wrap" style="display:none"></div>
     <footer id="app-footer">
       <!-- GALERIA DE AFILIADOS (solo visitantes) — encima de "Vitilla Power" -->
       <div id="af-bar" style="display:none"></div>
@@ -806,6 +814,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
       <div id="footerCredit">Hecha con <span class="ft-heart">❤️</span> por un <span id="brandCreator">vitillero</span> &nbsp;|&nbsp; <b>ING. CARLOS REYES</b></div>
       <div style="margin-top:2px">📞 Contacto: <a href="tel:8496393540" style="color:var(--acc);text-decoration:none;font-weight:600">849-639-3540</a></div>
       <div style="margin-top:2px" id="ft-copyright">© <span id="ft-year"></span> Todos los derechos reservados.</div>
+      <div style="margin-top:2px"><a href="https://powerrdapp.com/privacidad.html" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:none;font-weight:600">Política de privacidad</a></div>
     </footer>
   </div>
 </div>
@@ -3547,6 +3556,7 @@ var ALL_MOD=[
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
+  {id:'hideads',lbl:'Ocultar anuncios (versión web)',ico:'🚫',sec:'General'},
   {id:'fantasytrades',lbl:'Fantasía: crear cambios de jugadores',ico:'🔁',sec:'General'},
   {id:'fantasychallenges',lbl:'Fantasía: crear desafíos',ico:'⚔️',sec:'General'},
   {id:'synctocloud',lbl:'Torneos locales: sincronizar a la nube (usuarios de Google)',ico:'☁️',sec:'General'},
@@ -3570,7 +3580,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','videos'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
@@ -4131,7 +4141,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -4486,7 +4496,7 @@ function goNav(page){
 }
 
 // UI HELPERS
-function ct(html){document.getElementById('ct').innerHTML=html;pushRoute(curP);}
+function ct(html){document.getElementById('ct').innerHTML=html;pushRoute(curP);try{webAdsSyncPage();}catch(e){}}
 function fv(id){var e=document.getElementById(id);return e?(e.value||''):'';} 
 function nid(){return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function tmNm(id){var t=S.tournaments.filter(function(x){return x.id===id;})[0];return t?t.name:'—';}
@@ -7705,7 +7715,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -19013,7 +19023,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -19084,7 +19094,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -19612,6 +19622,7 @@ function pgSet(){
       +fantasyGroupMaxCard()
       +fantasyTradeDaysCard()
       +fantasyWeeklyCard()
+      +webAdsConfigCard()
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128221; Registro de Jugadas (Control de Juego)</div></div>'
       +'<div class="fg"><label class="fl">Maximo de jugadas a mostrar en la pestaña "Jugadas"</label><input class="fi" id="splaylim" type="number" min="0" max="5000" value="'+(S.playLogLimit||0)+'" placeholder="0 = sin limite"></div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Controla cuantas jugadas recientes se listan en la pestaña "Jugadas" del Box Score dentro de Control de Juego. Deja en <b>0</b> (o vacio) para mostrar TODAS las jugadas del juego sin limite, desde el 1er inning. Si estableces un numero, solo se mostraran las jugadas mas recientes hasta ese limite (util si tienes equipos con conexiones muy lentas y prefieres una carga mas liviana).</div>'
@@ -19795,6 +19806,73 @@ function fantasyMoveCostCard(){
     +'<button class="btn bp" onclick="saveFantasyMoveCost()">Guardar Costo</button></div>';
 }
 // ── Configuracion: maximo de plantillas por desafio grupal (equipo vs equipo / Royal Rumble) ──
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANUNCIOS (Google AdSense) — SOLO version web. Config (tabla config): webAdsEnabled ('1'), webAdsClient ('ca-pub-XXXXXXXXXXXXXXXX'),
+// webAdsSlotTop y webAdsSlotBottom (IDs numericos de los bloques de anuncio). No se muestran: en la app nativa (Capacitor), si esta apagado
+// o sin configurar, ni a staff con usuario/contrasena (igual que AdMob), ni a quien tenga el modulo 'hideads' en su perfil, ni en
+// pantallas de anotacion (control de juego / transmision). Los bloques se crean UNA vez por sesion: no se refrescan al navegar.
+// ═══════════════════════════════════════════════════════════════════════════════
+var _webAdsRendered={top:'',bottom:''},_webAdsScriptClient='',WEB_ADS_HIDE_PAGES=['gamecontrol','transmissionpanel'];
+function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',client:String(c.webAdsClient||'').trim(),top:String(c.webAdsSlotTop||'').trim(),bottom:String(c.webAdsSlotBottom||'').trim()};}
+function webAdsAllowed(){
+  var c=webAdsCfg();
+  if(IS_NATIVE_APP||!S.user||!c.on||!/^ca-pub-\d{16}$/.test(c.client))return false;
+  // Mismo publico y mismos interruptores que AdMob (Configuracion > Anuncios (AdMob)): visitantes y usuarios de Google; nunca staff con usuario/contrasena.
+  var cf=S.config||{},aud=S.user.role==='public'?cf.adsEnabledVisitors==='true':(S.user.role==='google'?cf.adsEnabledGoogle==='true':false);
+  return aud&&!hasModuleAccess('hideads');
+}
+function webAdsClear(){
+  ['top','bottom'].forEach(function(p){var el=document.getElementById('ad-'+p);if(el){el.innerHTML='';el.style.display='none';}_webAdsRendered[p]='';});
+}
+function webAdsInit(){
+  try{
+    if(!webAdsAllowed()){webAdsClear();return;}
+    var c=webAdsCfg();
+    if(_webAdsScriptClient!==c.client&&!document.getElementById('ads-js')&&!document.querySelector('script[src*="pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"]')){
+      var sc=document.createElement('script');sc.id='ads-js';sc.async=true;sc.crossOrigin='anonymous';
+      sc.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(c.client);
+      document.head.appendChild(sc);_webAdsScriptClient=c.client;
+    }
+    ['top','bottom'].forEach(function(p){
+      var el=document.getElementById('ad-'+p),slot=c[p];
+      if(!el)return;
+      if(!/^\d{6,20}$/.test(slot)){el.innerHTML='';el.style.display='none';_webAdsRendered[p]='';return;}
+      if(_webAdsRendered[p]===slot)return;   // ya cargado en esta sesion: no se vuelve a pedir
+      el.innerHTML='<div class="ad-lbl">Publicidad</div><ins class="adsbygoogle" style="display:block" data-ad-client="'+c.client+'" data-ad-slot="'+slot+'" data-ad-format="auto" data-full-width-responsive="true"></ins>';
+      el.style.display='block';_webAdsRendered[p]=slot;
+      try{(window.adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+    });
+    webAdsSyncPage();
+  }catch(e){}
+}
+// Oculta los anuncios en pantallas de anotacion (botones de accion) sin destruirlos.
+function webAdsSyncPage(){
+  try{
+    var hide=WEB_ADS_HIDE_PAGES.indexOf(curP)>=0;
+    ['top','bottom'].forEach(function(p){var el=document.getElementById('ad-'+p);if(el&&_webAdsRendered[p])el.style.visibility=hide?'hidden':'visible',el.style.height=hide?'0':'';});
+  }catch(e){}
+}
+function webAdsConfigCard(){
+  var c=webAdsCfg();
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128226; Anuncios (Google AdSense — versión web)</div></div>'
+    +'<div class="fg"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="webAdsOn" '+(c.on?'checked':'')+'> Mostrar anuncios en la versión web</label></div>'
+    +'<div class="fg"><label class="fl">ID de editor (ca-pub-XXXXXXXXXXXXXXXX)</label><input class="fi" id="webAdsClient" placeholder="ca-pub-1234567890123456" value="'+fnEsc(c.client)+'"></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">ID del bloque superior</label><input class="fi" id="webAdsSlotTop" inputmode="numeric" placeholder="1234567890" value="'+fnEsc(c.top)+'"></div>'
+    +'<div class="fg"><label class="fl">ID del bloque inferior</label><input class="fi" id="webAdsSlotBottom" inputmode="numeric" placeholder="0987654321" value="'+fnEsc(c.bottom)+'"></div></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja vacío un ID de bloque para no usar esa posición. Los cambios se ven al recargar la página. Desactiva los <i>Anuncios automáticos</i> en AdSense para que solo salgan estos bloques. Recuerda publicar <b>ads.txt</b> en la raíz del sitio y mantener la <b>política de privacidad</b> actualizada.</div>'
+    +'<button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button></div>';
+}
+async function saveWebAdsConfig(){
+  var on=document.getElementById('webAdsOn').checked,cl=fv('webAdsClient').trim(),t=fv('webAdsSlotTop').trim(),b=fv('webAdsSlotBottom').trim();
+  if(on&&!/^ca-pub-\d{16}$/.test(cl)){toast('El ID de editor debe verse así: ca-pub-1234567890123456','error');return;}
+  if((t&&!/^\d{6,20}$/.test(t))||(b&&!/^\d{6,20}$/.test(b))){toast('Los IDs de bloque son solo números','error');return;}
+  if(on&&!t&&!b){toast('Indica al menos un ID de bloque (superior o inferior)','error');return;}
+  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsClient',cl],['webAdsSlotTop',t],['webAdsSlotBottom',b]];
+  _saving=true;var ok=true;
+  for(var i=0;i<kv.length&&ok;i++){var r=await api('saveConfig',{key:kv[i][0],value:kv[i][1]});ok=!!(r&&r.ok);if(ok){S.config=S.config||{};S.config[kv[i][0]]=kv[i][1];}}
+  _saving=false;
+  toast(ok?(on?'Anuncios guardados (recarga la página para verlos)':'Anuncios desactivados'):'Error al guardar los anuncios',ok?'success':'error');
+}
 function fantasyWeeklyCard(){
   var cf=S.config||{},pl=String(cf.fantasyWeeklyPlaces||'').split(',').map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=5;});
   function nv(k,d){var v=parseFloat(cf[k]);return isNaN(v)?d:v;}
@@ -19937,7 +20015,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
@@ -20800,7 +20878,7 @@ window.onload=function(){
         document.getElementById('app').style.display='flex';
         // Al refrescar con sesion activa, aplicar auto-select de torneo padre igual que en login
         if(!S.parentTourFilter){var pts2=visibleParentTournaments();if(pts2.length>0){S.parentTourFilter=String(pts2[0].id);var defYr=defaultYearForParent(pts2[0].id)||_curYear;S.yearFilter=parseInt(defYr)||_curYear;S.tourFilter=autoSubTour(pts2[0].id,S.yearFilter);if(S.tourFilter)S.tourFilter=String(S.tourFilter);}else{S.yearFilter=_curYear;}}
-        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();startPublicGalleries();fnDailyAccess();
+        initPGS();renderApp();startPolling();startSessionTimer();restoreSidebar();trackVisit();startMarquee();startPublicGalleries();webAdsInit();fnDailyAccess();
       }).catch(function(){
         // Tampoco hubo red para el intento normal: mismo camino offline de arriba.
         loadOfflineCache().then(function(){
