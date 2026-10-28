@@ -5068,7 +5068,7 @@ function tmlbRepHtml(r){
 }
 function tmlbRosterHtml(r){
   if(!r)return'';
-  var h='<br>Roster (agencia libre): <b>'+new Date(r.at).toLocaleString('es-DO')+'</b> &middot; '+r.teams+' equipos, '+r.added+' nuevos, '+r.deactivated+' inactivados, '+r.activated+' reactivados'+(r.moved?', '+r.moved+' traspasos':'')+'.';
+  var h='<br>Roster (agencia libre): <b>'+new Date(r.at).toLocaleString('es-DO')+'</b> &middot; '+r.teams+' equipos, '+r.added+' nuevos, '+r.deactivated+' inactivados, '+r.activated+' reactivados'+(r.moved?', '+r.moved+' traspasos':'')+'.'+(r.via?' <span style="opacity:.7">('+(r.via==='auto'?'automática':'manual')+(r.v?' · v'+mlbEsc(r.v):'')+')</span>':'');
   (r.errors||[]).forEach(function(w){h+='<br><span style="color:#f87171">&#10005; '+mlbEsc(w)+'</span>';});
   return h;
 }
