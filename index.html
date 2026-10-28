@@ -7715,7 +7715,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -19023,7 +19023,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
