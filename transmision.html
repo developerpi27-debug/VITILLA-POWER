@@ -396,7 +396,10 @@ async function apiCall(action,data){
 }
 async function ensureTeams(){
   if(_teamsCache)return _teamsCache;
-  var res=await apiCall('getAll',{});
+  // Solo los 2 equipos de ESTE juego (ligero y cacheado en el worker). Si el worker aun no tiene getGameTeams, cae al getAll de siempre.
+  var res=null;
+  try{res=await apiCall('getGameTeams',{gameId:GAME_ID});}catch(e){res=null;}
+  if(!res||!res.ok||!res.data||!(res.data.teams||[]).length)res=await apiCall('getAll',{});
   if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
   var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
   _teamsCache=map;return map;
@@ -723,10 +726,11 @@ async function poll(){
   try{
     if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
     var teams=await ensureTeams();
-    var res=await apiCall('getGameSlice',{gameId:GAME_ID});
+    var res=await apiCall('getGameSlice',{gameId:GAME_ID,sig:(SLICE&&SLICE.sig)||''});   // con la firma del ultimo estado: si no cambio, el worker responde "sin cambios" (casi sin datos)
     if(!res.ok){document.getElementById('msg').style.display='block';document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('stage').style.display='none';return;}
     _errCount=0;
-    SLICE=res.data;var g=SLICE.game;
+    if(!(res.unchanged&&SLICE))SLICE=res.data;
+    var g=SLICE.game;
     // Las stats (AVG/OPS/HR/RBI y linea de hoy) son mas pesadas: se piden al cambiar el bateador/marcador o cada 20 s
     var sig=[g.currentInning,g.currentHalf,g.awayBatterIdx,g.homeBatterIdx,g.awayRuns,g.homeRuns,g.status].join('|');
     if(!CARD||sig!==_cardSig||Date.now()-_cardAt>20000){
