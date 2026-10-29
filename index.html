@@ -2057,7 +2057,7 @@ async function syncOutbox(){
             var dupEvId=it.data&&it.data.event&&it.data.event.id;
             var dupGameId=it.data&&it.data.event&&it.data.event.gameId;
             if(dupEvId) S.events=S.events.filter(function(x){return x.id!==dupEvId;});
-            if(dupGameId){ try{ await loadGameSliceOnly(dupGameId); }catch(e3){} if(curP==='gamecontrol'&&S.game===dupGameId) pgGC(); }
+            if(dupGameId){ try{ await loadGameSliceOnly(dupGameId,true); }catch(e3){} if(curP==='gamecontrol'&&S.game===dupGameId) pgGC(); }
             toast('Una jugada encolada sin conexion ya habia sido registrada por otro anotador — se descarto y se sincronizo el juego.','error');
             continue;
           }
@@ -3170,10 +3170,17 @@ async function loadAll(){
 // los torneos/juegos de la app. Es seguro con varios juegos en vivo simultaneos en distintos
 // dispositivos: cada uno pide solo el gameId que tiene abierto, y no toca los datos de los
 // demas juegos que puedan estar anotandose en paralelo.
-async function loadGameSliceOnly(gameId){
-  var res=await api('getGameSlice',{gameId:gameId});
+var _gsSig={},_gsN={};
+// force=true: lectura completa sin atajos (después de guardar algo local). El sondeo normal de un VISOR manda la firma del último estado y,
+// si el juego no cambió, el servidor responde "sin cambios" (3 consultas mínimas en vez de 7 con todos los eventos). Cada 6.º sondeo es completo.
+async function loadGameSliceOnly(gameId,force){
+  var scorer=!!document.getElementById('gc-rplay-area');
+  var useSig=!force&&!scorer&&_gsSig[gameId]&&((_gsN[gameId]=(_gsN[gameId]||0)+1)%6!==0);
+  var res=await api('getGameSlice',{gameId:gameId,sig:useSig?_gsSig[gameId]:'',fresh:(force||scorer)?true:undefined});
+  if(res&&res.ok&&res.unchanged)return true;
   if(!res||!res.ok||!res.data)return false;
   var d=res.data;
+  if(d.sig)_gsSig[gameId]=d.sig;
   var pendingGameIds=await outboxPendingGameIds();
   if(pendingGameIds[d.game.id]){
     // Hay un guardado de ESTE juego (marcador/estado) todavia sin confirmar en
@@ -3335,6 +3342,19 @@ function showPlayFlashAnimation(type){
 var _pollLive=null,_lastPollAt=0;
 // Refresco acelerado: mientras alguien VE un juego de MLB que esta en vivo (Control de Juego), el celular consulta cada
 // Configuracion > "Refresco al ver un juego de MLB en vivo" segundos (0 = usa el intervalo general). Solo consulta ese juego (liviano).
+// Horario hábil de las actualizaciones automáticas (Configuración). Fuera de él el celular no refresca solo (se ahorra tráfico de Supabase),
+// salvo mientras haya un juego LOCAL en vivo. La hora es la de República Dominicana (UTC-4). Lo manual (botones, guardar, abrir pantallas) no se afecta.
+function autoWindowOpen(){
+  var c=S.config||{};
+  if(c.autoHoursOn!=='1')return true;
+  function tm(v){var m=/^(\d{1,2}):(\d{2})$/.exec(String(v||'').trim());return(m&&+m[1]<=24&&+m[2]<=59)?(+m[1]*60+ +m[2]):null;}
+  var s=tm(c.autoHoursStart),e=tm(c.autoHoursEnd);
+  if(s===null||e===null)return true;
+  s%=1440;e%=1440;if(s===e)return true;
+  var d=new Date(Date.now()-4*3600000),n=d.getUTCHours()*60+d.getUTCMinutes();
+  if(s<e?(n>=s&&n<e):(n>=s||n<e))return true;
+  return(S.games||[]).some(function(g){return g.status==='live'&&String(g.id).indexOf('mlb')!==0;});
+}
 function liveMlbPollMs(){
   var sec=parseInt(S.config&&S.config.mlbLiveClientSeconds)||0;
   if(sec<3)return 0;
@@ -3351,6 +3371,7 @@ function startPolling(){
 }
 async function _doPoll(){
   if(!S.user||document.hidden||_saving||_rPlayBusy||_undoBusy)return;
+  if(!autoWindowOpen())return;   // fuera del horario hábil configurado: sin refresco automático
   // Reentrancy guard: setInterval NO espera a que el ciclo anterior termine. En una conexion
   // lenta, un ciclo de poll (loadAll/loadGameSliceOnly) puede tardar mas que el intervalo
   // configurado; sin este guard, los ciclos se van APILANDO uno sobre otro (cada uno pidiendo
@@ -5019,7 +5040,10 @@ function openTM(id){
 function tfmSection(t){
   if(!(S.user&&S.user.role==='admin'))return'';
   function inp(id,v){return'<input class="fi" id="'+id+'" type="number" min="0" max="1000" step="1" value="'+(parseInt(v)||0)+'">';}
-  return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
+  return'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#9918; POSICIONES EN EL CUADRO DE FANTASY (solo administrador)</div>'
+    +'<div class="fg"><label class="fl">Colocar jugadores en el cuadro</label><select class="fs" id="tfm-pos"><option value="free"'+(t.fantasyPosRule==='strict'?'':' selected')+'>Libremente (cualquier jugador en cualquier posición)</option><option value="strict"'+(t.fantasyPosRule==='strict'?' selected':'')+'>Respetar la posición del jugador</option></select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Con <b>respetar la posición</b>, cada jugador solo puede ir en el espacio de su posición (un DH solo en DH; un jugador con varias posiciones, en cualquiera de las suyas). Los <b>UT</b> pueden ir en cualquier posición. La banca y los relevistas no tienen esta restricción. Solo se revisan las colocaciones nuevas: las plantillas ya guardadas no se modifican.</div></div>'
+    +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es fichar un jugador de la agencia libre (liberar 1 y fichar 1 cuenta como 1; liberar sin fichar no cuenta). <b>No cuentan</b> los jugadores inactivos que se liberan y se reemplazan en el mismo guardado, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por mes</label>'+inp('tfm-month',t.fantasyMaxMonth)+'</div><div class="fg"></div></div>'
@@ -5147,7 +5171,7 @@ async function saveT(id){
     t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';t.mlbRosterSyncMin=parseInt(fv('tmlb-rsync'))||0;
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
-  if(document.getElementById('tfm-day')){t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';}   // solo existe para el admin
+  if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
   if(S.user&&S.user.role==='google'){
     if(!t.parentTournamentId){toast('Elige el torneo padre','error');return;}
@@ -8005,7 +8029,7 @@ function pgGC(){
             +'<div style="font-size:12px;color:var(--t2);margin-top:6px">Este juego no tiene un bloqueo de anotacion activo. Toma el control para registrar jugadas.</div>'
             +'<button class="btn bp bsm" style="margin-top:10px" data-gid="'+gm.id+'" onclick="claimGameLock(this.dataset.gid)">&#128275; Comenzar a anotar</button>'
             +'</div></div>'
-          :'<div class="card"><div class="empty"><div style="font-size:30px">&#128065;</div><div>Solo lectura</div></div></div>'))))
+          :((!S.user||S.user.role==='public')?'':'<div class="card"><div class="empty"><div style="font-size:30px">&#128065;</div><div>Solo lectura</div></div></div>')))))
     +'</div>'
     +'<div class="card" style="margin-top:14px"><div class="chd"><div class="ctl">Box Score</div></div>'
     +'<div class="tabs">'    +'<div class="tab'+(_gcTab==='bs-a'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-a&quot;;showTab(this,&quot;bs-a&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128202; '+aw.name+'</div>'    +'<div class="tab'+(_gcTab==='bs-h'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-h&quot;;showTab(this,&quot;bs-h&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128202; '+hw.name+'</div>'    +'<div class="tab'+(_gcTab==='bs-p'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-p&quot;;showTab(this,&quot;bs-p&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#9918; Pitcheo</div>'    +'<div class="tab'+(_gcTab==='bs-l'?' on':'')+'" onclick="var _sy=window.scrollY;_gcTab=&quot;bs-l&quot;;showTab(this,&quot;bs-l&quot;);setTimeout(function(){window.scrollTo(0,_sy);},30)">&#128221; Jugadas</div>'    +'</div>'    +'<div id="bs-a" style="'+(_gcTab==='bs-a'?'':'display:none')+'">'+bsHTML(gm.id,gm.awayTeamId)+'</div>'    +'<div id="bs-h" style="'+(_gcTab==='bs-h'?'':'display:none')+'">'+bsHTML(gm.id,gm.homeTeamId)+'</div>'    +'<div id="bs-p" style="'+(_gcTab==='bs-p'?'':'display:none')+'">'+pitHTML(gm.id,gm.awayTeamId,gm.homeTeamId)+'</div>'    +'<div id="bs-l" style="'+(_gcTab==='bs-l'?'min-height:400px;max-height:70vh;overflow-y:auto;padding-bottom:20px':'display:none')+'">'+playLog(gm.id)+'</div>'
@@ -10207,7 +10231,7 @@ async function rPlay(type){
         // dejar al anotador viendo un estado que solo existe en su pantalla.
         S.events=S.events.filter(function(x){return x.id!==evId;});
         toast('Esta jugada ya fue registrada por otro anotador — se descarto y se sincronizo el juego.','error');
-        try{ await loadGameSliceOnly(gm.id); }catch(e2){}
+        try{ await loadGameSliceOnly(gm.id,true); }catch(e2){}
         if(curP==='gamecontrol') pgGC();
         return;
       }
@@ -15324,6 +15348,7 @@ async function fnLoad(){
 function fnTick(){
   if(curP!=='fantasy'){clearInterval(_FN.timer);_FN.timer=null;return;}
   if(_FN.busy||_FN.editing||document.getElementById('modals').innerHTML)return;
+  if(!autoWindowOpen())return;   // fuera del horario hábil configurado
   // Mientras arma su plantilla no se redibuja (no perder lo que va arrastrando)
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnLoad();
@@ -15564,16 +15589,24 @@ function fnLayoutErr(){
   var d=_FN.data,n=0,b=0;
   Object.keys(_FN.slots).forEach(function(k){if(!_FN.slots[k])return;n++;if(fnIsB(k)||fnIsR(k))b++;});
   if(n>d.caps.total)return'Máximo '+d.caps.total+' jugadores en la plantilla (cuadro + banca). Libera a uno primero.';
-  if(b>d.caps.bench)return'La banca y los relevistas suman como máximo '+d.caps.bench+' jugadores.';
+  if(b>d.caps.bench)return'La banca y los relevistas suman como máximo '+d.caps.bench+' jugadores. Pasa a alguien al cuadro (espacio libre) o libera a un jugador.';
   return'';
 }
 // Mover / intercambiar / fichar. Al CREAR todo es libre (dentro de los máximos). Al GESTIONAR: mover o intercambiar
 // entre mis jugadores; fichar un agente libre solo en un espacio vacío (o sobre un INACTIVO, que pasa a mi lista de
 // inactivos); un inactivo ya activo vuelve a un espacio vacío.
+// Regla de posiciones del subtorneo (posRule='strict'): solo el cuadro; banca y relevistas no se restringen. Un UT va en cualquiera.
+function fnPosErr(slot,p){
+  var d=_FN.data;if(!d||d.posRule!=='strict'||!p||fnIsB(slot)||fnIsR(slot))return'';
+  var ps=String(p.position||'').toUpperCase().split(/[\/,;|+\s]+/).filter(Boolean);
+  if(!ps.length||ps.indexOf('UT')>=0||ps.indexOf(String(slot).toUpperCase())>=0)return'';
+  return(p.name||'Ese jugador')+' ('+ps.join('/')+') no puede jugar en '+slot+': este subtorneo exige respetar la posición del jugador (solo los UT van en cualquiera).';
+}
 function fnAssign(target,pid,from){
   var snap=JSON.stringify([_FN.slots,_FN.parked]);
   var src=null;Object.keys(_FN.slots).forEach(function(k){if(_FN.slots[k]===pid)src=k;});
   if(src===target){_FN.sel='';fnRender();return;}
+  { var pe=fnPosErr(target,fnP(pid));if(!pe&&src&&_FN.slots[target])pe=fnPosErr(src,fnP(_FN.slots[target]));if(pe)return fnWarn(pe); }
   if(!_FN.editing&&fnDraftArranging()&&!fnIsMyPick(pid))return fnWarn('Solo puedes usar los jugadores que elegiste en tu turno.');
   if(!_FN.editing&&fnIsR(target))return fnWarn('Los relevistas solo se pueden asignar desde "Gestionar plantilla", después de guardar tu plantilla.');
   var occ=_FN.slots[target],inParked=_FN.parked.indexOf(pid)>=0;
@@ -15782,7 +15815,7 @@ function fnEditor(isEdit){
   var parked=_FN.parked.length?'<div style="max-width:460px;margin:12px auto 0"><div style="font-size:11px;font-weight:800;color:#f87171;letter-spacing:1px;margin-bottom:4px">INACTIVOS (reemplazados) <span style="font-weight:400;color:var(--t3)">&middot; siguen siendo tuyos; cuando se activen podrás usarlos de nuevo en un espacio vacío</span></div>'+fnGrid(_FN.parked.map(fnP).filter(Boolean).map(function(p){return fnChip(p,'');}).join(''))+'</div>':'';
   return'<div class="card" style="margin-bottom:12px"><div style="font-size:12px;color:var(--t2);margin-bottom:8px">'
     +(isEdit?'Gestiona tu plantilla: mueve jugadores entre cuadro, banca y relevistas (el cuadro puede quedar con posiciones vacías), libera jugadores para abrir espacio y ficha agentes libres. Si un jugador fue marcado <b>inactivo</b> en Equipos puedes reemplazarlo por otro; el inactivo queda en tu lista y no vuelve a la agencia libre.'
-      :(fnDraftArranging()?'<b>¡Terminó tu selección!</b> Acomoda a tus jugadores elegidos en el cuadro y la banca, ponle nombre a tu plantilla y guárdala. ':'')+'Plantilla de <b>'+fnEsc(fnCtxLabel())+'</b>. Completa el cuadro y, si quieres, la banca (máximo '+d.caps.total+' jugadores en total). Los <b>relevistas</b> se asignan después, desde <b>Gestionar plantilla</b>. Solo aparecen jugadores que ningún otro usuario ha elegido. Arrástralos, o toca un jugador y luego la posición.')+'</div>'
+      :(fnDraftArranging()?'<b>¡Terminó tu selección!</b> Acomoda a tus jugadores elegidos en el cuadro y la banca, ponle nombre a tu plantilla y guárdala. ':'')+'Plantilla de <b>'+fnEsc(fnCtxLabel())+'</b>. Completa el cuadro y, si quieres, la banca (máximo '+d.caps.total+' jugadores en total). Los <b>relevistas</b> se asignan después, desde <b>Gestionar plantilla</b>. Solo aparecen jugadores que ningún otro usuario ha elegido. Arrástralos, o toca un jugador y luego la posición.')+(d.posRule==='strict'?' <b>En este subtorneo cada jugador debe ir en su posición</b> (los UT pueden ir en cualquiera).':'')+'</div>'
     +fnActionBar()+fnField(_FN.slots,true)+fnBench(_FN.slots,true)+parked+fnCounters()
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">'
     +(isEdit?'<button class="btn bs" onclick="fnCancelEdit()">Cancelar</button><button class="btn bp" style="margin-left:auto" onclick="fnSaveEdit()">Guardar cambios</button>'
@@ -16567,6 +16600,7 @@ function fnOpenInfo(){
     +(tdays>0?'<li '+li+'>&#9203; <b>Plazo</b>: cada solicitud de cambio vence a los <b>'+tdays+' día(s)</b> de enviarse.'+(trem>0?' Cuando falten <b>'+trem+' día(s)</b> se avisa a quien aún no ha aprobado ni rechazado.':'')+' Si vence sin llegar al mínimo de aprobaciones ni de rechazos (ni cancelarse), el sistema decide por <b>mayoría de los votos emitidos</b>: más a favor que en contra se ejecuta (siempre que quien lo pidió y el dueño del otro jugador lo hayan aprobado); empate o más en contra se rechaza. Si lo aprueba el sistema, los puntos ofrecidos <b>solo se pagan a quienes aceptaron</b>; el resto vuelve a quedar disponible para quien los ofreció.</li>':'')
     +'<li '+li+'><b>Ofertas</b> (Cambios &gt; Ofertas): pones uno o varios jugadores tuyos en oferta exigiendo un mínimo de jugadores y/o de puntos a cambio. Los demás usuarios con plantilla reciben un aviso y pueden ofertar (tú recibes un aviso por cada oferta) y tú eliges la que más te convenga. Si la oferta elegida es <b>solo por puntos</b>, basta con tu aprobación y se aplica de inmediato; si incluye <b>jugadores</b>, se aprueba como un cambio (mismas aprobaciones de arriba). Los puntos ofertados se reservan mientras la oferta esté activa.</li>'
     +(dlTxt?'<li '+li+'>&#9200; <b>Fecha límite</b>: hasta el <b>'+dlTxt+'</b> (hora RD) se pueden proponer, ofertar y aprobar cambios y ofertas.</li>':'')
+    +((_FN.data&&_FN.data.posRule==='strict')?'<li '+li+'>&#9918; <b>Posiciones</b>: en este subtorneo cada jugador debe ir en su posición (los UT van en cualquiera). Los jugadores que llegan por un cambio u oferta caen en tu <b>banca</b> y el espacio del cuadro del que salió queda libre; luego tú lo colocas en su posición desde <b>Gestionar plantilla</b>. Si tu banca (con relevistas) ya estaba llena, el jugador entra igual, pero para guardar cualquier otro cambio primero debes dejar banca + relevistas dentro del máximo (por ejemplo, colocando a alguien en el espacio libre del cuadro).</li>':'')
     +'<li '+li+'>Los cambios y ofertas no se aplican mientras haya juegos del día en curso (plantilla bloqueada) y no cuentan como movimientos.</li>'
     +'<li '+li+'>&#128276; Recibes notificación de solicitudes de cambio, desafíos y ofertas si tienes activado el recordatorio de Fantasía en tus notificaciones.</li></ul>';
   var gmRaw=cfg.fantasyGroupMax,gmN=(gmRaw===undefined||gmRaw===null||String(gmRaw).trim()==='')?16:(parseInt(gmRaw,10)||0),gmTxt=gmN>0?', hasta '+gmN+' en total':', sin límite de plantillas';
@@ -19609,6 +19643,11 @@ function pgSet(){
       +'<div class="fg"><label class="fl">Intervalo de actualizacion automatica (segundos)</label><input class="fi" id="spoll" type="number" min="10" max="300" value="'+(S.pollInterval||30)+'"></div>'
       +'</div>'
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; La actualización automática refresca todos los módulos de datos (posiciones, estadísticas, calendario, etc.) sin interrumpir al usuario. Mínimo 10 segundos. Los visitantes y otros usuarios verán los cambios en el próximo ciclo automáticamente.</div>'
+      +'<div style="font-weight:700;margin:14px 0 6px">&#9200; Horario hábil de las actualizaciones automáticas</div>'
+      +'<div class="fg"><label class="fl">Actualizaciones automáticas</label><select class="fs" id="sautoon"><option value="0"'+((S.config&&S.config.autoHoursOn==='1')?'':' selected')+'>Todo el día (sin límite)</option><option value="1"'+((S.config&&S.config.autoHoursOn==='1')?' selected':'')+'>Solo en este horario</option></select></div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">Desde (hora RD)</label><input class="fi" id="sautos" type="time" value="'+((S.config&&S.config.autoHoursStart)||'08:00')+'"></div>'
+      +'<div class="fg"><label class="fl">Hasta (hora RD)</label><input class="fi" id="sautoe" type="time" value="'+((S.config&&S.config.autoHoursEnd)||'00:00')+'"></div></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#127769; Fuera de este horario se pausan el cron de MLB (jugadas, pitcheo, rosters), la importación de videos, los procesos automáticos de Fantasía (desafíos, cambios, penalidad semanal) y el refresco automático del celular, para gastar menos peticiones de Supabase. 00:00 en "Hasta" = medianoche. Los recordatorios push de Fantasía siguen a su hora, y un juego local en vivo se sigue actualizando. Lo manual (botón Sincronizar ahora, guardar, abrir pantallas) siempre funciona. El worker aplica el cambio en un par de minutos.</div>'
       +'<div style="font-weight:700;margin:14px 0 6px">&#9918; Juegos de MLB en vivo (rapidez de bolas, strikes y jugadas)</div>'
       +'<div class="fr c2"><div class="fg"><label class="fl">Repetir la sincronización de MLB cada (segundos)</label><input class="fi" id="smlbsync" type="number" min="0" max="30" value="'+((S.config&&parseInt(S.config.mlbLiveSyncSeconds))||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">0 = desactivado (una vez por minuto, como el cron). Mínimo 5, máximo 30. Recomendado: 10.</div></div>'
       +'<div class="fg"><label class="fl">Refrescar alineaciones y pitcheo cada (segundos)</label><input class="fi" id="smlbbox" type="number" min="10" max="300" value="'+((S.config&&parseInt(S.config.mlbBoxscoreSeconds))||30)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">En las repeticiones rápidas. Mínimo 10. Por defecto 30.</div></div></div>'
@@ -19767,6 +19806,8 @@ async function saveSessParams(){
   if(t<5||t>480){toast('Inactividad debe ser entre 5 y 480 minutos','error');return;}
   if(p<10||p>300){toast('Intervalo debe ser entre 10 y 300 segundos','error');return;}
   var ms=parseInt(fv('smlbsync'))||0,mb=parseInt(fv('smlbbox'))||30,mc=parseInt(fv('smlbclient'))||0;
+  var ao=(fv('sautoon')==='1')?'1':'0',as=String(fv('sautos')||'').trim()||'08:00',ae=String(fv('sautoe')||'').trim()||'00:00';
+  if(ao==='1'&&!/^\d{1,2}:\d{2}$/.test(as+'')||ao==='1'&&!/^\d{1,2}:\d{2}$/.test(ae+'')){toast('Indica la hora de inicio y de fin del horario hábil','error');return;}
   if(ms!==0&&(ms<5||ms>30)){toast('La repetición de MLB debe ser 0 (desactivada) o entre 5 y 30 segundos','error');return;}
   if(mb<10||mb>300){toast('Alineaciones y pitcheo: entre 10 y 300 segundos','error');return;}
   if(mc!==0&&(mc<3||mc>30)){toast('El refresco del celular debe ser 0 (usar el general) o entre 3 y 30 segundos','error');return;}
@@ -19777,11 +19818,14 @@ async function saveSessParams(){
   var r3=await api('saveConfig',{key:'mlbLiveSyncSeconds',value:String(ms)});
   var r4=await api('saveConfig',{key:'mlbBoxscoreSeconds',value:String(mb)});
   var r5=await api('saveConfig',{key:'mlbLiveClientSeconds',value:String(mc)});
+  var r6=await api('saveConfig',{key:'autoHoursOn',value:ao});
+  var r7=await api('saveConfig',{key:'autoHoursStart',value:as});
+  var r8=await api('saveConfig',{key:'autoHoursEnd',value:ae});
   _saving=false;
-  if(r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok){
-    S.config=S.config||{};S.config.mlbLiveSyncSeconds=String(ms);S.config.mlbBoxscoreSeconds=String(mb);S.config.mlbLiveClientSeconds=String(mc);
+  if(r1&&r1.ok&&r2&&r2.ok&&r3&&r3.ok&&r4&&r4.ok&&r5&&r5.ok&&r6&&r6.ok&&r7&&r7.ok&&r8&&r8.ok){
+    S.config=S.config||{};S.config.autoHoursOn=ao;S.config.autoHoursStart=as;S.config.autoHoursEnd=ae;S.config.mlbLiveSyncSeconds=String(ms);S.config.mlbBoxscoreSeconds=String(mb);S.config.mlbLiveClientSeconds=String(mc);
     startSessionTimer(); startPolling();
-    toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s'+(ms?' / MLB cada '+ms+'s':''),'success');
+    toast('Parametros guardados: sesion '+t+'min / actualizacion '+p+'s'+(ms?' / MLB cada '+ms+'s':'')+(ao==='1'?' / horario '+as+'-'+ae:''),'success');
   } else toast('Error al guardar parametros','error');
 }
 // ── Configuracion: tope de jugadores favoritos para avisos de turno (uno por tipo de usuario) ──
