@@ -16356,6 +16356,27 @@ async function fnChGRespond(id,accept){
   if(r&&r.ok){toast(accept?'¡Aceptaste el desafío!':'Desafío rechazado','success');fnLoad();}
   else{toast((r&&r.error)||'No se pudo responder','error');fnLoad();}
 }
+// ADMIN: aprueba y activa de una vez todos los desafíos grupales / Royal Rumble pendientes del subtorneo
+function fnChAdminBar(T){
+  var u=S.user;if(!u||u.role!=='admin')return'';
+  var n=T.adminPending||0;
+  return'<div class="card" style="margin-bottom:12px;border:1px solid var(--acc)"><div style="font-weight:700;margin-bottom:2px">&#128737; Administrador</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px">'+(n?'Hay <b>'+n+'</b> desafío(s) grupal(es) / Royal Rumble pendientes de aprobación en este subtorneo (todas las fases). Puedes aprobarlos y activarlos todos por los usuarios que no lo hayan hecho.':'No hay desafíos grupales ni Royal Rumble pendientes de aprobación en este subtorneo.')+'</div>'
+    +'<button class="btn bp" '+(n&&!_FN.busy?'':'disabled ')+'onclick="fnChApproveAll()">Aprobar y activar todos'+(n?' ('+n+')':'')+'</button></div>';
+}
+async function fnChApproveAll(){
+  if(_FN.busy)return;
+  if(!confirm('¿Aprobar y activar TODOS los desafíos grupales y Royal Rumble pendientes de este subtorneo?\n\nSe aceptarán por los usuarios que faltan y se reservará la parte de cada uno. Los que no tengan puntos suficientes o cuya fecha de inicio ya pasó se omiten.'))return;
+  _FN.busy=true;
+  var r=await api('approveAllFantasyGroupChallenges',{tournamentId:_FN.tid});
+  _FN.busy=false;
+  if(r&&r.ok){
+    var sk=r.skipped||[];
+    toast(r.approved+' desafío(s) activado(s)'+(sk.length?' · '+sk.length+' omitido(s)':''),sk.length?'info':'success');
+    if(sk.length)alert('Omitidos ('+sk.length+'):\n\n'+sk.map(function(x){return '• '+x.label+': '+x.reason;}).join('\n'));
+  }else toast((r&&r.error)||'No se pudo aprobar','error');
+  fnLoad();
+}
 async function fnChGCancel(id){
   if(!confirm('¿Cancelar tu desafío?'))return;
   var r=await api('cancelFantasyGroupChallenge',{challengeId:id});
@@ -16474,6 +16495,7 @@ function fnChallengesTab(d,mine){
   var sub=fnChSubTabs();
   if(_FN.chView==='rank')return sub+fnChRanking(T,mine);
   var h=sub+fnChWeeklyBanner(T)+'<div class="alert ai" style="font-size:12px;margin-bottom:12px;line-height:1.5">&#9876; <b>Desafíos</b> ('+FN_PH[d.phase]+'): reta a otro usuario apostando puntos. Eliges desde qué fecha empieza y por cuántos días; solo tu rival debe aprobarlo. Gana quien sume <b>más puntos de jugadores dentro de esos días</b> (no el total general): el perdedor pierde lo apostado y el ganador lo recibe. Si empatan, nadie pierde puntos. Los puntos apostados quedan reservados mientras el desafío esté pendiente o en juego. También puedes hacerlos <b>grupales</b> (2 vs 2, 3 vs 3...) o un <b>Royal Rumble</b>.</div>';
+  h+=fnChAdminBar(T);
   if(!mine)return h+'<div class="card"><div class="empty">Necesitas una plantilla en este concurso para retar o responder desafíos.</div></div>';
   var me=T.participants.filter(function(p){return p.userId===String(mine.userId);})[0];
   var avail=me?me.available:0;
