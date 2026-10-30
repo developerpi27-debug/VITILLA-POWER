@@ -1777,6 +1777,7 @@ async function api(action,data){
   }
   try{
     var res=await apiRaw(action,data);
+    if(res&&res.blocked){doLogout();toast(res.error||'Tu acceso fue desactivado. Contacta al administrador.','error');return res;}   // bloqueado por el administrador (no se encola nada)
     if(res&&res.authError){
       if(OFFLINE_ACTIONS[action]){
         // No perder el cambio: encolarlo igual que si estuviera offline, y
@@ -7500,11 +7501,13 @@ async function saveLS(gid,awT,hmT){
   // juego desde el servidor: si otro usuario ya lo inicio (en el tiempo que este
   // anotador estuvo armando el lineup), se cancela aqui en vez de sobrescribir su lock.
   try{
-    var _preCheck=await api('getAll');
-    if(_preCheck&&_preCheck.ok&&_preCheck.games){
-      var _freshGm=_preCheck.games.filter(function(x){return x.id===gid;})[0];
+    // Solo ESTE juego (antes se bajaba toda la base con getAll solo para mirar su estado). Si el worker aun no tiene getGameRow, cae al metodo anterior.
+    var _freshGm=null,_gr=await api('getGameRow',{gameId:gid});
+    if(_gr&&_gr.ok&&_gr.game)_freshGm=_gr.game;
+    else{var _preCheck=await api('getAll');if(_preCheck&&_preCheck.ok&&_preCheck.games)_freshGm=_preCheck.games.filter(function(x){return x.id===gid;})[0]||null;}
+    {
       if(_freshGm&&_freshGm.status==='live'){
-        S.games=_preCheck.games;
+        S.games=S.games.map(function(x){return x.id===gid?_freshGm:x;});
         toast('Este juego ya fue iniciado por '+(_freshGm.lockedByName||'otro usuario')+'. No se puede iniciar de nuevo.','error');
         S.game=gid;goNav('gamecontrol');
         return;
@@ -7514,7 +7517,7 @@ async function saveLS(gid,awT,hmT){
 
   var awL={gameId:gid,teamId:awT,players:_LU.aw.map(function(lp,i){return{playerId:lp.playerId,order:i+1,position:lp.position,noBat:lp.noBat===true};})};
   var hmL={gameId:gid,teamId:hmT,players:_LU.hm.map(function(lp,i){return{playerId:lp.playerId,order:i+1,position:lp.position,noBat:lp.noBat===true};})};
-  await api('saveLineup',{lineup:awL});await api('saveLineup',{lineup:hmL});
+  await Promise.all([api('saveLineup',{lineup:awL}),api('saveLineup',{lineup:hmL})]);   // los dos lineups a la vez (antes uno tras otro)
   S.lineups=S.lineups.filter(function(l){return l.gameId!==gid;});S.lineups.push(awL,hmL);
   var g=S.games.filter(function(x){return x.id===gid;})[0];
   Object.assign(g,{status:'live',currentInning:1,currentHalf:'top',outs:0,balls:0,strikes:0,awayBatterIdx:0,homeBatterIdx:0,awayRuns:0,homeRuns:0,awayHits:0,homeHits:0,awayErrors:0,homeErrors:0,inningScores:{},bases:{first:null,second:null,third:null},
@@ -11622,20 +11625,27 @@ async function savePitDecision(gid){
       updates.push(api('savePitching',{event:e}));
     }
   });
+  var created=function(r){if(r&&r.ok&&r.item&&!S.pitching.some(function(x){return x.id===r.item.id;}))S.pitching.push(r.item);return r;};
   // If no pitching records exist yet, create them
   if(wPid&&!S.pitching.filter(function(e){return e.gameId===gid&&e.pitcherId===wPid;}).length){
     var lu=S.lineups.filter(function(l){return l.gameId===gid;})[0];
     var teamId=lu?lu.teamId:null;
     var ev={id:null,gameId:gid,teamId:teamId,pitcherId:wPid,decision:'W',ip:0,h:0,r:0,er:0,bb:0,k:0,hr:0,timestamp:new Date().toISOString()};
-    updates.push(api('savePitching',{event:ev}));
+    updates.push(api('savePitching',{event:ev}).then(created));
   }
   if(lPid&&!S.pitching.filter(function(e){return e.gameId===gid&&e.pitcherId===lPid;}).length){
     var lu2=S.lineups.filter(function(l){return l.gameId===gid;})[1];
     var teamId2=lu2?lu2.teamId:null;
     var ev2={id:null,gameId:gid,teamId:teamId2,pitcherId:lPid,decision:'L',ip:0,h:0,r:0,er:0,bb:0,k:0,hr:0,timestamp:new Date().toISOString()};
-    updates.push(api('savePitching',{event:ev2}));
+    updates.push(api('savePitching',{event:ev2}).then(created));
   }
-  if(updates.length){await Promise.all(updates);await loadAll();}
+  if(updates.length){
+    // Ya se actualizo S.pitching localmente (y los registros nuevos se agregan con su id): NO se vuelve a bajar toda la base (getAll tardaba varios segundos).
+    // Solo si algun guardado falla se resincroniza completo.
+    var res=await Promise.all(updates);
+    if(res.some(function(r){return !r||!r.ok;})){await loadAll();toast('No se pudieron guardar todas las decisiones. Revisa e intenta de nuevo.','error');try{if(curP==='gamecontrol'&&S.game===gid)pgGC();}catch(e5){}return;}
+    try{saveOfflineCache();}catch(e4){}
+  }
   cM();toast('Decisiones guardadas','success');
   if(curP==='gamecontrol'&&S.game===gid){try{pgGC();}catch(e3){}}
 }
@@ -18621,16 +18631,17 @@ function pgUsers(){
   }
   var rows=usersSorted.map(function(u){
     var prof=(S.profiles||[]).filter(function(p){return p.id===u.profileId;})[0];
-    var rb=u.role==='admin'?'<span class="badge bo">Admin</span>':prof?'<span class="badge bb">'+prof.name+'</span>':'<span class="badge bgr">Anotador</span>';
+    var isG=u.role==='google';
+    var rb=isG?'<span class="badge bb">Google</span>':u.role==='admin'?'<span class="badge bo">Admin</span>':prof?'<span class="badge bb">'+prof.name+'</span>':'<span class="badge bgr">Anotador</span>';
     var act=String(u.active)==='true';
     return'<tr><td><b>'+u.username+'</b></td><td>'+u.name+'</td><td>'+rb+'</td>'
       +'<td style="font-size:12px;color:var(--t3)">'+userParentTourNames(u)+'</td>'
-      +'<td><span class="badge '+(act?'bg':'br')+'">'+(act?'Activo':'Inactivo')+'</span></td>'
+      +'<td><span class="badge '+(act?'bg':'br')+'">'+(act?'Activo':(isG?'Bloqueado':'Inactivo'))+'</span></td>'
       +'<td style="font-size:12px;color:var(--t3)">'+(u.created?new Date(u.created).toLocaleDateString('es-DO'):'-')+'</td>'
       +'<td style="font-size:12px;color:var(--t3)">'+(u.lastLogin?new Date(u.lastLogin).toLocaleString('es-DO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'<span style="opacity:.6">Nunca</span>')+'</td>'
       +'<td><div style="display:flex;gap:5px">'
       +'<button class="btn bs bsm" data-uid="'+u.id+'" onclick="openUM(this.dataset.uid)">Editar</button>'
-      +'<button class="btn '+(act?'bd':'bg2')+' bsm" data-uid="'+u.id+'" onclick="togU(this.dataset.uid)">'+(act?'Inactivar':'Activar')+'</button>'
+      +'<button class="btn '+(act?'bd':'bg2')+' bsm" data-uid="'+u.id+'" onclick="togU(this.dataset.uid)">'+(isG?(act?'Bloquear':'Desbloquear'):(act?'Inactivar':'Activar'))+'</button>'
       +'<button class="btn bd bsm" data-uid="'+u.id+'" onclick="delU(this.dataset.uid)">&#128465;</button>'
       +'</div></td></tr>';
   }).join('');
@@ -18638,12 +18649,31 @@ function pgUsers(){
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     +'<div><div class="stl">Usuarios</div><div class="ssb">Gestion de usuarios del sistema</div></div>'
     +'<button class="btn bp" onclick="openUM(\'\')">+ Nuevo Usuario</button></div>'
+    +pgUsersGoogleCard()
     +'<div class="card" style="margin-bottom:12px"><input class="fi" id="usr-search" value="'+(_usrQ||'')+'" placeholder="&#128269; Buscar por nombre o usuario..." oninput="_usrQ=this.value;filterUsersDisplay()" style="width:280px"></div>'
     +'<div class="card"><div class="tw"><table id="usr-table"><thead><tr><th>Usuario</th><th>Nombre</th><th>Perfil/Rol</th><th>Torneos Padre</th><th>Estado</th><th>Creado</th><th style="cursor:pointer;white-space:nowrap" onclick="toggleUsrSort()" title="Ordenar por Ultimo Login">Ultimo Login <span id="usr-sort-ic">'+sortIc+'</span></th><th>Acciones</th></tr></thead>'
     +'<tbody>'+(rows||'')+'<tr id="usr-empty" style="display:none"><td colspan="8"><div class="empty">Sin resultados</div></td></tr></tbody></table></div></div>');
   // Restore search box value and apply filter without losing focus
   var inp=document.getElementById('usr-search');
   if(inp){inp.value=_usrQ;filterUsersDisplay();inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);}
+}
+// Tarjeta "Acceso con Google": bloquea o permite a TODOS los usuarios de Google de una vez (los individuales se bloquean con el boton de cada fila)
+function pgUsersGoogleCard(){
+  var gs=(S.users||[]).filter(function(x){return x.role==='google';});
+  var off=gs.filter(function(x){return String(x.active)!=='true';}).length;
+  var all=String((S.config||{}).googleBlockAll)==='true';
+  return'<div class="card" style="margin-bottom:12px;'+(all?'border:1px solid var(--red,#e5484d)':'')+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<div style="min-width:200px"><div style="font-weight:700">Acceso con Google <span class="badge '+(all?'br':'bg')+'">'+(all?'Bloqueado para todos':'Permitido')+'</span></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+gs.length+' usuario(s) de Google'+(off?' · '+off+' bloqueado(s) individualmente':'')+'. Al bloquear, los que estén conectados se desconectan en unos segundos y nadie (ni cuentas nuevas) puede entrar con Google hasta que lo permitas.</div></div>'
+    +'<button class="btn '+(all?'bg2':'bd')+'" onclick="toggleGoogleBlock()">'+(all?'Permitir acceso con Google':'Bloquear a todos los de Google')+'</button></div></div>';
+}
+async function toggleGoogleBlock(){
+  var all=String((S.config||{}).googleBlockAll)==='true';
+  if(!confirm(all?'¿Permitir de nuevo el acceso con Google?':'¿Bloquear el acceso a TODOS los usuarios de Google?\n\nLos que estén conectados serán desconectados en unos segundos y no podrán volver a entrar (tampoco cuentas nuevas) hasta que lo permitas.'))return;
+  var v=all?'false':'true';
+  var r=await api('saveConfig',{key:'googleBlockAll',value:v});
+  if(r&&r.ok){S.config=S.config||{};S.config.googleBlockAll=v;pgUsers();toast(v==='true'?'Acceso con Google bloqueado':'Acceso con Google permitido','info');}
+  else toast(r&&r.error||'No se pudo guardar','error');
 }
 async function delU(id){
   var u=S.users.filter(function(x){return x.id===id;})[0];if(!u)return;
