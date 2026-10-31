@@ -15,7 +15,7 @@
   body{font-family:Arial,sans-serif;color:var(--st-team);display:inline-flex;align-items:flex-start;justify-content:flex-start;}
   /* Sin padding ni fondo en el body: solo se muestra el recuadro (mismo patron que lineup.html/pizarra.html). */
 
-  #card{width:400px;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--st-bg);}
+  #card{min-width:400px;width:max-content;max-width:100vw;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.55);border:1px solid rgba(245,166,35,.35);background:var(--st-bg);}
   #card.transp{background:transparent;box-shadow:none;border-color:transparent;}
 
   .st-hdr{padding:10px 14px;background:linear-gradient(180deg,var(--st-hdr2),var(--st-hdr));border-bottom:1px solid var(--st-bdr);}
@@ -25,19 +25,20 @@
   table.st{border-collapse:collapse;width:100%;}
   .st thead th{background:var(--st-sub);color:var(--st-label);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:6px 6px;text-align:center;border-bottom:1px solid var(--st-bdr);white-space:nowrap;}
   .st thead th:nth-child(2){text-align:left;padding-left:12px;}
-  .st tbody td{padding:7px 6px;text-align:center;font-family:'Barlow Condensed',Arial,sans-serif;font-size:14px;font-weight:700;color:var(--st-cell);border-bottom:1px solid var(--st-bdr);}
+  .st tbody td{white-space:nowrap;padding:7px 6px;text-align:center;font-family:'Barlow Condensed',Arial,sans-serif;font-size:14px;font-weight:700;color:var(--st-cell);border-bottom:1px solid var(--st-bdr);}
   .st tbody tr:last-child td{border-bottom:none;}
   .st tbody tr.leader td{color:var(--st-hi);}
-  .st-rk{width:20px;color:var(--st-label) !important;font-size:12px;}
+  .st-rk{width:20px;min-width:20px;color:var(--st-label) !important;font-size:12px;}
   .st-team-cell{text-align:left !important;padding-left:12px !important;}
   .st-team-inner{display:flex;align-items:center;gap:7px;}
   .st-logo{width:19px;height:19px;border-radius:4px;object-fit:cover;background:#fff;flex:0 0 auto;}
   .st-logo.ph{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#0b1522;}
   .st-tn{font-size:13px;font-weight:700;color:var(--st-team);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;}
   tr.leader .st-tn{color:var(--st-hi);}
-  .st-clz{font-weight:800;}
+  .st-clz{font-weight:800;margin-left:3px;}
   .st-clz.y{color:var(--st-hi);}
   .st-clz.n{color:var(--st-label);opacity:.5;}
+  .st thead th:last-child,.st tbody td:last-child{padding-right:12px;white-space:nowrap;}
   .st-empty{padding:16px;text-align:center;font-size:12.5px;color:var(--st-label);}
 
   #msg{color:#cbd5e1;font-family:Arial,sans-serif;font-size:13px;background:rgba(10,14,26,.85);padding:10px 16px;border-radius:8px;}

@@ -197,7 +197,10 @@ async function apiCall(action,data){
 }
 async function ensureTeams(){
   if(_teamsCache)return _teamsCache;
-  var res=await apiCall('getAll',{});
+  // Solo los 2 equipos de ESTE juego (ligero y cacheado en el worker). Si el worker aun no tiene getGameTeams, cae al getAll de siempre.
+  var res=null;
+  try{res=await apiCall('getGameTeams',{gameId:GAME_ID});}catch(e){res=null;}
+  if(!res||!res.ok||!res.data||!(res.data.teams||[]).length)res=await apiCall('getAll',{});
   if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
   var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
   _teamsCache=map;return map;

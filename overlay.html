@@ -359,7 +359,10 @@ async function apiCall(action,data){
 
 async function ensureTeams(){
   if(_teamsCache)return _teamsCache;
-  var res=await apiCall('getAll',{});
+  // Solo los 2 equipos de ESTE juego (ligero y cacheado en el worker). Si el worker aun no tiene getGameTeams, cae al getAll de siempre.
+  var res=null;
+  try{res=await apiCall('getGameTeams',{gameId:GAME_ID});}catch(e){res=null;}
+  if(!res||!res.ok||!res.data||!(res.data.teams||[]).length)res=await apiCall('getAll',{});
   if(!res.ok)throw new Error(res.error||'No se pudo cargar equipos');
   var map={};(res.data&&res.data.teams||[]).forEach(function(t){map[t.id]=t;});
   _teamsCache=map;
@@ -595,14 +598,15 @@ function render(gm,teams,players,lineups,pitching,events){
   checkForNewPlay(events);
 }
 
-var _pollTimer=null,_errCount=0;
+var _pollTimer=null,_errCount=0,_slice=null;
 async function poll(){
   try{
     if(!GAME_ID){document.getElementById('msg').textContent='Falta el parametro ?game=ID en la URL.';return;}
     var teams=await ensureTeams();
-    var res=await apiCall('getGameSlice',{gameId:GAME_ID});
+    var res=await apiCall('getGameSlice',{gameId:GAME_ID,sig:(_slice&&_slice.sig)||''});   // con la firma del ultimo estado: si no cambio, el worker responde "sin cambios" (casi sin datos)
     if(!res.ok){document.getElementById('msg').textContent=res.error||'Juego no encontrado.';document.getElementById('sbug').style.display='none';return;}
     _errCount=0;
+    if(res.unchanged&&_slice)res={ok:true,data:_slice};else _slice=res.data;
     var players={};(res.data.players||[]).forEach(function(p){players[p.id]=p;});
     render(res.data.game,teams,players,res.data.lineups||[],res.data.pitching||[],res.data.events||[]);
   }catch(e){
