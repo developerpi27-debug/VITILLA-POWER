@@ -12820,7 +12820,7 @@ function pgStand(){
     +'<select class="fs" style="width:180px" onchange="setSharedTour(this.value);pgStand()">'+tOpts+'</select>'
     +(divisions.length?'<select class="fs" style="width:130px" onchange="_standDivFilter=this.value;pgStand()"><option value="">Todas las Divs.</option>'+divisions.map(function(d){return'<option value="'+d+'" '+(_standDivFilter===d?'selected':'')+'>Div. '+d+'</option>';}).join('')+'</select>':'')
     +'<select class="fs" style="width:210px;max-width:100%" onchange="setPhaseShared(this.value);pgStand()">'+phOpts+'</select>'
-    +(tour&&(isA||isPub)?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\',_standDivFilter)">&#127919; Draft</button>':'')
+    +(tour&&S.user?'<button class="btn bs bsm" onclick="openDraftM(\''+tour.id+'\',_standDivFilter)">&#127919; Draft</button>':'')
     +'</div></div>'
     +(consolidated?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128202; Vista consolidada: se suman los juegos de todos los subtorneos visibles del torneo padre y año filtrados.</div>':'')
     +'<div class="card"><div class="tw"><table><thead><tr><th>#</th><th>Equipo</th><th style="text-align:center">JJ</th><th style="text-align:center">G</th><th style="text-align:center">P</th><th style="text-align:center">PCT</th><th style="text-align:center">DIF</th><th style="text-align:center">GB</th><th style="text-align:center">Racha</th><th style="text-align:center">Zona</th></tr></thead>'
@@ -13055,7 +13055,10 @@ function exportDraftPDF(tourId,divFilter){
 }
 function openDraftM(tourId,divFilter){
   if(divFilter!==undefined) _draftDivFilter=divFilter||'';
-  var isPubD=S.user&&S.user.role==='public';
+  // Visitantes y usuarios sin permiso de crear/editar jugadores ven el Draft solo para consultar; el resto (admin, usuarios con perfil con permiso y
+  // usuarios de Google en sus subtorneos) lo usan completo. Deshacer ademas exige permiso de eliminar. El servidor valida igual cada guardado.
+  var isPubD=!!S.user&&(S.user.role==='public'||!hasModuleAccess('teams')||!canDo('create','teams')||!canDo('edit','teams'));
+  var noUndoD=isPubD||!canDo('delete','teams');
   var missedTids=missedPlayoffsTeamIds(tourId,_draftDivFilter);
   var qualTids=qualifiedForPlayoffsTeamIds(tourId);
   // Ya draftados para este subtorneo (y division filtrada, si aplica): clones de refuerzo
@@ -13115,7 +13118,7 @@ function openDraftM(tourId,divFilter){
         var orig=S.players.filter(function(o){return o.id===p.importedFrom;})[0];
         var origTeam=orig?teamOf(orig.teamId):null;
         var newTeam=teamOf(p.teamId);
-        return'<div style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;font-size:13px"><b>#'+(p.number||'?')+' '+p.name+'</b><span class="chip">'+(origTeam?origTeam.name+(origTeam.division?' &middot; Div.'+origTeam.division:''):'Original')+'</span>&rarr;<span class="badge bb">'+(newTeam?newTeam.name+(newTeam.division?' &middot; Div.'+newTeam.division:''):'?')+'</span>'+(isPubD?'':'<button data-pid="'+p.id+'" data-tid="'+tourId+'" onclick="undoDraft(this.dataset.pid,this.dataset.tid)" style="margin-left:auto;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer;color:#f87171">Deshacer</button>')+'</div>';
+        return'<div style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;font-size:13px"><b>#'+(p.number||'?')+' '+p.name+'</b><span class="chip">'+(origTeam?origTeam.name+(origTeam.division?' &middot; Div.'+origTeam.division:''):'Original')+'</span>&rarr;<span class="badge bb">'+(newTeam?newTeam.name+(newTeam.division?' &middot; Div.'+newTeam.division:''):'?')+'</span>'+(noUndoD?'':'<button data-pid="'+p.id+'" data-tid="'+tourId+'" onclick="undoDraft(this.dataset.pid,this.dataset.tid)" style="margin-left:auto;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer;color:#f87171">Deshacer</button>')+'</div>';
       }).join('')+'</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">DISPONIBLES ('+avail.length+')</div>'
     +(avail.length?avail.map(function(p){var orig=teamOf(p.teamId);var statLine=draftRegularStatLine(p,tourId);return'<div style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--card);border:1px solid var(--bdr);border-radius:7px;margin-bottom:4px;flex-wrap:wrap"><div style="flex:1;min-width:140px;font-size:13px"><b>#'+(p.number||'?')+' '+p.name+'</b> <span class="chip">'+(p.position||'OF')+'</span> <span style="font-size:11px;color:var(--t3)">'+(orig?orig.name+(orig.division?' &middot; Div. '+orig.division:''):'Libre')+'</span>'+(statLine?'<div style="font-size:11px;color:var(--t3);margin-top:3px">'+statLine+'</div>':'<div style="font-size:11px;color:var(--t3);margin-top:3px;font-style:italic">Sin juegos en Serie Regular</div>')+'</div>'+(isPubD?'':'<select id="drft-'+p.id+'" style="background:var(--bg3);border:1px solid var(--bdr2);border-radius:5px;padding:4px 6px;color:var(--txt);font-size:12px">'+(tOpts?'<option value="">Seleccionar</option>'+tOpts:'<option value="">Sin equipos clasificados</option>')+'</select><button data-pid="'+p.id+'" data-tid="'+tourId+'" onclick="draftP(this.dataset.pid,this.dataset.tid)" '+(tOpts?'':'disabled')+' style="background:var(--grn);border:none;border-radius:5px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;color:#000">Draft</button>')+'</div>';}).join(''):'<div style="font-size:13px;color:var(--t3);padding:20px;text-align:center">'+(q?'Sin resultados para &quot;'+q+'&quot;':'No hay jugadores disponibles (de equipos eliminados)')+'</div>')
