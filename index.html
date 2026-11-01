@@ -15691,7 +15691,14 @@ function fnAssign(target,pid,from){
 // Restriccion "por equipo" del subtorneo: jugadores de equipos cuyo juego de hoy ya inicio (el servidor tambien lo valida al guardar)
 function fnFrozen(pid){var d=_FN.data,p=pid?fnP(pid):null;return !!(_FN.editing&&d&&d.frozenTeams&&d.frozenTeams.length&&p&&d.frozenTeams.indexOf(String(p.teamId))>=0);}
 function fnFrozenWarn(pid){var p=fnP(pid);return fnWarn((p?p.name:'Ese jugador')+' está bloqueado: su equipo ya inició el juego de hoy (no se puede mover, liberar ni fichar).');}
-function fnLockBanner(d){
+// Diagnostico del bloqueo (solo lo recibe el administrador): permite ver de un vistazo por que esta o no bloqueada la plantilla
+function fnLockDbg(d){
+  var x=d&&d.lockDbg;if(!x)return'';
+  var det=x.src==='mlb'?('MLB '+x.mlbStarted+'/'+x.mlbTotal+' iniciados · app '+x.appStarted+'/'+x.appTotal):('iniciados '+x.started+'/'+x.total);
+  return'<div style="font-size:10.5px;color:var(--t3);margin:-6px 0 10px">Diagnóstico (solo admin): restricción <b>'+(x.mode==='team'?'por equipo':'primer juego')+'</b> · fuente '+(x.src==='mlb'?'API de MLB':'juegos de la app')+' · '+det+(x.delay?' · gracia '+x.delay+' min':'')+(x.note?' · '+fnEsc(x.note):'')+'</div>';
+}
+function fnLockBanner(d){return fnLockBanner0(d)+fnLockDbg(d);}
+function fnLockBanner0(d){
   var st='font-size:12px;margin-bottom:12px;border-color:#f59e0b';
   if(d.locked)return'<div class="alert ai" style="'+st+'">&#128274; <b>Plantilla bloqueada:</b> '+(d.lockMode==='team'?'ya iniciaron todos los juegos de hoy en este subtorneo.':'ya inició al menos un juego de hoy en este subtorneo.')+' Podrás hacer cambios cuando terminen todos los juegos del día.</div>';
   if(d.lockMode==='team'&&d.frozenTeams&&d.frozenTeams.length)return'<div class="alert ai" style="'+st+'">&#128274; <b>Jugadores bloqueados:</b> '+((d.frozenNames&&d.frozenNames.length)?'los equipos <b>'+d.frozenNames.map(fnEsc).join(', ')+'</b> ya iniciaron':'hay equipos que ya iniciaron')+' su juego de hoy: sus jugadores no se pueden mover, liberar ni fichar. El resto de tu plantilla se puede gestionar hasta que inicien todos los juegos del día.</div>';
