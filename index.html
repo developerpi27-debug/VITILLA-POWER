@@ -15637,8 +15637,15 @@ function fnLayoutErr(){
 // inactivos); un inactivo ya activo vuelve a un espacio vacío.
 // Regla de posiciones del subtorneo (posRule='strict'): solo el cuadro; banca y relevistas no se restringen. Un UT va en cualquiera.
 function fnPosErr(slot,p){
-  var d=_FN.data;if(!d||d.posRule!=='strict'||!p||fnIsB(slot)||fnIsR(slot))return'';
+  var d=_FN.data;if(!d||!p||fnIsB(slot))return'';
   var ps=String(p.position||'').toUpperCase().split(/[\/,;|+\s]+/).filter(Boolean);
+  var PIT=['P','SP','RP','LHP','RHP'],inPit=function(x){return PIT.indexOf(x)>=0;};
+  // Baseball y softball (con o sin la regla de posiciones): un lanzador solo juega en P dentro del cuadro; en relevistas solo lanzadores o UT (un UT va en cualquier posición).
+  if(d.sport==='baseball'||d.sport==='softball'){
+    if(fnIsR(slot)){if(ps.length&&!ps.some(inPit)&&ps.indexOf('UT')<0)return(p.name||'Ese jugador')+' ('+ps.join('/')+') no es lanzador: en relevistas solo se pueden colocar lanzadores (o jugadores UT).';}
+    else if(String(slot).toUpperCase()!=='P'&&ps.length&&ps.every(inPit))return(p.name||'Ese jugador')+' ('+ps.join('/')+') es lanzador: en el cuadro solo puede jugar en la posición P (puede estar en la banca o en relevistas).';
+  }
+  if(d.posRule!=='strict'||fnIsR(slot))return'';
   if(!ps.length||ps.indexOf('UT')>=0||ps.indexOf(String(slot).toUpperCase())>=0)return'';
   return(p.name||'Ese jugador')+' ('+ps.join('/')+') no puede jugar en '+slot+': este subtorneo exige respetar la posición del jugador (solo los UT van en cualquiera).';
 }
