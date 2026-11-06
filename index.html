@@ -704,6 +704,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <span class="lgate-txt"><span class="lgate-t1">Acceder como Visitante</span><span class="lgate-t2">Solo consultar resultados y estadísticas</span></span>
         <span class="lgate-arrow">&#10132;</span>
       </button>
+      <div id="lgateGoogleWebWrap" style="display:none;flex-direction:column;align-items:center;gap:6px;margin-top:10px"><div id="lgateGoogleWeb"></div><div style="font-size:11px;opacity:.75">Crea y administra tu propio torneo</div></div>
       <button type="button" id="lgateGoogleBtn" class="lgate-btn lgate-btn-sec" style="display:none" onclick="googleSignIn()">
         <span class="lgate-ic">&#127760;</span>
         <span class="lgate-txt"><span class="lgate-t1">Continuar con Google</span><span class="lgate-t2">Crea y administra tu propio torneo</span></span>
@@ -2279,11 +2280,12 @@ function showLoginForm(){
 // sesion — ver actionGetPublicConfig en worker.js).
 async function loadPublicContactConfig(){
   try{
-    var r=await api('getPublicConfig',{keys:['contactWhatsapp','contactEmail','googleWebClientId']});
+    var r=await api('getPublicConfig',{keys:['contactWhatsapp','contactEmail','googleWebClientId','googleWebEnabled']});
     if(r&&r.ok&&r.data){
       S.contactWhatsapp=r.data.contactWhatsapp||'';
       S.contactEmail=r.data.contactEmail||'';
       S.googleWebClientId=r.data.googleWebClientId||'';
+      S.googleWebEnabled=String(r.data.googleWebEnabled||'');
     }
   }catch(e){}
   var wrap=document.getElementById('reqAccessWrap');
@@ -2296,12 +2298,56 @@ async function loadPublicContactConfig(){
 // sin Client ID configurado, el boton sencillamente no aparece — no es un error.
 async function initGoogleSignInIfAvailable(){
   var SocialLogin=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SocialLogin;
-  if(!SocialLogin||!S.googleWebClientId)return;
+  if(!SocialLogin){
+    // Version web: el boton oficial de Google solo aparece si el administrador lo habilito en Configuracion > Acceso con Google.
+    if(!IS_NATIVE_APP&&S.googleWebEnabled==='true'&&S.googleWebClientId)await initGoogleWebSignIn();
+    return;
+  }
+  if(!S.googleWebClientId)return;
   try{
     await SocialLogin.initialize({google:{webClientId:S.googleWebClientId}});
     var gBtn=document.getElementById('lgateGoogleBtn');
     if(gBtn)gBtn.style.display='flex';
   }catch(e){}
+}
+// ── Acceso con Google en la WEB (Google Identity Services) ─────────────────────────────────────────
+// Usa el MISMO Web Client ID que la app Android: el boton oficial de Google devuelve un idToken firmado
+// por Google que se manda tal cual al Worker (accion googleLogin con web:true), que lo verifica contra
+// Google y contra la configuracion antes de emitir la sesion. Requiere que el dominio del sitio este en
+// "Origenes de JavaScript autorizados" del Client ID (Google Cloud Console). Si el script de Google no
+// carga (sin conexion, bloqueado) el boton simplemente no aparece.
+var _gisLoading=null;
+function loadGoogleGis(){
+  if(window.google&&window.google.accounts&&window.google.accounts.id)return Promise.resolve();
+  if(_gisLoading)return _gisLoading;
+  _gisLoading=new Promise(function(res,rej){
+    var sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;sc.defer=true;
+    sc.onload=function(){res();};sc.onerror=function(){_gisLoading=null;rej(new Error('gsi'));};
+    document.head.appendChild(sc);
+  });
+  return _gisLoading;
+}
+async function initGoogleWebSignIn(){
+  try{
+    await loadGoogleGis();
+    window.google.accounts.id.initialize({client_id:S.googleWebClientId,callback:googleWebCallback,auto_select:false,cancel_on_tap_outside:true});
+    var box=document.getElementById('lgateGoogleWeb'),wrap=document.getElementById('lgateGoogleWebWrap');
+    if(!box||!wrap)return;
+    box.innerHTML='';
+    var pw=(wrap.parentElement&&wrap.parentElement.offsetWidth)||320;
+    window.google.accounts.id.renderButton(box,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',logo_alignment:'left',width:Math.max(200,Math.min(380,pw-8)),locale:'es'});
+    wrap.style.display='flex';
+  }catch(e){console.warn('Google web:',e);}
+}
+async function googleWebCallback(resp){
+  var idToken=resp&&resp.credential;
+  if(!idToken){toast('Google no devolvió un token válido','error');return;}
+  document.getElementById('lgate').style.display='none';
+  document.getElementById('lcreds').style.display='block';
+  document.getElementById('lfrm').style.display='none';
+  document.getElementById('llod').style.display='block';
+  document.getElementById('lmsg').textContent='Verificando...';
+  await googleLoginFinish(idToken,true);
 }
 function openRequestAccessM(){
   var wa=(S.contactWhatsapp||'').trim();
@@ -2493,8 +2539,12 @@ async function googleSignIn(){
     return;
   }
   document.getElementById('lmsg').textContent='Verificando...';
+  await googleLoginFinish(idToken,false);
+}
+// Parte comun del acceso con Google (app Android y web): el Worker verifica el token y emite la sesion.
+async function googleLoginFinish(idToken,isWeb){
   var res=null;
-  try{ res=await apiRaw('googleLogin',{idToken:idToken}); }
+  try{ res=await apiRaw('googleLogin',{idToken:idToken,web:!!isWeb}); }
   catch(e){
     document.getElementById('llod').style.display='none';
     showLoginGate();
@@ -2686,6 +2736,7 @@ async function saveGuestSession(){
   try{ await idbPut('session',{key:'current',user:S.user,profile:null,isGuest:true,ts:_lastAct}); }catch(e){}
 }
 function doLogout(){
+  try{if(window.google&&window.google.accounts&&window.google.accounts.id)window.google.accounts.id.disableAutoSelect();}catch(e){}
   stopPolling();stopSessionTimer();clearSession();stopPublicGalleries();
   if(S._activeFriendlyId) deactivateFriendlyInjection();
   resetModuleState();
@@ -13364,15 +13415,25 @@ function openPlayerStatsM(pid,role){
       return statLine(te,'vs '+(t?t.name:tid2));
     });
 
-    // vs each pitcher (by looking at pitching records for same game+inning+half)
+    // vs each pitcher. Si la jugada guarda al pitcher que enfrento al bateador (e.pitcherId: TODOS los juegos de la API de MLB y las jugadas nuevas
+    // anotadas en la app) se usa ESE dato, exacto por turno al bate. Para jugadas sin ese dato (antiguas) se mantiene la aproximacion anterior por los
+    // registros de pitcheo del juego. (Antes solo se usaban los registros de pitcheo NO cerrados, y la sincronizacion de MLB los guarda todos cerrados,
+    // por eso la seccion Vs Pitcher no aparecia en esos juegos.)
+    var paVsPitcher=function(ppid){
+      return allPe.filter(function(e){
+        if(e.pitcherId)return String(e.pitcherId)===String(ppid);
+        return S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.pitcherId===ppid&&pt.teamId!==e.battingTeamId;}).length>0;
+      });
+    };
     var pitchersVs=[];
     allPe.forEach(function(e){
+      if(e.pitcherId){if(pitchersVs.indexOf(e.pitcherId)<0)pitchersVs.push(e.pitcherId);return;}
       var pi=S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId!==e.battingTeamId&&!pt.pitchingClosed;});
       pi.forEach(function(pt){if(pitchersVs.indexOf(pt.pitcherId)<0)pitchersVs.push(pt.pitcherId);});
     });
     var vsPitRows=pitchersVs.map(function(ppid){
       var pp=playerOf(ppid);
-      var te=allPe.filter(function(e){return S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.pitcherId===ppid&&pt.teamId!==e.battingTeamId;}).length>0;});
+      var te=paVsPitcher(ppid);
       return statLine(te,'vs '+(pp?pp.name:ppid));
     });
 
@@ -13385,7 +13446,7 @@ function openPlayerStatsM(pid,role){
     var pitOptsBat='<option value="">Todos los pitchers</option>'+pitchersVs.map(function(ppid){var pp=playerOf(ppid);return'<option value="'+ppid+'">'+(pp?'#'+(pp.number||'?')+' '+pp.name:ppid)+'</option>';}).join('');
 
     // Store data in global scope so onchange handlers can access them
-    window._msAllPe=allPe;window._msTeamsVs=teamsVs;window._msPitchersVs=pitchersVs;
+    window._msAllPe=allPe;window._msTeamsVs=teamsVs;window._msPitchersVs=pitchersVs;window._msCurPitIds=pitchersVs;window._msPaVsPit=paVsPitcher;
     window._msStatLine=statLine;window._msStatHdr=statHdr;
     window._msFilterPitchersByTeam=function(tid){
       if(!tid) return window._msPitchersVs;
@@ -13394,12 +13455,24 @@ function openPlayerStatsM(pid,role){
         return gm2&&(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)===tid;
       }).map(function(e){return e.gameId;});
       var pids=[];
-      window.S.pitching.filter(function(pt){return gids.indexOf(pt.gameId)>=0&&pt.teamId===tid;}).forEach(function(pt){if(pids.indexOf(pt.pitcherId)<0)pids.push(pt.pitcherId);});
+      window._msAllPe.forEach(function(e){
+        var gm2=window.S.games.filter(function(g){return g.id===e.gameId;})[0];
+        if(!gm2||(gm2.awayTeamId===e.battingTeamId?gm2.homeTeamId:gm2.awayTeamId)!==tid)return;
+        if(e.pitcherId){if(pids.indexOf(e.pitcherId)<0)pids.push(e.pitcherId);return;}
+        window.S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.teamId===tid;}).forEach(function(pt){if(pids.indexOf(pt.pitcherId)<0)pids.push(pt.pitcherId);});
+      });
       pids.sort(function(a,b){var pa=window.playerOf(a),pb=window.playerOf(b);return(pa?pa.name:'').localeCompare(pb?pb.name:'');});
       return pids;
     };
     window._msRenderPitOptions=function(pids){
       return '<option value="">Todos los pitchers</option>'+pids.map(function(ppid){var pp=window.playerOf(ppid);return'<option value="'+ppid+'">'+(pp?'#'+(pp.number||'?')+' '+pp.name:ppid)+'</option>';}).join('');
+    };
+    window._msOnPitChange=function(sel){
+      var ids=sel.value?[sel.value]:(window._msCurPitIds||window._msPitchersVs);
+      document.getElementById('bat-vsp-body').innerHTML=ids.map(function(ppid){
+        var pp=window.playerOf(ppid);
+        return window._msStatLine(window._msPaVsPit(ppid),'vs '+(pp?pp.name:ppid));
+      }).join('');
     };
     window._msOnBatTeamChange=function(sel){
       var tid=sel.value;
@@ -13413,11 +13486,10 @@ function openPlayerStatsM(pid,role){
       var pitSel=document.getElementById('bat-vsp-sel');
       if(pitSel){
         pitSel.innerHTML=window._msRenderPitOptions(pids);
-        pitSel.value='';
+        pitSel.value='';window._msCurPitIds=pids;
         document.getElementById('bat-vsp-body').innerHTML=pids.map(function(ppid){
           var pp=window.playerOf(ppid);
-          var te=window._msAllPe.filter(function(e){return window.S.pitching.filter(function(pt){return pt.gameId===e.gameId&&pt.pitcherId===ppid&&pt.teamId!==e.battingTeamId;}).length>0;});
-          return window._msStatLine(te,'vs '+(pp?pp.name:ppid));
+          return window._msStatLine(window._msPaVsPit(ppid),'vs '+(pp?pp.name:ppid));
         }).join('');
       }
     };
@@ -13449,7 +13521,7 @@ function openPlayerStatsM(pid,role){
         +'</div><div class="tw">'+statHdr+'<tbody id="bat-vst-body">'+vsTeamRows.join('')+'</tbody></table></div>':'')
       +(pitchersVs.length?'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px">'
         +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px">VS PITCHER</div>'
-        +'<select class="fs" style="width:180px;padding:4px 8px;font-size:12px" id="bat-vsp-sel" onchange="var ids=this.value?[this.value]:window._msPitchersVs;document.getElementById(&quot;bat-vsp-body&quot;).innerHTML=ids.map(function(ppid){var pp=window.playerOf(ppid);var te=window._msAllPe.filter(function(e){return window.S.pitching.filter(function(pt){return pt.gameId===e.gameId&amp;&amp;pt.pitcherId===ppid&amp;&amp;pt.teamId!==e.battingTeamId;}).length>0;});return window._msStatLine(te,&apos;vs &apos;+(pp?pp.name:ppid));}).join(&apos;&apos;)">'+pitOptsBat+'</select>'
+        +'<select class="fs" style="width:180px;padding:4px 8px;font-size:12px" id="bat-vsp-sel" onchange="window._msOnPitChange(this)">'+pitOptsBat+'</select>'
         +'</div><div class="tw">'+statHdr+'<tbody id="bat-vsp-body">'+vsPitRows.join('')+'</tbody></table></div>':'')
       +'</div>'
       +'<div class="mft"><button class="btn bp" onclick="cM()">Cerrar</button></div>');
@@ -19800,6 +19872,7 @@ function pgSet(){
       +'</div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#127760; Acceso con Google</div></div>'
       +'<div class="fg"><label class="fl">Google Web Client ID (OAuth 2.0)</label><input class="fi" id="gAccWebClientId" type="text" value="'+(S.config&&S.config.googleWebClientId||'')+'" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"></div>'
+      +'<div class="fg"><label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="gAccWebEnabled"'+(String(S.config&&S.config.googleWebEnabled)==='true'?' checked':'')+' style="margin-top:3px"><span><b>Habilitar el acceso con Google en la versión web</b><br><span style="font-size:11px;color:var(--t3);line-height:1.4">Muestra el botón oficial de Google en la puerta de login del sitio web (la app Android no depende de esto). Requiere el Web Client ID de arriba y que el dominio del sitio esté en &quot;Orígenes de JavaScript autorizados&quot; de ese Client ID en Google Cloud Console.</span></span></label></div>'
       +'<div class="fg"><label class="fl">Perfil para usuarios de Google</label><select class="fi" id="gAccProfile">'
       +'<option value="">(Por defecto: Torneos, Equipos, Calendario, Control de Juego, Posiciones, Estadisticas, Lideres, Rankings)</option>'
       +S.profiles.map(function(p){return '<option value="'+p.id+'"'+(S.config&&S.config.googleProfileId===p.id?' selected':'')+'>'+p.name+'</option>';}).join('')
@@ -20208,6 +20281,8 @@ async function saveGoogleAccessConfig(){
   var importScope=fv('gAccImportScope')||'sport';
   var unlimDays=Math.max(0,parseInt(fv('gAccUnlimDays'))||0);
   _saving=true;
+  var webEnabled=(document.getElementById('gAccWebEnabled')&&document.getElementById('gAccWebEnabled').checked)?'true':'false';
+  var r8=await api('saveConfig',{key:'googleWebEnabled',value:webEnabled});
   var r0=await api('saveConfig',{key:'googleWebClientId',value:webClientId});
   var r1=await api('saveConfig',{key:'googleProfileId',value:profileId});
   var r2=await api('saveConfig',{key:'googleTourCooldownDaysParent',value:cooldownParent});
@@ -20230,9 +20305,9 @@ async function saveGoogleAccessConfig(){
   var r6=await api('saveConfig',{key:'googleImportScope',value:importScope});
   var r7=await api('saveConfig',{key:'googleUnlimitedDays',value:unlimDays});
   _saving=false;
-  if(r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r2b&&r2b.ok&&r3&&r3.ok&&r4&&r4.ok&&r4w1&&r4w1.ok&&r4w2&&r4w2.ok&&r4w3&&r4w3.ok&&r4m1&&r4m1.ok&&r4m2&&r4m2.ok&&r4m3&&r4m3.ok&&r5&&r5.ok&&r5b&&r5b.ok&&r5f&&r5f.ok&&r5g&&r5g.ok&&r5c&&r5c.ok&&r5d&&r5d.ok&&r5e&&r5e.ok&&r6&&r6.ok&&r7&&r7.ok){
+  if(r8&&r8.ok&&r0&&r0.ok&&r1&&r1.ok&&r2&&r2.ok&&r2b&&r2b.ok&&r3&&r3.ok&&r4&&r4.ok&&r4w1&&r4w1.ok&&r4w2&&r4w2.ok&&r4w3&&r4w3.ok&&r4m1&&r4m1.ok&&r4m2&&r4m2.ok&&r4m3&&r4m3.ok&&r5&&r5.ok&&r5b&&r5b.ok&&r5f&&r5f.ok&&r5g&&r5g.ok&&r5c&&r5c.ok&&r5d&&r5d.ok&&r5e&&r5e.ok&&r6&&r6.ok&&r7&&r7.ok){
     S.config=S.config||{};S.config.googleUnlimitedDays=String(unlimDays);
-    S.config.googleWebClientId=webClientId;
+    S.config.googleWebClientId=webClientId;S.config.googleWebEnabled=webEnabled;
     S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxGamesPerWeekVitilla=String(maxGWVitilla);S.config.googleMaxGamesPerWeekBaseball=String(maxGWBaseball);S.config.googleMaxGamesPerWeekSoftball=String(maxGWSoftball);S.config.googleMaxGamesPerMonthVitilla=String(maxGMVitilla);S.config.googleMaxGamesPerMonthBaseball=String(maxGMBaseball);S.config.googleMaxGamesPerMonthSoftball=String(maxGMSoftball);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleMaxPlayersPerTeamVitilla=String(maxPlVitilla);S.config.googleMaxPlayersPerTeamBaseball=String(maxPlBaseball);S.config.googleMaxPlayersPerTeamSoftball=String(maxPlSoftball);S.config.googleMaxInningsVitilla=String(maxInnVitilla);S.config.googleMaxInningsBaseball=String(maxInnBaseball);S.config.googleMaxInningsSoftball=String(maxInnSoftball);S.config.googleImportScope=importScope;
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
