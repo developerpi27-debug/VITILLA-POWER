@@ -134,6 +134,45 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .vchips::-webkit-scrollbar{display:none;}
 .vchip{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:8px 16px;border-radius:26px;border:1px solid var(--bdr);background:var(--card);color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
 .vchip.on{background:var(--red);border-color:var(--red);color:#fff;}
+/* ── Transmision en vivo ── */
+.vgrid{display:block}
+.lsbadge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.5px}
+.bcf{position:fixed;z-index:8500;width:188px;background:#0b1220;border:1px solid rgba(255,255,255,.2);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);overflow:hidden;touch-action:none;user-select:none}
+.bcf-bar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#1a2438;color:#fff;font-size:11px;cursor:grab}
+.bcf-bar b{font-size:11px;letter-spacing:.5px}.bcf-bar b.bcf-warn{color:#f5a623}
+.bcf-dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:bcfp 1.2s infinite}
+@keyframes bcfp{50%{opacity:.25}}
+.bcf-bar span#bcf-tm{margin-left:auto;font-variant-numeric:tabular-nums;opacity:.85}
+.bcf-min{background:none;border:none;color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+.bcf video{display:block;width:100%;aspect-ratio:16/9;background:#000;object-fit:cover;pointer-events:none}
+.bcf-btns{display:flex;justify-content:space-around;padding:5px 4px;background:#101a2c}
+.bcf-btns button{background:#1a2438;border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;font-size:15px;padding:5px 9px;cursor:pointer}
+.bcf-btns button.bcf-stop{background:#7f1d1d}
+.bcf.bcf-mini video,.bcf.bcf-mini .bcf-btns{display:none}
+.bcs{position:fixed;inset:0;z-index:8600;background:var(--bg,#0b1220);display:flex;flex-direction:column;padding:10px;gap:8px;overflow:auto}
+.bcs-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.bcs-box{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.bcs-stage{position:relative;width:min(100%,calc((100vh - 190px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden;border:1px solid var(--bdr);border-radius:8px}
+.bcs-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bcs-items{position:absolute;inset:0}
+.bcs-tray{display:flex;flex-wrap:wrap;gap:6px;max-height:30vh;overflow:auto}
+.bcs-chip{background:var(--card);border:1px solid var(--bdr);color:var(--t1,inherit);border-radius:16px;padding:6px 11px;font-size:12px;cursor:pointer}
+.bcs-chip.on{background:var(--acc);color:#000;border-color:var(--acc);font-weight:700}
+.lsi{position:absolute;overflow:visible}
+.lsi-fr{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+.lsi-fr iframe{width:100%;height:100%;border:0;background:transparent;pointer-events:none}
+.lsi.lse{outline:1.5px dashed rgba(245,166,35,.9)}
+.lsi-bd{position:absolute;inset:0;cursor:move;touch-action:none}
+.lsi-x{position:absolute;top:-10px;right:-10px;width:22px;height:22px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:11px;cursor:pointer;z-index:2}
+.lsi-rs{position:absolute;right:-9px;bottom:-9px;width:20px;height:20px;border-radius:5px;background:var(--acc);cursor:nwse-resize;touch-action:none;z-index:2}
+.lsp{position:fixed;inset:0;z-index:8400;background:#000;display:flex;flex-direction:column}
+.lsp-top{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0b1220;color:#fff;padding-top:calc(8px + env(safe-area-inset-top,0px))}
+.lsp-ttl{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lsp-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.lsp-stage{position:relative;width:min(100%,calc((100vh - 70px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden}
+.lsp-stage video,.lsp-fb{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000}
+.lsp-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:rgba(0,0,0,.45);z-index:5}
+.lsp-snd{position:absolute;right:10px;bottom:10px;z-index:6;background:rgba(0,0,0,.7);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:18px;padding:7px 13px;font-size:12px;cursor:pointer}
 .vcard{display:flex;background:var(--card);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:12px;cursor:pointer;}
 .vcard.off{opacity:.55;}
 .vthumb{position:relative;flex:0 0 38%;max-width:240px;aspect-ratio:16/9;background:linear-gradient(135deg,var(--card2),var(--bg3));}
@@ -228,6 +267,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lgate-hint{font-size:13px;color:var(--t2);text-align:center;margin-bottom:22px;}
 .lgate-btn{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:16px 16px;border-radius:12px;cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif;}
 .lgate-btn+.lgate-btn{margin-top:12px;}
+#lgateGoogleBtn{margin-top:20px;}
 .lgate-btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:1px solid var(--acc);}
 .lgate-btn-pri:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 8px 22px rgba(245,166,35,.3);}
 .lgate-btn-sec{background:var(--card2);border:1px solid var(--bdr2);}
@@ -699,12 +739,12 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
         <span class="lgate-txt"><span class="lgate-t1">Iniciar Sesión</span><span class="lgate-t2">Anotadores, administradores y staff</span></span>
         <span class="lgate-arrow">&#10132;</span>
       </button>
-      <button type="button" class="lgate-btn lgate-btn-sec" onclick="guestLogin()">
+      <button type="button" id="lgateGuestBtn" class="lgate-btn lgate-btn-sec" onclick="guestLogin()">
         <span class="lgate-ic">&#128065;</span>
         <span class="lgate-txt"><span class="lgate-t1">Acceder como Visitante</span><span class="lgate-t2">Solo consultar resultados y estadísticas</span></span>
         <span class="lgate-arrow">&#10132;</span>
       </button>
-      <div id="lgateGoogleWebWrap" style="display:none;flex-direction:column;align-items:center;gap:6px;margin-top:10px"><div id="lgateGoogleWeb"></div><div style="font-size:11px;opacity:.75">Crea y administra tu propio torneo</div></div>
+      <div id="lgateGoogleWebWrap" style="display:none;flex-direction:column;align-items:center;gap:6px;margin-top:20px"><div id="lgateGoogleWeb"></div><div style="font-size:11px;opacity:.75">Crea y administra tu propio torneo</div></div>
       <button type="button" id="lgateGoogleBtn" class="lgate-btn lgate-btn-sec" style="display:none" onclick="googleSignIn()">
         <span class="lgate-ic">&#127760;</span>
         <span class="lgate-txt"><span class="lgate-t1">Continuar con Google</span><span class="lgate-t2">Crea y administra tu propio torneo</span></span>
@@ -2251,6 +2291,7 @@ async function loadOfflineCache(){
 // Acceder como Visitante), y solo al elegir "Iniciar Sesion" se revela el formulario de
 // usuario/contrasena (que ya NO muestra la opcion de visitante). Vuelve a la puerta cada vez
 // que la sesion se cierra o se inactiva.
+var _guestBusy=false;
 function showLoginScreen(){
   document.getElementById('lscr').style.display='flex';
   showLoginGate();
@@ -2703,7 +2744,28 @@ function closeGoogleGameControlInfoM(userId){
   }
   cM();
 }
+// Carga de datos del visitante, lo mas barata posible para la base de datos:
+//  1) si hay copia local reciente (< 10 min) se pregunta SOLO la version de datos (consulta diminuta, cacheada en el borde);
+//  2) si la version coincide -> se usa la copia local, sin descargar nada mas;
+//  3) si cambio (o no hay copia/version/red) -> getAll normal (el worker lo sirve desde su cache validada por version).
+async function guestLoadData(){
+  var rec=null;
+  try{rec=await idbGet('cache','guestAll');}catch(e){rec=null;}
+  var ok=rec&&rec.res&&rec.res.ok&&rec.dv&&rec.ts&&(Date.now()-rec.ts<10*60000);
+  if(ok){
+    var r=null;
+    try{r=await apiRaw('getDataVersion');}catch(e){r=null;}
+    if(r&&r.ok&&r.v&&String(r.v)===String(rec.dv)){ return loadAll(rec.res,rec.ts); }   // nada nuevo: cero lecturas de datos
+    if(!r){ return loadAll(rec.res,rec.ts); }                                          // sin red: se muestra lo ultimo guardado
+  }
+  return loadAll();
+}
 function guestLogin(){
+  if(_guestBusy)return;
+  _guestBusy=true;
+  var _gb=document.getElementById('lgateGuestBtn'),_gt=_gb&&_gb.querySelector('.lgate-t1');
+  if(_gb){_gb.style.opacity='.7';_gb.style.pointerEvents='none';}
+  if(_gt)_gt.textContent='Entrando…';
   S.user={id:'guest',name:'Visitante',role:'public',username:'guest'};S.profile=null;
   // El visitante entra siempre con el deporte del subdominio de origen (BRAND), bloqueado —
   // no puede cambiarlo, y no ve torneos de otros deportes. EXCEPTO en la app nativa de
@@ -2714,7 +2776,10 @@ function guestLogin(){
   if(!IS_NATIVE_APP) S._sportLocked=true;
   resetActivity();
   saveGuestSession();
-  loadAll().catch(function(){}).finally(function(){
+  guestLoadData().catch(function(){}).finally(function(){
+    _guestBusy=false;
+    if(_gb){_gb.style.opacity='';_gb.style.pointerEvents='';}
+    if(_gt)_gt.textContent='Acceder como Visitante';
     document.getElementById('lscr').style.display='none';
     document.getElementById('app').style.display='flex';
     resetModuleState();
@@ -3159,16 +3224,18 @@ async function outboxPendingGameIds(){
 // y solo baja getAll completo si cambio, si no hay version (worker viejo) o si pasaron 3 min (red de seguridad, p. ej. cambios hechos a mano en la base).
 var _dvLast=null,_dvFullAt=0;
 async function loadAllIfChanged(){
-  if(!_dvLast||!S.user||S.user.role==='public'||Date.now()-_dvFullAt>Math.max(1,S.fullRefreshMin||3)*60000)return loadAll();
+  if(!_dvLast||!S.user||Date.now()-_dvFullAt>Math.max(1,S.fullRefreshMin||3)*60000)return loadAll();
   var r=null;try{r=await api('getDataVersion');}catch(e){r=null;}
   if(!r||!r.ok||!r.v||isNaN(Number(r.v)))return loadAll();
   if(Number(r.v)>Number(_dvLast))return loadAll();
   return true;
 }
-async function loadAll(){
-  var res=await api('getAll');if(!res||!res.ok)return false;
+async function loadAll(pre,fromCacheTs){
+  var res=pre||null;
+  if(!res)res=await api('getAll');
+  if(!res||!res.ok)return false;
   var d=res.data;
-  _dvLast=d.dv||null;_dvFullAt=Date.now();
+  _dvLast=d.dv||null;_dvFullAt=fromCacheTs||Date.now();
   S.config=d.config||{};
   // Only update license if GS returns a non-empty value
   var newLic=d.licenseExpires||(d.config&&d.config.licenseExpires)||'';
@@ -3215,6 +3282,12 @@ async function loadAll(){
     if(avail.length===1) S.sportFilter=avail[0];
   }
   saveOfflineCache();
+  // Visitante: copia local de la ultima respuesta publica + su version de datos. Asi la proxima vez que entre solo se
+  // consulta la version (dato diminuto) y, si no cambio nada, NO se vuelve a bajar ni a leer la base. Solo datos publicos.
+  if(!pre&&S.user&&S.user.role==='public'&&d.dv&&Date.now()-(window._gcW||0)>60000){   // como mucho 1 copia por minuto (evita clonar todo el dataset en cada jugada en vivo)
+    var _gr=res;window._gcW=Date.now();
+    setTimeout(function(){try{idbPut('cache',{key:'guestAll',ts:Date.now(),dv:String(_gr.data.dv),res:_gr}).catch(function(){});}catch(e){}},0);
+  }
   try{refreshUnlimitedBadge();}catch(e){}
   // Usuarios de Google: cargar la lista liviana de jugadores de TODO el sistema, para que
   // "Importar Existente" (en el formulario de jugador) pueda encontrar jugadores que ya
@@ -3639,6 +3712,8 @@ var ALL_MOD=[
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
+  {id:'livestream',lbl:'Transmitir en vivo desde la app (cámara + gráficos)',ico:'🔴',sec:'General'},
+  {id:'livestreamsave',lbl:'Transmisiones: guardar la grabación (si no, se elimina al terminar)',ico:'💾',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
   {id:'hideads',lbl:'Ocultar anuncios (versión web)',ico:'🚫',sec:'General'},
@@ -3646,6 +3721,7 @@ var ALL_MOD=[
   {id:'fantasychallenges',lbl:'Fantasía: crear desafíos',ico:'⚔️',sec:'General'},
   {id:'synctocloud',lbl:'Torneos locales: sincronizar a la nube (usuarios de Google)',ico:'☁️',sec:'General'},
   {id:'channels',lbl:'Canales en Vivo',ico:'📺',sec:'General'},
+  {id:'streams',lbl:'Transmisiones',ico:'📡',sec:'General'},
   {id:'videos',lbl:'Videos',ico:'🎬',sec:'General'},
   {id:'standings',lbl:'Posiciones',ico:'📋',sec:'Estadisticas'},
   {id:'stats',lbl:'Estadisticas',ico:'📈',sec:'Estadisticas'},
@@ -3663,13 +3739,54 @@ var ALL_MOD=[
   {id:'settings',lbl:'Configuracion',ico:'⚙',sec:'Admin'},
   {id:'gsimport',lbl:'Importar desde GSheets',ico:'📥',sec:'Admin'},
 ];
-var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','videos'];
-var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','streams','videos'];
+var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','streams','fantasy'];
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',streams:'Transmisiones',livestream:'Transmitir en vivo',livestreamsave:'Guardar transmisiones',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
 var POS=['C','1B','2B','3B','SS','LF','CF','RF','P','DH','UT'];
+// Posiciones del ROSTER (ficha del jugador): el lanzador se identifica por rol. En el lineup de un
+// juego la posicion defensiva sigue siendo 'P' (ver lineupPosOf). 'P' solo queda como valor heredado.
+var POS_ROSTER=['C','1B','2B','3B','SS','LF','CF','RF','SP','RP','CL','DH','UT'];
+var PIT_POS=['P','SP','RP','CL'];
+function isPitPos(pos){return PIT_POS.indexOf(String(pos||'').toUpperCase())>=0;}
+function lineupPosOf(pos){return isPitPos(pos)?'P':(pos||'OF');}
+function pitRoleOfPos(pos){var u=String(pos||'').toUpperCase();return u==='RP'?'RP':(u==='CL'?'CL':'SP');}
+// Rol de pitcheo de un jugador consolidado: toma la posicion del registro representativo si es de
+// lanzador; si no, la del ultimo registro con posicion de lanzador. 'P' heredado o sin dato => abridor (SP).
+function pitRoleOfPlayers(rep,recs){
+  if(rep&&isPitPos(rep.position))return pitRoleOfPos(rep.position);
+  var arr=recs||[];
+  for(var i=arr.length-1;i>=0;i--){if(arr[i]&&isPitPos(arr[i].position))return pitRoleOfPos(arr[i].position);}
+  return 'SP';
+}
+function ldNum(id){var x=fv(id);return(x!==''&&x!==null&&x!==undefined)?parseFloat(x):0;}
+// Bloques de IP minimo (Abridores / Relevistas / Cerradores) del formulario de subtorneo
+function ldIpBlocksHtml(t){
+  var roles=[
+    {lbl:'Abridores',auto:'tlipauto',man:'tlipmanual',ids:['tlmipreg','tlmippo','tlmipfin'],f:['leadersMinIpRegular','leadersMinIpPlayoff','leadersMinIpFinal'],au:'leadersIpAuto'},
+    {lbl:'Relevistas',auto:'tlipautorp',man:'tlipmanualrp',ids:['tlmiprpreg','tlmiprppo','tlmiprpfin'],f:['leadersMinIpRpRegular','leadersMinIpRpPlayoff','leadersMinIpRpFinal'],au:'leadersIpAutoRp'},
+    {lbl:'Cerradores',auto:'tlipautocl',man:'tlipmanualcl',ids:['tlmipclreg','tlmipclpo','tlmipclfin'],f:['leadersMinIpClRegular','leadersMinIpClPlayoff','leadersMinIpClFinal'],au:'leadersIpAutoCl'}
+  ];
+  var ph=['Serie Regular','Playoffs','Serie Final'];
+  return roles.map(function(r,ri){
+    var vals=r.f.map(function(k,i){
+      var v=t[k];
+      if(ri===0&&i===0&&(v===undefined||v===null))v=t.leadersMinIp;
+      return(v!==undefined&&v!==null)?v:0;
+    });
+    var on=t[r.au]===true;
+    return '<div style="font-size:12px;font-weight:700;color:var(--acc);margin-top:16px">&#9918; '+r.lbl+'</div>'
+      +'<div class="fg" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
+      +'<input type="checkbox" id="'+r.auto+'" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\''+r.man+'\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\''+r.man+'\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(on?'checked':'')+'>'
+      +'<span>Usar <b>media automática</b> de IP de los <b>'+r.lbl.toLowerCase()+'</b> (en vez de las cantidades manuales)</span></label></div>'
+      +'<div id="'+r.man+'" style="'+(on?'opacity:.4;pointer-events:none':'')+'"><div class="fr c3" style="margin-top:6px">'
+      +r.ids.map(function(id,i){return '<div class="fg"><label class="fl">IP mín. '+r.lbl+' — '+ph[i]+'</label><input class="fi" id="'+id+'" type="number" min="0" step="0.1" value="'+vals[i]+'"></div>';}).join('')
+      +'</div></div>';
+  }).join('');
+}
+
 
 // ── Alcance por deporte (Vitilla / Baseball / Softball) ──────────
 function sportScope(){ return S.sportFilter||''; }
@@ -4030,6 +4147,7 @@ function hasModuleAccess(moduleId){
   // incluso si el perfil que el admin le asigno (Configuracion > Acceso con Google) lo
   // incluyera por error — este boton no es parte de lo que se le ofrece a esa via de acceso.
   if(moduleId==='transmissionpanel'&&S.user&&S.user.role==='google')return false;
+  if((moduleId==='livestream'||moduleId==='livestreamsave')&&S.user&&(S.user.role==='google'||S.user.role==='public'))return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -4226,7 +4344,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -4265,7 +4383,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif,videos:pgVideos};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,streams:pgStreams,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif,videos:pgVideos};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -5042,7 +5160,7 @@ function openTM(id){
     +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Juegos en Posición (Guante de Oro)</label><input class="fi" id="tamgg" type="number" min="1" value="'+(t.awardMinGg!==undefined&&t.awardMinGg!==null?t.awardMinGg:2)+'"></div></div>'
     +'<div class="fr c2" style="margin-top:8px">'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvpbat" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludeBat===false?'':'checked')+'>'+'<span>Incluir puntos de <b>bateo</b> en el MVP</span></label></div>'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvppit" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludePit===false?'':'checked')+'>'+'<span>Incluir puntos de <b>pitcheo</b> en el MVP</span></label></div>'+'</div>'+'<div class="alert ai" style="font-size:12px">Estos umbrales determinan quién califica como candidato en el análisis automático del módulo de Premiaciones para este subtorneo.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#129351; LIDERES (umbrales mínimos)</div>'
-    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan qué jugadores aparecen en las tarjetas de <b>SLG y AVG</b> (bateo) y <b>ERA y WHIP</b> (pitcheo) de los módulos de Lideres y Lideres de Por Vida — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) nunca aplican mínimo. Se configuran por separado para Serie Regular, Playoffs y Serie Final (0 = sin mínimo).</div>'
+    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan qué jugadores aparecen en las tarjetas de <b>SLG y AVG</b> (bateo) y <b>ERA, WHIP y AVG contra</b> (pitcheo, por rol: abridores, relevistas y cerradores, cada uno con su propio mínimo de IP) de los módulos de Lideres y Lideres de Por Vida — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) nunca aplican mínimo. Se configuran por separado para Serie Regular, Playoffs y Serie Final (0 = sin mínimo).</div>'
     +'<div class="fg" style="margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
       +'<input type="checkbox" id="tlvbauto" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\'tlvbmanual\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\'tlvbmanual\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(t.leadersVbAuto===true?'checked':'')+'>'
       +'<span>Usar <b>media automática</b> de VB (en vez de las cantidades manuales) para el mínimo de bateo</span></label></div>'
@@ -5052,15 +5170,8 @@ function openTM(id){
     +'<div class="fg"><label class="fl">VB mín. — Playoffs</label><input class="fi" id="tlmvbpo" type="number" min="0" value="'+(t.leadersMinVbPlayoff!==undefined&&t.leadersMinVbPlayoff!==null?t.leadersMinVbPlayoff:0)+'"></div>'
     +'<div class="fg"><label class="fl">VB mín. — Serie Final</label><input class="fi" id="tlmvbfin" type="number" min="0" value="'+(t.leadersMinVbFinal!==undefined&&t.leadersMinVbFinal!==null?t.leadersMinVbFinal:0)+'"></div>'
     +'</div></div>'
-    +'<div class="fg" style="margin-top:14px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
-      +'<input type="checkbox" id="tlipauto" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\'tlipmanual\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\'tlipmanual\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(t.leadersIpAuto===true?'checked':'')+'>'
-      +'<span>Usar <b>media automática</b> de IP (en vez de las cantidades manuales) para el mínimo de pitcheo</span></label></div>'
-    +'<div id="tlipmanual" style="'+(t.leadersIpAuto===true?'opacity:.4;pointer-events:none':'')+'">'
-    +'<div class="fr c3" style="margin-top:6px">'
-    +'<div class="fg"><label class="fl">IP mín. — Serie Regular</label><input class="fi" id="tlmipreg" type="number" min="0" step="0.1" value="'+(t.leadersMinIpRegular!==undefined&&t.leadersMinIpRegular!==null?t.leadersMinIpRegular:(t.leadersMinIp!==undefined&&t.leadersMinIp!==null?t.leadersMinIp:0))+'"></div>'
-    +'<div class="fg"><label class="fl">IP mín. — Playoffs</label><input class="fi" id="tlmippo" type="number" min="0" step="0.1" value="'+(t.leadersMinIpPlayoff!==undefined&&t.leadersMinIpPlayoff!==null?t.leadersMinIpPlayoff:0)+'"></div>'
-    +'<div class="fg"><label class="fl">IP mín. — Serie Final</label><input class="fi" id="tlmipfin" type="number" min="0" step="0.1" value="'+(t.leadersMinIpFinal!==undefined&&t.leadersMinIpFinal!==null?t.leadersMinIpFinal:0)+'"></div>'
-    +'</div></div>'
+    +'<div class="fg" style="margin-top:14px"><label class="fl">Turnos promedio por día (mínimo de bateo para AVG y SLG)</label><input class="fi" id="tltpd" type="number" min="0" step="0.1" value="'+(t.leadersTurnosDia||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">Se multiplica por los juegos jugados de la fase actual (el del equipo con más juegos en la tabla de posiciones) y el resultado es el mínimo de turnos al bate. Si es distinto de 0, se usa este valor en lugar del VB mín. y de la media automática de VB (0 = usar el VB mín. de arriba).</div></div>'
+    +ldIpBlocksHtml(t)
     +'<div class="alert ai" style="font-size:12px;margin-top:8px">Cuando la vista de Lideres esté en "Todas las Fases", se usa el valor de <b>Serie Regular</b> (manual o media, según el modo elegido) como referencia.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#11088; SISTEMA DE PUNTOS (Premiaciones y Juego de Estrellas)</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">&#127939; Bateo (positivos)</div>'
@@ -5222,6 +5333,11 @@ async function saveT(id){
     leadersMinIpFinal:(fv('tlmipfin')!==''&&fv('tlmipfin')!==null&&fv('tlmipfin')!==undefined)?parseFloat(fv('tlmipfin')):0,
     leadersVbAuto:document.getElementById('tlvbauto')?document.getElementById('tlvbauto').checked:false,
     leadersIpAuto:document.getElementById('tlipauto')?document.getElementById('tlipauto').checked:false,
+    leadersMinIpRpRegular:ldNum('tlmiprpreg'),leadersMinIpRpPlayoff:ldNum('tlmiprppo'),leadersMinIpRpFinal:ldNum('tlmiprpfin'),
+    leadersIpAutoRp:document.getElementById('tlipautorp')?document.getElementById('tlipautorp').checked:false,
+    leadersMinIpClRegular:ldNum('tlmipclreg'),leadersMinIpClPlayoff:ldNum('tlmipclpo'),leadersMinIpClFinal:ldNum('tlmipclfin'),
+    leadersIpAutoCl:document.getElementById('tlipautocl')?document.getElementById('tlipautocl').checked:false,
+    leadersTurnosDia:ldNum('tltpd'),
     asPtsH1:parseFloat(fv('taph1')),asPtsH2:parseFloat(fv('taph2')),asPtsH3:parseFloat(fv('taph3')),
     asPtsHr:parseFloat(fv('taphr')),asPtsBb:parseFloat(fv('tapbb')),asPtsRbi:parseFloat(fv('taprbi')),
     asPtsR:parseFloat(fv('tapr')),asPtsSb:parseFloat(fv('tapsb'))||0,
@@ -6118,7 +6234,8 @@ function openPM(id,tid){
     return base.slice().sort(function(a,b){return a.name<b.name?-1:1;});
   })();
   var tOpts=filteredTeams.map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+  var _posLbl={SP:'SP · Abridor',RP:'RP · Relevista',CL:'CL · Cerrador',P:'P (heredado: cuenta como abridor)'};
+  var pOpts=POS_ROSTER.concat(p.position==='P'?['P']:[]).map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+(_posLbl[ps]||ps)+'</option>';}).join('');
   // Build deduplicated import list: one entry per career-root player, listing all teams
   // Solo se muestran jugadores de equipos cuyo torneo padre sea del MISMO deporte
   var importSportPM=effectiveLifeSport();
@@ -7515,7 +7632,7 @@ function renderLU(side,teamId){
       +'</div>';
   }).join('')||'<div style="font-size:12px;color:var(--t3);padding:8px;text-align:center">Agrega jugadores &rarr;</div>';
 }
-function addLU(side,pid,tid){var p=S.players.filter(function(x){return x.id===pid;})[0];_LU[side].push({playerId:pid,position:p&&p.position||'OF',order:_LU[side].length+1});renderLU(side,tid);}
+function addLU(side,pid,tid){var p=S.players.filter(function(x){return x.id===pid;})[0];_LU[side].push({playerId:pid,position:lineupPosOf(p&&p.position),order:_LU[side].length+1});renderLU(side,tid);}
 function remLU(side,idx,tid){_LU[side].splice(idx,1);_LU[side].forEach(function(lp,i){lp.order=i+1;});renderLU(side,tid);}
 function moveLU(side,idx,dir,tid){var a=_LU[side],sw=idx+dir;if(sw<0||sw>=a.length)return;var tmp=a[idx];a[idx]=a[sw];a[sw]=tmp;a.forEach(function(lp,i){lp.order=i+1;});renderLU(side,tid);}
 function changePosLU(side,idx,pos){_LU[side][idx].position=pos;}
@@ -7685,22 +7802,7 @@ function _ptCopyUrl(btn){
   function fb(){window.prompt('Copia este enlace y pegalo en OBS/vMix:',u.href);}
   try{navigator.clipboard.writeText(u.href).then(ok,fb);}catch(e){fb();}
 }
-function openTransmissionPanel(gameId){
-  var winName='panel_transmision_'+gameId;
-  // IMPORTANTE: aqui NO se usa 'noopener' — con esa opcion el navegador SI abre la ventana,
-  // pero por especificacion window.open() devuelve null (no da la referencia), asi que no
-  // podriamos escribirle el contenido (queda en blanco) y el chequeo de abajo pensaria,
-  // incorrectamente, que el popup fue bloqueado.
-  var w=window.open('',winName,'width=320,height=560,resizable=yes,scrollbars=yes');
-  if(!w){toast('El navegador bloqueo la ventana emergente. Habilita las ventanas emergentes para este sitio.','error');return;}
-  function abs(page,extra){
-    var u=new URL(page,window.location.href);
-    u.searchParams.set('game',gameId);
-    var wn=page+'_'+gameId;
-    if(extra)Object.keys(extra).forEach(function(k){u.searchParams.set(k,extra[k]);wn+='_'+extra[k];});
-    return{href:u.href,winName:wn};
-  }
-  var items=[
+var TP_ITEMS=[
     {label:'&#9203; En Breve (Matchup)',sub:'Pantalla previa al juego: logos, nombres y record de la fase actual',page:'match.html'},
     {label:'&#9878; Comparaciones',sub:'Numeros de por vida de ambos equipos: general, por fase y enfrentamiento directo',page:'comparacion.html'},
     {label:'&#128250; Marcador G.',sub:'Pizarra de transmision (inning, bases, outs, bateador, pitcher)',page:'overlay.html'},
@@ -7724,6 +7826,579 @@ function openTransmissionPanel(gameId){
     {label:'&#128203; Tabla de Posiciones',sub:'Posiciones del subtorneo y la fase de este juego, con marca de clasificacion a playoffs/final',page:'standing.html'},
     {label:'&#127916; Repeticion',sub:'Grafico animado de "REPETICION" para usar junto al Replay Buffer de tu software de transmision',page:'replay.html'}
   ];
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// TRANSMISION EN VIVO (Cloudflare Stream) — transmisor + espectador + modulo "Transmisiones"
+//  · Transmisor: camara -> WebRTC (WHIP) -> Cloudflare Stream. El video sale LIMPIO; los graficos del Panel de Transmision los dibuja
+//    cada espectador encima, segun el "layout" (que graficos y donde) que el transmisor arma en "Pantalla" y se guarda en el servidor.
+//  · La transmision vive en variables globales (no en la pantalla de Control de Juego): puedes navegar y anotar sin cortarla.
+//  · Espectador: WebRTC (WHEP, ~1 s) con respaldo al reproductor HLS de Stream. Pregunta el estado (layout / si termino) cada 4 s; el
+//    Worker lo sirve desde la Cache API, asi que no importa cuantos miren: la base de datos casi no se toca.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+var LS_BASE=IS_NATIVE_APP?'https://powerrdapp.com/':location.href;
+var _LS={list:[],at:0,sig:'',loaded:false,saved:[],savedTid:'~',savedAt:0,savedLoaded:false,savedFailed:false};
+var _BC={};            // transmision propia en curso (vacio = no hay)
+var _SP={};            // reproductor de espectador abierto
+function lsFor(gid){return _LS.list.filter(function(s){return String(s.gameId)===String(gid);})[0]||null;}
+function lsDur(sec){sec=Math.max(0,parseInt(sec)||0);var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return(h?h+':'+(m<10?'0':''):'')+m+':'+(s<10?'0':'')+s;}
+function lsPlain(html){var d=document.createElement('div');d.innerHTML=html;return(d.textContent||'').replace(/\s+/g,' ').trim();}
+// Transmisiones en vivo ahora (una sola peticion para todo; 8 s de cache en el borde). Devuelve true si cambio la lista.
+function lsRefresh(force){
+  if(!force&&Date.now()-_LS.at<12000)return Promise.resolve(false);
+  _LS.at=Date.now();
+  return apiRaw('getLiveStreams').then(function(r){
+    if(!r||!r.ok)return false;
+    var sig=JSON.stringify((r.streams||[]).map(function(s){return s.id;}));
+    var chg=sig!==_LS.sig;_LS.sig=sig;_LS.list=r.streams||[];_LS.loaded=true;return chg;
+  }).catch(function(){return false;});
+}
+// ── Boton "Ver Transmision en Vivo" de un juego (visitantes): la transmision de la app tiene prioridad sobre el canal definido ─────────
+function gcWatchHtml(gm,noKick){
+  if(!(S.user&&S.user.role==='public'&&gm&&gm.status==='live'))return'';
+  if(!noKick)lsRefresh(false).then(function(chg){if(chg)lsUpdateGcWatch();});
+  var st=lsFor(gm.id);
+  var hasCh=(S.channels||[]).filter(function(c){return c.tournamentId===gm.tournamentId;}).length;
+  if(!st&&!hasCh)return'';
+  return'<div style="text-align:center;margin:14px 0"><button class="btn bp" style="font-size:14px;padding:10px 24px" data-gid="'+nfEsc(gm.id)+'" data-tid="'+nfEsc(gm.tournamentId)+'" onclick="watchGame(this.dataset.gid,this.dataset.tid)">'+(st?'&#128308; ':'&#128250; ')+'Ver Transmisión en Vivo</button></div>';
+}
+function lsUpdateGcWatch(){
+  var el=document.getElementById('gc-watch');if(!el||curP!=='gamecontrol'||!S.game)return;
+  var gm=(S.games||[]).filter(function(g){return String(g.id)===String(S.game);})[0];
+  if(gm)el.innerHTML=gcWatchHtml(gm,true);
+}
+function watchGame(gid,tid){
+  var st=lsFor(gid);
+  if(st){openStreamPlayer(st.id);return;}
+  if(tid)watchLiveChannel(tid);
+}
+// ── Catalogo de graficos = los mismos del Panel de Transmision (TP_ITEMS) ───────────────────────────────────────────────────────────
+var LS_DEF_W={'transmision.html':100,'scoreboard.html':24,'overlay.html':42,'pizarra.html':42,'batter.html':46,'cuadrangular.html':40,'marquee.html':60,'standing.html':36,'lineupduo.html':60,'match.html':100,'comparacion.html':80};
+var LS_DEF_POS={'transmision.html':[0,0],'scoreboard.html':[2,3],'overlay.html':[2,66],'pizarra.html':[2,3],'batter.html':[27,80],'marquee.html':[20,2]};
+function lsCatalog(){
+  return TP_ITEMS.map(function(it){
+    var team=(it.extra&&it.extra.team)||'';
+    var big=it.page==='transmision.html';
+    return{id:it.page.replace('.html','')+(team?'-'+team:''),label:lsPlain(it.label),page:it.page,team:team,copy:it.copy||null,
+      lw:big?1920:(it.w||460),lh:big?1080:(it.h||340),dw:LS_DEF_W[it.page]||30};
+  });
+}
+function lsQueryFor(cat){
+  var q={};var c=cat.copy;if(!c)return q;var s={};
+  try{s=JSON.parse(localStorage.getItem(c.key)||'{}');}catch(e){}
+  (c.colors||[]).forEach(function(k){if(s[k])q[k]=String(s[k]).replace('#','');});
+  (c.flags||[]).forEach(function(k){if(s[k]!==undefined)q[k]=s[k]?'1':'0';});
+  (c.strs||[]).forEach(function(k){if(s[k]!==undefined&&s[k]!=='')q[k]=String(s[k]);});
+  return q;
+}
+function lsItemUrl(it,gid){
+  var u=new URL(it.page,LS_BASE);
+  u.searchParams.set('game',gid);
+  if(it.team)u.searchParams.set('team',it.team);
+  Object.keys(it.q||{}).forEach(function(k){u.searchParams.set(k,it.q[k]);});
+  u.searchParams.set('transp','1');u.searchParams.set('edit','0');u.searchParams.set('embed','1');
+  return u.href;
+}
+function lsDefaultLayout(){
+  try{var s=JSON.parse(localStorage.getItem('vp_bc_layout')||'null');if(s&&s.length)return s;}catch(e){}
+  var c=lsCatalog().filter(function(x){return x.page==='transmision.html';})[0];
+  return c?[{id:c.id,page:c.page,team:'',q:lsQueryFor(c),x:0,y:0,w:100,lw:c.lw,lh:c.lh,z:1}]:[];
+}
+// Dibuja (o actualiza) los graficos dentro de un escenario 16:9. edit=true agrega asas para mover / cambiar tamano / quitar.
+function lsRenderItems(host,items,gid,edit){
+  var have={};
+  Array.prototype.slice.call(host.children).forEach(function(c){have[c.getAttribute('data-id')]=c;});
+  var keep={};
+  items.forEach(function(it,idx){
+    keep[it.id]=1;
+    var el=have[it.id];
+    var src=lsItemUrl(it,gid);
+    if(!el){
+      el=document.createElement('div');el.className='lsi'+(edit?' lse':'');el.setAttribute('data-id',it.id);
+      el.innerHTML='<div class="lsi-fr"><iframe loading="lazy" referrerpolicy="no-referrer" allowtransparency="true" tabindex="-1"></iframe></div>'
+        +(edit?'<div class="lsi-bd"></div><button class="lsi-x" title="Quitar">&#10005;</button><div class="lsi-rs" title="Tamaño"></div>':'');
+      host.appendChild(el);
+      if(edit)lsBindEdit(el,it);
+    }
+    var fr=el.firstChild,ifr=fr.firstChild;
+    if(ifr.getAttribute('data-src')!==src){ifr.setAttribute('data-src',src);ifr.src=src;}
+    el.style.left=it.x+'%';el.style.top=it.y+'%';el.style.width=it.w+'%';el.style.aspectRatio=it.lw+'/'+it.lh;el.style.zIndex=String(idx+1);
+    fr.style.width=it.lw+'px';fr.style.height=it.lh+'px';
+  });
+  Object.keys(have).forEach(function(k){if(!keep[k])host.removeChild(have[k]);});
+  lsRescale(host,items);
+}
+function lsRescale(host,items){
+  items.forEach(function(it){
+    var el=host.querySelector('[data-id="'+it.id+'"]');if(!el)return;
+    var s=el.clientWidth/it.lw;if(!isFinite(s)||s<=0)return;
+    el.firstChild.style.transform='scale('+s+')';
+  });
+}
+// Espera a que termine la recoleccion de candidatos ICE (WHIP/WHEP no hacen trickle) con un tope de tiempo
+function lsWaitIce(pc,ms){
+  return new Promise(function(res){
+    if(pc.iceGatheringState==='complete')return res();
+    var t=setTimeout(done,ms||2000);
+    function done(){clearTimeout(t);pc.removeEventListener('icegatheringstatechange',chk);res();}
+    function chk(){if(pc.iceGatheringState==='complete')done();}
+    pc.addEventListener('icegatheringstatechange',chk);
+  });
+}
+var LS_ICE=[{urls:'stun:stun.cloudflare.com:3478'}];
+async function lsWhipPublish(url,stream,hPx){
+  var pc=new RTCPeerConnection({iceServers:LS_ICE,bundlePolicy:'max-bundle'});
+  stream.getTracks().forEach(function(t){
+    var tr=pc.addTransceiver(t,{direction:'sendonly',streams:[stream]});
+    if(t.kind==='video'){
+      try{ // Stream recibe H.264: se pone de primero si el dispositivo lo ofrece
+        var caps=RTCRtpSender.getCapabilities('video');
+        if(caps&&tr.setCodecPreferences){
+          var h=caps.codecs.filter(function(c){return /h264/i.test(c.mimeType);}),o=caps.codecs.filter(function(c){return!/h264/i.test(c.mimeType);});
+          if(h.length)tr.setCodecPreferences(h.concat(o));
+        }
+      }catch(e){}
+    }
+  });
+  var offer=await pc.createOffer();await pc.setLocalDescription(offer);await lsWaitIce(pc,2000);
+  var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/sdp'},body:pc.localDescription.sdp});
+  if(!(r.status>=200&&r.status<300)){try{pc.close();}catch(e){}throw new Error('WHIP '+r.status);}
+  var loc=r.headers.get('Location')||'';
+  await pc.setRemoteDescription({type:'answer',sdp:await r.text()});
+  try{ // tope de bitrate del video: cuida la subida del celular
+    var snd=pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
+    var p=snd.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];
+    p.encodings[0].maxBitrate=hPx>=1080?4500000:(hPx>=720?2500000:1200000);
+    await snd.setParameters(p);
+  }catch(e){}
+  var res='';try{res=loc?new URL(loc,url).href:'';}catch(e){}
+  return{pc:pc,resource:res};
+}
+// ═════════════ TRANSMISOR ═════════════
+function openBroadcastM(gid){
+  if(_BC.id){bcShowPanel();return;}
+  var gm=(S.games||[]).filter(function(g){return String(g.id)===String(gid);})[0];if(!gm)return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.RTCPeerConnection){toast('Este navegador o dispositivo no permite transmitir (cámara / WebRTC).','error');return;}
+  var canSave=hasModuleAccess('livestreamsave');
+  showM('<div class="mhd"><div class="mtl">&#128308; Transmitir en vivo</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);margin-bottom:12px">'+nfEsc((teamOf(gm.awayTeamId)||{}).name||'Visitante')+' vs '+nfEsc((teamOf(gm.homeTeamId)||{}).name||'Local')+'</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Cámara</label><select class="fi" id="bc-cam"><option value="environment">Trasera</option><option value="user">Delantera</option></select></div>'
+    +'<div class="fg"><label class="fl">Calidad</label><select class="fi" id="bc-res"><option value="720" selected>720p (recomendada)</option><option value="1080">1080p</option><option value="480">480p (poca señal)</option></select></div></div>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-mic" checked style="accent-color:var(--acc);width:16px;height:16px"> Transmitir con micrófono</label>'
+    +(canSave?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-rec" checked style="accent-color:var(--acc);width:16px;height:16px"> Guardar la transmisión (queda en el módulo Transmisiones)</label>'
+      :'<div style="font-size:11px;color:var(--t3);margin:6px 0">Esta transmisión no se guarda: al terminar se elimina.</div>')
+    +'<div class="alert ai" style="font-size:12px;margin-top:10px">El marcador y los gráficos los ve cada espectador encima del video; tú los eliges y mueves en <b>&#129513; Pantalla</b>. Puedes seguir anotando normalmente. Se mantendrá la pantalla encendida mientras transmites.</div>'
+    +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" id="bc-go" data-gid="'+nfEsc(gm.id)+'" onclick="bcStart(this.dataset.gid)">&#128308; Iniciar transmisión</button></div>');
+}
+async function bcStart(gid){
+  if(_BC.id)return;
+  var btn=document.getElementById('bc-go');if(btn){btn.disabled=true;btn.textContent='Conectando…';}
+  function reset(){if(btn){btn.disabled=false;btn.innerHTML='&#128308; Iniciar transmisión';}}
+  var cam=fv('bc-cam')||'environment',res=fv('bc-res')||'720',mic=!!(document.getElementById('bc-mic')||{}).checked,rec=!!(document.getElementById('bc-rec')||{}).checked;
+  var dims={'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[res]||[1280,720];
+  var stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cam},width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},audio:mic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false});
+  }catch(e){
+    reset();
+    toast(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara y al micrófono para transmitir.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','error');return;
+  }
+  var gm=(S.games||[]).filter(function(g){return String(g.id)===String(gid);})[0]||{};
+  var title=((teamOf(gm.awayTeamId)||{}).name||'')+' vs '+((teamOf(gm.homeTeamId)||{}).name||'');
+  var r=await api('streamStart',{gameId:gid,record:rec,title:title,layout:lsDefaultLayout()});
+  if(!r||!r.ok){stream.getTracks().forEach(function(t){t.stop();});reset();toast((r&&r.error)||'No se pudo iniciar la transmisión','error');return;}
+  var pub;
+  try{pub=await lsWhipPublish(r.whipUrl,stream,dims[1]);}
+  catch(e){
+    stream.getTracks().forEach(function(t){t.stop();});reset();
+    apiRaw('streamEnd',{id:r.stream.id,keep:false}).catch(function(){});
+    toast('No se pudo conectar con el servidor de video. Revisa tu conexión e inténtalo de nuevo.','error');return;
+  }
+  _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),
+    layout:(r.layout&&r.layout.length?r.layout:lsDefaultLayout()),t0:Date.now(),cam:cam,dims:dims,mic:mic,muted:false,limitSec:r.limitSec||0,remainSec:r.remainSec||0,warned:false};
+  bcWatchPc(pub.pc);
+  cM();bcMount();bcWake();
+  _BC.pingT=setInterval(bcPing,45000);
+  toast('¡Estás transmitiendo en vivo!','success');
+  try{goNav('gamecontrol');}catch(e){}
+}
+function bcWatchPc(pc){
+  pc.onconnectionstatechange=function(){
+    if(_BC.pc!==pc)return;
+    var s=pc.connectionState;
+    if(s==='connected'){bcStatus('EN VIVO');return;}
+    if(s==='failed'||s==='disconnected'||s==='closed'){
+      clearTimeout(_BC.rt);
+      _BC.rt=setTimeout(function(){if(_BC.pc===pc&&pc.connectionState!=='connected')bcReconnect();},s==='failed'?400:5000);
+    }
+  };
+}
+async function bcReconnect(){
+  if(!_BC.id||_BC.reconnecting)return;
+  _BC.reconnecting=true;bcStatus('Reconectando…');
+  try{
+    var old=_BC.pc;try{old.close();}catch(e){}
+    var pub=await lsWhipPublish(_BC.whip,_BC.stream,_BC.dims[1]);
+    if(!_BC.id){try{pub.pc.close();}catch(e){}return;}
+    _BC.pc=pub.pc;_BC.res=pub.resource;bcWatchPc(pub.pc);
+  }catch(e){if(_BC.id)_BC.rt=setTimeout(bcReconnect,4000);}
+  _BC.reconnecting=false;
+}
+function bcStatus(t){var e=document.getElementById('bcf-st');if(e){e.textContent=t;e.className=t==='EN VIVO'?'':'bcf-warn';}}
+async function bcWake(){try{if(navigator.wakeLock&&_BC.id){_BC.wl=await navigator.wakeLock.request('screen');}}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(_BC.id&&document.visibilityState==='visible'){bcWake();bcPing();}});
+window.addEventListener('beforeunload',function(e){if(_BC&&_BC.id){e.preventDefault();e.returnValue='';}});
+// Latido (cada 45 s): mantiene viva la transmision en el servidor y avisa si el juego termino / se cerro
+function bcPing(){
+  if(!_BC.id)return;
+  var gm=(S.games||[]).filter(function(g){return String(g.id)===String(_BC.gameId);})[0];
+  apiRaw('streamPing',{id:_BC.id}).then(function(r){
+    if(!_BC.id||!r)return;
+    if(r.ended||(gm&&gm.status==='final')){
+      var rec=_BC.record;
+      bcStopLocal(r.limit?('Se alcanzó el límite de duración: la transmisión finalizó'+(rec?' y se guardó.':'.')):((r.gameFinal||(gm&&gm.status==='final'))?('El juego terminó: la transmisión finalizó'+(rec?' y se guardó.':'.')):'La transmisión terminó.'));
+      return;
+    }
+    if(r.remainSec!=null&&r.remainSec<=300&&!_BC.warned){_BC.warned=true;toast('La transmisión terminará en '+Math.max(1,Math.round(r.remainSec/60))+' min (límite de duración fijado por el administrador).','info');}
+  }).catch(function(){});
+}
+function bcStopLocal(msg){
+  var b=_BC;_BC={};
+  try{clearInterval(b.pingT);clearInterval(b.tmT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
+  try{if(b.res)fetch(b.res,{method:'DELETE'}).catch(function(){});}catch(e){}
+  try{if(b.pc)b.pc.close();}catch(e){}
+  try{if(b.stream)b.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  try{if(b.wl)b.wl.release();}catch(e){}
+  ['bc-float','bc-stage'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});
+  if(msg)toast(msg,'info');
+  try{if(curP==='gamecontrol')pgGC();}catch(e){}
+}
+function bcEnd(){
+  if(!_BC.id)return;
+  if(_BC.record&&_BC.canSave){
+    showM('<div class="mhd"><div class="mtl">&#9209; Finalizar transmisión</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'
+      +'<div style="font-size:14px;margin-bottom:12px">¿Qué hacemos con la grabación?</div>'
+      +'<button class="btn bp" style="width:100%;margin-bottom:8px" onclick="bcEndDo(true)">&#128190; Guardar y finalizar</button>'
+      +'<button class="btn bd" style="width:100%;margin-bottom:8px" onclick="bcEndDo(false)">&#128465; Descartar y finalizar</button>'
+      +'<button class="btn bs" style="width:100%" onclick="cM()">Seguir transmitiendo</button></div>');
+  }else{
+    showM('<div class="mhd"><div class="mtl">&#9209; Finalizar transmisión</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div style="font-size:14px">¿Finalizar la transmisión en vivo?'+(_BC.record?'':' No se guarda: se elimina al terminar.')+'</div></div>'
+      +'<div class="mft"><button class="btn bs" onclick="cM()">Seguir transmitiendo</button><button class="btn bd" onclick="bcEndDo(false)">Finalizar</button></div>');
+  }
+}
+async function bcEndDo(keep){
+  cM();
+  var id=_BC.id;if(!id)return;
+  bcStopLocal();
+  var r=await api('streamEnd',{id:id,keep:!!keep});
+  if(r&&r.ok&&r.saved){toast('Transmisión guardada. La verás en el módulo Transmisiones.','success');}
+  else if(r&&r.ok){toast('Transmisión finalizada.','success');}
+  else toast((r&&r.error)||'La transmisión se cerró, pero el servidor no confirmó el cierre.','error');
+}
+// ── Ventanita flotante del transmisor (vista previa + controles), movible ──────────────────────────────────────────────────────────
+function bcMount(){
+  var old=document.getElementById('bc-float');if(old)old.remove();
+  var pos={};try{pos=JSON.parse(localStorage.getItem('vp_bc_pos')||'{}');}catch(e){}
+  var el=document.createElement('div');el.id='bc-float';el.className='bcf';
+  el.style.right=(pos.r!=null?pos.r:10)+'px';el.style.bottom=(pos.b!=null?pos.b:84)+'px';
+  el.innerHTML='<div class="bcf-bar" id="bcf-drag"><span class="bcf-dot"></span><b id="bcf-st">EN VIVO</b><span id="bcf-tm">00:00</span><button class="bcf-min" id="bcf-min" title="Minimizar">&#8211;</button></div>'
+    +'<video id="bcf-v" muted autoplay playsinline></video>'
+    +'<div class="bcf-btns"><button id="bcf-mic" title="Micrófono">&#127908;</button><button id="bcf-flip" title="Cambiar cámara">&#128260;</button><button id="bcf-scr" title="Pantalla: gráficos que ven los espectadores">&#129513;</button><button id="bcf-end" class="bcf-stop" title="Finalizar transmisión">&#9209;</button></div>';
+  document.body.appendChild(el);
+  var v=document.getElementById('bcf-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
+  document.getElementById('bcf-scr').onclick=bcOpenStage;
+  document.getElementById('bcf-end').onclick=bcEnd;
+  document.getElementById('bcf-flip').onclick=bcFlip;
+  document.getElementById('bcf-mic').onclick=bcToggleMic;
+  document.getElementById('bcf-min').onclick=function(){el.classList.toggle('bcf-mini');};
+  _BC.tmT=setInterval(function(){var t=document.getElementById('bcf-tm');if(t)t.textContent=lsDur((Date.now()-_BC.t0)/1000)+(_BC.limitSec?' / '+lsDur(_BC.limitSec):'');},1000);
+  // arrastrar por la barra (se guarda la posicion)
+  var bar=document.getElementById('bcf-drag');
+  bar.addEventListener('pointerdown',function(e){
+    if(e.target.id==='bcf-min')return;
+    e.preventDefault();bar.setPointerCapture(e.pointerId);
+    var sx=e.clientX,sy=e.clientY,r0=parseFloat(el.style.right)||0,b0=parseFloat(el.style.bottom)||0;
+    function mv(ev){
+      var r=Math.min(window.innerWidth-80,Math.max(0,r0-(ev.clientX-sx))),b=Math.min(window.innerHeight-60,Math.max(0,b0-(ev.clientY-sy)));
+      el.style.right=r+'px';el.style.bottom=b+'px';
+    }
+    function up(){bar.removeEventListener('pointermove',mv);bar.removeEventListener('pointerup',up);bar.removeEventListener('pointercancel',up);
+      try{localStorage.setItem('vp_bc_pos',JSON.stringify({r:parseFloat(el.style.right),b:parseFloat(el.style.bottom)}));}catch(e){}}
+    bar.addEventListener('pointermove',mv);bar.addEventListener('pointerup',up);bar.addEventListener('pointercancel',up);
+  });
+}
+function bcShowPanel(){var e=document.getElementById('bc-float');if(e){e.classList.remove('bcf-mini');}else if(_BC.id)bcMount();}
+function bcToggleMic(){
+  if(!_BC.stream)return;
+  var a=_BC.stream.getAudioTracks()[0];if(!a){toast('Esta transmisión no tiene micrófono.','info');return;}
+  a.enabled=!a.enabled;var b=document.getElementById('bcf-mic');if(b){b.style.opacity=a.enabled?'1':'.4';b.title=a.enabled?'Micrófono activo':'Micrófono silenciado';}
+  toast(a.enabled?'Micrófono activado':'Micrófono silenciado','info');
+}
+async function bcFlip(){
+  if(!_BC.id||_BC.flipping)return;
+  _BC.flipping=true;
+  var nxt=_BC.cam==='environment'?'user':'environment';
+  try{
+    var ns=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:nxt},width:{ideal:_BC.dims[0]},height:{ideal:_BC.dims[1]},frameRate:{ideal:30,max:30}}});
+    var nt=ns.getVideoTracks()[0];
+    var snd=_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
+    if(snd)await snd.replaceTrack(nt);
+    _BC.stream.getVideoTracks().forEach(function(t){t.stop();_BC.stream.removeTrack(t);});
+    _BC.stream.addTrack(nt);_BC.cam=nxt;
+    var v=document.getElementById('bcf-v');if(v){v.srcObject=_BC.stream;}
+    var v2=document.getElementById('bcs-v');if(v2){v2.srcObject=_BC.stream;}
+  }catch(e){toast('No se pudo cambiar de cámara.','error');}
+  _BC.flipping=false;
+}
+// ── Editor de pantalla: elige y mueve los graficos que veran los espectadores ──────────────────────────────────────────────────────
+function bcOpenStage(){
+  if(!_BC.id)return;
+  var old=document.getElementById('bc-stage');if(old)old.remove();
+  var cat=lsCatalog();
+  var el=document.createElement('div');el.id='bc-stage';el.className='bcs';
+  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño. Los espectadores lo ven al instante.</div></div><button class="btn bp bsm" id="bcs-ok">Listo</button></div>'
+    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline></video><div class="bcs-items" id="bcs-items"></div></div></div>'
+    +'<div class="bcs-tray" id="bcs-tray"></div>';
+  document.body.appendChild(el);
+  var v=document.getElementById('bcs-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
+  var host=document.getElementById('bcs-items');
+  function has(id){return _BC.layout.some(function(x){return x.id===id;});}
+  function drawTray(){
+    document.getElementById('bcs-tray').innerHTML=cat.map(function(c){
+      return'<button class="bcs-chip'+(has(c.id)?' on':'')+'" data-id="'+c.id+'">'+(has(c.id)?'&#10003; ':'+ ')+nfEsc(c.label)+'</button>';
+    }).join('');
+  }
+  function redraw(){lsRenderItems(host,_BC.layout,_BC.gameId,true);drawTray();}
+  document.getElementById('bcs-tray').addEventListener('click',function(e){
+    var b=e.target.closest('.bcs-chip');if(!b)return;
+    var id=b.getAttribute('data-id'),c=cat.filter(function(x){return x.id===id;})[0];if(!c)return;
+    if(has(id)){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
+    else{
+      var p=LS_DEF_POS[c.page]||[8+(_BC.layout.length%4)*4,8+(_BC.layout.length%4)*6];
+      _BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:p[0],y:p[1],w:c.dw,lw:c.lw,lh:c.lh,z:_BC.layout.length+1});
+    }
+    redraw();bcCommitLayout();
+  });
+  document.getElementById('bcs-ok').onclick=function(){el.remove();};
+  _BC.stageRedraw=redraw;
+  redraw();
+  if(window.ResizeObserver){var ro=new ResizeObserver(function(){lsRescale(host,_BC.layout);});ro.observe(document.getElementById('bcs-stage'));}
+  else window.addEventListener('resize',function(){lsRescale(host,_BC.layout);});
+}
+// Asas de un grafico en el editor: mover (arrastrar), tamano (esquina) y quitar (x)
+function lsBindEdit(el,it0){
+  function item(){return _BC.layout.filter(function(x){return x.id===it0.id;})[0];}
+  function stageRect(){return document.getElementById('bcs-stage').getBoundingClientRect();}
+  function drag(e,mode){
+    var it=item();if(!it)return;
+    e.preventDefault();e.stopPropagation();
+    var cap=e.currentTarget;try{cap.setPointerCapture(e.pointerId);}catch(x){}
+    var r=stageRect(),sx=e.clientX,sy=e.clientY,ox=it.x,oy=it.y,ow=it.w;
+    function mv(ev){
+      var dx=(ev.clientX-sx)/r.width*100,dy=(ev.clientY-sy)/r.height*100;
+      if(mode==='move'){
+        var hp=it.w*(r.width/r.height)*it.lh/it.lw;
+        it.x=Math.round(Math.max(0,Math.min(100-it.w,ox+dx))*10)/10;it.y=Math.round(Math.max(0,Math.min(Math.max(0,100-hp),oy+dy))*10)/10;
+      }else{
+        it.w=Math.round(Math.max(6,Math.min(100-it.x,ow+dx))*10)/10;
+      }
+      el.style.left=it.x+'%';el.style.top=it.y+'%';el.style.width=it.w+'%';
+      lsRescale(el.parentNode,[it]);
+    }
+    function up(){cap.removeEventListener('pointermove',mv);cap.removeEventListener('pointerup',up);cap.removeEventListener('pointercancel',up);bcCommitLayout();}
+    cap.addEventListener('pointermove',mv);cap.addEventListener('pointerup',up);cap.addEventListener('pointercancel',up);
+  }
+  el.querySelector('.lsi-bd').addEventListener('pointerdown',function(e){drag(e,'move');});
+  el.querySelector('.lsi-rs').addEventListener('pointerdown',function(e){drag(e,'size');});
+  el.querySelector('.lsi-x').addEventListener('click',function(e){
+    e.stopPropagation();_BC.layout=_BC.layout.filter(function(x){return x.id!==it0.id;});
+    if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();
+  });
+}
+// Guarda el layout (con espera de 0.6 s para no mandar cada movimiento) y recuerda el ultimo usado para la proxima transmision
+function bcCommitLayout(){
+  clearTimeout(_BC.saveT);
+  _BC.saveT=setTimeout(function(){
+    if(!_BC.id)return;
+    try{localStorage.setItem('vp_bc_layout',JSON.stringify(_BC.layout));}catch(e){}
+    apiRaw('streamUpdate',{id:_BC.id,layout:_BC.layout}).then(function(r){if(r&&r.ok===false&&r.error)toast(r.error,'error');}).catch(function(){});
+  },600);
+}
+// ═════════════ ESPECTADOR ═════════════
+function spClose(silent){
+  try{clearInterval(_SP.poll);clearTimeout(_SP.retry);}catch(e){}
+  try{if(_SP.pc)_SP.pc.close();}catch(e){}
+  try{if(_SP.ro)_SP.ro.disconnect();}catch(e){}
+  _SP={};
+  var e=document.getElementById('ls-player');if(e)e.remove();
+}
+function openStreamPlayer(id){
+  spClose(true);
+  var st=_LS.list.filter(function(s){return s.id===id;})[0];
+  _SP={id:id,gameId:st?st.gameId:'',host:st?st.playHost:'',uid:st?st.liveUid:'',items:[],ver:-1,tries:0,title:st?st.title:''};
+  var el=document.createElement('div');el.id='ls-player';el.className='lsp';
+  el.innerHTML='<div class="lsp-top"><button class="btn bs bsm" onclick="spClose()">&#8592; Volver</button><div class="lsp-ttl" id="lsp-ttl">&#128308; EN VIVO'+(st&&st.title?' · '+nfEsc(st.title):'')+'</div></div>'
+    +'<div class="lsp-wrap"><div class="lsp-stage" id="lsp-stage"><video id="lsp-v" autoplay playsinline muted></video><div class="bcs-items" id="lsp-items"></div>'
+    +'<div class="lsp-msg" id="lsp-msg">Conectando…</div><button class="lsp-snd" id="lsp-snd" style="display:none" onclick="spUnmute()">&#128266; Activar sonido</button></div></div>';
+  document.body.appendChild(el);
+  var host=document.getElementById('lsp-items');
+  if(window.ResizeObserver){_SP.ro=new ResizeObserver(function(){lsRescale(host,_SP.items);});_SP.ro.observe(document.getElementById('lsp-stage'));}
+  spPoll(true);
+  _SP.poll=setInterval(function(){spPoll(false);},4000);
+}
+function spUnmute(){var v=document.getElementById('lsp-v');if(v){v.muted=false;try{v.play();}catch(e){}}var b=document.getElementById('lsp-snd');if(b)b.style.display='none';}
+function spMsg(t){var m=document.getElementById('lsp-msg');if(!m)return;if(t){m.textContent=t;m.style.display='flex';}else m.style.display='none';}
+function spPoll(first){
+  var sid=_SP.id;if(!sid)return;
+  apiRaw('getStreamState',{id:sid}).then(function(r){
+    if(_SP.id!==sid||!r||!r.ok)return;
+    var s=r.stream||{};
+    if(r.status==='live'){
+      if(first||!_SP.pc&&!_SP.fallback){if(s.playHost)_SP.host=s.playHost;if(s.liveUid)_SP.uid=s.liveUid;if(!_SP.started){_SP.started=true;spConnect();}}
+      if(s.gameId)_SP.gameId=s.gameId;
+      if(r.stream&&_SP.ver!==r.stream.ver){_SP.ver=r.stream.ver;_SP.items=r.layout||[];var h=document.getElementById('lsp-items');if(h)lsRenderItems(h,_SP.items,_SP.gameId,false);}
+    }else{
+      // termino: si se guardo, se ofrece verla grabada
+      clearInterval(_SP.poll);
+      try{if(_SP.pc)_SP.pc.close();}catch(e){}_SP.pc=null;
+      var v=document.getElementById('lsp-v');if(v)v.srcObject=null;
+      var fr=document.getElementById('lsp-fb');if(fr)fr.remove();
+      var h2=document.getElementById('lsp-items');if(h2)h2.innerHTML='';
+      var m=document.getElementById('lsp-msg');
+      if(m){
+        m.style.display='flex';
+        m.innerHTML='<div style="text-align:center">La transmisión terminó.'+(r.status==='saved'&&s.videoUid?'<br><button class="btn bp" style="margin-top:12px" onclick="spClose();openSavedStream(\''+nfEsc(sid)+'\')">&#9654; Ver grabación</button>':'<br><button class="btn bs" style="margin-top:12px" onclick="spClose()">Volver</button>')+'</div>';
+      }
+    }
+  }).catch(function(){});
+}
+async function spConnect(){
+  var sid=_SP.id;if(!sid||!_SP.host||!_SP.uid)return;
+  spMsg('Conectando…');
+  var url='https://'+_SP.host+'/'+_SP.uid+'/webRTC/play';
+  try{
+    var pc=new RTCPeerConnection({iceServers:LS_ICE,bundlePolicy:'max-bundle'});
+    _SP.pc=pc;
+    pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
+    var got=false;
+    pc.ontrack=function(e){
+      var v=document.getElementById('lsp-v');if(!v||_SP.id!==sid)return;
+      if(e.streams&&e.streams[0])v.srcObject=e.streams[0];
+      got=true;spMsg('');
+      var p=v.play();if(p&&p.catch)p.catch(function(){});
+      var b=document.getElementById('lsp-snd');if(b&&v.muted)b.style.display='block';
+    };
+    pc.onconnectionstatechange=function(){
+      if(_SP.id!==sid||_SP.pc!==pc)return;
+      if(pc.connectionState==='failed'||pc.connectionState==='closed')spRetry();
+    };
+    var offer=await pc.createOffer();await pc.setLocalDescription(offer);await lsWaitIce(pc,1500);
+    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/sdp'},body:pc.localDescription.sdp});
+    if(!(r.status>=200&&r.status<300))throw new Error('WHEP '+r.status);
+    await pc.setRemoteDescription({type:'answer',sdp:await r.text()});
+    setTimeout(function(){if(_SP.id===sid&&_SP.pc===pc&&!got)spRetry();},9000);
+  }catch(e){if(_SP.id===sid)spRetry();}
+}
+// Reintenta WebRTC unas veces (el transmisor puede estar conectandose) y luego usa el reproductor HLS de Stream como respaldo
+function spRetry(){
+  var sid=_SP.id;if(!sid||_SP.fallback)return;
+  try{if(_SP.pc)_SP.pc.close();}catch(e){}_SP.pc=null;
+  _SP.tries=(_SP.tries||0)+1;
+  if(_SP.tries>=4){
+    _SP.fallback=true;
+    var stg=document.getElementById('lsp-stage'),v=document.getElementById('lsp-v');
+    if(stg&&_SP.host&&_SP.uid){
+      if(v)v.style.display='none';
+      var f=document.createElement('iframe');f.id='lsp-fb';f.className='lsp-fb';
+      f.allow='autoplay; fullscreen; picture-in-picture';f.setAttribute('allowfullscreen','true');
+      f.src='https://'+_SP.host+'/'+_SP.uid+'/iframe?autoplay=true&muted=true&letterboxColor=transparent';
+      stg.insertBefore(f,stg.firstChild);spMsg('');
+    }
+    return;
+  }
+  spMsg('Esperando la señal…');
+  clearTimeout(_SP.retry);_SP.retry=setTimeout(function(){if(_SP.id===sid)spConnect();},3000);
+}
+// Grabacion guardada (reproductor HLS de Stream)
+function openSavedStream(id){
+  var s=(_LS.saved||[]).filter(function(x){return x.id===id;})[0];
+  var go=function(s){
+    if(!s||!s.videoUid||!s.playHost){toast('La grabación no está disponible.','error');return;}
+    spClose(true);
+    var el=document.createElement('div');el.id='ls-player';el.className='lsp';
+    el.innerHTML='<div class="lsp-top"><button class="btn bs bsm" onclick="spClose()">&#8592; Volver</button><div class="lsp-ttl">&#127916; '+nfEsc(s.title||'Transmisión')+'</div></div>'
+      +'<div class="lsp-wrap"><div class="lsp-stage"><iframe class="lsp-fb" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://'+nfEsc(s.playHost)+'/'+nfEsc(s.videoUid)+'/iframe"></iframe></div></div>';
+    document.body.appendChild(el);
+  };
+  if(s)return go(s);
+  apiRaw('getStreams',{}).then(function(r){go(((r&&r.streams)||[]).filter(function(x){return x.id===id;})[0]);}).catch(function(){});
+}
+// ═════════════ MODULO "TRANSMISIONES" ═════════════
+function pgStreams(){
+  var tid=sharedTourId();
+  renderStreams();
+  lsRefresh(true).then(function(){if(curP==='streams')renderStreams();});
+  if(!_LS.savedLoaded||_LS.savedTid!==String(tid||'')||Date.now()-_LS.savedAt>30000){
+    apiRaw('getStreams',{tournamentId:tid||''}).then(function(r){
+      if(r&&r.ok){_LS.saved=r.streams||[];_LS.savedTid=String(tid||'');_LS.savedAt=Date.now();_LS.savedLoaded=true;_LS.savedFailed=false;}
+      else{_LS.savedFailed=true;_LS.savedErr=(r&&r.error)||'';}
+      if(curP==='streams')renderStreams();
+    }).catch(function(){_LS.savedFailed=true;if(curP==='streams')renderStreams();});
+  }
+}
+function lsThumb(s){return s.videoUid&&s.playHost?'https://'+s.playHost+'/'+s.videoUid+'/thumbnails/thumbnail.jpg?time=3s&height=270':'';}
+function renderStreams(){
+  var tid=sharedTourId();
+  var tOpts='<option value="">Todos los Torneos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(tid===t.id?'selected':'')+'>'+nfEsc(t.name)+'</option>';}).join('');
+  var scope=toursByYear().map(function(t){return String(t.id);});
+  function inScope(s){return tid?String(s.tournamentId)===String(tid):(!s.tournamentId||scope.indexOf(String(s.tournamentId))>=0);}
+  var live=(_LS.list||[]).filter(inScope);
+  var saved=(_LS.saved||[]).filter(inScope);
+  var canDel=hasModuleAccess('livestreamsave');
+  var head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">'
+    +'<div><div class="stl">&#128225; Transmisiones</div><div class="ssb">Juegos transmitidos en vivo desde la app</div></div>'
+    +'<select class="fi" style="width:auto;min-width:180px" onchange="setSharedTour(this.value);pgStreams()">'+tOpts+'</select></div>';
+  var liveHtml=live.length?'<div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--red);margin:4px 0 10px">&#128308; EN VIVO AHORA</div><div class="vgrid">'+live.map(function(s){
+    return'<div class="vcard" data-sid="'+nfEsc(s.id)+'" onclick="openStreamPlayer(this.dataset.sid)"><div class="vthumb" style="background:#000"><span class="vplay">&#9654;</span><span class="lsbadge">EN VIVO</span></div>'
+      +'<div class="vinfo"><div class="vtitle">'+nfEsc(s.title||'Juego en vivo')+'</div><div class="vmeta"><span>'+nfEsc(s.by||'')+'</span><span>&middot; '+vidAgo(s.startedAt)+'</span></div></div></div>';
+  }).join('')+'</div>':'';
+  var savedHtml;
+  if(!_LS.savedLoaded&&!_LS.savedFailed)savedHtml='<div class="card"><div class="empty">Cargando…</div></div>';
+  else if(_LS.savedFailed&&!_LS.savedLoaded)savedHtml='<div class="alert aw" style="font-size:12px">'+nfEsc(_LS.savedErr||'No se pudieron cargar las transmisiones guardadas.')+'</div>';
+  else savedHtml=saved.length?'<div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--acc);margin:14px 0 10px">GUARDADAS</div><div class="vgrid">'+saved.map(function(s){
+    var th=lsThumb(s);
+    return'<div class="vcard" data-sid="'+nfEsc(s.id)+'" onclick="openSavedStream(this.dataset.sid)"><div class="vthumb">'+(th?'<img loading="lazy" src="'+nfEsc(th)+'" alt="" onerror="this.remove()">':'')+'<span class="vplay">&#9654;</span></div>'
+      +'<div class="vinfo"><div class="vtitle">'+nfEsc(s.title||'Transmisión')+'</div><div class="vmeta"><span>'+(vidDate(s.startedAt)||'')+'</span><span>&middot; '+lsDur(s.durationSec)+'</span></div>'
+      +(canDel?'<div style="margin-top:6px"><button class="btn bd bsm" data-sid="'+nfEsc(s.id)+'" onclick="event.stopPropagation();delStream(this.dataset.sid)">&#128465; Eliminar</button></div>':'')+'</div></div>';
+  }).join('')+'</div>':(live.length?'':'<div class="card"><div class="empty"><div style="font-size:30px">&#128225;</div><div>Aún no hay transmisiones'+(tid?' en este subtorneo':'')+'.</div></div></div>');
+  ct(head+sponsorPinnedBanner('pinVideos','&#128225; Transmisiones presentadas gracias a')+liveHtml+savedHtml);
+}
+function delStream(id){
+  showM('<div class="mhd"><div class="mtl">Eliminar transmisión</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div style="font-size:14px">Se eliminará la grabación de Cloudflare y no se podrá recuperar.</div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bd" data-sid="'+nfEsc(id)+'" onclick="delStreamGo(this.dataset.sid)">Eliminar</button></div>');
+}
+async function delStreamGo(id){
+  cM();
+  var r=await api('deleteStream',{id:id});
+  if(r&&r.ok){_LS.saved=(_LS.saved||[]).filter(function(s){return s.id!==id;});toast('Transmisión eliminada','success');if(curP==='streams')renderStreams();}
+  else toast((r&&r.error)||'No se pudo eliminar','error');
+}
+
+function openTransmissionPanel(gameId){
+  var winName='panel_transmision_'+gameId;
+  // IMPORTANTE: aqui NO se usa 'noopener' — con esa opcion el navegador SI abre la ventana,
+  // pero por especificacion window.open() devuelve null (no da la referencia), asi que no
+  // podriamos escribirle el contenido (queda en blanco) y el chequeo de abajo pensaria,
+  // incorrectamente, que el popup fue bloqueado.
+  var w=window.open('',winName,'width=320,height=560,resizable=yes,scrollbars=yes');
+  if(!w){toast('El navegador bloqueo la ventana emergente. Habilita las ventanas emergentes para este sitio.','error');return;}
+  function abs(page,extra){
+    var u=new URL(page,window.location.href);
+    u.searchParams.set('game',gameId);
+    var wn=page+'_'+gameId;
+    if(extra)Object.keys(extra).forEach(function(k){u.searchParams.set(k,extra[k]);wn+='_'+extra[k];});
+    return{href:u.href,winName:wn};
+  }
+  var items=TP_ITEMS;
   var rows=items.map(function(it,i){
     var r=abs(it.page,it.extra),dim='width='+(it.w||460)+',height='+(it.h||340)+',resizable=yes,noopener';
     var main='<button class="pt-btn" onclick="window.open(\''+r.href.replace(/'/g,"\\'")+'\',\''+r.winName+'\',\''+dim+'\')">'
@@ -8025,7 +8700,7 @@ function pgGC(){
     +'</div>'
     +'<div style="overflow-x:auto"><table class="lst"><thead><tr><th class="tc">Equipo</th>'+hdrs+'<th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th></tr></thead><tbody>'+lsRow(aw,true)+lsRow(hw,false)+'</tbody></table></div>'
     +'</div>'
-    +((S.user&&S.user.role==='public'&&gm.status==='live'&&(S.channels||[]).filter(function(c){return c.tournamentId===gm.tournamentId;}).length)?'<div style="text-align:center;margin:14px 0"><button class="btn bp" style="font-size:14px;padding:10px 24px" data-tid="'+gm.tournamentId+'" onclick="watchLiveChannel(this.dataset.tid)">&#128250; Ver Transmisión en Vivo</button></div>':'')
+    +'<div id="gc-watch">'+gcWatchHtml(gm)+'</div>'
     +'<div class="g2">'
     +'<div>'
     +'<div style="background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:12px 16px;margin-bottom:8px">'
@@ -8044,6 +8719,7 @@ function pgGC(){
       +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
+    +(hasModuleAccess('livestream')&&gm.status!=='final'?(_BC.id&&String(_BC.gameId)===String(gm.id)?'<button class="btn bd bsm" onclick="bcShowPanel()" title="Muestra los controles de tu transmisión">&#128308; Transmitiendo · controles</button>':'<button class="btn bd bsm" data-gid="'+gm.id+'" onclick="openBroadcastM(this.dataset.gid)" title="Transmite este juego con la cámara de tu dispositivo">&#128308; Transmitir en vivo</button>'):'')
     +(hasModuleAccess('transmissionpanel')?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>':'')
       +'</div>':'')
     +'</div>'
@@ -12003,7 +12679,7 @@ async function applyRunnerSub(gid,tid,base){
       // era CF, el que entra tambien queda como CF) — antes se priorizaba la posicion "por
       // defecto" del jugador entrante (np.position), ignorando la posicion real que ocupaba en
       // este lineup el corredor al que esta reemplazando.
-      position:outLp?outLp.position:(np&&np.position||'OF'),
+      position:outLp?outLp.position:lineupPosOf(np&&np.position),
       originalPosition:null,
       isSubstitute:true,
       replacedPlayerId:outId,
@@ -12080,7 +12756,7 @@ async function applySub(gid,tid,type){
   }
 
   var np=playerOf(inId);
-  var origPos=np&&np.position||'OF';
+  var origPos=lineupPosOf(np&&np.position);
 
   if(isPitcherChange){
     if(pitMantiene){
@@ -12225,7 +12901,7 @@ function pickAddToLineupPos(side,tid){
   var pid=sel&&sel.value;
   if(!pid){toast('Selecciona un jugador','error');return;}
   var p=playerOf(pid);
-  var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(p&&p.position===ps?'selected':'')+'>'+ps+'</option>';}).join('');
+  var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(lineupPosOf(p&&p.position)===ps?'selected':'')+'>'+ps+'</option>';}).join('');
   showM('<div class="mhd"><div class="mtl">&#9918; Posición de entrada</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div style="font-size:13px;color:var(--t2);margin-bottom:12px">#'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entrará a jugar en:</div>'
     +'<select class="fs" id="atl-pos">'+pOpts+'</select>'
@@ -14234,6 +14910,8 @@ function pgStats(tid,sBy,pSBy){
     var teamNamesPit=[];relatedIds.map(playerOf).filter(function(x){return x;}).forEach(function(r){var tm=teamOf(r.teamId);if(tm&&teamNamesPit.indexOf(tm.name)<0)teamNamesPit.push(tm.name);});
     pitGroupsST.push({rep:activeRec||p,ids:relatedIds,teamNames:teamNamesPit});
   });
+  var _evByPitST={};
+  evs.forEach(function(e){if(e.pitcherId){(_evByPitST[e.pitcherId]=_evByPitST[e.pitcherId]||[]).push(e);}});
   var pitData=pitGroupsST.map(function(pg){
     var p=pg.rep,ids=pg.ids;var pe=_pevsOfPit(ids);
     var ip=sumIP(pe);
@@ -14248,6 +14926,10 @@ function pgStats(tid,sBy,pSBy){
     var sv=pe.filter(function(e){return e.decision==='S';}).length;
     var eraNum=ip>0?calcPitcherERA(pe):99;
     var whipNum=ip>0?(h+bb)/ip:99;
+    // AVG contra: hits permitidos / turnos oficiales enfrentados (mismo criterio que VB)
+    var _abA=0,_hA=0;
+    ids.forEach(function(id){(_evByPitST[id]||[]).forEach(function(e){if(['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0)_abA++;if(['H1','H2','H3','HR'].indexOf(e.type)>=0)_hA++;});});
+    var baaNum=_abA>0?_hA/_abA:99;
     var tm=p?teamOf(p.teamId):null;
     // Home/Away splits: pitcher is HOME when their teamId === game.homeTeamId
     function pitSplit(isHome){
@@ -14264,7 +14946,7 @@ function pgStats(tid,sBy,pSBy){
       return{ip:sip,h:sh,er:ser,bb:sbb,k:sk,w:sw,l:sl,era:sera,whip:swhip,gp:spe.length};
     }
     var homeS=pitSplit(true),awayS=pitSplit(false);
-    return{p:p,tm:tm,teamNames:pg.teamNames,ip:ip,h:h,r:r,er:er,bb:bb,k:k,hr:hr,w:w,l:l,sv:sv,era:eraNum,whip:whipNum,homeS:homeS,awayS:awayS};
+    return{p:p,tm:tm,teamNames:pg.teamNames,ip:ip,h:h,r:r,er:er,bb:bb,k:k,hr:hr,w:w,l:l,sv:sv,era:eraNum,whip:whipNum,baa:baaNum,homeS:homeS,awayS:awayS};
   }).sort(function(a,b){
     var col=_ST.pitSortBy;
     // Orden por nombre de pitcher: comparacion alfabetica en vez de resta numerica.
@@ -14274,7 +14956,7 @@ function pgStats(tid,sBy,pSBy){
     }
     var av=a[col],bv=b[col];
     // For era/whip: treat 99 (no IP) as worst regardless of sort dir
-    if(col==='era'||col==='whip'){
+    if(col==='era'||col==='whip'||col==='baa'){
       if(av===99&&bv===99)return 0;
       if(av===99)return 1;
       if(bv===99)return -1;
@@ -14309,6 +14991,7 @@ function pgStats(tid,sBy,pSBy){
       +'<td style="text-align:center;color:'+(_ST.pitSortBy==='hr'?'var(--acc)':'inherit')+'">'+s.hr+'</td>'
       +'<td style="text-align:center;font-weight:700;color:'+(s.ip>0?(s.era<3?'var(--grn)':s.era>6?'var(--red)':'var(--acc)'):'var(--t3)')+'">'+eraStr+'</td>'
       +'<td style="text-align:center">'+whipStr+'</td>'
+      +'<td style="text-align:center">'+(s.baa<99?s.baa.toFixed(3):'&mdash;')+'</td>'
       +pitSplitCell(s.awayS)+pitSplitCell(s.homeS)
       +'</tr>';
   }).join('');
@@ -14451,8 +15134,8 @@ function pgStats(tid,sBy,pSBy){
         +'<td style="text-align:center">'+s.obp.toFixed(3)+'</td><td style="text-align:center">'+s.slg.toFixed(3)+'</td></tr>';
     }).join('')||'<tr><td colspan="15"><div class="empty">Sin estadisticas</div></td></tr>')
     +'</tbody></table></div></div></div>'
-    +'<div id="st-p" style="'+(_ST.activeTab==='st-p'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'+pth('name','Pitcher')+'<th>Equipo</th>'+pth('w','G')+pth('l','P')+pth('sv','S')+pth('ip','IP')+pth('h','H')+pth('r','R')+pth('er','ER')+pth('bb','BB')+pth('k','K')+pth('hr','HR')+pth('era','ERA')+pth('whip','WHIP')+'<th style="text-align:center;font-size:10px">&#9992; RUTA<br><span style="font-size:9px">G-P / ERA</span></th><th style="text-align:center;font-size:10px">&#127968; LOCAL<br><span style="font-size:9px">G-P / ERA</span></th></tr></thead><tbody>'
-    +(pitRows||'<tr><td colspan="14"><div class="empty">Sin estadisticas de pitcheo</div></td></tr>')
+    +'<div id="st-p" style="'+(_ST.activeTab==='st-p'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'+pth('name','Pitcher')+'<th>Equipo</th>'+pth('w','G')+pth('l','P')+pth('sv','S')+pth('ip','IP')+pth('h','H')+pth('r','R')+pth('er','ER')+pth('bb','BB')+pth('k','K')+pth('hr','HR')+pth('era','ERA')+pth('whip','WHIP')+pth('baa','AVG Cont.')+'<th style="text-align:center;font-size:10px">&#9992; RUTA<br><span style="font-size:9px">G-P / ERA</span></th><th style="text-align:center;font-size:10px">&#127968; LOCAL<br><span style="font-size:9px">G-P / ERA</span></th></tr></thead><tbody>'
+    +(pitRows||'<tr><td colspan="15"><div class="empty">Sin estadisticas de pitcheo</div></td></tr>')
     +'</tbody></table></div></div></div>'
     +'<div id="st-t" style="'+(_ST.activeTab==='st-t'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr>'
     +'<th>Equipo</th>'+tth('gp','JJ')+tth('w','G')+tth('l','P')+tth('pct','PCT')+tth('rf','RF')+tth('ra','RC')+tth('dif','DIF')+tth('rh','H')+tth('re','E')+tth('avg','AVG')+tth('hr','HR')+tth('rbi','RBI')+tth('bb','BB')+tth('k','K')+tth('era','ERA')
@@ -14511,11 +15194,18 @@ function leadersThresholdsFor(scopeTourIds,singleTourId,phase){
   // Fallback al campo legacy sin fase (torneo creado antes de existir el desglose por fase)
   if(vbRaw===null&&rep&&rep.leadersMinVb!==null&&rep.leadersMinVb!==undefined) vbRaw=Number(rep.leadersMinVb);
   if(ipRaw===null&&rep&&rep.leadersMinIp!==null&&rep.leadersMinIp!==undefined) ipRaw=Number(rep.leadersMinIp);
+  var phK=(ph==='playoff'||ph==='divchamp'?'Playoff':ph==='final'?'Final':'Regular');
+  function _n(f){return(rep&&rep[f]!==null&&rep[f]!==undefined)?Number(rep[f]):0;}
   return{
     vb: vbRaw!==null?vbRaw:0,
     ip: ipRaw!==null?ipRaw:0,
+    ipRp: _n('leadersMinIpRp'+phK),
+    ipCl: _n('leadersMinIpCl'+phK),
+    tpd: _n('leadersTurnosDia'),
     vbAuto: !!(rep&&rep.leadersVbAuto===true),
-    ipAuto: !!(rep&&rep.leadersIpAuto===true)
+    ipAuto: !!(rep&&rep.leadersIpAuto===true),
+    ipAutoRp: !!(rep&&rep.leadersIpAutoRp===true),
+    ipAutoCl: !!(rep&&rep.leadersIpAutoCl===true)
   };
 }
 // Umbral final de VB a aplicar: si vbAuto esta activo, es la MEDIA de VB entre los
@@ -14533,6 +15223,39 @@ function resolveMinIP(th,playersList,getIPFn){
   var thirdsList=playersList.map(function(p){return ipToThirds(getIPFn(p.ids));}).filter(function(v){return v>0;});
   if(!thirdsList.length) return 0;
   return thirdsToIP(Math.round(thirdsList.reduce(function(a,b){return a+b;},0)/thirdsList.length));
+}
+// Mayor cantidad de juegos jugados por un equipo en el alcance/fase actual, calculada igual que la
+// columna JJ de la tabla de Posiciones (juegos finales/oficiales, ganados+perdidos; Play In cuenta en
+// "Todas las fases"). Con un subtorneo especifico se agrupa por equipo; en "Todos", por nombre de equipo.
+function leadersMaxGamesPlayed(tourId,dateFrom,dateTo,teamIds){
+  var phase=S.phaseFilter;
+  var allow=null;
+  if(teamIds&&teamIds.length){allow={};teamIds.forEach(function(id){allow[String(id)]=1;});}
+  var fg=gamesByYear().filter(function(g){
+    var isOfficial=g.official===true||g.official==='true';
+    if(!(g.status==='final'||(g.status==='suspended'&&isOfficial)))return false;
+    if(tourId&&String(g.tournamentId)!==String(tourId))return false;
+    if(g.phase==='allstar')return false;
+    if(dateFrom&&(!g.date||g.date<dateFrom))return false;
+    if(dateTo&&(!g.date||g.date>dateTo))return false;
+    if(!phase)return true;
+    if(phase==='regular')return g.phase==='regular'||!g.phase;
+    return g.phase===phase;
+  });
+  var gp={},mx=0;
+  fg.forEach(function(g){
+    [[g.homeTeamId,true],[g.awayTeamId,false]].forEach(function(x){
+      var id=String(x[0]);
+      if(allow&&!allow[id])return;
+      if(teamIsAllstar(x[0]))return;
+      if(!(ffIsWin(g,x[1])||ffIsLoss(g,x[1])))return;
+      var tm=teamOf(x[0]);
+      var key=tourId?id:((tm&&tm.name||id).trim().toLowerCase());
+      gp[key]=(gp[key]||0)+1;
+      if(gp[key]>mx)mx=gp[key];
+    });
+  });
+  return mx;
 }
 function pgLead(tid){
   if(tid!==undefined) setSharedTour(tid);
@@ -14577,31 +15300,45 @@ function pgLead(tid){
     // debajo del nombre cuando hubo una transferencia — mas de un equipo distinto).
     var teamNames=[];
     recs.forEach(function(r){var tm=teamOf(r.teamId);if(tm&&teamNames.indexOf(tm.name)<0)teamNames.push(tm.name);});
-    players.push({id:rep.id,ids:relatedIds,name:rep.name,number:rep.number,teamId:rep.teamId,teamNames:teamNames,photoUrl:rep.photoUrl||''});
+    players.push({id:rep.id,ids:relatedIds,name:rep.name,number:rep.number,teamId:rep.teamId,teamNames:teamNames,photoUrl:rep.photoUrl||'',role:pitRoleOfPlayers(rep,recs)});
   });
   var tOpts='<option value="">Todos</option>'+toursByYear().map(function(t){return'<option value="'+t.id+'" '+(_LD.tourId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
   var _ldTh=leadersThresholdsFor(scopeTourIds,_LD.tourId,S.phaseFilter);
   function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;}
   function getIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
-  var minLeadVB=resolveMinVB(_ldTh,players,getVB),minLeadIP=resolveMinIP(_ldTh,players,getIP);
+  var _poolSP=players.filter(function(p){return p.role==='SP';}),_poolRP=players.filter(function(p){return p.role==='RP';}),_poolCL=players.filter(function(p){return p.role==='CL';});
+  var minLeadVB=resolveMinVB(_ldTh,players,getVB);
+  var minIPSP=resolveMinIP(_ldTh,_poolSP,getIP);
+  var minIPRP=resolveMinIP({ipAuto:_ldTh.ipAutoRp,ip:_ldTh.ipRp},_poolRP,getIP);
+  var minIPCL=resolveMinIP({ipAuto:_ldTh.ipAutoCl,ip:_ldTh.ipCl},_poolCL,getIP);
+  var minLeadIP=minIPSP;
+  // Turnos promedio por dia (si es > 0 reemplaza al VB min / media de VB): minimo = ceil(turnos/dia x juegos
+  // del equipo con mas juegos segun la tabla de posiciones en la fase actual). Se compara contra turnos
+  // al bate (apariciones al plato: VB + BB + HBP + SAC).
+  var _tpd=_ldTh.tpd||0,_usePA=_tpd>0;
+  var _maxGP=_usePA?leadersMaxGamesPlayed(_LD.tourId,_LD.dateFrom,_LD.dateTo,tids):0;
+  var minLeadPA=_usePA?Math.ceil(_tpd*_maxGP-1e-9):0;
+  function getPA(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;}
+  function passBatMin(x){return _usePA?x.pa>=minLeadPA:(!minLeadVB||x.vb>=minLeadVB);}
+  function vbLbl(x){return x.vb+' VB'+(_usePA?' &middot; '+x.pa+' TA':'');}
   // applyMin: SOLO las tarjetas de SLG/AVG (bateo) y ERA/WHIP (pitcheo) aplican el minimo de
   // VB/IP configurado — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) muestran
   // a todos los jugadores con actividad, sin mínimo.
-  function topN(fn,n,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullN(fn,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB||x.vb>=minLeadVB);}).sort(function(a,b){return b.val-a.val;});}
+  function topN(fn,n,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:(_usePA&&applyMin)?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullN(fn,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:(_usePA&&applyMin)?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;});}
   var _leadCardSeq=0;
   function lCard(ttl,items,fmt,fullFn){
     fmt=fmt||function(v){return v;};
     var cardKey='lead_'+(_leadCardSeq++);
-    if(fullFn) window._leaderFullData[cardKey]={ttl:ttl,items:fullFn(),fmt:fmt,nameOf:function(x){return'#'+(x.p.number||'?')+' '+x.p.name;},teamOf:function(x){return(x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;');},extraOf:function(x){return x.vb+' VB';},extraLabel:'VB'};
+    if(fullFn) window._leaderFullData[cardKey]={ttl:ttl,items:fullFn(),fmt:fmt,nameOf:function(x){return'#'+(x.p.number||'?')+' '+x.p.name;},teamOf:function(x){return(x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;');},extraOf:function(x){return vbLbl(x);},extraLabel:'VB'};
     return'<div class="card"><div class="chd"><div class="ctl">'+ttl+'</div></div>'
-      +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div>'+playerAvatarHtml(x.p.photoUrl,x.p.name,32,'circle',x.p.number)+'<div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.p.number||'?')+' '+x.p.name+'</div><div style="font-size:11px;color:var(--t3)">'+((x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;'))+' &middot; '+x.vb+' VB</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')
+      +(items.length?items.map(function(x,i){return'<div class="lrow"><div class="lrk '+(i<3?'t':'')+'">'+( i+1)+'</div>'+playerAvatarHtml(x.p.photoUrl,x.p.name,32,'circle',x.p.number)+'<div style="flex:1"><div style="font-size:14px;font-weight:500">#'+(x.p.number||'?')+' '+x.p.name+'</div><div style="font-size:11px;color:var(--t3)">'+((x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;'))+' &middot; '+vbLbl(x)+'</div></div><div class="lvl">'+fmt(x.val)+'</div></div>';}).join(''):'<div class="empty" style="padding:20px"><div style="font-size:13px">Sin datos</div></div>')
       +(fullFn&&items.length?'<div style="padding:10px 14px"><button class="btn bs bsm" style="width:100%" onclick="openLeaderFullListM(\''+cardKey+'\')">Ver más &#8595;</button></div>':'')
       +'</div>';
   }
-  function pitCard(ttl,fn,fmt,asc,skipExtra,applyMin){
+  function pitCard(ttl,fn,fmt,asc,skipExtra,applyMin,pool,minIPv){
     fmt=fmt||function(v){return v;};
-    var allItems=players.map(function(p){var ip=getIP(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minLeadIP||x.ip>=minLeadIP);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
+    var allItems=(pool||players).map(function(p){var ip=getIP(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minIPv||x.ip>=minIPv);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
     var items=allItems.slice(0,10);
     var cardKey='lead_'+(_leadCardSeq++);
     window._leaderFullData[cardKey]={ttl:ttl,items:allItems,fmt:fmt,nameOf:function(x){return'#'+(x.p.number||'?')+' '+x.p.name;},teamOf:function(x){return(x.p.teamNames&&x.p.teamNames.length>1)?x.p.teamNames.join(', '):(x.tm?x.tm.name:'&mdash;');},extraOf:skipExtra?null:function(x){return x.ip.toFixed(1)+' IP';},extraLabel:skipExtra?null:'IP'};
@@ -14625,7 +15362,32 @@ function pgLead(tid){
   function getERA(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});return pe.length&&sumIP(pe)>=1?calcPitcherERA(pe):99;}
   function getWins(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='W';}).length;}
   function getKp(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
+  function getSV(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='S';}).length;}
+  // AVG contra (como le batean): hits permitidos / turnos oficiales al bate enfrentados (mismo criterio de VB).
+  function getBAA(ids){var pe=evs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ab=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return ab>0?h/ab:99;}
   function getWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
+  function _minAlertHtml(){
+    var anyIp=minIPSP||minIPRP||minIPCL||_ldTh.ipAuto||_ldTh.ipAutoRp||_ldTh.ipAutoCl;
+    if(!(_usePA||minLeadVB||_ldTh.vbAuto||anyIp))return'';
+    var phTxt=S.phaseFilter?({regular:'Serie Regular',playoff:'Playoffs',divchamp:'Serie Campeonato Divisional',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter):'Serie Regular (referencia de "Todas")';
+    var bat=_usePA?('<b>'+minLeadPA+' turnos al bate</b> ('+_tpd+' por juego &times; '+_maxGP+' juegos del equipo con más partidos)'):(_ldTh.vbAuto?'<b>'+minLeadVB+' VB</b> (media automática)':(minLeadVB?minLeadVB+' VB (manual)':'sin mínimo de VB'));
+    function ipTxt(lbl,auto,v){return lbl+': '+(auto?'<b>'+v.toFixed(1)+' IP</b> (media)':(v?v+' IP (manual)':'sin mínimo'));}
+    return'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en OPS/SLG/AVG (bateo) y ERA/WHIP/AVG contra (pitcheo) &mdash; fase '+phTxt+'. Bateo: '+bat+'. Pitcheo &mdash; '+ipTxt('Abridores',_ldTh.ipAuto,minIPSP)+' &middot; '+ipTxt('Relevistas',_ldTh.ipAutoRp,minIPRP)+' &middot; '+ipTxt('Cerradores',_ldTh.ipAutoCl,minIPCL)+'.</div>';
+  }
+  function pitSections(){
+    function sec(title,role,pool,minIPv){
+      var sfx=role==='SP'?'':(role==='RP'?' (Relevistas)':' (Cerradores)');
+      var c=[];
+      c.push(pitCard('&#128201; ERA'+sfx,getERA,function(v){return v.toFixed(2);},true,false,true,pool,minIPv));
+      c.push(role==='CL'?pitCard('&#128274; Salvamentos'+sfx,getSV,null,false,false,false,pool,0):pitCard('&#127942; Victorias'+sfx,getWins,null,false,false,false,pool,0));
+      c.push(pitCard('&#127744; Ponches K'+sfx,getKp,null,false,false,false,pool,0));
+      c.push(pitCard('&#128202; WHIP'+sfx,getWHIP,function(v){return v.toFixed(2);},true,false,true,pool,minIPv));
+      c.push(pitCard('&#9203; IP'+sfx,getIP,function(v){return v.toFixed(1);},false,true,false,pool,0));
+      c.push(pitCard('&#127919; AVG contra'+sfx,getBAA,function(v){return v.toFixed(3);},true,false,true,pool,minIPv));
+      return'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">'+title+'</div><div class="g3" style="margin-bottom:18px">'+c.join('')+'</div>';
+    }
+    return sec('&#9918; Pitcheo &mdash; Abridores','SP',_poolSP,minIPSP)+sec('&#128293; Pitcheo &mdash; Relevistas','RP',_poolRP,minIPRP)+sec('&#128274; Pitcheo &mdash; Cerradores','CL',_poolCL,minIPCL);
+  }
   ct(yearBar()+sponsorPinnedBanner('pinLideres','&#129309; Lideres presentados gracias a')+'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">Lideres</div><div class="ssb">Top jugadores por categoria</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
@@ -14641,20 +15403,13 @@ function pgLead(tid){
     +((_LD.dateFrom||_LD.dateTo)?'<button class="btn bs bsm" onclick="_LD.dateFrom=\'\';_LD.dateTo=\'\';pgLead()">&#10005; Limpiar fechas</button>':'')
     +'</div></div>'
     +((_LD.dateFrom||_LD.dateTo)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#128202; Mostrando lideres SOLO de los juegos jugados '+(_LD.dateFrom&&_LD.dateTo?'entre el '+_LD.dateFrom+' y el '+_LD.dateTo:_LD.dateFrom?'desde el '+_LD.dateFrom:'hasta el '+_LD.dateTo)+'.</div>':'')
-    +((minLeadVB||minLeadIP||_ldTh.vbAuto||_ldTh.ipAuto)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo) &mdash; fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',divchamp:'Serie Campeonato Divisional',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Serie Regular (referencia de "Todas")')+': '+(_ldTh.vbAuto?'<b>'+minLeadVB+' VB</b> (media automática de bateadores con actividad)':(minLeadVB?minLeadVB+' VB (manual)':'sin mínimo de VB'))+' &middot; '+(_ldTh.ipAuto?'<b>'+minLeadIP.toFixed(1)+' IP</b> (media automática de pitchers con actividad)':(minLeadIP?minLeadIP+' IP (manual)':'sin mínimo de IP'))+'.</div>':'')
+    +_minAlertHtml()
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
     +lCard('&#128202; OPS',topN(getOPS,10,true),function(v){return v.toFixed(3);},function(){return fullN(getOPS,true);})+lCard('&#128200; SLG',topN(getSLG,10,true),function(v){return v.toFixed(3);},function(){return fullN(getSLG,true);})+lCard('&#127952; AVG',topN(getAvg,10,true),function(v){return v.toFixed(3);},function(){return fullN(getAvg,true);})+lCard('&#128165; HR',topN(getHR),null,function(){return fullN(getHR);})+lCard('&#127919; RBI',topN(getRBI),null,function(){return fullN(getRBI);})
     +lCard('&#127939; Hits',topN(getH),null,function(){return fullN(getH);})+lCard('&#9889; 2B',topN(get2B),null,function(){return fullN(get2B);})+lCard('&#128293; 3B',topN(get3B),null,function(){return fullN(get3B);})+lCard('&#128309; BB',topN(getBB),null,function(){return fullN(getBB);})+lCard('&#128168; SB',topN(getSB),null,function(){return fullN(getSB);})+lCard('&#127937; Carreras Anotadas',topN(getR),null,function(){return fullN(getR);})
     +'</div>'
-    +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
-    +'<div class="g3">'
-    +pitCard('&#128201; ERA',getERA,function(v){return v.toFixed(2);},true,false,true)
-    +pitCard('&#127942; Victorias',getWins)
-    +pitCard('&#127744; Ponches K',getKp)
-    +pitCard('&#128202; WHIP',getWHIP,function(v){return v.toFixed(2);},true,false,true)
-    +pitCard('&#9203; IP',getIP,function(v){return v.toFixed(1);},false,true)
-    +'</div>');
+    +pitSections());
 }
 
 // STATS DE POR VIDA
@@ -14747,11 +15502,15 @@ function pgStatsLife(sBy,pSBy){
     var l=pe.filter(function(e){return e.decision==='L';}).length;
     var sv=pe.filter(function(e){return e.decision==='S';}).length;
     var era=ip>0?calcPitcherERA(pe):99;var whip=ip>0?(h+bb)/ip:99;
-    return{cp:cp,ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip};
+    var _ae=evs.filter(function(e){return cp.ids.indexOf(e.pitcherId)>=0;});
+    var _ab=_ae.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;
+    var _ah=_ae.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
+    var baa=_ab>0?_ah/_ab:99;
+    return{cp:cp,ip:ip,h:h,er:er,bb:bb,k:k,w:w,l:l,sv:sv,era:era,whip:whip,baa:baa};
   }).filter(Boolean).sort(function(a,b){
     var col=_SL.pitSortBy;var av=a[col],bv=b[col];
     if(col==='name')return _SL.pitSortDir*(a.cp.name.localeCompare(b.cp.name));
-    if(col==='era'||col==='whip'){if(av===99&&bv===99)return 0;if(av===99)return 1;if(bv===99)return -1;}
+    if(col==='era'||col==='whip'||col==='baa'){if(av===99&&bv===99)return 0;if(av===99)return 1;if(bv===99)return -1;}
     return _SL.pitSortDir*(av-bv);
   });
   // open per-team pitching breakdown modal
@@ -14862,6 +15621,7 @@ function pgStatsLife(sBy,pSBy){
       +'<td style="text-align:center;color:'+(s.er>0?'var(--red)':'inherit')+'">'+s.er+'</td><td style="text-align:center">'+s.bb+'</td><td style="text-align:center">'+s.k+'</td>'
       +'<td style="text-align:center;font-weight:700;color:'+(s.ip>0?(s.era<3?'var(--grn)':s.era>6?'var(--red)':'var(--acc)'):'var(--t3)')+'">'+(s.ip>0?s.era.toFixed(2):'&mdash;')+'</td>'
       +'<td style="text-align:center">'+(s.ip>0?s.whip.toFixed(2):'&mdash;')+'</td>'
+      +'<td style="text-align:center">'+(s.baa<99?s.baa.toFixed(3):'&mdash;')+'</td>'
       +'<td><button class="btn bs bsm" data-rid="'+rid+'" onclick="openCareerPitByTeam(this.dataset.rid)">Detalle x Equipo</button></td></tr>';
   }).join('');
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">'
@@ -14877,8 +15637,8 @@ function pgStatsLife(sBy,pSBy){
     +slh('vb','VB')+slh('h','H')+slh('h2','2B')+slh('h3','3B')+slh('hr','HR')+slh('r','R')+slh('rbi','RBI')+slh('bb','BB')+slh('k','K')+slh('sb','SB')+slh('avg','AVG')+slh('obp','OBP')+slh('slg','SLG')
     +'<th>Detalle</th></tr></thead><tbody>'+(batRows||'<tr><td colspan="17"><div class="empty">Sin datos</div></td></tr>')+'</tbody></table></div></div></div>'
     +'<div id="sl-p" style="'+(_SL.activeTab==='sl-p'?'':'display:none')+'"><div class="card"><div class="tw"><table><thead><tr><th onclick="pgStatsLife(undefined,\'name\')" style="cursor:pointer;user-select:none">Pitcher'+(_SL.pitSortBy==='name'?(_SL.pitSortDir===1?'&#8593;':'&#8595;'):'')+' </th><th>Equipos</th>'
-    +plh('w','G')+plh('l','P')+plh('sv','S')+plh('ip','IP')+plh('h','H')+plh('er','ER')+plh('bb','BB')+plh('k','K')+plh('era','ERA')+plh('whip','WHIP')
-    +'<th>Detalle</th></tr></thead><tbody>'+(pitRows2||'<tr><td colspan="12"><div class="empty">Sin datos de pitcheo</div></td></tr>')+'</tbody></table></div></div></div>');
+    +plh('w','G')+plh('l','P')+plh('sv','S')+plh('ip','IP')+plh('h','H')+plh('er','ER')+plh('bb','BB')+plh('k','K')+plh('era','ERA')+plh('whip','WHIP')+plh('baa','AVG Cont.')
+    +'<th>Detalle</th></tr></thead><tbody>'+(pitRows2||'<tr><td colspan="13"><div class="empty">Sin datos de pitcheo</div></td></tr>')+'</tbody></table></div></div></div>');
 }
 
 // LIDERES DE POR VIDA
@@ -14895,12 +15655,13 @@ function pgLeadLife(){
   S.players.filter(function(p){return lifeTeamIds2.indexOf(p.teamId)>=0;}).forEach(function(p){
     var root=(p.name||'').trim().toLowerCase();
     if(!root)return;
-    if(!seenRoots2[root]){seenRoots2[root]={rootId:root,ids:[],name:p.name,number:p.number,teams:[],photoUrl:''};careerPlayers2.push(seenRoots2[root]);}
-    seenRoots2[root].ids.push(p.id);
+    if(!seenRoots2[root]){seenRoots2[root]={rootId:root,ids:[],name:p.name,number:p.number,teams:[],photoUrl:'',recs:[]};careerPlayers2.push(seenRoots2[root]);}
+    seenRoots2[root].ids.push(p.id);seenRoots2[root].recs.push(p);
     var tm=teamOf(p.teamId);if(tm&&seenRoots2[root].teams.indexOf(tm.name)<0)seenRoots2[root].teams.push(tm.name);
     if(p.number&&!seenRoots2[root].number)seenRoots2[root].number=p.number;
     if(p.photoUrl&&!seenRoots2[root].photoUrl)seenRoots2[root].photoUrl=p.photoUrl;
   });
+  careerPlayers2.forEach(function(cp){cp.role=pitRoleOfPlayers(cp.recs[cp.recs.length-1],cp.recs);});
   var _leadLifeCardSeq=0;
   function getVBLife(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;}
   function getIPLife(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
@@ -14910,7 +15671,11 @@ function pgLeadLife(){
   // en el alcance actual: el torneo padre filtrado (o TODOS los subtorneos del deporte vigente
   // si el filtro de torneo padre esta en "Todos") + la fase seleccionada (S.phaseFilter).
   var _ldTh2={vbAuto:true,ipAuto:true};
-  var minLeadVB2=resolveMinVB(_ldTh2,careerPlayers2,getVBLife),minLeadIP2=resolveMinIP(_ldTh2,careerPlayers2,getIPLife);
+  var minLeadVB2=resolveMinVB(_ldTh2,careerPlayers2,getVBLife);
+  var _lpool={SP:careerPlayers2.filter(function(c){return c.role==='SP';}),RP:careerPlayers2.filter(function(c){return c.role==='RP';}),CL:careerPlayers2.filter(function(c){return c.role==='CL';})};
+  // La media automatica de IP se calcula POR ROL (abridores, relevistas y cerradores por separado)
+  var minIPLife={SP:resolveMinIP(_ldTh2,_lpool.SP,getIPLife),RP:resolveMinIP(_ldTh2,_lpool.RP,getIPLife),CL:resolveMinIP(_ldTh2,_lpool.CL,getIPLife)};
+  var minLeadIP2=minIPLife.SP;
   function lCard2(ttl,items,fmt,fullFn,extraKey){
     fmt=fmt||function(v){return v;};
     var cardKey='leadlife_'+(_leadLifeCardSeq++);
@@ -14927,8 +15692,8 @@ function pgLeadLife(){
   // tarjetas (HR, RBI, Hits, K, Victorias, etc.) muestran a todos, sin mínimo.
   function topLifeBat(fn,n,applyMin){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
   function fullLifeBat(fn,applyMin){return careerPlayers2.map(function(cp){var vb=getVBLife(cp.ids);return{cp:cp,val:fn(cp.ids),vb:vb};}).filter(function(x){return x.val>0&&(!applyMin||!minLeadVB2||x.vb>=minLeadVB2);}).sort(function(a,b){return b.val-a.val;});}
-  function topLifePit(fn,n){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullLifePit(fn){return careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
+  function topLifePit(fn,n,pool){return (pool||careerPlayers2).map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullLifePit(fn,pool){return (pool||careerPlayers2).map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val>0;}).sort(function(a,b){return b.val-a.val;});}
   function cAvg(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return vb>=3?h/vb:0;}
   function cSLG(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h1=pe.filter(function(e){return e.type==='H1';}).length;var h2=pe.filter(function(e){return e.type==='H2';}).length;var h3=pe.filter(function(e){return e.type==='H3';}).length;var hr=pe.filter(function(e){return e.type==='HR';}).length;return vb>=3?(h1+h2*2+h3*3+hr*4)/vb:0;}
   function cOBP(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var bb=pe.filter(function(e){return e.type==='BB';}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return(vb+bb)>=3?(h+bb)/(vb+bb):0;}
@@ -14946,9 +15711,11 @@ function pgLeadLife(){
   function cK(ids){return pevs.reduce(function(s,e){return s+(ids.indexOf(e.pitcherId)>=0?parseInt(e.k)||0:0);},0);}
   function cWHIP(ids){var pe=pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ip=sumIP(pe);var wh=pe.reduce(function(s,e){return s+(parseInt(e.h)||0)+(parseInt(e.bb)||0);},0);return ip>=1?wh/ip:99;}
   function cIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
-  function pitLifeCard(ttl,fn,fmt,asc,skipExtra,applyMin){
+  function cSV(ids){return pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0&&e.decision==='S';}).length;}
+  function cBAA(ids){var pe=evs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;});var ab=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB'].indexOf(e.type)<0;}).length;var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;return ab>0?h/ab:99;}
+  function pitLifeCard(ttl,fn,fmt,asc,skipExtra,applyMin,pool,minIPv){
     fmt=fmt||function(v){return v;};
-    var allItems=careerPlayers2.map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minLeadIP2||x.ip>=minLeadIP2);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
+    var allItems=(pool||careerPlayers2).map(function(cp){var ip=cIP(cp.ids);return{cp:cp,val:fn(cp.ids),ip:ip};}).filter(function(x){return x.val<99&&(asc?x.val>=0:x.val>0)&&(!applyMin||!minIPv||x.ip>=minIPv);}).sort(function(a,b){return asc?a.val-b.val:b.val-a.val;});
     var items=allItems.slice(0,10);
     var cardKey='leadlife_'+(_leadLifeCardSeq++);
     window._leaderFullData[cardKey]={ttl:ttl,items:allItems,fmt:fmt,nameOf:function(x){return'#'+(x.cp.number||'?')+' '+x.cp.name;},teamOf:function(x){return x.cp.teams.join(', ');},extraOf:skipExtra?null:function(x){return x.ip.toFixed(1)+' IP';},extraLabel:skipExtra?null:'IP'};
@@ -14957,25 +15724,31 @@ function pgLeadLife(){
       +(items.length?'<div style="padding:10px 14px"><button class="btn bs bsm" style="width:100%" onclick="openLeaderFullListM(\''+cardKey+'\')">Ver más &#8595;</button></div>':'')
       +'</div>';
   }
+  function lifePitSections(){
+    function sec(title,role,sfx,pool,minIPv){
+      var c=[];
+      c.push(pitLifeCard('&#128201; ERA (carrera)'+sfx,cERA,function(v){return v.toFixed(2);},true,false,true,pool,minIPv));
+      c.push(role==='CL'?lCard2('&#128274; Salvamentos (carrera)'+sfx,topLifePit(cSV,10,pool),null,function(){return fullLifePit(cSV,pool);},'ip'):lCard2('&#127942; Victorias (carrera)'+sfx,topLifePit(cWins,10,pool),null,function(){return fullLifePit(cWins,pool);},'ip'));
+      c.push(lCard2('&#127744; Ponches K (carrera)'+sfx,topLifePit(cK,10,pool),null,function(){return fullLifePit(cK,pool);},'ip'));
+      c.push(pitLifeCard('&#128202; WHIP (carrera)'+sfx,cWHIP,function(v){return v.toFixed(2);},true,false,true,pool,minIPv));
+      c.push(lCard2('&#9203; IP (carrera)'+sfx,topLifePit(cIP,10,pool),function(v){return v.toFixed(1);},function(){return fullLifePit(cIP,pool);}));
+      c.push(pitLifeCard('&#127919; AVG contra (carrera)'+sfx,cBAA,function(v){return v.toFixed(3);},true,false,true,pool,minIPv));
+      return'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">'+title+'</div><div class="g3" style="margin-bottom:18px">'+c.join('')+'</div>';
+    }
+    return sec('&#9918; Pitcheo &mdash; Abridores','SP','',_lpool.SP,minIPLife.SP)+sec('&#128293; Pitcheo &mdash; Relevistas','RP',' (Relevistas)',_lpool.RP,minIPLife.RP)+sec('&#128274; Pitcheo &mdash; Cerradores','CL',' (Cerradores)',_lpool.CL,minIPLife.CL);
+  }
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">'
     +'<div><div class="stl">&#127775; Lideres de Por Vida</div><div class="ssb">Top jugadores historicos &mdash; '+{vitilla:'Vitilla',baseball:'Baseball',softball:'Softball'}[effectiveLifeSport()||'vitilla']+'</div></div>'
     +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="font-size:12px;color:var(--t2)">&#127947; Deporte:</label><select class="fs" style="width:140px" onchange="setSportFilter(this.value)">'+sportOpts(true)+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#127942; Torneo:</label><select class="fs" style="width:160px" onchange="S.parentTourFilter=this.value;pgLeadLife()">'+parentTourOpts(true)+'</select>'
     +'<label style="font-size:12px;color:var(--t2)">&#9201; Fase:</label><select class="fs" style="width:210px;max-width:100%" onchange="setPhaseFilter(this.value)">'+phaseOpts()+'</select></div></div>'
-    +((minLeadVB2||minLeadIP2)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP (pitcheo), calculado automáticamente como la <b>media</b> de VB/IP entre los jugadores con actividad en '+(S.parentTourFilter?('<b>'+((S.parentTournaments.filter(function(x){return x.id===S.parentTourFilter;})[0]||{}).name||'este torneo')+'</b> (todos sus subtorneos/años)'):'<b>todos los subtorneos</b> del deporte vigente')+', fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',divchamp:'Serie Campeonato Divisional',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Todas las Fases')+': <b>'+minLeadVB2+' VB</b> &middot; <b>'+minLeadIP2.toFixed(1)+' IP</b>.</div>':'')
+    +((minLeadVB2||minLeadIP2)?'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en SLG/AVG (bateo) y ERA/WHIP/AVG contra (pitcheo; abridores, relevistas y cerradores con su propia media), calculado automáticamente como la <b>media</b> de VB/IP entre los jugadores con actividad en '+(S.parentTourFilter?('<b>'+((S.parentTournaments.filter(function(x){return x.id===S.parentTourFilter;})[0]||{}).name||'este torneo')+'</b> (todos sus subtorneos/años)'):'<b>todos los subtorneos</b> del deporte vigente')+', fase '+(S.phaseFilter?{regular:'Serie Regular',playoff:'Playoffs',divchamp:'Serie Campeonato Divisional',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter:'Todas las Fases')+': <b>'+minLeadVB2+' VB</b> &middot; <b>'+minIPLife.SP.toFixed(1)+' IP</b> abridores &middot; <b>'+minIPLife.RP.toFixed(1)+' IP</b> relevistas &middot; <b>'+minIPLife.CL.toFixed(1)+' IP</b> cerradores.</div>':'')
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#127952; Bateo</div>'
     +'<div class="g3" style="margin-bottom:18px">'
     +lCard2('&#128202; OPS (carrera)',topLifeBat(cOPS,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cOPS,true);},'vb')+lCard2('&#128200; SLG (carrera)',topLifeBat(cSLG,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cSLG,true);},'vb')+lCard2('&#127952; AVG (carrera)',topLifeBat(cAvg,10,true),function(v){return v.toFixed(3);},function(){return fullLifeBat(cAvg,true);},'vb')+lCard2('&#128165; HR (carrera)',topLifeBat(cHR),null,function(){return fullLifeBat(cHR);},'vb')+lCard2('&#127919; RBI (carrera)',topLifeBat(cRBI),null,function(){return fullLifeBat(cRBI);},'vb')
     +lCard2('&#127939; Hits (carrera)',topLifeBat(cH),null,function(){return fullLifeBat(cH);},'vb')+lCard2('&#9889; 2B (carrera)',topLifeBat(c2B),null,function(){return fullLifeBat(c2B);},'vb')+lCard2('&#128293; 3B (carrera)',topLifeBat(c3B),null,function(){return fullLifeBat(c3B);},'vb')+lCard2('&#128309; BB (carrera)',topLifeBat(cBB),null,function(){return fullLifeBat(cBB);},'vb')+lCard2('&#128168; SB (carrera)',topLifeBat(cSB),null,function(){return fullLifeBat(cSB);},'vb')+lCard2('&#127937; Carreras Anotadas (carrera)',topLifeBat(cR),null,function(){return fullLifeBat(cR);},'vb')
     +'</div>'
-    +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">&#9918; Pitcheo</div>'
-    +'<div class="g3">'
-    +pitLifeCard('&#128201; ERA (carrera)',cERA,function(v){return v.toFixed(2);},true,false,true)
-    +lCard2('&#127942; Victorias (carrera)',topLifePit(cWins),null,function(){return fullLifePit(cWins);},'ip')
-    +lCard2('&#127744; Ponches K (carrera)',topLifePit(cK),null,function(){return fullLifePit(cK);},'ip')
-    +pitLifeCard('&#128202; WHIP (carrera)',cWHIP,function(v){return v.toFixed(2);},true,false,true)
-    +lCard2('&#9203; IP (carrera)',topLifePit(cIP),function(v){return v.toFixed(1);},function(){return fullLifePit(cIP);})
-    +'</div>');
+    +lifePitSections());
 }
 var _awTour='';
 var _RK={tourId:'',search:'',modalIsPit:false,divFilter:'',allTeams:false};
@@ -15476,7 +16249,7 @@ function fnTeamMap(tm){
 // Números del jugador debajo del nombre: pitcheo para lanzadores, bateo para el resto
 function fnStat(p){
   var s=p&&p.st||{},b=s.b,pi=s.p;
-  if((p.position==='P'&&pi)||(!b&&pi)){
+  if((isPitPos(p.position)&&pi)||(!b&&pi)){
     var ip=Math.floor(pi.outs/3)+(pi.outs%3)/10;
     return 'IP '+ip.toFixed(1)+' · K '+pi.k+' · ER '+pi.er+((pi.w||pi.l)?' · '+pi.w+'-'+pi.l:'');
   }
@@ -15711,7 +16484,7 @@ function fnLayoutErr(){
 function fnPosErr(slot,p){
   var d=_FN.data;if(!d||!p||fnIsB(slot))return'';
   var ps=String(p.position||'').toUpperCase().split(/[\/,;|+\s]+/).filter(Boolean);
-  var PIT=['P','SP','RP','LHP','RHP'],inPit=function(x){return PIT.indexOf(x)>=0;};
+  var PIT=['P','SP','RP','CL','LHP','RHP'],inPit=function(x){return PIT.indexOf(x)>=0;};
   // Baseball y softball (con o sin la regla de posiciones): un lanzador solo juega en P dentro del cuadro; en relevistas solo lanzadores o UT (un UT va en cualquier posición).
   if(d.sport==='baseball'||d.sport==='softball'){
     if(fnIsR(slot)){if(ps.length&&!ps.some(inPit)&&ps.indexOf('UT')<0)return(p.name||'Ese jugador')+' ('+ps.join('/')+') no es lanzador: en relevistas solo se pueden colocar lanzadores (o jugadores UT).';}
@@ -18023,7 +18796,7 @@ function doExportPlayerPDF(){
   var careerPids=careerInstances(pid);
   var pe=evs.filter(function(e){return careerPids.indexOf(e.batterId)>=0;});
   var pp=pevs.filter(function(e){return careerPids.indexOf(e.pitcherId)>=0;});
-  var isPitcher=(role==='pitcher')||(role==='auto'&&pp.length>0&&(p.position||'').toUpperCase()==='P');
+  var isPitcher=(role==='pitcher')||(role==='auto'&&pp.length>0&&isPitPos(p.position));
   var now=new Date();var nowStr=now.toLocaleDateString('es-DO',{year:'numeric',month:'long',day:'numeric'});
   var _epTourObj=_epTourId2?S.tournaments.filter(function(x){return String(x.id)===String(_epTourId2);})[0]:null;
   var _epPtObj=S.parentTourFilter?S.parentTournaments.filter(function(x){return x.id===S.parentTourFilter;})[0]:null;
@@ -19313,7 +20086,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -19918,6 +20691,12 @@ function pgSet(){
       +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; El perfil elegido controla que modulos y permisos (crear/editar) tienen. Cada usuario de Google solo puede ver/editar el torneo padre y subtorneos que EL creo — nunca los de otro usuario ni los del staff local, sin importar el perfil. El Web Client ID se obtiene en Google Cloud Console (OAuth 2.0, tipo "Web") y no requiere recompilar la app para cambiarlo. En cualquier caso, un jugador que ya pertenezca a un equipo del subtorneo actual nunca aparece para "importar" (ya esta ahi).</div>'
       +'<button class="btn bp" onclick="saveGoogleAccessConfig()">Guardar Acceso con Google</button>'
       +'</div>'
+      +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128225; Transmisión en vivo</div></div>'
+      +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="streamEnabled" '+(S.config&&S.config.streamEnabled==='false'?'':'checked')+'> Permitir transmisiones en vivo (interruptor general)</label></div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">Duración máxima por transmisión (minutos, 10–720)</label><input class="fi" id="streamMaxMinutes" type="number" min="10" max="720" step="5" value="'+(parseInt(S.config&&S.config.streamMaxMinutes)||480)+'"></div>'
+      +'<div class="fg"><label class="fl">Eliminar grabaciones guardadas después de (días, 0 = nunca)</label><input class="fi" id="streamKeepDays" type="number" min="0" step="1" value="'+(parseInt(S.config&&S.config.streamKeepDays)||0)+'"></div></div>'
+      +'<div class="alert ai" style="font-size:12px;margin-top:4px">&#9654; Al llegar al límite de duración la transmisión termina sola (y se guarda si estaba marcada para guardar); se avisa 5 min antes. Las grabaciones se eliminan de Cloudflare al pasar los días indicados (la revisión es cada hora). Quién puede transmitir y guardar se define en Perfiles &gt; Módulos. Los cambios se aplican en aproximadamente 1 minuto.</div>'
+      +'<button class="btn bp" onclick="saveStreamConfig()">Guardar</button></div>'
       +'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#11088; Calificar la app (Google Play)</div></div>'
       +'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ratePromptEnabled" '+(S.config&&S.config.ratePromptEnabled==='true'?'checked':'')+'> Pedir a los usuarios que califiquen la app</label></div>'
       +'<div class="fg"><label class="fl">Cada cuantos dias vuelve a salir el mensaje</label><input class="fi" id="ratePromptDays" type="number" min="1" step="1" value="'+(parseInt(S.config&&S.config.ratePromptDays)||'')+'" placeholder="Ej: 7"></div>'
@@ -20250,7 +21029,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
@@ -20311,6 +21090,17 @@ async function saveGoogleAccessConfig(){
     S.config.googleProfileId=profileId;S.config.googleTourCooldownDaysParent=String(cooldownParent);S.config.googleTourCooldownDaysSub=String(cooldownSub);S.config.googleMaxGamesPerTournament=String(maxGames);S.config.googleMaxGamesPerDay=String(maxGamesPerDay);S.config.googleMaxGamesPerWeekVitilla=String(maxGWVitilla);S.config.googleMaxGamesPerWeekBaseball=String(maxGWBaseball);S.config.googleMaxGamesPerWeekSoftball=String(maxGWSoftball);S.config.googleMaxGamesPerMonthVitilla=String(maxGMVitilla);S.config.googleMaxGamesPerMonthBaseball=String(maxGMBaseball);S.config.googleMaxGamesPerMonthSoftball=String(maxGMSoftball);S.config.googleMaxTeamsPerTournament=String(maxTeams);S.config.googleMaxPlayersPerTeamVitilla=String(maxPlVitilla);S.config.googleMaxPlayersPerTeamBaseball=String(maxPlBaseball);S.config.googleMaxPlayersPerTeamSoftball=String(maxPlSoftball);S.config.googleMaxInningsVitilla=String(maxInnVitilla);S.config.googleMaxInningsBaseball=String(maxInnBaseball);S.config.googleMaxInningsSoftball=String(maxInnSoftball);S.config.googleImportScope=importScope;
     toast('Acceso con Google guardado','success');
   } else toast('Error al guardar el acceso con Google','error');
+}
+async function saveStreamConfig(){
+  var on=document.getElementById('streamEnabled').checked;
+  var mm=parseInt(fv('streamMaxMinutes'))||480;
+  var kd=Math.max(0,parseInt(fv('streamKeepDays'))||0);
+  if(mm<10||mm>720){toast('La duración máxima debe estar entre 10 y 720 minutos','error');return;}
+  _saving=true;
+  var rs=await Promise.all([api('saveConfig',{key:'streamEnabled',value:on?'true':'false'}),api('saveConfig',{key:'streamMaxMinutes',value:String(mm)}),api('saveConfig',{key:'streamKeepDays',value:String(kd)})]);
+  _saving=false;
+  if(rs.every(function(r){return r&&r.ok;})){S.config=S.config||{};S.config.streamEnabled=on?'true':'false';S.config.streamMaxMinutes=String(mm);S.config.streamKeepDays=String(kd);toast('Configuración de transmisión guardada','success');}
+  else toast('Error al guardar','error');
 }
 async function saveRateConfig(){
   var on=document.getElementById('ratePromptEnabled').checked;
@@ -21086,7 +21876,7 @@ window.onload=function(){
   document.getElementById('app').style.display='none';
   restoreSession().then(function(rs){
     if(rs&&rs.mode==='resumeGuest'){
-      loadAll().catch(function(){}).finally(function(){
+      guestLoadData().catch(function(){}).finally(function(){
         document.getElementById('lscr').style.display='none';
         document.getElementById('app').style.display='flex';
         resetModuleState();
