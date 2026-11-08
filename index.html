@@ -155,14 +155,17 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bcs-stage{position:relative;width:min(100%,calc((100vh - 190px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden;border:1px solid var(--bdr);border-radius:8px}
 .bcs-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .bcs-items{position:absolute;inset:0}
-.bcs-tray{display:flex;flex-wrap:wrap;gap:6px;max-height:22vh;overflow:auto}
-.bcs-main{flex:1;display:flex;gap:10px;min-height:0;align-items:flex-start;justify-content:center}
-.bcs-center{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.bcs-tray{display:flex;flex-wrap:wrap;gap:6px;flex:none;max-height:16vh;overflow:auto}
+.bcs-main{flex:1;display:flex;gap:10px;min-height:0;align-items:stretch;justify-content:center}
+.bcs-center{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:auto}
 .bcs-center .bcs-box{flex:none}
-.bcs-side{width:200px;flex-shrink:0;overflow:auto;max-height:calc(100vh - 150px)}
+.bcs-side{width:200px;flex-shrink:0;overflow-y:auto;min-height:0}
 .bcs-right{width:270px}
 .bcs-left .btn{display:block;width:100%;margin-bottom:6px;text-align:left}
-.bcs-right .pbts{grid-template-columns:repeat(3,1fr)}
+.bcs-right .pbts{grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px}
+.bcs-right .pbtn{padding:6px 2px;font-size:13px;line-height:1.15}
+.bcs-right .pbtn span{font-size:9px!important}
+.bcs-right .btn{flex:1}
 .bcs-sc .bcs-stage{width:min(100%,calc((100vh - 280px)*16/9))}
 .bxs{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;font-size:12px}
 .bxs-tms{display:flex;flex-direction:column;gap:2px;min-width:140px}
@@ -177,7 +180,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bxs-run{font-size:10px;color:var(--t2)}
 .bxs-h{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--t3);margin-bottom:6px}
 .bxs-note{font-size:12px;color:var(--t3);padding:8px}
-@media(max-width:900px){.bcs-main.bcs-sc{flex-direction:column;align-items:stretch}.bcs-side{width:auto;max-height:none}.bcs-left{order:2;display:flex;flex-wrap:wrap;gap:6px}.bcs-left .btn{display:inline-block;width:auto;margin:0}.bcs-left .bxs-h{width:100%}.bcs-center{order:1}.bcs-right{order:3;width:auto}.bcs-sc .bcs-stage{width:100%}}
+@media(max-width:900px){.bcs-main.bcs-sc{flex-direction:column;align-items:stretch;flex:none}.bcs-side{width:auto;overflow:visible}.bcs-center{overflow:visible}.bcs-left{order:2;display:flex;flex-wrap:wrap;gap:6px}.bcs-left .btn{display:inline-block;width:auto;margin:0}.bcs-left .bxs-h{width:100%}.bcs-center{order:1}.bcs-right{order:3;width:auto}.bcs-sc .bcs-stage{width:100%}}
 .bcs-chip{background:var(--card);border:1px solid var(--bdr);color:var(--t1,inherit);border-radius:16px;padding:6px 11px;font-size:12px;cursor:pointer}
 .bcs-chip.on{background:var(--acc);color:#000;border-color:var(--acc);font-weight:700}
 .lsi{position:absolute;overflow:visible}
@@ -194,6 +197,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lsp-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 .lsp-stage{position:relative;width:min(100%,calc((100vh - 70px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden}
 .lsp-stage video,.lsp-fb{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000}
+.lsp-stage video{opacity:0;transition:opacity .25s}.lsp-stage video.on{opacity:1}
+.lsp-tap{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;font-size:18px;font-weight:700;border:none;cursor:pointer}
 .lsp-fsbar{display:none;position:absolute;top:8px;right:8px;z-index:7;gap:6px}
 .lsp-fsbar button{background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer}
 .lsp.lsp-full .lsp-top{display:none}
@@ -8057,10 +8062,11 @@ async function bcStart(gid){
     toast('No se pudo conectar con el servidor de video. Revisa tu conexión e inténtalo de nuevo.','error');return;
   }
   _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),
-    layout:(r.layout&&r.layout.length?r.layout:lsDefaultLayout()),t0:Date.now(),cam:cam,dims:dims,mic:mic,muted:false,limitSec:r.limitSec||0,remainSec:r.remainSec||0,warned:false};
+    uid:(r.stream&&r.stream.liveUid)||'',gid:gid,layout:(r.layout&&r.layout.length?r.layout:lsDefaultLayout()),t0:Date.now(),cam:cam,dims:dims,mic:mic,muted:false,limitSec:r.limitSec||0,remainSec:r.remainSec||0,warned:false};
   bcWatchPc(pub.pc);
   cM();bcMount();bcWake();
   _BC.pingT=setInterval(bcPing,45000);
+  _BC.stT=setInterval(bcStats,3000);
   toast('¡Estás transmitiendo en vivo!','success');
   try{goNav('gamecontrol');}catch(e){}
 }
@@ -8086,6 +8092,24 @@ async function bcReconnect(){
   }catch(e){if(_BC.id)_BC.rt=setTimeout(bcReconnect,4000);}
   _BC.reconnecting=false;
 }
+// Diagnostico: cuanto video esta SALIENDO realmente hacia Cloudflare (si marca "SIN ENVÍO", la camara/red no esta mandando datos)
+async function bcStats(){
+  if(!_BC.id||!_BC.pc)return;
+  try{
+    var rep=await _BC.pc.getStats(),bytes=0,cs=_BC.pc.connectionState;
+    rep.forEach(function(r){if(r.type==='outbound-rtp'&&(r.kind==='video'||r.mediaType==='video'))bytes+=r.bytesSent||0;});
+    var now=Date.now(),kbps=null;
+    if(_BC.lastB!=null&&now>_BC.lastT)kbps=Math.round((bytes-_BC.lastB)*8/((now-_BC.lastT)/1000)/1000);
+    _BC.lastB=bytes;_BC.lastT=now;_BC.kbps=kbps;
+    var e=document.getElementById('bcf-st');if(!e)return;
+    if(cs==='connected'){
+      if(kbps!=null&&kbps<30){_BC.lowN=(_BC.lowN||0)+1;e.textContent='SIN ENVÍO';e.className='bcf-warn';
+        if(_BC.lowN===3)toast('La cámara no está enviando video a Cloudflare. Revisa tu conexión o cambia de cámara.','error');}
+      else{_BC.lowN=0;e.textContent='EN VIVO'+(kbps!=null?' · '+(kbps>=1000?(kbps/1000).toFixed(1)+' Mbps':kbps+' kbps'):'');e.className='';}
+    }else if(cs!=='new'){e.textContent=cs==='connecting'?'Conectando…':'Reconectando…';e.className='bcf-warn';}
+    e.title='Input en Cloudflare (Live inputs): vp-'+_BC.gid+(_BC.uid?' · '+_BC.uid:'')+' · conexión: '+cs;
+  }catch(x){}
+}
 function bcStatus(t){var e=document.getElementById('bcf-st');if(e){e.textContent=t;e.className=t==='EN VIVO'?'':'bcf-warn';}}
 async function bcWake(){try{if(navigator.wakeLock&&_BC.id){_BC.wl=await navigator.wakeLock.request('screen');}}catch(e){}}
 document.addEventListener('visibilitychange',function(){if(_BC.id&&document.visibilityState==='visible'){bcWake();bcPing();}});
@@ -8106,7 +8130,7 @@ function bcPing(){
 }
 function bcStopLocal(msg){
   var b=_BC;_BC={};
-  try{clearInterval(b.pingT);clearInterval(b.tmT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
+  try{clearInterval(b.pingT);clearInterval(b.tmT);clearInterval(b.stT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
   try{if(b.res)fetch(b.res,{method:'DELETE'}).catch(function(){});}catch(e){}
   try{if(b.pc)b.pc.close();}catch(e){}
   try{if(b.stream)b.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
@@ -8170,10 +8194,16 @@ function bcMount(){
   });
 }
 function bcShowPanel(){var e=document.getElementById('bc-float');if(e){e.classList.remove('bcf-mini');}else if(_BC.id)bcMount();}
+// Estado del microfono reflejado en la ventanita flotante Y en la Pantalla
+function bcMicRefresh(){
+  var a=_BC.stream&&_BC.stream.getAudioTracks()[0],on=!!a&&a.enabled;
+  var b=document.getElementById('bcf-mic');if(b){b.style.opacity=on?'1':'.4';b.title=on?'Micrófono activo':'Micrófono silenciado';}
+  var c=document.getElementById('bcs-mic');if(c){c.innerHTML=on?'&#127908; Micrófono activo':'&#128263; Micrófono silenciado';c.style.opacity=on?'1':'.65';}
+}
 function bcToggleMic(){
   if(!_BC.stream)return;
   var a=_BC.stream.getAudioTracks()[0];if(!a){toast('Esta transmisión no tiene micrófono.','info');return;}
-  a.enabled=!a.enabled;var b=document.getElementById('bcf-mic');if(b){b.style.opacity=a.enabled?'1':'.4';b.title=a.enabled?'Micrófono activo':'Micrófono silenciado';}
+  a.enabled=!a.enabled;bcMicRefresh();
   toast(a.enabled?'Micrófono activado':'Micrófono silenciado','info');
 }
 async function bcFlip(){
@@ -8254,7 +8284,7 @@ function bcOpenStage(){
   // los botones de jugadas se copian de la pagina de Control de Juego: debe estar renderizada para este juego
   if(withScore&&(curP!=='gamecontrol'||String(S.game)!==String(_BC.gameId))){S.game=_BC.gameId;try{goNav('gamecontrol');}catch(e){}}
   var el=document.createElement('div');el.id='bc-stage';el.className='bcs';
-  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño (el gráfico se reacomoda a la caja). &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><button class="btn bp bsm" id="bcs-ok">Listo</button></div>'
+  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño (el gráfico se reacomoda a la caja). &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start"><button class="btn bs bsm" id="bcs-mic" onclick="bcToggleMic()">&#127908; Micrófono</button><button class="btn bs bsm" onclick="bcFlip()">&#128260; Cámara</button><button class="btn bp bsm" id="bcs-ok">Listo</button></div></div>'
     +'<div class="bcs-main'+(withScore?' bcs-sc':'')+'">'
     +(withScore?'<div class="bcs-side bcs-left" id="bcs-left"></div>':'')
     +'<div class="bcs-center">'+(withScore?'<div class="bxs" id="bcs-bx"></div>':'')
@@ -8286,6 +8316,7 @@ function bcOpenStage(){
   _BC.stageRedraw=redraw;
   redraw();
   bcStageSync();
+  bcMicRefresh();
   if(window.ResizeObserver){var ro=new ResizeObserver(function(){lsRescale(host);});ro.observe(document.getElementById('bcs-stage'));}
   else window.addEventListener('resize',function(){lsRescale(host);});
 }
@@ -8348,7 +8379,7 @@ function openStreamPlayer(id){
   var el=document.createElement('div');el.id='ls-player';el.className='lsp';
   el.innerHTML='<div class="lsp-top"><button class="btn bs bsm" onclick="spClose()">&#8592; Volver</button><div class="lsp-ttl" id="lsp-ttl">&#128308; EN VIVO'+(st&&st.title?' · '+nfEsc(st.title):'')+'</div><button class="btn bs bsm" style="margin-left:auto" onclick="spFull()">&#9974; Pantalla completa</button></div>'
     +'<div class="lsp-wrap"><div class="lsp-stage" id="lsp-stage"><video id="lsp-v" autoplay playsinline muted poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="lsp-items"></div>'
-    +'<div class="lsp-msg" id="lsp-msg">Conectando…</div><button class="lsp-snd" id="lsp-snd" style="display:none" onclick="spUnmute()">&#128266; Activar sonido</button>'
+    +'<div class="lsp-msg" id="lsp-msg">Conectando…</div><button class="lsp-snd" id="lsp-snd" style="display:none" onclick="spUnmute()">&#128266; Activar sonido</button><button class="lsp-tap" id="lsp-tap" style="display:none" onclick="spTap()">&#9654; Toca para ver</button>'
     +'<div class="lsp-fsbar" id="lsp-fsbar"><button onclick="spRotate()" title="Girar">&#10227;</button><button onclick="spFull()" title="Salir de pantalla completa">&#10005;</button></div></div></div>';
   document.body.appendChild(el);
   var host=document.getElementById('lsp-items');
@@ -8378,7 +8409,18 @@ function spFsChange(){
   if(_SP.nativeFs){_SP.nativeFs=false;el.classList.remove('lsp-full','lsp-rot');}   // salio con el gesto del sistema
 }
 document.addEventListener('fullscreenchange',spFsChange);document.addEventListener('webkitfullscreenchange',spFsChange);
-function spUnmute(){var v=document.getElementById('lsp-v');if(v){v.muted=false;try{v.play();}catch(e){}}var b=document.getElementById('lsp-snd');if(b)b.style.display='none';}
+function spTap(){var v=document.getElementById('lsp-v'),b=document.getElementById('lsp-tap');if(v){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}if(b)b.style.display='none';}
+function spSndRefresh(){
+  var v=document.getElementById('lsp-v'),b=document.getElementById('lsp-snd');if(!v||!b)return;
+  b.innerHTML=v.muted?'&#128263; Activar sonido':'&#128266; Silenciar';
+}
+// Alterna el sonido (antes, al activarlo, el boton desaparecia y no se podia volver a silenciar)
+function spUnmute(){
+  var v=document.getElementById('lsp-v');if(!v)return;
+  v.muted=!v.muted;
+  if(!v.muted){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
+  spSndRefresh();
+}
 function spMsg(t){var m=document.getElementById('lsp-msg');if(!m)return;if(t){m.textContent=t;m.style.display='flex';}else m.style.display='none';}
 function spPoll(first){
   var sid=_SP.id;if(!sid)return;
@@ -8414,13 +8456,13 @@ async function spConnect(){
     pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
     var got=false,ms=new MediaStream(),v0=document.getElementById('lsp-v');
     // WHEP no manda ids de stream: se arma un MediaStream propio con cada pista que llega (antes el video quedaba sin fuente)
-    if(v0){v0.srcObject=ms;v0.onplaying=function(){got=true;spMsg('');};}
+    if(v0){v0.srcObject=ms;v0.onplaying=function(){got=true;v0.classList.add('on');spMsg('');var tp=document.getElementById('lsp-tap');if(tp)tp.style.display='none';};}
     pc.ontrack=function(e){
       var v=document.getElementById('lsp-v');if(!v||_SP.id!==sid)return;
       ms.addTrack(e.track);
       if(v.srcObject!==ms)v.srcObject=ms;
-      var p=v.play();if(p&&p.catch)p.catch(function(){});
-      if(e.track.kind==='audio'){var b=document.getElementById('lsp-snd');if(b&&v.muted)b.style.display='block';}
+      var p=v.play();if(p&&p.catch)p.catch(function(){var tp=document.getElementById('lsp-tap');if(tp&&!got)tp.style.display='flex';});
+      if(e.track.kind==='audio'){var b=document.getElementById('lsp-snd');if(b){b.style.display='block';spSndRefresh();}}
     };
     pc.onconnectionstatechange=function(){
       if(_SP.id!==sid||_SP.pc!==pc)return;
@@ -8430,7 +8472,7 @@ async function spConnect(){
     var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/sdp'},body:pc.localDescription.sdp});
     if(!(r.status>=200&&r.status<300))throw new Error('WHEP '+r.status);
     await pc.setRemoteDescription({type:'answer',sdp:await r.text()});
-    setTimeout(function(){if(_SP.id===sid&&_SP.pc===pc&&!got)spRetry();},9000);
+    setTimeout(function(){if(_SP.id===sid&&_SP.pc===pc&&!got){spMsg('Sin video todavía (conexión: '+pc.connectionState+' / '+pc.iceConnectionState+')…');spRetry();}},9000);
   }catch(e){if(_SP.id===sid)spRetry();}
 }
 // Reintenta WebRTC unas veces (el transmisor puede estar conectandose) y luego usa el reproductor HLS de Stream como respaldo
@@ -8438,7 +8480,7 @@ function spRetry(){
   var sid=_SP.id;if(!sid||_SP.fallback)return;
   try{if(_SP.pc)_SP.pc.close();}catch(e){}_SP.pc=null;
   _SP.tries=(_SP.tries||0)+1;
-  if(_SP.tries>=4){
+  if(_SP.tries>=3){
     _SP.fallback=true;
     var stg=document.getElementById('lsp-stage'),v=document.getElementById('lsp-v');
     if(stg&&_SP.host&&_SP.uid){
