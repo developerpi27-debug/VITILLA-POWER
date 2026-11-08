@@ -155,15 +155,38 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bcs-stage{position:relative;width:min(100%,calc((100vh - 190px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden;border:1px solid var(--bdr);border-radius:8px}
 .bcs-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .bcs-items{position:absolute;inset:0}
-.bcs-tray{display:flex;flex-wrap:wrap;gap:6px;max-height:30vh;overflow:auto}
+.bcs-tray{display:flex;flex-wrap:wrap;gap:6px;max-height:22vh;overflow:auto}
+.bcs-main{flex:1;display:flex;gap:10px;min-height:0;align-items:flex-start;justify-content:center}
+.bcs-center{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.bcs-center .bcs-box{flex:none}
+.bcs-side{width:200px;flex-shrink:0;overflow:auto;max-height:calc(100vh - 150px)}
+.bcs-right{width:270px}
+.bcs-left .btn{display:block;width:100%;margin-bottom:6px;text-align:left}
+.bcs-right .pbts{grid-template-columns:repeat(3,1fr)}
+.bcs-sc .bcs-stage{width:min(100%,calc((100vh - 280px)*16/9))}
+.bxs{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;font-size:12px}
+.bxs-tms{display:flex;flex-direction:column;gap:2px;min-width:140px}
+.bxs-tm{display:flex;justify-content:space-between;gap:10px;opacity:.7}
+.bxs-tm.on{opacity:1;color:var(--acc)}
+.bxs-tm b{font-family:'Barlow Condensed',sans-serif;font-size:18px;line-height:1}
+.bxs-inn{text-align:center;font-size:11px}.bxs-inn b{display:block;font-family:'Barlow Condensed',sans-serif;font-size:22px;line-height:1}
+.bxs-cnt{display:flex;flex-direction:column;gap:1px;font-size:11px}
+.bxs-cnt i,.bxs-pp i{font-style:normal;font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.8px;margin-right:4px}
+.bxs-cnt span{color:var(--bdr2);letter-spacing:1px}.bxs-cnt span.on.bo{color:#3b82f6}.bxs-cnt span.on.st{color:#f5a623}.bxs-cnt span.on.ou{color:#ef4444}
+.bxs-pp{display:flex;flex-direction:column;gap:2px;min-width:170px;flex:1}
+.bxs-run{font-size:10px;color:var(--t2)}
+.bxs-h{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--t3);margin-bottom:6px}
+.bxs-note{font-size:12px;color:var(--t3);padding:8px}
+@media(max-width:900px){.bcs-main.bcs-sc{flex-direction:column;align-items:stretch}.bcs-side{width:auto;max-height:none}.bcs-left{order:2;display:flex;flex-wrap:wrap;gap:6px}.bcs-left .btn{display:inline-block;width:auto;margin:0}.bcs-left .bxs-h{width:100%}.bcs-center{order:1}.bcs-right{order:3;width:auto}.bcs-sc .bcs-stage{width:100%}}
 .bcs-chip{background:var(--card);border:1px solid var(--bdr);color:var(--t1,inherit);border-radius:16px;padding:6px 11px;font-size:12px;cursor:pointer}
 .bcs-chip.on{background:var(--acc);color:#000;border-color:var(--acc);font-weight:700}
 .lsi{position:absolute;overflow:visible}
-.lsi-fr{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+.lsi-fr{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;overflow:hidden}
 .lsi-fr iframe{width:100%;height:100%;border:0;background:transparent;pointer-events:none}
 .lsi.lse{outline:1.5px dashed rgba(245,166,35,.9)}
 .lsi-bd{position:absolute;inset:0;cursor:move;touch-action:none}
 .lsi-x{position:absolute;top:-10px;right:-10px;width:22px;height:22px;border-radius:50%;border:none;background:#ef4444;color:#fff;font-size:11px;cursor:pointer;z-index:2}
+.lsi-bg{position:absolute;top:-10px;left:-10px;width:22px;height:22px;border-radius:50%;border:none;background:var(--acc);color:#000;font-size:12px;cursor:pointer;z-index:2;line-height:1;padding:0}
 .lsi-rs{position:absolute;right:-9px;bottom:-9px;width:20px;height:20px;border-radius:5px;background:var(--acc);cursor:nwse-resize;touch-action:none;z-index:2}
 .lsp{position:fixed;inset:0;z-index:8400;background:#000;display:flex;flex-direction:column}
 .lsp-top{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0b1220;color:#fff;padding-top:calc(8px + env(safe-area-inset-top,0px))}
@@ -171,6 +194,13 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lsp-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
 .lsp-stage{position:relative;width:min(100%,calc((100vh - 70px)*16/9));aspect-ratio:16/9;background:#000;overflow:hidden}
 .lsp-stage video,.lsp-fb{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain;background:#000}
+.lsp-fsbar{display:none;position:absolute;top:8px;right:8px;z-index:7;gap:6px}
+.lsp-fsbar button{background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer}
+.lsp.lsp-full .lsp-top{display:none}
+.lsp.lsp-full .lsp-stage{width:min(100vw,calc(100vh*16/9))}
+.lsp.lsp-full .lsp-fsbar{display:flex}
+.lsp.lsp-rot{inset:auto;top:0;left:0;width:100vh;height:100vw;transform-origin:0 0;transform:rotate(90deg) translateY(-100%)}
+.lsp.lsp-rot .lsp-stage{width:min(100vh,calc(100vw*16/9))}
 .lsp-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:rgba(0,0,0,.45);z-index:5}
 .lsp-snd{position:absolute;right:10px;bottom:10px;z-index:6;background:rgba(0,0,0,.7);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:18px;padding:7px 13px;font-size:12px;cursor:pointer}
 .vcard{display:flex;background:var(--card);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:12px;cursor:pointer;}
@@ -3714,6 +3744,7 @@ var ALL_MOD=[
   {id:'transmissionpanel',lbl:'Panel Transmisión',ico:'🎬',sec:'General'},
   {id:'livestream',lbl:'Transmitir en vivo desde la app (cámara + gráficos)',ico:'🔴',sec:'General'},
   {id:'livestreamsave',lbl:'Transmisiones: guardar la grabación (si no, se elimina al terminar)',ico:'💾',sec:'General'},
+  {id:'livestreamscore',lbl:'Transmisión: anotar jugadas desde la Pantalla de transmisión',ico:'⚾',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
   {id:'hideads',lbl:'Ocultar anuncios (versión web)',ico:'🚫',sec:'General'},
@@ -3741,7 +3772,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','streams','videos'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','streams','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',streams:'Transmisiones',livestream:'Transmitir en vivo',livestreamsave:'Guardar transmisiones',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',streams:'Transmisiones',livestream:'Transmitir en vivo',livestreamsave:'Guardar transmisiones',livestreamscore:'Anotar desde la transmisión',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
@@ -4147,7 +4178,7 @@ function hasModuleAccess(moduleId){
   // incluso si el perfil que el admin le asigno (Configuracion > Acceso con Google) lo
   // incluyera por error — este boton no es parte de lo que se le ofrece a esa via de acceso.
   if(moduleId==='transmissionpanel'&&S.user&&S.user.role==='google')return false;
-  if((moduleId==='livestream'||moduleId==='livestreamsave')&&S.user&&(S.user.role==='google'||S.user.role==='public'))return false;
+  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore')&&S.user&&(S.user.role==='google'||S.user.role==='public'))return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -4344,7 +4375,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -4699,7 +4730,7 @@ function goNav(page){
 }
 
 // UI HELPERS
-function ct(html){document.getElementById('ct').innerHTML=html;pushRoute(curP);try{webAdsSyncPage();}catch(e){}}
+function ct(html){document.getElementById('ct').innerHTML=html;pushRoute(curP);try{webAdsSyncPage();}catch(e){}try{if(typeof bcStageSync==='function')bcStageSync();}catch(e){}}
 function fv(id){var e=document.getElementById(id);return e?(e.value||''):'';} 
 function nid(){return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function tmNm(id){var t=S.tournaments.filter(function(x){return x.id===id;})[0];return t?t.name:'—';}
@@ -7871,14 +7902,16 @@ function watchGame(gid,tid){
   if(tid)watchLiveChannel(tid);
 }
 // ── Catalogo de graficos = los mismos del Panel de Transmision (TP_ITEMS) ───────────────────────────────────────────────────────────
-var LS_DEF_W={'transmision.html':100,'scoreboard.html':24,'overlay.html':42,'pizarra.html':42,'batter.html':46,'cuadrangular.html':40,'marquee.html':60,'standing.html':36,'lineupduo.html':60,'match.html':100,'comparacion.html':80};
-var LS_DEF_POS={'transmision.html':[0,0],'scoreboard.html':[2,3],'overlay.html':[2,66],'pizarra.html':[2,3],'batter.html':[27,80],'marquee.html':[20,2]};
+// Escenario de referencia 1280x720: cada grafico se dibuja con el tamano REAL (en esos px) de su caja y todo el escenario se escala igual en
+// cualquier pantalla. Asi, al cambiar el tamano de la caja el grafico se reacomoda (como una ventana), y se ve igual en todos los dispositivos.
+var LS_REF_W=1280,LS_REF_H=720;
+var LS_DEF={'transmision.html':[100,100,0,0],'match.html':[100,100,0,0],'scoreboard.html':[30,18,2,3],'overlay.html':[46,20,2,76],'pizarra.html':[40,40,2,3],'batter.html':[52,18,24,80],
+  'cuadrangular.html':[40,30,30,30],'marquee.html':[70,9,15,2],'standing.html':[40,60,30,20],'lineupduo.html':[64,56,18,22],'comparacion.html':[80,70,10,15]};
+function lsDefFor(page,n){var d=LS_DEF[page]||[38,32,8+(n%4)*4,8+(n%4)*6];return{w:d[0],h:d[1],x:d[2],y:d[3]};}
 function lsCatalog(){
   return TP_ITEMS.map(function(it){
     var team=(it.extra&&it.extra.team)||'';
-    var big=it.page==='transmision.html';
-    return{id:it.page.replace('.html','')+(team?'-'+team:''),label:lsPlain(it.label),page:it.page,team:team,copy:it.copy||null,
-      lw:big?1920:(it.w||460),lh:big?1080:(it.h||340),dw:LS_DEF_W[it.page]||30};
+    return{id:it.page.replace('.html','')+(team?'-'+team:''),label:lsPlain(it.label),page:it.page,team:team,copy:it.copy||null};
   });
 }
 function lsQueryFor(cat){
@@ -7889,18 +7922,32 @@ function lsQueryFor(cat){
   (c.strs||[]).forEach(function(k){if(s[k]!==undefined&&s[k]!=='')q[k]=String(s[k]);});
   return q;
 }
+// El fondo transparente u opaco lo decide cada grafico (q.transp, tomado de tu configuracion del Panel de Transmision y ajustable con el boton
+// ◐ del editor); sin valor, la pagina se ve como al abrirla sola.
 function lsItemUrl(it,gid){
   var u=new URL(it.page,LS_BASE);
   u.searchParams.set('game',gid);
   if(it.team)u.searchParams.set('team',it.team);
   Object.keys(it.q||{}).forEach(function(k){u.searchParams.set(k,it.q[k]);});
-  u.searchParams.set('transp','1');u.searchParams.set('edit','0');u.searchParams.set('embed','1');
+  u.searchParams.set('edit','0');u.searchParams.set('embed','1');
   return u.href;
 }
 function lsDefaultLayout(){
-  try{var s=JSON.parse(localStorage.getItem('vp_bc_layout')||'null');if(s&&s.length)return s;}catch(e){}
+  try{var sv=JSON.parse(localStorage.getItem('vp_bc_layout')||'null');if(sv&&sv.length)return sv;}catch(e){}
   var c=lsCatalog().filter(function(x){return x.page==='transmision.html';})[0];
-  return c?[{id:c.id,page:c.page,team:'',q:lsQueryFor(c),x:0,y:0,w:100,lw:c.lw,lh:c.lh,z:1}]:[];
+  return c?[{id:c.id,page:c.page,team:'',q:lsQueryFor(c),x:0,y:0,w:100,h:100,z:1}]:[];
+}
+// Alto del grafico en % del escenario (las capas antiguas solo traian lw/lh)
+function lsItemH(it){
+  if(it.h>0)return it.h;
+  return Math.min(100,it.w*(16/9)*(it.lh||340)/(it.lw||460));
+}
+function lsApplyItem(el,it,idx){
+  var h=lsItemH(it);
+  el.style.aspectRatio='';
+  el.style.left=it.x+'%';el.style.top=it.y+'%';el.style.width=it.w+'%';el.style.height=h+'%';
+  if(idx!=null)el.style.zIndex=String(idx+1);
+  var fr=el.firstChild;fr.style.width=(it.w/100*LS_REF_W)+'px';fr.style.height=(h/100*LS_REF_H)+'px';
 }
 // Dibuja (o actualiza) los graficos dentro de un escenario 16:9. edit=true agrega asas para mover / cambiar tamano / quitar.
 function lsRenderItems(host,items,gid,edit){
@@ -7913,25 +7960,21 @@ function lsRenderItems(host,items,gid,edit){
     var src=lsItemUrl(it,gid);
     if(!el){
       el=document.createElement('div');el.className='lsi'+(edit?' lse':'');el.setAttribute('data-id',it.id);
-      el.innerHTML='<div class="lsi-fr"><iframe loading="lazy" referrerpolicy="no-referrer" allowtransparency="true" tabindex="-1"></iframe></div>'
-        +(edit?'<div class="lsi-bd"></div><button class="lsi-x" title="Quitar">&#10005;</button><div class="lsi-rs" title="Tamaño"></div>':'');
+      el.innerHTML='<div class="lsi-fr"><iframe scrolling="no" loading="lazy" referrerpolicy="no-referrer" allowtransparency="true" tabindex="-1"></iframe></div>'
+        +(edit?'<div class="lsi-bd"></div><button class="lsi-x" title="Quitar">&#10005;</button><button class="lsi-bg" title="Fondo transparente / opaco">&#9680;</button><div class="lsi-rs" title="Tamaño"></div>':'');
       host.appendChild(el);
       if(edit)lsBindEdit(el,it);
     }
-    var fr=el.firstChild,ifr=fr.firstChild;
+    var ifr=el.firstChild.firstChild;
     if(ifr.getAttribute('data-src')!==src){ifr.setAttribute('data-src',src);ifr.src=src;}
-    el.style.left=it.x+'%';el.style.top=it.y+'%';el.style.width=it.w+'%';el.style.aspectRatio=it.lw+'/'+it.lh;el.style.zIndex=String(idx+1);
-    fr.style.width=it.lw+'px';fr.style.height=it.lh+'px';
+    lsApplyItem(el,it,idx);
   });
   Object.keys(have).forEach(function(k){if(!keep[k])host.removeChild(have[k]);});
-  lsRescale(host,items);
+  lsRescale(host);
 }
-function lsRescale(host,items){
-  items.forEach(function(it){
-    var el=host.querySelector('[data-id="'+it.id+'"]');if(!el)return;
-    var s=el.clientWidth/it.lw;if(!isFinite(s)||s<=0)return;
-    el.firstChild.style.transform='scale('+s+')';
-  });
+function lsRescale(host){
+  var sc=host.clientWidth/LS_REF_W;if(!isFinite(sc)||sc<=0)return;
+  Array.prototype.forEach.call(host.children,function(el){if(el.firstChild)el.firstChild.style.transform='scale('+sc+')';});
 }
 // Espera a que termine la recoleccion de candidatos ICE (WHIP/WHEP no hacen trickle) con un tope de tiempo
 function lsWaitIce(pc,ms){
@@ -8101,7 +8144,7 @@ function bcMount(){
   var el=document.createElement('div');el.id='bc-float';el.className='bcf';
   el.style.right=(pos.r!=null?pos.r:10)+'px';el.style.bottom=(pos.b!=null?pos.b:84)+'px';
   el.innerHTML='<div class="bcf-bar" id="bcf-drag"><span class="bcf-dot"></span><b id="bcf-st">EN VIVO</b><span id="bcf-tm">00:00</span><button class="bcf-min" id="bcf-min" title="Minimizar">&#8211;</button></div>'
-    +'<video id="bcf-v" muted autoplay playsinline></video>'
+    +'<video id="bcf-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video>'
     +'<div class="bcf-btns"><button id="bcf-mic" title="Micrófono">&#127908;</button><button id="bcf-flip" title="Cambiar cámara">&#128260;</button><button id="bcf-scr" title="Pantalla: gráficos que ven los espectadores">&#129513;</button><button id="bcf-end" class="bcf-stop" title="Finalizar transmisión">&#9209;</button></div>';
   document.body.appendChild(el);
   var v=document.getElementById('bcf-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
@@ -8150,13 +8193,74 @@ async function bcFlip(){
   _BC.flipping=false;
 }
 // ── Editor de pantalla: elige y mueve los graficos que veran los espectadores ──────────────────────────────────────────────────────
+var _gcInfo=null;
+function bcGame(){return(S.games||[]).filter(function(g){return String(g.id)===String(_BC.gameId);})[0]||null;}
+// El panel de anotacion en la Pantalla solo se ofrece con el interruptor de perfil "anotar desde la transmision" y juego en vivo
+function bcCanScore(){var gm=bcGame();return!!gm&&gm.status==='live'&&hasModuleAccess('livestreamscore');}
+function bcPitcherName(gm){
+  var ft=gm.currentHalf==='top'?gm.homeTeamId:gm.awayTeamId;
+  var lu=(S.lineups||[]).filter(function(l){return l.gameId===gm.id&&l.teamId===ft;})[0];
+  if(!lu||!lu.players)return'';
+  var rep=lu.players.filter(function(lp){return lp.replacedBy;}).map(function(lp){return lp.playerId;});
+  var pe=lu.players.filter(function(lp){return lp.position==='P'&&rep.indexOf(lp.playerId)<0;})[0];
+  var p=pe?playerOf(pe.playerId):null;
+  return p?('#'+(p.number||'?')+' '+p.name):'';
+}
+// Marcador compacto sobre el video: carreras, entrada, conteo, bases, bateador y lanzador
+function bcBoxHtml(gm){
+  var aw=teamOf(gm.awayTeamId)||{name:'Visitante'},hw=teamOf(gm.homeTeamId)||{name:'Local'};
+  var top=gm.currentHalf==='top',b=gm.bases||{},info=(_gcInfo&&_gcInfo.gid===gm.id)?_gcInfo:null;
+  function dots(n,max,cls){var o='';for(var i=0;i<max;i++)o+='<span class="'+(i<n?'on '+cls:'')+'">&#9679;</span>';return o;}
+  function sq(cx,cy,on){return'<rect x="'+(cx-5)+'" y="'+(cy-5)+'" width="10" height="10" rx="1.5" transform="rotate(45 '+cx+' '+cy+')" fill="'+(on?'#f5a623':'#3a465c')+'"/>';}
+  var nb=parseInt(gm.numBases)||2;
+  var svg='<svg viewBox="0 0 44 34" width="52" height="40">'+sq(22,7,!!b.second)+(nb>=3?sq(8,19,!!b.third):'')+sq(36,19,!!b.first)+'</svg>';
+  var bt=info&&info.bt?('#'+(info.bt.number||'?')+' '+info.bt.name):'';
+  var pn=bcPitcherName(gm);
+  var runners=[info&&info.b3?'3ra: '+info.b3:'',info&&info.b2?'2da: '+info.b2:'',info&&info.b1?'1ra: '+info.b1:''].filter(Boolean).join(' · ');
+  return'<div class="bxs-tms"><div class="bxs-tm'+(top?' on':'')+'"><span>'+nfEsc(aw.name)+'</span><b>'+(parseInt(gm.awayRuns)||0)+'</b></div>'
+    +'<div class="bxs-tm'+(!top?' on':'')+'"><span>'+nfEsc(hw.name)+'</span><b>'+(parseInt(gm.homeRuns)||0)+'</b></div></div>'
+    +'<div class="bxs-inn">'+(top?'&#9650;':'&#9660;')+'<b>'+(parseInt(gm.currentInning)||1)+'</b></div>'
+    +'<div class="bxs-cnt"><div><i>B</i>'+dots(parseInt(gm.balls)||0,3,'bo')+'</div><div><i>S</i>'+dots(parseInt(gm.strikes)||0,2,'st')+'</div><div><i>O</i>'+dots(parseInt(gm.outs)||0,2,'ou')+'</div></div>'
+    +'<div class="bxs-dia">'+svg+'</div>'
+    +'<div class="bxs-pp"><div><i>AL BATE</i> '+nfEsc(bt||'—')+'</div><div><i>LANZA</i> '+nfEsc(pn||'—')+'</div>'+(runners?'<div class="bxs-run">'+nfEsc(runners)+'</div>':'')+'</div>';
+}
+function bcLeftHtml(gm){
+  return'<div class="bxs-h">ACCIONES</div>'
+    +'<button class="btn bs bsm" onclick="openSubM(\'emergente\')">&#128100; Emergente</button>'
+    +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Cambio de Pitcher</button>'
+    +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
+    +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
+    +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
+    +'<button class="btn bd bsm" '+(_undoBusy?'disabled style="opacity:.55;cursor:not-allowed" ':'')+'onclick="undoLastPlay()">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>';
+}
+// Refresca marcador y botones de la Pantalla. Los botones de jugadas se copian de los de Control de Juego (los mismos controles y reglas:
+// DP, TP, FC, SAC, PB habilitados segun outs y corredores), asi nunca quedan desincronizados. Se llama desde ct() tras cada cambio.
+function bcStageSync(){
+  var st=document.getElementById('bc-stage');if(!st)return;
+  var bx=document.getElementById('bcs-bx'),lf=document.getElementById('bcs-left'),rt=document.getElementById('bcs-right');
+  if(!bx&&!lf&&!rt)return;
+  var gm=bcGame();if(!gm)return;
+  var note='<div class="bxs-note">'+(gm.status!=='live'?'El juego no está en vivo.':'No puedes anotar este juego ahora (otro anotador lo tiene o falta permiso).')+'</div>';
+  var can=gm.status==='live'&&canScoreNow(gm);
+  if(bx)bx.innerHTML=bcBoxHtml(gm);
+  if(lf){var s1=lf.scrollTop;lf.innerHTML=can?bcLeftHtml(gm):note;lf.scrollTop=s1;}
+  if(rt){var s2=rt.scrollTop,src=document.getElementById('gc-rplay-area');rt.innerHTML=can?(src?src.innerHTML:'<div class="bxs-note">Cargando…</div>'):note;rt.scrollTop=s2;}
+}
 function bcOpenStage(){
   if(!_BC.id)return;
   var old=document.getElementById('bc-stage');if(old)old.remove();
   var cat=lsCatalog();
+  var withScore=bcCanScore();
+  // los botones de jugadas se copian de la pagina de Control de Juego: debe estar renderizada para este juego
+  if(withScore&&(curP!=='gamecontrol'||String(S.game)!==String(_BC.gameId))){S.game=_BC.gameId;try{goNav('gamecontrol');}catch(e){}}
   var el=document.createElement('div');el.id='bc-stage';el.className='bcs';
-  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño. Los espectadores lo ven al instante.</div></div><button class="btn bp bsm" id="bcs-ok">Listo</button></div>'
-    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline></video><div class="bcs-items" id="bcs-items"></div></div></div>'
+  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño (el gráfico se reacomoda a la caja). &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><button class="btn bp bsm" id="bcs-ok">Listo</button></div>'
+    +'<div class="bcs-main'+(withScore?' bcs-sc':'')+'">'
+    +(withScore?'<div class="bcs-side bcs-left" id="bcs-left"></div>':'')
+    +'<div class="bcs-center">'+(withScore?'<div class="bxs" id="bcs-bx"></div>':'')
+    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="bcs-items"></div></div></div></div>'
+    +(withScore?'<div class="bcs-side bcs-right" id="bcs-right"></div>':'')
+    +'</div>'
     +'<div class="bcs-tray" id="bcs-tray"></div>';
   document.body.appendChild(el);
   var v=document.getElementById('bcs-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
@@ -8173,18 +8277,19 @@ function bcOpenStage(){
     var id=b.getAttribute('data-id'),c=cat.filter(function(x){return x.id===id;})[0];if(!c)return;
     if(has(id)){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
     else{
-      var p=LS_DEF_POS[c.page]||[8+(_BC.layout.length%4)*4,8+(_BC.layout.length%4)*6];
-      _BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:p[0],y:p[1],w:c.dw,lw:c.lw,lh:c.lh,z:_BC.layout.length+1});
+      var d=lsDefFor(c.page,_BC.layout.length);
+      _BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:d.x,y:d.y,w:d.w,h:d.h,z:_BC.layout.length+1});
     }
     redraw();bcCommitLayout();
   });
   document.getElementById('bcs-ok').onclick=function(){el.remove();};
   _BC.stageRedraw=redraw;
   redraw();
-  if(window.ResizeObserver){var ro=new ResizeObserver(function(){lsRescale(host,_BC.layout);});ro.observe(document.getElementById('bcs-stage'));}
-  else window.addEventListener('resize',function(){lsRescale(host,_BC.layout);});
+  bcStageSync();
+  if(window.ResizeObserver){var ro=new ResizeObserver(function(){lsRescale(host);});ro.observe(document.getElementById('bcs-stage'));}
+  else window.addEventListener('resize',function(){lsRescale(host);});
 }
-// Asas de un grafico en el editor: mover (arrastrar), tamano (esquina) y quitar (x)
+// Asas de un grafico en el editor: mover (arrastrar), tamano (esquina: ancho y alto), fondo transparente/opaco y quitar
 function lsBindEdit(el,it0){
   function item(){return _BC.layout.filter(function(x){return x.id===it0.id;})[0];}
   function stageRect(){return document.getElementById('bcs-stage').getBoundingClientRect();}
@@ -8192,17 +8297,16 @@ function lsBindEdit(el,it0){
     var it=item();if(!it)return;
     e.preventDefault();e.stopPropagation();
     var cap=e.currentTarget;try{cap.setPointerCapture(e.pointerId);}catch(x){}
-    var r=stageRect(),sx=e.clientX,sy=e.clientY,ox=it.x,oy=it.y,ow=it.w;
+    var r=stageRect(),sx=e.clientX,sy=e.clientY,ox=it.x,oy=it.y,ow=it.w,oh=lsItemH(it);
+    it.h=oh;
     function mv(ev){
       var dx=(ev.clientX-sx)/r.width*100,dy=(ev.clientY-sy)/r.height*100;
       if(mode==='move'){
-        var hp=it.w*(r.width/r.height)*it.lh/it.lw;
-        it.x=Math.round(Math.max(0,Math.min(100-it.w,ox+dx))*10)/10;it.y=Math.round(Math.max(0,Math.min(Math.max(0,100-hp),oy+dy))*10)/10;
+        it.x=Math.round(Math.max(0,Math.min(100-it.w,ox+dx))*10)/10;it.y=Math.round(Math.max(0,Math.min(100-it.h,oy+dy))*10)/10;
       }else{
-        it.w=Math.round(Math.max(6,Math.min(100-it.x,ow+dx))*10)/10;
+        it.w=Math.round(Math.max(6,Math.min(100-it.x,ow+dx))*10)/10;it.h=Math.round(Math.max(5,Math.min(100-it.y,oh+dy))*10)/10;
       }
-      el.style.left=it.x+'%';el.style.top=it.y+'%';el.style.width=it.w+'%';
-      lsRescale(el.parentNode,[it]);
+      lsApplyItem(el,it);
     }
     function up(){cap.removeEventListener('pointermove',mv);cap.removeEventListener('pointerup',up);cap.removeEventListener('pointercancel',up);bcCommitLayout();}
     cap.addEventListener('pointermove',mv);cap.addEventListener('pointerup',up);cap.addEventListener('pointercancel',up);
@@ -8211,6 +8315,12 @@ function lsBindEdit(el,it0){
   el.querySelector('.lsi-rs').addEventListener('pointerdown',function(e){drag(e,'size');});
   el.querySelector('.lsi-x').addEventListener('click',function(e){
     e.stopPropagation();_BC.layout=_BC.layout.filter(function(x){return x.id!==it0.id;});
+    if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();
+  });
+  el.querySelector('.lsi-bg').addEventListener('click',function(e){
+    e.stopPropagation();var it=item();if(!it)return;
+    it.q=it.q||{};it.q.transp=(it.q.transp==='1')?'0':'1';
+    toast(it.q.transp==='1'?'Fondo transparente':'Fondo opaco','info');
     if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();
   });
 }
@@ -8236,15 +8346,38 @@ function openStreamPlayer(id){
   var st=_LS.list.filter(function(s){return s.id===id;})[0];
   _SP={id:id,gameId:st?st.gameId:'',host:st?st.playHost:'',uid:st?st.liveUid:'',items:[],ver:-1,tries:0,title:st?st.title:''};
   var el=document.createElement('div');el.id='ls-player';el.className='lsp';
-  el.innerHTML='<div class="lsp-top"><button class="btn bs bsm" onclick="spClose()">&#8592; Volver</button><div class="lsp-ttl" id="lsp-ttl">&#128308; EN VIVO'+(st&&st.title?' · '+nfEsc(st.title):'')+'</div></div>'
-    +'<div class="lsp-wrap"><div class="lsp-stage" id="lsp-stage"><video id="lsp-v" autoplay playsinline muted></video><div class="bcs-items" id="lsp-items"></div>'
-    +'<div class="lsp-msg" id="lsp-msg">Conectando…</div><button class="lsp-snd" id="lsp-snd" style="display:none" onclick="spUnmute()">&#128266; Activar sonido</button></div></div>';
+  el.innerHTML='<div class="lsp-top"><button class="btn bs bsm" onclick="spClose()">&#8592; Volver</button><div class="lsp-ttl" id="lsp-ttl">&#128308; EN VIVO'+(st&&st.title?' · '+nfEsc(st.title):'')+'</div><button class="btn bs bsm" style="margin-left:auto" onclick="spFull()">&#9974; Pantalla completa</button></div>'
+    +'<div class="lsp-wrap"><div class="lsp-stage" id="lsp-stage"><video id="lsp-v" autoplay playsinline muted poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="lsp-items"></div>'
+    +'<div class="lsp-msg" id="lsp-msg">Conectando…</div><button class="lsp-snd" id="lsp-snd" style="display:none" onclick="spUnmute()">&#128266; Activar sonido</button>'
+    +'<div class="lsp-fsbar" id="lsp-fsbar"><button onclick="spRotate()" title="Girar">&#10227;</button><button onclick="spFull()" title="Salir de pantalla completa">&#10005;</button></div></div></div>';
   document.body.appendChild(el);
   var host=document.getElementById('lsp-items');
-  if(window.ResizeObserver){_SP.ro=new ResizeObserver(function(){lsRescale(host,_SP.items);});_SP.ro.observe(document.getElementById('lsp-stage'));}
+  if(window.ResizeObserver){_SP.ro=new ResizeObserver(function(){lsRescale(host);});_SP.ro.observe(document.getElementById('lsp-stage'));}
   spPoll(true);
   _SP.poll=setInterval(function(){spPoll(false);},4000);
 }
+// Pantalla completa: usa la API nativa si el dispositivo la tiene; si no (iPhone, algunos WebView), llena la pantalla con CSS.
+function spFull(){
+  var el=document.getElementById('ls-player');if(!el)return;
+  if(el.classList.contains('lsp-full')){spExitFull();return;}
+  el.classList.add('lsp-full');
+  var fs=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(fs){try{var p=fs.call(el);if(p&&p.catch)p.catch(function(){});}catch(e){}}
+  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(function(){});}catch(e){}
+}
+function spExitFull(){
+  var el=document.getElementById('ls-player');if(el)el.classList.remove('lsp-full','lsp-rot');
+  try{if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen();else if(document.webkitFullscreenElement&&document.webkitExitFullscreen)document.webkitExitFullscreen();}catch(e){}
+  try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock();}catch(e){}
+}
+// Girar 90°: para quien tiene el celular en vertical con la rotacion automatica bloqueada
+function spRotate(){var el=document.getElementById('ls-player');if(el)el.classList.toggle('lsp-rot');}
+function spFsChange(){
+  var el=document.getElementById('ls-player');if(!el)return;
+  if(document.fullscreenElement||document.webkitFullscreenElement){_SP.nativeFs=true;return;}
+  if(_SP.nativeFs){_SP.nativeFs=false;el.classList.remove('lsp-full','lsp-rot');}   // salio con el gesto del sistema
+}
+document.addEventListener('fullscreenchange',spFsChange);document.addEventListener('webkitfullscreenchange',spFsChange);
 function spUnmute(){var v=document.getElementById('lsp-v');if(v){v.muted=false;try{v.play();}catch(e){}}var b=document.getElementById('lsp-snd');if(b)b.style.display='none';}
 function spMsg(t){var m=document.getElementById('lsp-msg');if(!m)return;if(t){m.textContent=t;m.style.display='flex';}else m.style.display='none';}
 function spPoll(first){
@@ -8279,13 +8412,15 @@ async function spConnect(){
     var pc=new RTCPeerConnection({iceServers:LS_ICE,bundlePolicy:'max-bundle'});
     _SP.pc=pc;
     pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
-    var got=false;
+    var got=false,ms=new MediaStream(),v0=document.getElementById('lsp-v');
+    // WHEP no manda ids de stream: se arma un MediaStream propio con cada pista que llega (antes el video quedaba sin fuente)
+    if(v0){v0.srcObject=ms;v0.onplaying=function(){got=true;spMsg('');};}
     pc.ontrack=function(e){
       var v=document.getElementById('lsp-v');if(!v||_SP.id!==sid)return;
-      if(e.streams&&e.streams[0])v.srcObject=e.streams[0];
-      got=true;spMsg('');
+      ms.addTrack(e.track);
+      if(v.srcObject!==ms)v.srcObject=ms;
       var p=v.play();if(p&&p.catch)p.catch(function(){});
-      var b=document.getElementById('lsp-snd');if(b&&v.muted)b.style.display='block';
+      if(e.track.kind==='audio'){var b=document.getElementById('lsp-snd');if(b&&v.muted)b.style.display='block';}
     };
     pc.onconnectionstatechange=function(){
       if(_SP.id!==sid||_SP.pc!==pc)return;
@@ -8661,6 +8796,7 @@ function pgGC(){
     return '#'+(pp.number||'?')+' '+pp.name;
   }
   var b1Lbl=baseRunnerLabel(bases.first),b2Lbl=baseRunnerLabel(bases.second),b3Lbl=baseRunnerLabel(bases.third);
+  _gcInfo={gid:gm.id,bt:bt,ord:(idx%gcLen)+1,b1:b1Lbl,b2:b2Lbl,b3:b3Lbl};
   ct('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
     +'<div><div class="stl">'+(gm.paused?'&#9646;&#9646; Juego Pausado':'&#9918; En Juego')+'</div><div class="ssb">'+aw.name+' vs '+hw.name+'</div></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -20086,7 +20222,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore')return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -21029,7 +21165,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
