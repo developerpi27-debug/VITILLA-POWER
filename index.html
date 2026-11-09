@@ -8285,6 +8285,7 @@ function bcLeftHtml(gm){
     +'<button class="btn bs bsm" onclick="openSubM(\'pitcher\')">&#8635; Cambio de Pitcher</button>'
     +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
     +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
+    +ddBtnHtml(gm)
     +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" '+(_undoBusy?'disabled style="opacity:.55;cursor:not-allowed" ':'')+'onclick="undoLastPlay()">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>';
 }
@@ -8941,6 +8942,7 @@ function pgGC(){
       +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
       +(hasModuleAccess('addtolineup')?'<button class="btn bs bsm" onclick="openAddToLineupM()" title="Agrega un jugador del roster que todavia no este en el lineup, al final del orden al bate">&#10133; Agregar al Lineup</button>':'')
       +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
+      +ddBtnHtml(gm)
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
     +(hasModuleAccess('livestream')&&gm.status!=='final'?(_BC.id&&String(_BC.gameId)===String(gm.id)?'<button class="btn bd bsm" onclick="bcShowPanel()" title="Muestra los controles de tu transmisión">&#128308; Transmitiendo · controles</button>':'<button class="btn bd bsm" data-gid="'+gm.id+'" onclick="openBroadcastM(this.dataset.gid)" title="Transmite este juego con la cámara de tu dispositivo">&#128308; Transmitir en vivo</button>'):'')
@@ -13402,6 +13404,82 @@ async function saveDefensivePointsFromModal(gid){
   cM();
   var p=playerOf(window._dpSelPlayer);
   toast((p?p.name:'Jugador')+' recibió '+pts+' punto(s)','success');
+}
+// ═══════════════════════════════════════════════════════════════════
+// DESCUENTOS DEFENSIVOS — lista los jugadores del juego a los que se les restaron puntos defensivos (jugada de Error u otro descuento) y permite
+// cambiar cuantos se descuentan (1 a 5), la justificacion, o quitar el descuento. Alimenta el Guante de Oro igual que el resto de puntos.
+// ═══════════════════════════════════════════════════════════════════
+function ddItems(gid){
+  return(S.defensivePoints||[]).filter(function(d){return String(d.gameId)===String(gid)&&(parseInt(d.points)||0)<0;})
+    .sort(function(a,b){return String(a.timestamp||'').localeCompare(String(b.timestamp||''));});
+}
+function ddBtnHtml(gm){
+  var n=ddItems(gm.id).length;
+  return'<button class="btn bs bsm" onclick="openDefDeductM()" title="Jugadores a los que se les restaron puntos defensivos: editar o quitar el descuento">&#128201; Descuentos'+(n?' ('+n+')':'')+'</button>';
+}
+function openDefDeductM(gid){
+  gid=gid||S.game;
+  var gm=(S.games||[]).filter(function(x){return String(x.id)===String(gid);})[0];if(!gm)return;
+  var items=ddItems(gm.id);
+  var body=items.length?items.map(function(d){
+    var p=playerOf(d.playerId),tm=teamOf(d.teamId);
+    var ev=(S.events||[]).filter(function(e){return e.id===d.relatedEventId;})[0];
+    var when=ev&&ev.inning?('Entrada '+ev.inning+(ev.half==='top'?' &#9650;':' &#9660;')+' · '):'';
+    return'<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:7px">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">#'+nfEsc(p&&p.number||'?')+' '+nfEsc(p?p.name:'Jugador')+' <span class="chip" style="font-size:10px">'+nfEsc(tm?tm.name:'')+'</span></div>'
+      +'<div style="font-size:11px;color:var(--t2);margin-top:2px;word-break:break-word">'+nfEsc(d.reason||'Sin justificación')+'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:2px">'+when+(d.source==='error'?'Error':'Manual')+'</div></div>'
+      +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:#ef4444;min-width:38px;text-align:center">&#8722;'+Math.abs(parseInt(d.points)||0)+'</div>'
+      +'<button class="btn bs bsm" data-id="'+nfEsc(d.id)+'" onclick="openDefDeductEditM(this.dataset.id)">&#9998; Editar</button></div>';
+  }).join(''):'<div class="empty"><div>Ningún jugador tiene descuentos defensivos en este juego.</div></div>';
+  showM('<div class="mhd"><div class="mtl">&#128201; Descuentos defensivos</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:10px">Jugadores a los que se les restaron puntos defensivos en este juego. Puedes cambiar la cantidad, la justificación o quitar el descuento. Los puntos cuentan para el Guante de Oro.</div>'+body+'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
+}
+function openDefDeductEditM(id){
+  var d=(S.defensivePoints||[]).filter(function(x){return x.id===id;})[0];
+  if(!d){openDefDeductM();return;}
+  var p=playerOf(d.playerId);
+  window._ddId=id;window._ddPts=Math.min(5,Math.max(1,Math.abs(parseInt(d.points)||1)));window._ddConfirm=false;
+  showM('<div class="mhd"><div class="mtl">&#9998; Editar descuento</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div style="font-size:14px;font-weight:700;margin-bottom:10px">#'+nfEsc(p&&p.number||'?')+' '+nfEsc(p?p.name:'Jugador')+'</div>'
+    +'<div class="fl" style="margin-bottom:6px">Puntos a descontar</div>'
+    +'<div id="dd-pts" style="display:flex;gap:6px;margin-bottom:12px">'
+    +[1,2,3,4,5].map(function(n){return'<button type="button" data-n="'+n+'" onclick="ddPickPts('+n+')" style="flex:1;padding:9px 0;border-radius:8px;border:1px solid var(--bdr);background:transparent;color:var(--txt,#fff);font-weight:800;cursor:pointer">&#8722;'+n+'</button>';}).join('')
+    +'</div>'
+    +'<div class="fl" style="margin-bottom:6px">Justificación</div>'
+    +'<textarea id="dd-reason" rows="3" style="width:100%;background:var(--bg3,#0d1420);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;color:var(--txt,#fff);font-size:13px;box-sizing:border-box;resize:vertical">'+nfEsc(d.reason||'')+'</textarea></div>'
+    +'<div class="mft"><button class="btn bs" data-gid="'+nfEsc(d.gameId)+'" onclick="openDefDeductM(this.dataset.gid)">&#8592; Volver</button>'
+    +'<button class="btn bd" id="dd-rm" onclick="ddRemove()">&#128465; Quitar descuento</button>'
+    +'<button class="btn bp" onclick="ddSave()">Guardar</button></div>');
+  ddPickPts(window._ddPts);
+}
+function ddPickPts(n){
+  window._ddPts=n;
+  var wrap=document.getElementById('dd-pts');if(!wrap)return;
+  wrap.querySelectorAll('button').forEach(function(b){
+    var on=parseInt(b.getAttribute('data-n'))===n;
+    b.style.borderColor=on?'#ef4444':'var(--bdr)';b.style.background=on?'#ef4444':'transparent';b.style.color=on?'#fff':'var(--txt,#fff)';
+  });
+}
+async function ddSave(){
+  var d=(S.defensivePoints||[]).filter(function(x){return x.id===window._ddId;})[0];if(!d)return;
+  var reason=(fv('dd-reason')||'').trim();
+  if(!reason){toast('La justificación es obligatoria','error');return;}
+  var upd={};Object.keys(d).forEach(function(k){upd[k]=d[k];});
+  upd.points=-Math.abs(parseInt(window._ddPts)||1);upd.reason=reason;
+  var r=await api('saveDefensivePoints',{item:upd});
+  if(r&&r.ok!==false){d.points=upd.points;d.reason=reason;toast('Descuento actualizado','success');openDefDeductM(d.gameId);}
+  else toast((r&&r.error)||'No se pudo guardar el cambio','error');
+}
+async function ddRemove(){
+  var d=(S.defensivePoints||[]).filter(function(x){return x.id===window._ddId;})[0];if(!d)return;
+  var b=document.getElementById('dd-rm');
+  if(!window._ddConfirm){window._ddConfirm=true;if(b)b.innerHTML='&#9888; Toca de nuevo para confirmar';return;}
+  var gid=d.gameId;
+  var r=await api('deleteDefensivePoints',{id:d.id});
+  if(r&&r.ok!==false){S.defensivePoints=(S.defensivePoints||[]).filter(function(x){return x.id!==d.id;});toast('Descuento eliminado','success');openDefDeductM(gid);}
+  else toast((r&&r.error)||'No se pudo quitar el descuento','error');
 }
 function openAdjM(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
