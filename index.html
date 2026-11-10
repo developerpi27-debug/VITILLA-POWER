@@ -21318,7 +21318,27 @@ function webAdsConfigCard(){
     +'<div class="fg"><label class="fl">Código del anuncio superior (pégalo completo, tal como lo da Adsterra)</label><textarea class="fi" id="webAdsCodeTop" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px" placeholder="&lt;script&gt; atOptions = {...} &lt;/script&gt; &lt;script src=&quot;//...invoke.js&quot;&gt;&lt;/script&gt;">'+fnEsc(c.top)+'</textarea></div>'
     +'<div class="fg"><label class="fl">Código del anuncio inferior (opcional; usa un código distinto al superior)</label><textarea class="fi" id="webAdsCodeBottom" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.bottom)+'</textarea></div>'
     +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja un campo vacío para no usar esa posición. Sirven los códigos de <b>Banner</b> (728×90, 468×60, 320×50, 300×250...) y de <b>Native Banner</b>; no pegues el mismo código en las dos posiciones. Los cambios se ven al recargar la página.</div>'
-    +'<button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button></div>';
+    +'<div class="alert ai" style="font-size:12px;margin-top:6px;line-height:1.5">&#128065; <b>Probar:</b> como administrador (staff) tú no verás los anuncios en la app. Usa <b>Vista previa</b> para comprobar que el código carga, y para verlo en la app real entra como <b>visitante</b> (ventana de incógnito, sin iniciar sesión) con <b>Mostrar anuncios a Visitantes</b> activo en la tarjeta de AdMob.</div>'
+    +'<div id="webAdsPrev"></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button><button class="btn bs" onclick="webAdsPreview()">Vista previa</button></div></div>';
+}
+// Vista previa: carga los codigos de las cajas (aunque no esten guardados) en el mismo iframe aislado que usa la app.
+function webAdsPreview(){
+  var box=document.getElementById('webAdsPrev');if(!box)return;
+  box.innerHTML='';
+  [['webAdsCodeTop','Superior'],['webAdsCodeBottom','Inferior']].forEach(function(x){
+    var code=fv(x[0]).trim();if(!code)return;
+    var wrap=document.createElement('div');wrap.style.cssText='margin:8px 0;text-align:center';
+    if(!webAdsValidCode(code)){wrap.innerHTML='<div class="alert ai" style="font-size:12px">'+x[1]+': el código debe incluir &lt;script&gt; y tener menos de 6000 caracteres</div>';box.appendChild(wrap);return;}
+    var dims=webAdsDims(code);
+    wrap.innerHTML='<div style="font-size:11px;opacity:.7;margin-bottom:3px">'+x[1]+(dims?' ('+dims.w+'×'+dims.h+')':' (sin tamaño fijo)')+'</div>';
+    var fr=document.createElement('iframe');
+    fr.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');fr.setAttribute('scrolling','no');fr.setAttribute('title','Vista previa');
+    fr.style.cssText='border:1px dashed rgba(128,128,128,.5);max-width:100%;width:'+(dims?dims.w:300)+'px;height:'+(dims?dims.h:250)+'px';
+    fr.srcdoc=webAdsDoc(code,'prev');
+    wrap.appendChild(fr);box.appendChild(wrap);
+  });
+  if(!box.children.length)box.innerHTML='<div class="alert ai" style="font-size:12px">Pega un código para ver la vista previa</div>';
 }
 async function saveWebAdsConfig(){
   var on=document.getElementById('webAdsOn').checked,t=fv('webAdsCodeTop').trim(),b=fv('webAdsCodeBottom').trim();
