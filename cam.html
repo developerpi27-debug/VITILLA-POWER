@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Cámara de transmisión</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b1220;color:#e8edf5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+h1{font-size:18px;margin:4px 0 0}
+.card{width:100%;max-width:520px;background:#141d30;border:1px solid #243050;border-radius:12px;padding:14px}
+label{font-size:12px;opacity:.75;display:block;margin:8px 0 4px}
+input,select,button{font:inherit;border-radius:8px;border:1px solid #33425f;background:#0e1626;color:#fff;padding:10px 12px;width:100%}
+input.code{font-size:26px;letter-spacing:6px;text-align:center;text-transform:uppercase;font-family:monospace}
+button{cursor:pointer;font-weight:700;background:#2f6fed;border-color:#2f6fed;margin-top:10px}
+button.sec{background:#1b2742;border-color:#33425f}button.red{background:#e53935;border-color:#e53935}
+button:disabled{opacity:.5}
+video{width:100%;max-width:520px;aspect-ratio:16/9;background:#000;border-radius:10px;object-fit:cover}
+#st{font-size:14px;text-align:center;min-height:20px}
+.ok{color:#4cd37b}.warn{color:#ffb74d}.err{color:#ff6b6b}
+.row{display:flex;gap:8px}.row>*{flex:1}
+small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
+</style></head><body>
+<h1>&#128247; Cámara de transmisión</h1>
+<div class="card" id="c-join">
+  <label>Código que aparece en el dispositivo que transmite</label>
+  <input class="code" id="code" maxlength="8" placeholder="ABC123" autocomplete="off" autocapitalize="characters">
+  <div class="row">
+    <div><label>Cámara</label><select id="facing"><option value="environment">Trasera</option><option value="user">Delantera</option></select></div>
+    <div><label>Calidad</label><select id="res"><option value="480">480p (poca señal)</option><option value="720" selected>720p</option><option value="1080">1080p</option></select></div>
+  </div>
+  <button id="go">Conectar cámara</button>
+  <small>Se envía solo el video, directo al dispositivo que transmite (no pasa por ningún servidor). Mantén esta pantalla encendida y esta página abierta mientras dure el juego. Lo ideal es estar en la misma red Wi-Fi.</small>
+</div>
+<video id="pv" muted autoplay playsinline style="display:none"></video>
+<div id="st"></div>
+<div class="card" id="c-run" style="display:none">
+  <div class="row"><button class="sec" id="flip">&#128260; Cambiar cámara</button><button class="red" id="stop">Desconectar</button></div>
+</div>
+<script>
+var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
+var $=function(i){return document.getElementById(i);};
+var code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
+try{tok=sessionStorage.getItem('vp_cam_tok')||'';}catch(e){}
+if(!tok){tok=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()).replace(/-/g,'');try{sessionStorage.setItem('vp_cam_tok',tok);}catch(e){}}
+var q=new URLSearchParams(location.search).get('c');if(q)$('code').value=String(q).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+function st(t,c){var e=$('st');e.textContent=t;e.className=c||'';}
+async function api(action,data){
+  var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
+  var j=null;try{j=await r.json();}catch(e){}
+  if(!j)throw new Error('HTTP '+r.status);
+  return j;
+}
+function waitIce(p,ms){return new Promise(function(res){
+  if(p.iceGatheringState==='complete')return res();
+  var t=setTimeout(done,ms||2500);
+  function done(){clearTimeout(t);p.removeEventListener('icegatheringstatechange',chk);res();}
+  function chk(){if(p.iceGatheringState==='complete')done();}
+  p.addEventListener('icegatheringstatechange',chk);
+});}
+function dims(){return{'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[$('res').value]||[1280,720];}
+async function openCam(){
+  if(stream){stream.getTracks().forEach(function(t){t.stop();});}
+  var d=dims();
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('facing').value},width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},audio:false});
+  var v=$('pv');v.srcObject=stream;v.style.display='block';try{v.play();}catch(e){}
+}
+async function wake(){try{if(navigator.wakeLock&&running)wl=await navigator.wakeLock.request('screen');}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&running){wake();}});
+// Oferta -> el transmisor responde -> conectado. Si se cae, se vuelve a ofrecer con el mismo codigo (mismo dispositivo).
+async function connect(){
+  var my=++gen;clearTimeout(retryT);
+  try{if(pc){pc.onconnectionstatechange=null;pc.close();}}catch(e){}
+  st('Conectando con el dispositivo que transmite…','warn');
+  var p=new RTCPeerConnection({iceServers:ice});pc=p;
+  stream.getVideoTracks().forEach(function(t){
+    var tr=p.addTransceiver(t,{direction:'sendonly',streams:[stream]});
+    try{var caps=RTCRtpSender.getCapabilities('video');if(caps&&tr.setCodecPreferences){var hh=caps.codecs.filter(function(c){return/h264/i.test(c.mimeType);}),o=caps.codecs.filter(function(c){return!/h264/i.test(c.mimeType);});if(hh.length)tr.setCodecPreferences(hh.concat(o));}}catch(e){}
+  });
+  p.onconnectionstatechange=function(){
+    if(my!==gen)return;
+    var s=p.connectionState;
+    if(s==='connected'){st('Conectada · tu video se está enviando','ok');}
+    else if(s==='failed'||s==='disconnected'){st('Conexión perdida, reconectando…','warn');clearTimeout(retryT);retryT=setTimeout(function(){if(my===gen&&!stopped)connect();},s==='failed'?500:4000);}
+  };
+  await p.setLocalDescription(await p.createOffer());await waitIce(p,2500);
+  var r=await api('camLinkOffer',{code:code,tok:tok,sdp:p.localDescription.sdp});
+  if(my!==gen)return;
+  if(!r.ok){if(r.closed)return ended(r.error);throw new Error(r.error||'No se pudo enviar la oferta');}
+  // esperar la respuesta del transmisor (hasta 3 min)
+  var t0=Date.now();
+  while(my===gen&&!stopped&&Date.now()-t0<180000){
+    await new Promise(function(res){setTimeout(res,1500);});
+    if(my!==gen||stopped)return;
+    var a=await api('camLinkResult',{code:code,tok:tok});
+    if(!a.ok){if(a.closed)return ended(a.error);throw new Error(a.error||'Error');}
+    if(a.status==='answered'&&a.answer){
+      await p.setRemoteDescription({type:'answer',sdp:a.answer});
+      try{var snd=p.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0],pr=snd.getParameters();if(!pr.encodings||!pr.encodings.length)pr.encodings=[{}];var h=dims()[1];pr.encodings[0].maxBitrate=h>=1080?4500000:(h>=720?2500000:1200000);await snd.setParameters(pr);}catch(e){}
+      return;
+    }
+  }
+  if(my===gen&&!stopped){st('El transmisor no aceptó la cámara a tiempo. Pulsa Desconectar y vuelve a intentarlo.','err');}
+}
+function ended(msg){
+  stopped=true;running=false;gen++;
+  try{if(pc)pc.close();}catch(e){}
+  if(stream)stream.getTracks().forEach(function(t){t.stop();});
+  $('pv').style.display='none';$('c-run').style.display='none';$('c-join').style.display='block';$('go').disabled=false;
+  st(msg||'La transmisión terminó.','err');
+}
+$('go').onclick=async function(){
+  code=$('code').value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length<6){st('Escribe el código de 6 caracteres.','err');return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.RTCPeerConnection){st('Este navegador no permite usar la cámara.','err');return;}
+  $('go').disabled=true;stopped=false;st('Verificando código…','warn');
+  try{
+    var j=await api('camLinkJoin',{code:code,tok:tok});
+    if(!j.ok){st(j.error||'Código inválido o vencido.','err');$('go').disabled=false;return;}
+    if(j.ice&&j.ice.length)ice=j.ice;
+    st('Abriendo la cámara…','warn');
+    try{await openCam();}catch(e){st(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara para continuar.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');$('go').disabled=false;return;}
+    running=true;wake();
+    $('c-join').style.display='none';$('c-run').style.display='block';
+    document.title=(j.label||'Cámara')+' · transmisión';
+    await connect();
+  }catch(e){st('Error: '+(e&&e.message||e)+'. Revisa tu conexión.','err');$('go').disabled=false;$('c-join').style.display='block';$('c-run').style.display='none';}
+};
+$('flip').onclick=async function(){
+  var nxt=$('facing').value==='environment'?'user':'environment';$('facing').value=nxt;
+  try{
+    var old=stream;await openCam();
+    var nt=stream.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
+    if(snd)await snd.replaceTrack(nt);
+  }catch(e){st('No se pudo cambiar de cámara.','err');}
+};
+$('stop').onclick=function(){ended('Cámara desconectada.');st('Cámara desconectada.','');};
+window.addEventListener('beforeunload',function(e){if(running){e.preventDefault();e.returnValue='';}});
+if($('code').value.length>=6){st('Código recibido. Toca "Conectar cámara".','');}
+</script></body></html>
