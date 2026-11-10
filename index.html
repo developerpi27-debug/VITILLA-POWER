@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+  atOptions = {
+    'key' : '293ad4a28faceec4f5ee48b3e0a5bcab',
+    'format' : 'iframe',
+    'height' : 90,
+    'width' : 728,
+    'params' : {}
+  };
+</script>
+<script src="https://czernik.org/22/293ad4a28faceec4f5ee48b3e0a5bcab"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="google-adsense-account" content="ca-pub-6950590988970114">
-<!-- AdSense: fragmento de verificacion del sitio (se puede quitar cuando aprueben el sitio; ver notas) -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6950590988970114" crossorigin="anonymous"></script>
 <title id="pageTitle">Vitilla Power</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a0e1a">
@@ -21235,40 +21242,74 @@ function fantasyMoveCostCard(){
 }
 // ── Configuracion: maximo de plantillas por desafio grupal (equipo vs equipo / Royal Rumble) ──
 // ═══════════════════════════════════════════════════════════════════════════════
-// ANUNCIOS (Google AdSense) — SOLO version web. Config (tabla config): webAdsEnabled ('1'), webAdsClient ('ca-pub-XXXXXXXXXXXXXXXX'),
-// webAdsSlotTop y webAdsSlotBottom (IDs numericos de los bloques de anuncio). No se muestran: en la app nativa (Capacitor), si esta apagado
-// o sin configurar, ni a staff con usuario/contrasena (igual que AdMob), ni a quien tenga el modulo 'hideads' en su perfil, ni en
-// pantallas de anotacion (control de juego / transmision). Los bloques se crean UNA vez por sesion: no se refrescan al navegar.
+// ANUNCIOS WEB (Adsterra) — SOLO version web. Config (tabla config): webAdsEnabled ('1'), webAdsCodeTop y webAdsCodeBottom (el codigo
+// COMPLETO del anuncio tal como lo entrega Adsterra: Banner o Native Banner). Cada codigo se muestra dentro de un iframe aislado
+// (sandbox, sin acceso a la sesion ni al almacenamiento de la app), porque los banners de Adsterra usan document.write y scripts de
+// terceros. No se muestran: en la app nativa (Capacitor), si esta apagado o sin codigo, ni a staff con usuario/contrasena (igual que
+// AdMob), ni a quien tenga el modulo 'hideads' en su perfil, ni en pantallas de anotacion (control de juego / transmision).
+// Los bloques se crean UNA vez por sesion: no se refrescan al navegar.
 // ═══════════════════════════════════════════════════════════════════════════════
-var _webAdsRendered={top:'',bottom:''},_webAdsScriptClient='',WEB_ADS_HIDE_PAGES=['gamecontrol','transmissionpanel'];
-function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',client:String(c.webAdsClient||'').trim(),top:String(c.webAdsSlotTop||'').trim(),bottom:String(c.webAdsSlotBottom||'').trim()};}
+var _webAdsRendered={top:'',bottom:''},_webAdsFrames={},WEB_ADS_HIDE_PAGES=['gamecontrol','transmissionpanel'],_webAdsMsgOn=false;
+function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',top:String(c.webAdsCodeTop||'').trim(),bottom:String(c.webAdsCodeBottom||'').trim()};}
+function webAdsValidCode(code){return !!code&&code.length<=6000&&/<script/i.test(code);}
 function webAdsAllowed(){
   var c=webAdsCfg();
-  if(IS_NATIVE_APP||!S.user||!c.on||!/^ca-pub-\d{16}$/.test(c.client))return false;
+  if(IS_NATIVE_APP||!S.user||!c.on)return false;
   // Mismo publico y mismos interruptores que AdMob (Configuracion > Anuncios (AdMob)): visitantes y usuarios de Google; nunca staff con usuario/contrasena.
   var cf=S.config||{},aud=S.user.role==='public'?cf.adsEnabledVisitors==='true':(S.user.role==='google'?cf.adsEnabledGoogle==='true':false);
   return aud&&!hasModuleAccess('hideads');
 }
+// Banners "iframe" de Adsterra traen atOptions con 'width' y 'height' fijos; los Native Banner no (alto automatico).
+function webAdsDims(code){
+  var w=/['"]?width['"]?\s*:\s*(\d{2,4})/i.exec(code),hh=/['"]?height['"]?\s*:\s*(\d{2,4})/i.exec(code);
+  return(w&&hh)?{w:parseInt(w[1],10),h:parseInt(hh[1],10)}:null;
+}
+function webAdsDoc(code,pos){
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;padding:0;background:transparent;text-align:center;overflow:hidden}</style></head><body>'
+    +code
+    +'<script>(function(){function p(){try{parent.postMessage({vpAd:"'+pos+'",h:Math.ceil(document.body.getBoundingClientRect().height)},"*");}catch(e){}}'
+    +'window.addEventListener("load",p);setTimeout(p,1500);setTimeout(p,4000);try{new ResizeObserver(p).observe(document.body);}catch(e){}})();<\/script></body></html>';
+}
+function webAdsFit(pos){
+  var o=_webAdsFrames[pos];if(!o||!o.dims)return;
+  var el=document.getElementById('ad-'+pos);if(!el)return;
+  var cw=(el.clientWidth||o.dims.w)-16,s=Math.min(1,cw/o.dims.w);if(!(s>0))s=1;
+  o.fr.style.transform='scale('+s+')';o.box.style.width=Math.round(o.dims.w*s)+'px';o.box.style.height=Math.round(o.dims.h*s)+'px';
+}
 function webAdsClear(){
-  ['top','bottom'].forEach(function(p){var el=document.getElementById('ad-'+p);if(el){el.innerHTML='';el.style.display='none';}_webAdsRendered[p]='';});
+  ['top','bottom'].forEach(function(p){var el=document.getElementById('ad-'+p);if(el){el.innerHTML='';el.style.display='none';}_webAdsRendered[p]='';delete _webAdsFrames[p];});
 }
 function webAdsInit(){
   try{
     if(!webAdsAllowed()){webAdsClear();return;}
     var c=webAdsCfg();
-    if(_webAdsScriptClient!==c.client&&!document.getElementById('ads-js')&&!document.querySelector('script[src*="pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"]')){
-      var sc=document.createElement('script');sc.id='ads-js';sc.async=true;sc.crossOrigin='anonymous';
-      sc.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(c.client);
-      document.head.appendChild(sc);_webAdsScriptClient=c.client;
+    if(!_webAdsMsgOn){
+      _webAdsMsgOn=true;
+      // Los Native Banner no traen alto fijo: el iframe avisa su alto real. Solo se acepta el mensaje del propio iframe del anuncio.
+      window.addEventListener('message',function(e){
+        var d=e.data;if(!d||typeof d.vpAd!=='string')return;
+        var o=_webAdsFrames[d.vpAd];if(!o||o.dims||e.source!==o.fr.contentWindow)return;
+        var hh=Math.max(0,Math.min(600,parseInt(d.h,10)||0));o.fr.style.height=hh+'px';o.box.style.height=hh+'px';
+      });
+      window.addEventListener('resize',function(){webAdsFit('top');webAdsFit('bottom');});
     }
     ['top','bottom'].forEach(function(p){
-      var el=document.getElementById('ad-'+p),slot=c[p];
+      var el=document.getElementById('ad-'+p),code=c[p];
       if(!el)return;
-      if(!/^\d{6,20}$/.test(slot)){el.innerHTML='';el.style.display='none';_webAdsRendered[p]='';return;}
-      if(_webAdsRendered[p]===slot)return;   // ya cargado en esta sesion: no se vuelve a pedir
-      el.innerHTML='<div class="ad-lbl">Publicidad</div><ins class="adsbygoogle" style="display:block" data-ad-client="'+c.client+'" data-ad-slot="'+slot+'" data-ad-format="auto" data-full-width-responsive="true"></ins>';
-      el.style.display='block';_webAdsRendered[p]=slot;
-      try{(window.adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+      if(!webAdsValidCode(code)){el.innerHTML='';el.style.display='none';_webAdsRendered[p]='';delete _webAdsFrames[p];return;}
+      if(_webAdsRendered[p]===code)return;   // ya cargado en esta sesion: no se vuelve a pedir
+      el.innerHTML='<div class="ad-lbl">Publicidad</div>';
+      var box=document.createElement('div');box.style.cssText='margin:0 auto;overflow:hidden;position:relative';
+      var fr=document.createElement('iframe'),dims=webAdsDims(code);
+      fr.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      fr.setAttribute('scrolling','no');fr.setAttribute('title','Publicidad');fr.setAttribute('loading','lazy');
+      fr.style.cssText='border:0;display:block;max-width:none;transform-origin:top left;background:transparent';
+      if(dims){fr.style.width=dims.w+'px';fr.style.height=dims.h+'px';}else{fr.style.width='100%';fr.style.height='0';box.style.width='100%';box.style.height='0';}
+      fr.srcdoc=webAdsDoc(code,p);
+      box.appendChild(fr);el.appendChild(box);
+      _webAdsFrames[p]={fr:fr,box:box,dims:dims};
+      el.style.display='block';_webAdsRendered[p]=code;
+      webAdsFit(p);
     });
     webAdsSyncPage();
   }catch(e){}
@@ -21282,20 +21323,19 @@ function webAdsSyncPage(){
 }
 function webAdsConfigCard(){
   var c=webAdsCfg();
-  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128226; Anuncios (Google AdSense — versión web)</div></div>'
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">&#128226; Anuncios (Adsterra — versión web)</div></div>'
     +'<div class="fg"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="webAdsOn" '+(c.on?'checked':'')+'> Mostrar anuncios en la versión web</label></div>'
-    +'<div class="fg"><label class="fl">ID de editor (ca-pub-XXXXXXXXXXXXXXXX)</label><input class="fi" id="webAdsClient" placeholder="ca-pub-1234567890123456" value="'+fnEsc(c.client)+'"></div>'
-    +'<div class="fr c2"><div class="fg"><label class="fl">ID del bloque superior</label><input class="fi" id="webAdsSlotTop" inputmode="numeric" placeholder="1234567890" value="'+fnEsc(c.top)+'"></div>'
-    +'<div class="fg"><label class="fl">ID del bloque inferior</label><input class="fi" id="webAdsSlotBottom" inputmode="numeric" placeholder="0987654321" value="'+fnEsc(c.bottom)+'"></div></div>'
-    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja vacío un ID de bloque para no usar esa posición. Los cambios se ven al recargar la página. Desactiva los <i>Anuncios automáticos</i> en AdSense para que solo salgan estos bloques. Recuerda publicar <b>ads.txt</b> en la raíz del sitio y mantener la <b>política de privacidad</b> actualizada.</div>'
+    +'<div class="fg"><label class="fl">Código del anuncio superior (pégalo completo, tal como lo da Adsterra)</label><textarea class="fi" id="webAdsCodeTop" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px" placeholder="&lt;script&gt; atOptions = {...} &lt;/script&gt; &lt;script src=&quot;//...invoke.js&quot;&gt;&lt;/script&gt;">'+fnEsc(c.top)+'</textarea></div>'
+    +'<div class="fg"><label class="fl">Código del anuncio inferior (opcional; usa un código distinto al superior)</label><textarea class="fi" id="webAdsCodeBottom" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.bottom)+'</textarea></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja un campo vacío para no usar esa posición. Sirven los códigos de <b>Banner</b> (728×90, 468×60, 320×50, 300×250...) y de <b>Native Banner</b>; no pegues el mismo código en las dos posiciones. Los cambios se ven al recargar la página.</div>'
     +'<button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button></div>';
 }
 async function saveWebAdsConfig(){
-  var on=document.getElementById('webAdsOn').checked,cl=fv('webAdsClient').trim(),t=fv('webAdsSlotTop').trim(),b=fv('webAdsSlotBottom').trim();
-  if(on&&!/^ca-pub-\d{16}$/.test(cl)){toast('El ID de editor debe verse así: ca-pub-1234567890123456','error');return;}
-  if((t&&!/^\d{6,20}$/.test(t))||(b&&!/^\d{6,20}$/.test(b))){toast('Los IDs de bloque son solo números','error');return;}
-  if(on&&!t&&!b){toast('Indica al menos un ID de bloque (superior o inferior)','error');return;}
-  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsClient',cl],['webAdsSlotTop',t],['webAdsSlotBottom',b]];
+  var on=document.getElementById('webAdsOn').checked,t=fv('webAdsCodeTop').trim(),b=fv('webAdsCodeBottom').trim();
+  if((t&&!webAdsValidCode(t))||(b&&!webAdsValidCode(b))){toast('El código debe ser el fragmento completo de Adsterra (con <script>) y de menos de 6000 caracteres','error');return;}
+  if(on&&!t&&!b){toast('Pega al menos un código de anuncio (superior o inferior)','error');return;}
+  if(t&&t===b){toast('El código superior e inferior no pueden ser el mismo: pide un segundo código en Adsterra','error');return;}
+  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsCodeTop',t],['webAdsCodeBottom',b]];
   _saving=true;var ok=true;
   for(var i=0;i<kv.length&&ok;i++){var r=await api('saveConfig',{key:kv[i][0],value:kv[i][1]});ok=!!(r&&r.ok);if(ok){S.config=S.config||{};S.config[kv[i][0]]=kv[i][1];}}
   _saving=false;
