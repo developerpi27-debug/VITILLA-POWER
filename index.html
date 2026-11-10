@@ -8718,7 +8718,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -20426,7 +20426,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -21240,31 +21240,53 @@ function fantasyMoveCostCard(){
 // Los bloques se crean UNA vez por sesion: no se refrescan al navegar.
 // ═══════════════════════════════════════════════════════════════════════════════
 var _webAdsRendered={top:'',bottom:''},_webAdsFrames={},WEB_ADS_HIDE_PAGES=['gamecontrol','transmissionpanel'],_webAdsMsgOn=false;
-function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',top:String(c.webAdsCodeTop||'').trim(),bottom:String(c.webAdsCodeBottom||'').trim()};}
+function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',top:String(c.webAdsCodeTop||'').trim(),bottom:String(c.webAdsCodeBottom||'').trim(),popOn:String(c.webAdsPopEnabled||'')==='1',pop:String(c.webAdsCodePop||'').trim()};}
 function webAdsValidCode(code){return !!code&&code.length<=6000&&/<script/i.test(code);}
-function webAdsAllowed(){
-  var c=webAdsCfg();
-  if(IS_NATIVE_APP||!S.user||!c.on)return false;
-  // Mismo publico y mismos interruptores que AdMob (Configuracion > Anuncios (AdMob)): visitantes y usuarios de Google; nunca staff con usuario/contrasena.
+// Publico que puede ver anuncios web (banners y popunder): mismos interruptores que AdMob (Configuracion > Anuncios (AdMob)): visitantes y
+// usuarios de Google; nunca staff con usuario/contrasena, ni la app nativa, ni quien tenga el modulo 'hideads'.
+function webAdsAudienceOk(){
+  if(IS_NATIVE_APP||!S.user)return false;
   var cf=S.config||{},aud=S.user.role==='public'?cf.adsEnabledVisitors==='true':(S.user.role==='google'?cf.adsEnabledGoogle==='true':false);
   return aud&&!hasModuleAccess('hideads');
+}
+function webAdsAllowed(){return webAdsAudienceOk()&&webAdsCfg().on;}
+// POPUNDER: el script debe correr en la pagina principal (necesita ver los clics del usuario), por eso NO va en iframe: solo se carga
+// para el publico anterior, una vez por carga de pagina, y solo si es un <script src="https://...">. No se puede descargar un script ya
+// cargado: si despues la sesion deja de ser elegible (p. ej. un visitante inicia sesion como staff), se recarga la pagina una vez.
+var _webAdsPopCode='';
+function webAdsValidPop(code){return !!code&&code.length<=3000&&/<script[^>]+src\s*=\s*["'](https:)?\/\/[^"']+["']/i.test(code);}
+function webAdsPopInit(){
+  try{
+    var c=webAdsCfg();
+    if(!(webAdsAudienceOk()&&c.popOn&&webAdsValidPop(c.pop))){
+      if(_webAdsPopCode){try{if(!sessionStorage.getItem('vpPopReload')){sessionStorage.setItem('vpPopReload','1');location.reload();}}catch(e){}}
+      else{try{sessionStorage.removeItem('vpPopReload');}catch(e){}}
+      return;
+    }
+    if(_webAdsPopCode)return;   // ya cargado en esta pagina
+    _webAdsPopCode=c.pop;
+    var tpl=document.createElement('template');tpl.innerHTML=c.pop;
+    tpl.content.querySelectorAll('script').forEach(function(old){
+      var s=document.createElement('script');
+      for(var i=0;i<old.attributes.length;i++)s.setAttribute(old.attributes[i].name,old.attributes[i].value);
+      s.text=old.text;(document.body||document.documentElement).appendChild(s);
+    });
+  }catch(e){}
 }
 // Banners "iframe" de Adsterra traen atOptions con 'width' y 'height' fijos; los Native Banner no (alto automatico).
 function webAdsDims(code){
   var w=/['"]?width['"]?\s*:\s*(\d{2,4})/i.exec(code),hh=/['"]?height['"]?\s*:\s*(\d{2,4})/i.exec(code);
   return(w&&hh)?{w:parseInt(w[1],10),h:parseInt(hh[1],10)}:null;
 }
-function webAdsDoc(code,pos,diag){
-  var dg='',dg2='';
-  if(diag){
-    // Solo vista previa: informa al panel si algun script/recurso del anuncio falla al cargar y que quedo insertado a los 4 s.
-    dg='<script>window.addEventListener("error",function(e){var t=e.target||{};try{parent.postMessage({vpDiag:"'+diag+'",m:(t.src||t.href)?("FALLO al cargar: "+(t.src||t.href)):("Error JS: "+e.message)},"*");}catch(x){}},true);<\/script>';
-    dg2='<script>setTimeout(function(){try{var n=document.querySelectorAll("iframe").length,im=document.querySelectorAll("img,a,ins").length;parent.postMessage({vpDiag:"'+diag+'",m:"A los 4 s: "+n+" iframe(s), "+im+" img/enlaces, alto "+Math.round(document.body.getBoundingClientRect().height)+" px, referrer: "+(document.referrer||"(vacio)")+", url: "+location.href.slice(0,40)},"*");}catch(x){}},4000);<\/script>';
-  }
-  return '<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;padding:0;background:transparent;text-align:center;overflow:hidden}</style></head><body>'
-    +dg+code+dg2
-    +'<script>(function(){function p(){try{parent.postMessage({vpAd:"'+pos+'",h:Math.ceil(document.body.getBoundingClientRect().height)},"*");}catch(e){}}'
-    +'window.addEventListener("load",p);setTimeout(p,1500);setTimeout(p,4000);try{new ResizeObserver(p).observe(document.body);}catch(e){}})();<\/script></body></html>';
+// El anuncio se carga desde el WORKER (/ad-frame), que es otro origen que la app: asi funciona el anuncio y no puede tocar la sesion.
+function webAdsSrc(pos,code){
+  var hs=5381,i;for(i=0;i<code.length;i++)hs=((hs*33)^code.charCodeAt(i))>>>0;
+  return String(CFG.workerUrl||'').replace(/\/+$/,'')+'/ad-frame?p='+pos+'&v='+hs.toString(36);
+}
+// Si por alguna razon el Worker estuviera en el MISMO origen que la app, no se concede allow-same-origin (el anuncio vería la sesion).
+function webAdsSandbox(){
+  var same=false;try{same=new URL(CFG.workerUrl,location.href).origin===location.origin;}catch(e){same=true;}
+  return same?'allow-scripts allow-popups allow-popups-to-escape-sandbox':'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox';
 }
 function webAdsFit(pos){
   var o=_webAdsFrames[pos];if(!o||!o.dims)return;
@@ -21277,6 +21299,7 @@ function webAdsClear(){
 }
 function webAdsInit(){
   try{
+    webAdsPopInit();
     if(!webAdsAllowed()){webAdsClear();return;}
     var c=webAdsCfg();
     if(!_webAdsMsgOn){
@@ -21297,11 +21320,11 @@ function webAdsInit(){
       el.innerHTML='<div class="ad-lbl">Publicidad</div>';
       var box=document.createElement('div');box.style.cssText='margin:0 auto;overflow:hidden;position:relative';
       var fr=document.createElement('iframe'),dims=webAdsDims(code);
-      fr.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      fr.setAttribute('sandbox',webAdsSandbox());
       fr.setAttribute('scrolling','no');fr.setAttribute('title','Publicidad');fr.setAttribute('loading','lazy');
       fr.style.cssText='border:0;display:block;max-width:none;transform-origin:top left;background:transparent';
       if(dims){fr.style.width=dims.w+'px';fr.style.height=dims.h+'px';}else{fr.style.width='100%';fr.style.height='0';box.style.width='100%';box.style.height='0';}
-      fr.srcdoc=webAdsDoc(code,p);
+      fr.src=webAdsSrc(p,code);
       box.appendChild(fr);el.appendChild(box);
       _webAdsFrames[p]={fr:fr,box:box,dims:dims};
       el.style.display='block';_webAdsRendered[p]=code;
@@ -21323,57 +21346,46 @@ function webAdsConfigCard(){
     +'<div class="fg"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="webAdsOn" '+(c.on?'checked':'')+'> Mostrar anuncios en la versión web</label></div>'
     +'<div class="fg"><label class="fl">Código del anuncio superior (pégalo completo, tal como lo da Adsterra)</label><textarea class="fi" id="webAdsCodeTop" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px" placeholder="&lt;script&gt; atOptions = {...} &lt;/script&gt; &lt;script src=&quot;//...invoke.js&quot;&gt;&lt;/script&gt;">'+fnEsc(c.top)+'</textarea></div>'
     +'<div class="fg"><label class="fl">Código del anuncio inferior (opcional; usa un código distinto al superior)</label><textarea class="fi" id="webAdsCodeBottom" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.bottom)+'</textarea></div>'
-    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja un campo vacío para no usar esa posición. Sirven los códigos de <b>Banner</b> (728×90, 468×60, 320×50, 300×250...) y de <b>Native Banner</b>; no pegues el mismo código en las dos posiciones. Los cambios se ven al recargar la página.</div>'
-    +'<div class="alert ai" style="font-size:12px;margin-top:6px;line-height:1.5">&#128065; <b>Probar:</b> como administrador (staff) tú no verás los anuncios en la app. Usa <b>Vista previa</b> para comprobar que el código carga, y para verlo en la app real entra como <b>visitante</b> (ventana de incógnito, sin iniciar sesión) con <b>Mostrar anuncios a Visitantes</b> activo en la tarjeta de AdMob.</div>'
+    +'<div class="fg" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(128,128,128,.25)"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="webAdsPopOn" '+(c.popOn?'checked':'')+'> Activar anuncio <b>Popunder</b> (independiente de los banners)</label></div>'
+    +'<div class="fg"><label class="fl">Código del popunder (el &lt;script src="..."&gt; que da Adsterra)</label><textarea class="fi" id="webAdsCodePop" rows="2" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.pop)+'</textarea></div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9888; El popunder se carga en la página principal (no en iframe) y abre una pestaña detrás cuando el visitante hace clic. Se muestra al mismo público que los banners (nunca staff) y una vez por carga de página; la frecuencia por usuario se limita en el panel de Adsterra, déjala baja.</div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Los banners se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja un campo vacío para no usar esa posición. Sirven los códigos de <b>Banner</b> (728×90, 468×60, 320×50, 300×250...) y de <b>Native Banner</b>; no pegues el mismo código en las dos posiciones. Los cambios se ven al recargar la página.</div>'
+    +'<div class="alert ai" style="font-size:12px;margin-top:6px;line-height:1.5">&#128065; <b>Probar:</b> como administrador (staff) tú no verás los anuncios en la app. Guarda el código y usa <b>Vista previa</b> para comprobar que carga, y para verlo en la app real entra como <b>visitante</b> (ventana de incógnito, sin iniciar sesión) con <b>Mostrar anuncios a Visitantes</b> activo en la tarjeta de AdMob.</div>'
     +'<div id="webAdsPrev"></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button><button class="btn bs" onclick="webAdsPreview()">Vista previa</button></div></div>';
 }
-// Vista previa + DIAGNOSTICO: carga los codigos de las cajas (aunque no esten guardados) en dos variantes:
-// A) aislada (la que usa la app) y B) sin aislamiento (solo para comparar). Debajo lista lo que informa cada iframe.
-var _webAdsDiagOn=false;
+// Vista previa: muestra los anuncios GUARDADOS tal como los ve el publico (mismo marco del Worker). Guarda primero si cambiaste el codigo.
 function webAdsPreview(){
   var box=document.getElementById('webAdsPrev');if(!box)return;
   box.innerHTML='';
-  if(!_webAdsDiagOn){
-    _webAdsDiagOn=true;
-    window.addEventListener('message',function(e){
-      var d=e.data;if(!d||typeof d.vpDiag!=='string')return;
-      var out=document.getElementById('webAdsDiag');if(!out)return;
-      var ln=document.createElement('div');ln.style.cssText='font-family:monospace;font-size:11px;text-align:left;word-break:break-all;margin:2px 0';
-      ln.textContent='['+d.vpDiag+'] '+String(d.m||'').slice(0,300);out.appendChild(ln);
-    });
-  }
-  var any=false;
-  [['webAdsCodeTop','Superior','S'],['webAdsCodeBottom','Inferior','I']].forEach(function(x){
-    var code=fv(x[0]).trim();if(!code)return;
+  var any=false,cf=webAdsCfg();
+  [['top','Superior'],['bottom','Inferior']].forEach(function(x){
+    var code=cf[x[0]];if(!webAdsValidCode(code))return;
     any=true;
-    if(!webAdsValidCode(code)){var w0=document.createElement('div');w0.innerHTML='<div class="alert ai" style="font-size:12px">'+x[1]+': el código debe incluir &lt;script&gt; y tener menos de 6000 caracteres</div>';box.appendChild(w0);return;}
     var dims=webAdsDims(code);
-    [['A','Aislado (el que usa la app)','allow-scripts allow-popups allow-popups-to-escape-sandbox'],['B','Sin aislamiento (solo prueba)','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox']].forEach(function(v){
-      var wrap=document.createElement('div');wrap.style.cssText='margin:8px 0;text-align:center';
-      wrap.innerHTML='<div style="font-size:11px;opacity:.7;margin-bottom:3px">'+x[1]+' · '+v[1]+(dims?' ('+dims.w+'×'+dims.h+')':' (sin tamaño fijo)')+'</div>';
-      var fr=document.createElement('iframe');
-      fr.setAttribute('sandbox',v[2]);fr.setAttribute('scrolling','no');fr.setAttribute('title','Vista previa');
-      fr.style.cssText='border:1px dashed rgba(128,128,128,.5);max-width:100%;width:'+(dims?dims.w:300)+'px;height:'+(dims?dims.h:250)+'px';
-      fr.srcdoc=webAdsDoc(code,'prev',x[2]+v[0]);
-      wrap.appendChild(fr);box.appendChild(wrap);
-    });
+    var wrap=document.createElement('div');wrap.style.cssText='margin:8px 0;text-align:center';
+    wrap.innerHTML='<div style="font-size:11px;opacity:.7;margin-bottom:3px">'+x[1]+(dims?' ('+dims.w+'×'+dims.h+')':' (sin tamaño fijo)')+'</div>';
+    var fr=document.createElement('iframe');
+    fr.setAttribute('sandbox',webAdsSandbox());fr.setAttribute('scrolling','no');fr.setAttribute('title','Vista previa');
+    fr.style.cssText='border:1px dashed rgba(128,128,128,.5);max-width:100%;width:'+(dims?dims.w:300)+'px;height:'+(dims?dims.h:250)+'px';
+    fr.src=webAdsSrc(x[0],code);
+    wrap.appendChild(fr);box.appendChild(wrap);
   });
-  if(!any){box.innerHTML='<div class="alert ai" style="font-size:12px">Pega un código para ver la vista previa</div>';return;}
-  var dgn=document.createElement('div');dgn.id='webAdsDiag';dgn.style.cssText='margin:6px 0;padding:6px;border:1px solid rgba(128,128,128,.3);border-radius:6px';
-  dgn.innerHTML='<div style="font-size:11px;font-weight:700;margin-bottom:3px">Diagnóstico (espera unos 5 segundos)</div>';
-  box.appendChild(dgn);
+  if(!any)box.innerHTML='<div class="alert ai" style="font-size:12px">No hay un código guardado. Pégalo, pulsa <b>Guardar anuncios</b> y vuelve a pulsar Vista previa.</div>';
 }
 async function saveWebAdsConfig(){
   var on=document.getElementById('webAdsOn').checked,t=fv('webAdsCodeTop').trim(),b=fv('webAdsCodeBottom').trim();
+  var popOn=document.getElementById('webAdsPopOn').checked,pop=fv('webAdsCodePop').trim();
   if((t&&!webAdsValidCode(t))||(b&&!webAdsValidCode(b))){toast('El código debe ser el fragmento completo de Adsterra (con <script>) y de menos de 6000 caracteres','error');return;}
   if(on&&!t&&!b){toast('Pega al menos un código de anuncio (superior o inferior)','error');return;}
   if(t&&t===b){toast('El código superior e inferior no pueden ser el mismo: pide un segundo código en Adsterra','error');return;}
-  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsCodeTop',t],['webAdsCodeBottom',b]];
+  if(pop&&!webAdsValidPop(pop)){toast('El popunder debe ser un <script src="https://..."> de Adsterra (menos de 3000 caracteres)','error');return;}
+  if(popOn&&!pop){toast('Pega el código del popunder para activarlo','error');return;}
+  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsCodeTop',t],['webAdsCodeBottom',b],['webAdsPopEnabled',popOn?'1':'0'],['webAdsCodePop',pop]];
   _saving=true;var ok=true;
   for(var i=0;i<kv.length&&ok;i++){var r=await api('saveConfig',{key:kv[i][0],value:kv[i][1]});ok=!!(r&&r.ok);if(ok){S.config=S.config||{};S.config[kv[i][0]]=kv[i][1];}}
   _saving=false;
-  toast(ok?(on?'Anuncios guardados (recarga la página para verlos)':'Anuncios desactivados'):'Error al guardar los anuncios',ok?'success':'error');
+  toast(ok?((on||popOn)?'Anuncios guardados (recarga la página para verlos)':'Anuncios desactivados'):'Error al guardar los anuncios',ok?'success':'error');
 }
 function fantasyWeeklyCard(){
   var cf=S.config||{},pl=String(cf.fantasyWeeklyPlaces||'').split(',').map(function(x){return parseInt(x,10);}).filter(function(x){return x>=1&&x<=5;});
