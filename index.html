@@ -8718,7 +8718,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('La API de MLB no ha publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -20426,7 +20426,7 @@ function sponsorPinnedBanner(flagKey,label){
     +'<div style="font-size:11px;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">'+label+'</div>'
     +'<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">'
     +pinned.map(function(s){
-      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:150px;max-width:350px;object-fit:contain">';
+      var img='<img src="'+s.imagenUrl+'" alt="'+s.nombre+'" style="max-height:100px;max-width:200px;object-fit:contain">';
       return'<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
         +(s.linkUrl?'<a href="'+s.linkUrl+'" target="_blank">'+img+'</a>':img)
         +'<div style="font-size:11px;color:var(--t2)">'+s.nombre+'</div></div>';
@@ -21254,9 +21254,15 @@ function webAdsDims(code){
   var w=/['"]?width['"]?\s*:\s*(\d{2,4})/i.exec(code),hh=/['"]?height['"]?\s*:\s*(\d{2,4})/i.exec(code);
   return(w&&hh)?{w:parseInt(w[1],10),h:parseInt(hh[1],10)}:null;
 }
-function webAdsDoc(code,pos){
+function webAdsDoc(code,pos,diag){
+  var dg='',dg2='';
+  if(diag){
+    // Solo vista previa: informa al panel si algun script/recurso del anuncio falla al cargar y que quedo insertado a los 4 s.
+    dg='<script>window.addEventListener("error",function(e){var t=e.target||{};try{parent.postMessage({vpDiag:"'+diag+'",m:(t.src||t.href)?("FALLO al cargar: "+(t.src||t.href)):("Error JS: "+e.message)},"*");}catch(x){}},true);<\/script>';
+    dg2='<script>setTimeout(function(){try{var n=document.querySelectorAll("iframe").length,im=document.querySelectorAll("img,a,ins").length;parent.postMessage({vpDiag:"'+diag+'",m:"A los 4 s: "+n+" iframe(s), "+im+" img/enlaces, alto "+Math.round(document.body.getBoundingClientRect().height)+" px, referrer: "+(document.referrer||"(vacio)")+", url: "+location.href.slice(0,40)},"*");}catch(x){}},4000);<\/script>';
+  }
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;padding:0;background:transparent;text-align:center;overflow:hidden}</style></head><body>'
-    +code
+    +dg+code+dg2
     +'<script>(function(){function p(){try{parent.postMessage({vpAd:"'+pos+'",h:Math.ceil(document.body.getBoundingClientRect().height)},"*");}catch(e){}}'
     +'window.addEventListener("load",p);setTimeout(p,1500);setTimeout(p,4000);try{new ResizeObserver(p).observe(document.body);}catch(e){}})();<\/script></body></html>';
 }
@@ -21322,23 +21328,41 @@ function webAdsConfigCard(){
     +'<div id="webAdsPrev"></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn bp" onclick="saveWebAdsConfig()">Guardar anuncios</button><button class="btn bs" onclick="webAdsPreview()">Vista previa</button></div></div>';
 }
-// Vista previa: carga los codigos de las cajas (aunque no esten guardados) en el mismo iframe aislado que usa la app.
+// Vista previa + DIAGNOSTICO: carga los codigos de las cajas (aunque no esten guardados) en dos variantes:
+// A) aislada (la que usa la app) y B) sin aislamiento (solo para comparar). Debajo lista lo que informa cada iframe.
+var _webAdsDiagOn=false;
 function webAdsPreview(){
   var box=document.getElementById('webAdsPrev');if(!box)return;
   box.innerHTML='';
-  [['webAdsCodeTop','Superior'],['webAdsCodeBottom','Inferior']].forEach(function(x){
+  if(!_webAdsDiagOn){
+    _webAdsDiagOn=true;
+    window.addEventListener('message',function(e){
+      var d=e.data;if(!d||typeof d.vpDiag!=='string')return;
+      var out=document.getElementById('webAdsDiag');if(!out)return;
+      var ln=document.createElement('div');ln.style.cssText='font-family:monospace;font-size:11px;text-align:left;word-break:break-all;margin:2px 0';
+      ln.textContent='['+d.vpDiag+'] '+String(d.m||'').slice(0,300);out.appendChild(ln);
+    });
+  }
+  var any=false;
+  [['webAdsCodeTop','Superior','S'],['webAdsCodeBottom','Inferior','I']].forEach(function(x){
     var code=fv(x[0]).trim();if(!code)return;
-    var wrap=document.createElement('div');wrap.style.cssText='margin:8px 0;text-align:center';
-    if(!webAdsValidCode(code)){wrap.innerHTML='<div class="alert ai" style="font-size:12px">'+x[1]+': el código debe incluir &lt;script&gt; y tener menos de 6000 caracteres</div>';box.appendChild(wrap);return;}
+    any=true;
+    if(!webAdsValidCode(code)){var w0=document.createElement('div');w0.innerHTML='<div class="alert ai" style="font-size:12px">'+x[1]+': el código debe incluir &lt;script&gt; y tener menos de 6000 caracteres</div>';box.appendChild(w0);return;}
     var dims=webAdsDims(code);
-    wrap.innerHTML='<div style="font-size:11px;opacity:.7;margin-bottom:3px">'+x[1]+(dims?' ('+dims.w+'×'+dims.h+')':' (sin tamaño fijo)')+'</div>';
-    var fr=document.createElement('iframe');
-    fr.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox');fr.setAttribute('scrolling','no');fr.setAttribute('title','Vista previa');
-    fr.style.cssText='border:1px dashed rgba(128,128,128,.5);max-width:100%;width:'+(dims?dims.w:300)+'px;height:'+(dims?dims.h:250)+'px';
-    fr.srcdoc=webAdsDoc(code,'prev');
-    wrap.appendChild(fr);box.appendChild(wrap);
+    [['A','Aislado (el que usa la app)','allow-scripts allow-popups allow-popups-to-escape-sandbox'],['B','Sin aislamiento (solo prueba)','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox']].forEach(function(v){
+      var wrap=document.createElement('div');wrap.style.cssText='margin:8px 0;text-align:center';
+      wrap.innerHTML='<div style="font-size:11px;opacity:.7;margin-bottom:3px">'+x[1]+' · '+v[1]+(dims?' ('+dims.w+'×'+dims.h+')':' (sin tamaño fijo)')+'</div>';
+      var fr=document.createElement('iframe');
+      fr.setAttribute('sandbox',v[2]);fr.setAttribute('scrolling','no');fr.setAttribute('title','Vista previa');
+      fr.style.cssText='border:1px dashed rgba(128,128,128,.5);max-width:100%;width:'+(dims?dims.w:300)+'px;height:'+(dims?dims.h:250)+'px';
+      fr.srcdoc=webAdsDoc(code,'prev',x[2]+v[0]);
+      wrap.appendChild(fr);box.appendChild(wrap);
+    });
   });
-  if(!box.children.length)box.innerHTML='<div class="alert ai" style="font-size:12px">Pega un código para ver la vista previa</div>';
+  if(!any){box.innerHTML='<div class="alert ai" style="font-size:12px">Pega un código para ver la vista previa</div>';return;}
+  var dgn=document.createElement('div');dgn.id='webAdsDiag';dgn.style.cssText='margin:6px 0;padding:6px;border:1px solid rgba(128,128,128,.3);border-radius:6px';
+  dgn.innerHTML='<div style="font-size:11px;font-weight:700;margin-bottom:3px">Diagnóstico (espera unos 5 segundos)</div>';
+  box.appendChild(dgn);
 }
 async function saveWebAdsConfig(){
   var on=document.getElementById('webAdsOn').checked,t=fv('webAdsCodeTop').trim(),b=fv('webAdsCodeBottom').trim();
