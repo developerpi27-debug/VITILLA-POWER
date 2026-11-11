@@ -248,6 +248,17 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .dot{width:13px;height:13px;border-radius:50%;background:var(--bdr2);}.dot.on{background:var(--acc);}
 .bslbl{font-size:10px;color:var(--t3);font-weight:700;letter-spacing:1px;}
 .diamond{position:relative;width:72px;height:72px;margin:0 auto;}
+.gcf{position:relative;width:230px;max-width:100%;aspect-ratio:230/206;margin:0 auto;border-radius:14px;overflow:hidden;background:#1b5e30;border:1px solid var(--bdr2)}
+.gcf svg.gcbg{position:absolute;inset:0;width:100%;height:100%}
+.gcnode{position:absolute;transform:translate(-50%,-66%);display:flex;flex-direction:column;align-items:center;z-index:2}
+.gcav{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;font-family:inherit;color:#fff}
+.gcav.tap{cursor:pointer;transition:transform .12s}
+.gcav.tap:active{transform:scale(.92)}
+.gcav.tap svg{filter:drop-shadow(0 0 5px var(--acc))}
+.gcav .gcl{margin-top:1px;font-size:9px;font-weight:700;line-height:1.1;max-width:68px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.6);border-radius:6px;padding:1px 5px}
+.gcmb{padding:12px 6px;text-align:center;line-height:1.2;font-size:14px}
+.gcmg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.gcmg.g3{grid-template-columns:repeat(3,1fr)}
 .base{position:absolute;width:16px;height:16px;background:var(--bdr2);border-radius:3px;}
 .base.on{background:var(--acc);}
 .b1{right:0;top:50%;transform:translateY(-50%) rotate(45deg);}
@@ -1709,7 +1720,7 @@ async function ltHandle(action,data){
   }
   if(action==='saveTeam'){
     var tm=Object.assign({},data.team);if(!tm.id)tm.id=ltNewId();
-    tm.active=bool(tm.active);tm.isAllstar=String(tm.isAllstar===true||tm.isAllstar==='true');tm.logoUrl=tm.logoUrl||'';
+    tm.active=bool(tm.active);tm.isAllstar=String(tm.isAllstar===true||tm.isAllstar==='true');tm.noStats=String(tm.noStats===true||tm.noStats==='true');tm.logoUrl=tm.logoUrl||'';
     if(!await ltPut('team',tm.tournamentId,tm.id,tm))return FAIL;
     return{ok:true,item:tm};
   }
@@ -2781,6 +2792,80 @@ function closeGoogleGameControlInfoM(userId){
   }
   cM();
 }
+// ── VISITANTES: tarjeta de bienvenida + guia breve al entrar a cada menu ─────────────────────────────────
+// Igual que las ventanas de "Primeros pasos" de las cuentas de Google/usuario, pero para el acceso de visitante (role 'public'):
+//  1) Al entrar como visitante sale UNA tarjeta de bienvenida con los primeros pasos (deporte > subtorneo, menu superior, calendario en vivo).
+//  2) Al entrar a cada modulo por primera vez en la sesion de la app sale una tarjeta corta explicando que se puede hacer ahi.
+// Ambas tienen "No volver a mostrar" (localStorage, en este dispositivo): la de bienvenida una sola marca; las de modulo, una marca por
+// modulo y ademas una marca general para apagar TODAS las guias de menu.
+var GW_KEY='gw_dismissed_guest',GT_ALL_KEY='gt_all_off',GT_PREFIX='gt_off_';
+var _gwPending=false,_gtShown={};
+function gwOff(k){try{return localStorage.getItem(k)==='1';}catch(e){return false;}}
+function gwSetOff(k){try{localStorage.setItem(k,'1');}catch(e){}}
+function openGuestWelcomeM(){
+  if(!S.user||S.user.role!=='public'||gwOff(GW_KEY))return false;
+  var md=document.getElementById('modals');if(md&&md.innerHTML)return false;
+  showM('<div class="mhd"><div class="mtl">&#128075; ¡Bienvenido a '+brandName()+'!</div><button class="bx" onclick="closeGuestWelcomeM()">&#10005;</button></div>'
+    +'<div class="mbd">'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px">Estás viendo '+brandName()+' como <b>visitante</b>: puedes consultar posiciones, estadísticas, líderes y más. Para encontrar lo que buscas, sigue estos primeros pasos:</div>'
+    +'<ol style="font-size:13px;color:var(--t2);line-height:1.9;margin:0 0 14px 18px;padding:0">'
+    +'<li>Selecciona el <b>deporte</b> (<b>Vitilla</b>, <b>Baseball</b> o <b>Softball</b>) y el torneo en los filtros de la parte superior de la pantalla.</li>'
+    +'<li>Luego elige el <b>subtorneo</b> del cual deseas ver las informaciones.</li>'
+    +'<li>Muévete por el <b>menú superior</b> deslizándolo de <b>izquierda a derecha</b> (o al revés) para ver todas las secciones. En computadora el menú está en el lateral izquierdo.</li>'
+    +'<li>En <b>Calendario</b> podrás ver los <b>partidos en vivo</b>, los próximos y los ya finalizados.</li>'
+    +'<li>Al entrar a cada sección verás una guía corta de lo que puedes hacer en ella; puedes marcarla para que no vuelva a salir.</li>'
+    +'</ol>'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer"><input type="checkbox" id="gwDismiss"> No volver a mostrar este mensaje</label>'
+    +'</div>'
+    +'<div class="mft"><button class="btn bp" onclick="closeGuestWelcomeM()">¡Entendido!</button></div>');
+  return true;
+}
+function closeGuestWelcomeM(){
+  var chk=document.getElementById('gwDismiss');
+  if(chk&&chk.checked)gwSetOff(GW_KEY);
+  cM();
+  _gwPending=false;
+  setTimeout(function(){try{maybeModuleTip(curP);}catch(e){}},250);   // ahora si, la guia del modulo en que esta
+}
+var GT_TIPS={
+  standings:{ico:'&#128203;',t:'Posiciones',p:'Aquí ves la tabla de posiciones del subtorneo elegido: juegos ganados y perdidos, porcentaje y demás datos de cada equipo.',l:['Cambia el torneo, el año o el subtorneo con los filtros de arriba.','Filtra por fase (serie regular, playoffs…) y por división cuando las haya.']},
+  schedule:{ico:'&#128197;',t:'Calendario',p:'Aquí están los juegos programados, los que están <b>en vivo</b> y los ya finalizados del subtorneo elegido.',l:['Los juegos en vivo se actualizan solos mientras los miras.','Toca <b>Ver</b> en un juego para abrir su detalle.','Cambia de torneo, año o fase con los filtros de arriba.']},
+  teams:{ico:'&#128101;',t:'Equipos',p:'Consulta los equipos del subtorneo y sus rosters: jugadores, números y posiciones.',l:[]},
+  stats:{ico:'&#128200;',t:'Estadísticas',p:'Estadísticas individuales de <b>Bateo</b>, <b>Pitcheo</b> y <b>Defensa</b>, además de las de los equipos.',l:['Toca el encabezado de una columna para ordenar.','Usa el buscador para encontrar un jugador o un equipo.','Toca el nombre de un jugador para ver su detalle.','Con los botones －/＋ de la barra superior puedes reducir o ampliar las tablas para ver más columnas.']},
+  streaks:{ico:'&#128293;',t:'En Racha',p:'Jugadores y equipos en racha: bateadores con hits consecutivos, pitchers con innings sin carreras y victorias seguidas (mínimo 5 para aparecer).',l:[]},
+  statslife:{ico:'&#9854;&#65039;',t:'Stats de Por Vida',p:'Estadísticas acumuladas de toda la carrera de cada jugador, sumando todos los torneos y temporadas.',l:['Usa el buscador para encontrar a un jugador.']},
+  leaders:{ico:'&#129351;',t:'Líderes',p:'Los mejores del subtorneo en cada categoría de bateo y pitcheo.',l:['Cada categoría muestra su Top; ábrela para ver la lista completa.','Filtra por fase y división con los selectores de arriba.']},
+  leaderslife:{ico:'&#127775;',t:'Líderes de Por Vida',p:'Los líderes históricos en cada categoría, acumulando todas las temporadas y torneos.',l:[]},
+  rankings:{ico:'&#127942;',t:'Rankings',p:'Top 10 de bateadores y pitchers según el sistema de puntos del torneo.',l:['Abre la lista completa para buscar por nombre y filtrar por división.','Desde ahí también puedes exportar el ranking a PDF.']},
+  tovsto:{ico:'&#9876;&#65039;',t:'To vs To',p:'Compara dos jugadores o dos equipos cara a cara, con sus números de bateo y pitcheo.',l:['Elige a los dos que quieres comparar y revisa el resultado.','Puedes generar un PDF de la comparación.']},
+  awards:{ico:'&#127941;',t:'Premiaciones',p:'Jugadores destacados por fecha, candidatos a los premios y a la selección del Juego de Estrellas del subtorneo.',l:['Cambia el subtorneo y la división con los filtros de arriba.']},
+  channels:{ico:'&#128250;',t:'Canales en Vivo',p:'Mira las transmisiones en vivo de los juegos cuando estén disponibles.',l:[]},
+  streams:{ico:'&#128225;',t:'Transmisiones',p:'Transmisiones guardadas de los juegos del subtorneo, para verlas cuando quieras.',l:[]},
+  videos:{ico:'&#127916;',t:'Videos',p:'Videos publicados por la organización sobre los juegos y el torneo.',l:[]}
+};
+function maybeModuleTip(page){
+  try{
+    if(!S.user||S.user.role!=='public'||_gwPending)return;
+    var tip=GT_TIPS[page];if(!tip)return;
+    if(_gtShown[page]||gwOff(GT_ALL_KEY)||gwOff(GT_PREFIX+page))return;
+    var md=document.getElementById('modals');if(!md||md.innerHTML)return;   // no tapar otra ventana abierta
+    _gtShown[page]=true;
+    showM('<div class="mhd"><div class="mtl">'+tip.ico+' '+tip.t+'</div><button class="bx" onclick="closeModuleTip(\''+page+'\')">&#10005;</button></div>'
+      +'<div class="mbd">'
+      +'<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:'+(tip.l.length?'10':'14')+'px">'+tip.p+'</div>'
+      +(tip.l.length?'<ul style="font-size:13px;color:var(--t2);line-height:1.7;margin:0 0 14px 18px;padding:0">'+tip.l.map(function(x){return'<li>'+x+'</li>';}).join('')+'</ul>':'')
+      +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer;margin-bottom:6px"><input type="checkbox" id="gtOne"> No volver a mostrar esta guía</label>'
+      +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);cursor:pointer"><input type="checkbox" id="gtAll"> No mostrar guías en ningún menú</label>'
+      +'</div>'
+      +'<div class="mft"><button class="btn bp" onclick="closeModuleTip(\''+page+'\')">Entendido</button></div>');
+  }catch(e){}
+}
+function closeModuleTip(page){
+  var a=document.getElementById('gtAll'),o=document.getElementById('gtOne');
+  if(a&&a.checked)gwSetOff(GT_ALL_KEY);
+  else if(o&&o.checked)gwSetOff(GT_PREFIX+page);
+  cM();
+}
 // Carga de datos del visitante, lo mas barata posible para la base de datos:
 //  1) si hay copia local reciente (< 10 min) se pregunta SOLO la version de datos (consulta diminuta, cacheada en el borde);
 //  2) si la version coincide -> se usa la copia local, sin descargar nada mas;
@@ -2820,12 +2905,14 @@ function guestLogin(){
     document.getElementById('lscr').style.display='none';
     document.getElementById('app').style.display='flex';
     resetModuleState();
+    _gwPending=!gwOff(GW_KEY);   // la guia del modulo espera a que se cierre la bienvenida
     renderApp();goNav('standings');
     maybeInterstitial('login');
     startPolling();
     startSessionTimer();
     trackVisit();
     setTimeout(function(){startMarquee();startPublicGalleries();},500);
+    if(_gwPending)setTimeout(function(){if(!openGuestWelcomeM())_gwPending=false;},450);
   });
 }
 // Persiste una sesion de visitante minima (sin JWT — el acceso de visitante no requiere
@@ -4064,6 +4151,13 @@ function teamIsAllstar(tid){
   var tm=(S.teams&&S.teams.length)?teamOf(tid):null;   // teamOf usa el indice en memoria durante un render; mismo primer resultado que filter()[0]
   return!!(tm&&(tm.isAllstar===true||tm.isAllstar==='true'));
 }
+// Equipo marcado "no mostrar a sus jugadores en estadisticas" (flag noStats, formulario de Equipos): sus JUGADORES se omiten de
+// Estadisticas, Lideres, Rankings, Premiaciones, En Racha, Por Vida, Destacados y To vs To. Se filtra por jugador (no por juego): los
+// numeros de los bateadores/pitchers RIVALES de ese equipo se siguen contando, igual que la posicion del equipo en la tabla.
+function tmNoStats(tid){
+  var tm=(S.teams&&S.teams.length)?teamOf(tid):null;
+  return!!(tm&&(tm.noStats===true||tm.noStats==='true'));
+}
 function phaseOpts(){
   return '<option value="" '+(!S.phaseFilter?'selected':'')+'>Todas las Fases</option>'
     +'<option value="regular" '+(S.phaseFilter==='regular'?'selected':'')+'>Serie Regular</option>'
@@ -4429,6 +4523,8 @@ function renderApp(){
   // defecto.
   if(!applyRouteFromUrl()){
     goNav(u.role==='public'?'standings':(mods[0]?mods[0].id:'dashboard'));
+  }else{
+    try{maybeModuleTip(curP);}catch(e){}
   }
 }
 var _sbCollapsed=false;
@@ -4761,6 +4857,7 @@ function goNav(page){
   initPGS();if(PGS[page])runPageDeferred(page);
   else ct('<div class="empty"><div style="font-size:36px">&#128679;</div><div>En construccion</div></div>');
   applyAdsUI();
+  maybeModuleTip(page);
   var moduleTriggerMods=safeAdsList(S.config&&S.config.adInterstitialModules);
   if(moduleTriggerMods.indexOf(page)>=0) maybeInterstitial('moduleEnter');
   // Al cambiar de modulo, reanudar el auto-scroll de la galeria de afiliados
@@ -5736,7 +5833,7 @@ function pgTeams(){
     var followingTeam=IS_NATIVE_APP&&isFollowingTeam(t.id);
     return'<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
       +teamLogoHtml(t,40,8)
-      +'<div style="flex:1;min-width:0"><div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:700">'+t.name+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:700">'+t.name+((S.user&&S.user.role!=='public'&&(t.noStats===true||t.noStats==='true'))?' <span title="Los jugadores de este equipo no salen en estadísticas, líderes, rankings ni premiaciones" style="font-size:10px;font-weight:700;color:var(--t3);border:1px solid var(--bdr);border-radius:8px;padding:1px 6px;vertical-align:middle;font-family:inherit">&#128683; sin stats</span>':'')+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+(tour?tour.name:'Sin torneo')+'</div></div>'
       +(IS_NATIVE_APP?'<button class="follow-bell'+(followingTeam?' on':'')+'" data-tid="'+t.id+'" onclick="toggleFollow(\'team\',this.dataset.tid,this)" title="'+(followingTeam?'Siguiendo — toca para dejar de seguir':'Seguir este equipo (avisarme cuando juegue en vivo)')+'">'+(followingTeam?'&#128276;':'&#128277;')+'</button>':'')
       +'</div>'
@@ -5818,6 +5915,9 @@ function openEM(id){
     +'<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-top:10px;cursor:pointer">'
     +'<input type="checkbox" id="eallstar" '+((t.isAllstar===true||t.isAllstar==='true')?'checked':'')+' style="width:18px;height:18px;accent-color:var(--acc)">'
     +'<div><div style="font-weight:600;font-size:13px">&#11088; Equipo de Juego de Estrellas</div><div style="font-size:11px;color:var(--t3)">Este equipo y sus jugadores no contaran en ningun modulo de estadisticas/lideres/premiaciones. Solo se veran en Equipos y en Calendario (resultados del juego de estrellas).</div></div></label>'
+    +'<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;margin-top:10px;cursor:pointer">'
+    +'<input type="checkbox" id="enostats" '+((t.noStats===true||t.noStats==='true')?'checked':'')+' style="width:18px;height:18px;accent-color:var(--acc)">'
+    +'<div><div style="font-weight:600;font-size:13px">&#128683; No mostrar a sus jugadores en estadísticas</div><div style="font-size:11px;color:var(--t3)">Los jugadores de este equipo no saldrán en Estadísticas, Líderes, Rankings, Premiaciones, En Racha, Por Vida, To vs To ni en el Equipo de la Semana de Fantasía. Sus juegos y la posición del equipo sí cuentan, y los bateadores y pitchers de los equipos que jugaron contra él conservan sus números (salvo que ese otro equipo también tenga esta opción marcada).</div></div></label>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-tid="'+(id||'')+'" onclick="saveE(this.dataset.tid)">Guardar</button></div>');
@@ -5896,7 +5996,7 @@ function previewLogo(url){
   else prev.style.display='none';
 }
 async function saveE(id){
-  var t={id:id||null,name:fv('en'),abbreviation:(fv('ea')||'').toUpperCase(),tournamentId:fv('et')||null,manager:fv('em'),city:fv('ec'),color:fv('ecl'),division:fv('ediv')||'',logoUrl:(fv('elogo-data')||fv('elogo')||'').trim(),isAllstar:(function(){var el=document.getElementById('eallstar');return!!(el&&el.checked);})()};
+  var t={id:id||null,name:fv('en'),abbreviation:(fv('ea')||'').toUpperCase(),tournamentId:fv('et')||null,manager:fv('em'),city:fv('ec'),color:fv('ecl'),division:fv('ediv')||'',logoUrl:(fv('elogo-data')||fv('elogo')||'').trim(),isAllstar:(function(){var el=document.getElementById('eallstar');return!!(el&&el.checked);})(),noStats:(function(){var el=document.getElementById('enostats');return!!(el&&el.checked);})()};
   if(!t.name){toast('Nombre requerido','error');return;}
   if(!t.tournamentId){toast('Debes seleccionar un torneo para el equipo','error');return;}
   if(t.tournamentId){var dup=S.teams.filter(function(x){return x.id!==t.id&&x.tournamentId===t.tournamentId&&x.name.toLowerCase()===t.name.toLowerCase();});if(dup.length){toast('Ya existe un equipo con ese nombre en este torneo','error');return;}}
@@ -7570,7 +7670,7 @@ function computeGameFeatured(gid){
   var pitcherIds=[];pevs.forEach(function(e){if(e.pitcherId&&pitcherIds.indexOf(e.pitcherId)<0)pitcherIds.push(e.pitcherId);});
   var bestBat=null,bestPit=null;
   batterIds.forEach(function(pid){
-    var p=playerOf(pid);if(!p)return;
+    var p=playerOf(pid);if(!p||tmNoStats(p.teamId))return;
     var pe=evs.filter(function(e){return e.batterId===pid;});
     var h1=pe.filter(function(e){return e.type==='H1';}).length,h2=pe.filter(function(e){return e.type==='H2';}).length;
     var h3=pe.filter(function(e){return e.type==='H3';}).length,hr=pe.filter(function(e){return e.type==='HR';}).length;
@@ -7586,7 +7686,7 @@ function computeGameFeatured(gid){
     if(!bestBat||score>bestBat.pts)bestBat=row;
   });
   pitcherIds.forEach(function(pid){
-    var p=playerOf(pid);if(!p)return;
+    var p=playerOf(pid);if(!p||tmNoStats(p.teamId))return;
     var pp=pevs.filter(function(e){return e.pitcherId===pid;});
     var ip=sumIP(pp);
     var pOuts=pp.reduce(function(s,e){var ipv=parseFloat(e.ip)||0;var parts=String(ipv).split('.');var full=parseInt(parts[0])||0;var third=parseInt(parts[1])||0;return s+full*3+third;},0);
@@ -8224,25 +8324,27 @@ function camStyles(){
   s.textContent='.bcf-cams{display:none;gap:4px;padding:4px;flex-wrap:wrap;justify-content:center}.bcf-cams button{min-width:32px;height:30px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-weight:800;font-size:13px;cursor:pointer}.bcf-cams button.on{background:#e53935;border-color:#e53935}.bcf-cams button:disabled{opacity:.35}'
    +'.cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}.cam-card{border:1px solid rgba(128,128,128,.4);border-radius:10px;overflow:hidden;position:relative;background:rgba(128,128,128,.08)}.cam-card.on{border-color:#e53935;box-shadow:0 0 0 2px #e53935}'
    +'.cam-card video{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;display:block}.cam-card .cap{padding:6px 8px;font-size:12px;display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap}.cam-card .cbody{padding:10px;font-size:12px;line-height:1.5;text-align:center}'
+   +'.bcs .bcf-cams{justify-content:flex-start;padding:8px 0 2px}.bcs .bcf-cams button{min-width:44px;height:40px;font-size:15px;background:#455a64;border-color:#455a64}.bcs .bcf-cams button.on{background:#e53935;border-color:#e53935}.bcs .bcf-cams button:disabled{opacity:.4}'
    +'.cam-qr svg{width:150px;height:150px;background:#fff;border-radius:6px;display:block;margin:6px auto}'
    +'#cam-mos{position:fixed;inset:0;z-index:9500;background:#000;display:flex;flex-direction:column;padding:8px;gap:6px;color:#fff}.cmos-top{display:flex;align-items:center;gap:8px}.cmos-grid{flex:1;display:grid;gap:6px;min-height:0}.cmos-t{position:relative;border:2px solid #333;border-radius:8px;overflow:hidden;background:#111;min-height:0;cursor:pointer}.cmos-t.on{border-color:#e53935}.cmos-t video{width:100%;height:100%;object-fit:cover;display:block}.cmos-cap{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:2px 6px;border-radius:4px}.cmos-off{display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:13px}.cmos-hint{font-size:11px;color:#aaa;text-align:center}'
    +'.cam-badge{position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px}.cam-code{font-size:24px;font-weight:800;letter-spacing:4px;margin:4px 0;font-family:monospace}';
   document.head.appendChild(s);
 }
 // Estado de la mesa: miniaturas numeradas en la ventanita (cambio rapido) y, si esta abierta, la ventana "Camaras"
+function camRenderStrip(elId){
+  var st=document.getElementById(elId);if(!st)return;
+  var L=camList(),prog=_BC.prog||'local';
+  if(!L.length){st.innerHTML='';st.style.display='none';return;}
+  var hh=elId==='bcs-cams'?'<span style="font-size:11px;align-self:center;color:var(--t3)">Cámara al aire:</span>':'';
+  hh+='<button data-c="local" class="'+(prog==='local'?'on':'')+'" title="Esta cámara">1</button>';
+  L.forEach(function(c,i){hh+='<button data-c="'+c.id+'" class="'+(prog===c.id?'on':'')+'" '+(c.conn==='connected'?'':'disabled')+' title="'+nfEsc(c.label||'')+'">'+(i+2)+'</button>';});
+  hh+='<button data-c="__m" title="Mosaico: ver todas las cámaras a la vez" style="background:rgba(47,111,237,.8)">&#9638;</button>';
+  st.innerHTML=hh;st.style.display='flex';
+  Array.prototype.forEach.call(st.querySelectorAll('button'),function(b){b.onclick=function(){var k=b.getAttribute('data-c');if(k==='__m')camOpenMosaic();else camSwitch(k);};});
+}
 function camRender(){
-  var st=document.getElementById('bcf-cams');
-  if(st){
-    var L=camList(),prog=_BC.prog||'local';
-    if(!L.length){st.innerHTML='';st.style.display='none';}
-    else{
-      var hh='<button data-c="local" class="'+(prog==='local'?'on':'')+'" title="Esta cámara">1</button>';
-      L.forEach(function(c,i){hh+='<button data-c="'+c.id+'" class="'+(prog===c.id?'on':'')+'" '+(c.conn==='connected'?'':'disabled')+' title="'+nfEsc(c.label||'')+'">'+(i+2)+'</button>';});
-      hh+='<button data-c="__m" title="Mosaico: ver todas las cámaras a la vez" style="background:rgba(47,111,237,.8)">&#9638;</button>';
-      st.innerHTML=hh;st.style.display='flex';
-      Array.prototype.forEach.call(st.querySelectorAll('button'),function(b){b.onclick=function(){var k=b.getAttribute('data-c');if(k==='__m')camOpenMosaic();else camSwitch(k);};});
-    }
-  }
+  camRenderStrip('bcf-cams');   // ventanita flotante
+  camRenderStrip('bcs-cams');   // pantalla de la transmision
   camRenderM();
   camRenderMosaic(false);
 }
@@ -8570,16 +8672,17 @@ function bcOpenStage(){
   // los botones de jugadas se copian de la pagina de Control de Juego: debe estar renderizada para este juego
   if(withScore&&(curP!=='gamecontrol'||String(S.game)!==String(_BC.gameId))){S.game=_BC.gameId;try{goNav('gamecontrol');}catch(e){}}
   var el=document.createElement('div');el.id='bc-stage';el.className='bcs';
-  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño de la caja y <b>− / +</b> (arriba del gráfico) para hacer el gráfico más grande o más pequeño dentro de ella. &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start"><button class="btn bs bsm" id="bcs-mic" onclick="bcToggleMic()">&#127908; Micrófono</button><button class="btn bs bsm" onclick="bcFlip()">&#128260; Cámara</button><button class="btn bp bsm" id="bcs-ok">Listo</button></div></div>'
+  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño de la caja y <b>− / +</b> (arriba del gráfico) para hacer el gráfico más grande o más pequeño dentro de ella. &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start"><button class="btn bs bsm" id="bcs-mic" onclick="bcToggleMic()">&#127908; Micrófono</button><button class="btn bs bsm" onclick="camOpenM()">&#128247; Cámaras</button><button class="btn bs bsm" onclick="bcFlip()">&#128260; Cámara</button><button class="btn bp bsm" id="bcs-ok">Listo</button></div></div>'
     +'<div class="bcs-main'+(withScore?' bcs-sc':'')+'">'
     +(withScore?'<div class="bcs-side bcs-left" id="bcs-left"></div>':'')
     +'<div class="bcs-center">'+(withScore?'<div class="bxs" id="bcs-bx"></div>':'')
-    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="bcs-items"></div></div></div></div>'
+    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="bcs-items"></div></div></div><div id="bcs-cams" class="bcf-cams"></div></div>'
     +(withScore?'<div class="bcs-side bcs-right" id="bcs-right"></div>':'')
     +'</div>'
     +'<div class="bcs-tray" id="bcs-tray"'+(_BC.stageGfxBtn?' style="display:none"':'')+'></div>';
   document.body.appendChild(el);
   var v=document.getElementById('bcs-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
+  try{camStyles();if(_BC.prog&&_BC.prog!=='local')camPreview(_BC.prog);camRender();}catch(e){}
   var host=document.getElementById('bcs-items');
   function has(id){return _BC.layout.some(function(x){return x.id===id;});}
   function drawTray(){
@@ -9163,24 +9266,14 @@ function pgGC(){
     +'<div class="tscore"><div class="tbox"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">'+teamLogoHtml(aw,28,6)+'<div class="tnm" style="color:'+(isTop?'var(--acc)':'var(--txt)')+'">'+aw.name+'</div></div><div class="sbig">'+(parseInt(gm.awayRuns)||0)+'</div><div style="font-size:11px;color:var(--t3)">VISITANTE</div></div>'
     +'<div style="text-align:center"><div style="font-size:11px;color:var(--t3);margin-bottom:2px">'+(isTop?'&#9650;':'&#9660;')+' ENTRADA</div><div style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:800">'+(parseInt(gm.currentInning)||1)+'</div><div style="font-size:11px;color:var(--t3)">DE '+inn+'</div></div>'
     +'<div class="tbox"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">'+teamLogoHtml(hw,28,6)+'<div class="tnm" style="color:'+(!isTop?'var(--acc)':'var(--txt)')+'">'+hw.name+'</div></div><div class="sbig">'+(parseInt(gm.homeRuns)||0)+'</div><div style="font-size:11px;color:var(--t3)">LOCAL</div></div></div>'
-    +'<div style="display:flex;justify-content:center;align-items:center;gap:32px;margin:12px 0">'
+    +'<div style="display:flex;justify-content:center;align-items:center;gap:20px;margin:12px 0;flex-wrap:wrap">'
     +'<div style="display:flex;gap:16px">'
     +'<div><div class="bslbl">BOLAS</div><div class="bsdots">'+[0,1,2].map(function(i){return'<div class="dot '+(parseInt(gm.balls||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
     +'<div><div class="bslbl">STRIKES</div><div class="bsdots">'+[0,1].map(function(i){return'<div class="dot '+(parseInt(gm.strikes||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
     +'<div><div class="bslbl">OUTS</div><div class="bsdots">'+[0,1].map(function(i){return'<div class="dot '+(parseInt(gm.outs||0)>i?'on':'')+'"></div>';}).join('')+'</div></div>'
     +'</div>'
     +'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'
-    +'<div class="diamond" title="'+[b1Lbl,b2Lbl,b3Lbl].filter(Boolean).join(' / ')+'">'
-    +'<div class="base b2 '+(bases.second?'on':'')+'"></div>'
-    +((parseInt(gm.numBases)||2)>=3?'<div class="base b3 '+(bases.third?'on':'')+'"></div>':'<div class="base b3" style="opacity:.15;pointer-events:none"></div>')
-    +'<div class="base b1 '+(bases.first?'on':'')+'"></div>'
-    +'<div style="text-align:center;font-size:9px;color:var(--t3);margin-top:4px">'+(parseInt(gm.numBases)||2)+' BASES</div>'
-    +'</div>'
-    +(b1Lbl||b2Lbl||b3Lbl?'<div style="font-size:10px;line-height:1.5;text-align:center;color:var(--t2)">'
-      +(b3Lbl&&(parseInt(gm.numBases)||2)>=3?'<div>3ra: <b style="color:var(--acc)">'+b3Lbl+'</b></div>':'')
-      +(b2Lbl?'<div>2da: <b style="color:var(--acc)">'+b2Lbl+'</b></div>':'')
-      +(b1Lbl?'<div>1ra: <b style="color:var(--acc)">'+b1Lbl+'</b></div>':'')
-      +'</div>':'')
+    +gcFieldHtml(gm,bases,bt,cs,(isTop?aw:hw))
     +'</div>'
     +'</div>'
     +'<div style="overflow-x:auto"><table class="lst"><thead><tr><th class="tc">Equipo</th>'+hdrs+'<th class="rhe">R</th><th class="rhe">H</th><th class="rhe">E</th></tr></thead><tbody>'+lsRow(aw,true)+lsRow(hw,false)+'</tbody></table></div>'
@@ -9568,12 +9661,41 @@ async function delEvent(eid,gid){
   pgGC(); toast('Jugada eliminada — marcador y estadisticas de pitcheo recalculados','success');
 }
 
+// ── CONTINUIDAD DE LA JUGADA ─────────────────────────────────────────────────────────────────────────────────────────────────────
+// Despues de cada jugada (menos HBP y Balk) se pregunta si ocurrio un error o un out en la misma jugada. Si no hay corredores en base
+// (HR, ponche/out sin corredores, tercer out) no hay nada que preguntar. "Error" abre el flujo de ERROR EN TIRO (sin volver a elegir el
+// tipo) y "Out en jugada" el de siempre; al terminar cualquiera de los dos se pregunta si ocurrio otro o si finaliza. Cada evento se
+// registra por separado, igual que hoy.
+var _gcContMode=false,_gcContPending=null;
+function gcContFlush(){if(!_gcContPending)return;var p=_gcContPending;_gcContPending=null;setTimeout(function(){gcContinuityAfter(p.src);},350);}
+function gcChoiceAsync(title,sub,opts){
+  return new Promise(function(resolve){
+    window.__gcChoice=function(k){cM();window.__gcChoice=null;resolve(k);};
+    showM('<div class="mhd"><div class="mtl">'+title+'</div></div><div class="mbd"><div style="font-size:13px;margin-bottom:12px;line-height:1.5">'+sub+'</div>'
+      +opts.map(function(o){return'<button class="btn '+o.cls+'" style="width:100%;margin-bottom:8px;padding:12px;font-size:14px" onclick="__gcChoice(\''+o.k+'\')">'+o.label+'</button>';}).join('')+'</div>');
+  });
+}
+async function gcContinuityAfter(src){
+  var chain=_gcContMode;_gcContMode=false;
+  try{
+    var g=S.games.filter(function(x){return x.id===S.game;})[0];
+    if(!g||g.status!=='live'||g.paused)return;
+    var b=g.bases||{};
+    if(!(b.first||b.second||b.third))return;   // sin corredores en base: no hay continuidad
+    var otro=chain||src==='err'||src==='oj';
+    var k=await gcChoiceAsync('&#128260; Continuidad de la jugada',otro?'¿Ocurrió <b>otro</b> error u out en la misma jugada, o finaliza ya?':'¿Ocurrió un <b>error</b> o un <b>out</b> en la jugada?',
+      [{k:'err',cls:'bp',label:'&#9888; Error'},{k:'oj',cls:'bs',label:'&#10060; Out en jugada'},{k:'no',cls:'bs',label:otro?'Finalizar jugada':'No, concluir'}]);
+    if(k==='err')await rPlay('E',{forceThrow:true,cont:true});
+    else if(k==='oj')await outEnJugada({cont:true});
+  }catch(e){}
+}
 // REGISTER PLAY
 var _rPlayBusy=false;
 var _gcTab='bs-a'; // remembers active box score tab
 // Track last event timestamp to prevent double-tap duplicates
 var _lastEvTs=0;
-async function outEnJugada(){
+async function outEnJugada(opts){
+  _gcContMode=!!(opts&&opts.cont);
   // Out en jugada: add an out for a baserunner (or batter put out on the bases)
   // Advances the batter order since this terminates the at-bat
   if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
@@ -9687,12 +9809,139 @@ async function _doOutEnJugada(forcedBase){
     if(ojPitRes) await savePitcherRecords(ojPitRes.touched);
     await api('saveEvent',{event:ojEv});
     toast('Out en jugada registrado','success');
-  }finally{_rPlayBusy=false;_saving=false;}
+    _gcContPending={src:'oj'};
+  }finally{_rPlayBusy=false;_saving=false;gcContFlush();}
 }
 // ── Base robada (SB): jugada de los CORREDORES, no del bateador en turno ────
 // No consume el turno al bate ni cuenta como aparicion al plato de nadie. Si
 // hay 2+ corredores en base, pregunta cual(es) se robaron (uno o varios a la
 // vez, para soportar doble robo).
+
+// ═══════════════════════════════════════════════════════════════════
+// CAMPO INTERACTIVO (Control de Juego): corredores en base y bateador en el home como avatares tocables.
+// Al tocar a un corredor sale un menu con sus jugadas (SB, WP, PB, BK, error en tiro, out en jugada) y al tocar al bateador, las jugadas
+// del turno al bate (H1, H2, H3, HR, K, OUT, BB, HBP, E...). NO hay logica nueva de anotacion: cada opcion llama a la MISMA funcion
+// que el boton equivalente (_doStealBase, _doWildPitch/openWPBaseM, passBall, balk, rPlay, _doOutEnJugada), asi que preguntas, reglas,
+// estadisticas y "Deshacer" se comportan exactamente igual que al pulsar los botones.
+// ═══════════════════════════════════════════════════════════════════
+function gcAvatarSvg(col,num,isBat){
+  col=col||'#2563eb';
+  var n=String(num==null||num===''?'?':num).slice(0,3);
+  return'<svg width="40" height="46" viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">'
+    +(isBat?'<rect x="30" y="3" width="4" height="28" rx="2" fill="#d9b06a" stroke="#6b4a1e" stroke-width=".8" transform="rotate(18 32 17)"/>':'')
+    +'<rect x="9" y="22" width="22" height="20" rx="8" fill="'+col+'" stroke="#fff" stroke-width="1.5"/>'
+    +'<text x="20" y="36" text-anchor="middle" font-size="'+(n.length>2?8:10)+'" font-weight="800" fill="#fff" stroke="#000" stroke-width=".4" font-family="Barlow Condensed,Arial,sans-serif">'+n+'</text>'
+    +'<circle cx="20" cy="14" r="7" fill="#f1c9a5" stroke="#fff" stroke-width="1"/>'
+    +'<path d="M12 13a8 8 0 0 1 16 0z" fill="'+col+'" stroke="#fff" stroke-width="1.2"/>'
+    +'<rect x="'+(isBat?'11':'8')+'" y="12" width="11" height="3" rx="1.5" fill="'+col+'" stroke="#fff" stroke-width=".8"/>'
+    +'</svg>';
+}
+function gcShortName(p){
+  if(!p)return'';
+  var w=String(p.name||'').trim().split(/\s+/);
+  var last=w.length>1?w[w.length-1]:w[0];
+  return'#'+(p.number||'?')+' '+last;
+}
+var _gcFld={bt:null};
+function gcFieldHtml(gm,bases,bt,cs,batTeam){
+  var nb=parseInt(gm.numBases)||2,col=(batTeam&&batTeam.color)||'#2563eb';
+  _gcFld.bt=bt||null;
+  var pos={home:[50,84],first:[83,50],second:[50,16],third:[17,50]};
+  var vb={home:[115,173],first:[191,103],second:[115,33],third:[39,103]};
+  function bs(k,on,faded){var c=vb[k];return'<rect x="'+(c[0]-6)+'" y="'+(c[1]-6)+'" width="12" height="12" rx="2" transform="rotate(45 '+c[0]+' '+c[1]+')" fill="'+(on?'var(--acc)':'#fff')+'" stroke="#0006" stroke-width="1"'+(faded?' opacity=".25"':'')+'/>';}
+  var svg='<svg class="gcbg" viewBox="0 0 230 206" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+    +'<polygon points="115,173 191,103 115,33 39,103" fill="#a8794a" opacity=".55"/>'
+    +'<polygon points="115,160 178,103 115,46 52,103" fill="#2a7a3b"/>'
+    +'<polyline points="115,173 191,103 115,33 39,103 115,173" fill="none" stroke="#fff" stroke-width="1.6" opacity=".7"/>'
+    +bs('first',!!bases.first,false)+bs('second',!!bases.second,false)+bs('third',!!bases.third,nb<3)
+    +'<polygon points="115,168 121,173 118.5,179 111.5,179 109,173" fill="#fff" stroke="#0006"/></svg>';
+  function node(key,pid,isBat){
+    var pp=isBat?bt:(pid?playerOf(pid):null);
+    if(!pp)return'';
+    var oc=(cs&&!gm.paused)?(isBat?'gcBatterMenu()':'gcRunnerMenu(\''+key+'\')'):'';
+    return'<div class="gcnode" style="left:'+pos[key][0]+'%;top:'+pos[key][1]+'%">'
+      +'<button type="button" class="gcav'+(oc?' tap':'')+'" '+(oc?'onclick="'+oc+'"':'disabled style="cursor:default"')+' title="'+(oc?'Toca para anotar una jugada':'')+'">'
+      +gcAvatarSvg(col,pp.number,isBat)+'<span class="gcl">'+(isBat?'&#127951; ':'')+gcShortName(pp)+'</span></button></div>';
+  }
+  return'<div style="width:230px;max-width:100%"><div class="gcf" title="'+(cs?'Toca a un corredor o al bateador para anotar su jugada':'')+'">'+svg
+    +node('third',bases.third,false)+node('second',bases.second,false)+node('first',bases.first,false)+node('home',null,true)+'</div>'
+    +(cs?'<div style="font-size:10px;color:var(--t3);text-align:center;margin-top:4px">Toca a un jugador para anotar su jugada</div>':'')+'</div>';
+}
+function gcGuard(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];
+  if(!gm||gm.status!=='live')return null;
+  if(!canScoreNow(gm)){toast('Este juego esta bloqueado por otro anotador.','error');return null;}
+  if(gm.paused){toast('Juego pausado. Reanuda el juego antes de registrar jugadas.','info');return null;}
+  if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return null;}
+  return gm;
+}
+function gcMenuBtn(label,sub,fn,cls,off,tip){
+  return'<button class="btn '+(cls||'bs')+' gcmb" '+(off?'disabled style="opacity:.35"':'')+(tip?' title="'+tip+'"':'')+' onclick="'+fn+'">'+label+(sub?'<br><span style="font-size:10px;font-weight:400;opacity:.85">'+sub+'</span>':'')+'</button>';
+}
+function gcRunnerMenu(base){
+  var gm=gcGuard();if(!gm)return;
+  var b0=gm.bases||{},pid=b0[base],pp=pid?playerOf(pid):null;
+  if(!pp){return;}
+  var nb=parseInt(gm.numBases)||3,lastBase=nb>=3?'third':'second';
+  var nextMap=nb>=3?{first:'second',second:'third',third:null}:{first:'second',second:null};
+  var lbl={first:'1ra base',second:nb<3?'2da base (Home)':'2da base',third:'3ra base (Home)'}[base];
+  var nx=nextMap[base],sbOff=!!(nx&&b0[nx]);
+  showM('<div class="mhd"><div class="mtl">&#127939; '+gcShortName(pp)+' &mdash; '+lbl+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">¿Qué pasó con este corredor? Se registra igual que con los botones de jugada.</div>'
+    +'<div class="gcmg">'
+    +gcMenuBtn('&#127939; SB','Base robada','gcDo(\'sb\',\''+base+'\')','bs',sbOff,sbOff?'La base siguiente está ocupada':'')
+    +gcMenuBtn('&#9889; WP','Wild pitch','gcDo(\'wp\',\''+base+'\')')
+    +gcMenuBtn('&#129508; PB','Passed ball','gcDo(\'pb\',\''+base+'\')')
+    +gcMenuBtn('&#9888;&#65039; BK','Balk','gcDo(\'bk\',\''+base+'\')')
+    +gcMenuBtn('&#10060; E','Error en tiro','gcDo(\'et\',\''+base+'\')')
+    +gcMenuBtn('&#128683; OJ','Out en jugada','gcDo(\'oj\',\''+base+'\')','bd')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:10px">WP, PB y BK preguntan qué pasó con los demás corredores igual que los botones. Si necesitas otra jugada usa los botones de abajo.</div></div>');
+}
+function gcDo(kind,base){
+  cM();
+  var gm=gcGuard();if(!gm)return;
+  if(kind==='sb')_doStealBase([base]);
+  else if(kind==='wp')gcWPFor(gm,base);
+  else if(kind==='pb')passBall();
+  else if(kind==='bk')balk();
+  else if(kind==='et')rPlay('E',{forceThrow:true});
+  else if(kind==='oj')_doOutEnJugada(base);
+}
+function gcWPFor(gm,base){
+  var b0=gm.bases||{},nb0=parseInt(gm.numBases)||3;
+  var order=nb0>=3?['first','second','third']:['first','second'];
+  var lastBase=nb0>=3?'third':'second';
+  var occ=order.filter(function(k){return b0[k];});
+  var adv=(base===lastBase)?'score':'advance';
+  if(occ.length===1){var ch={};ch[base]=adv;_doWildPitch(ch);return;}
+  openWPBaseM(gm.id,b0,nb0);   // el mismo modal del boton WP, con este corredor ya marcado como "avanza"
+  var sel=document.querySelector('.wp-base-sel[data-base="'+base+'"]');
+  if(sel)sel.value=adv;
+}
+function gcBatterMenu(){
+  var gm=gcGuard();if(!gm)return;
+  var bt=_gcFld.bt;if(!bt)return;
+  var b=gm.bases||{},runners=(b.first?1:0)+(b.second?1:0)+(b.third?1:0),outs=parseInt(gm.outs)||0;
+  var bp=function(t,sub,cls,off,tip){return gcMenuBtn(t,sub,'gcBat(\''+t+'\')',cls,off,tip);};
+  showM('<div class="mhd"><div class="mtl">&#127951; '+gcShortName(bt)+' &mdash; Al bate</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Elige el resultado del turno al bate. Se registra igual que con los botones de jugada.</div>'
+    +'<div class="gcmg g3">'
+    +bp('H1','Sencillo','bp')+bp('H2','Doble','bp')+bp('H3','Triple','bp')+bp('HR','Jonrón','bp')
+    +bp('K','Ponche','bd')+bp('OUT','Out de campo','bd')
+    +bp('BB','Base x bolas','bs')+bp('HBP','Golpeado','bs')+bp('E','Error','bs')
+    +bp('FO','Out forzado','bd',runners===0,runners===0?'Sin corredores en base':'')
+    +bp('FC','Elección fielder','bd',runners===0,runners===0?'Sin corredores en base':'')
+    +bp('DP','Doble play','bd',outs>=2,outs>=2?'No disponible con 2 outs':'')
+    +bp('SAC','Sacrificio','bs',outs>=2||runners===0,outs>=2?'No disponible con 2 outs':(runners===0?'Sin corredores en base':''))
+    +(outs===0&&runners>=2?bp('TP','Triple play','bd'):'')
+    +'</div></div>');
+}
+function gcBat(type){
+  cM();
+  if(!gcGuard())return;
+  rPlay(type);
+}
 async function stealBase(){
   if(_rPlayBusy||_pollBusy){toast('Procesando...','info');return;}
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
@@ -9800,7 +10049,8 @@ async function _doStealBase(basesArr){
     if(sbPitRes) await savePitcherRecords(sbPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(newEvs.length>1?'Doble robo registrado':'Base robada registrada','success');
-  } finally{_rPlayBusy=false;_saving=false;}
+    _gcContPending={src:'play'};
+  } finally{_rPlayBusy=false;_saving=false;gcContFlush();}
 }
 // ── Wild Pitch (WP): jugada de los CORREDORES, no del bateador en turno ─────
 // No consume el turno al bate ni cuenta como aparicion al plato de nadie.
@@ -9935,7 +10185,8 @@ async function _doWildPitch(choices){
     if(wpPitRes) await savePitcherRecords(wpPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Wild pitch registrado — anotaron '+scorerIds.length+' carrera(s)':'Wild pitch registrado','success');
-  } finally{_rPlayBusy=false;_saving=false;}
+    _gcContPending={src:'play'};
+  } finally{_rPlayBusy=false;_saving=false;gcContFlush();}
 }
 // ── Balk (BK): jugada de los CORREDORES, no del bateador en turno ──────────
 // No consume el turno al bate. A diferencia de Wild Pitch, NO pregunta nada:
@@ -10262,7 +10513,8 @@ async function _doPassBall(){
     if(pbPitRes) await savePitcherRecords(pbPitRes.touched);
     for(var i=0;i<newEvs.length;i++){await api('saveEvent',{event:newEvs[i]});}
     toast(scorerIds.length?'Passed ball registrado — anotaron '+scorerIds.length+' carrera(s)':'Passed ball registrado — corredor(es) avanzaron','success');
-  } finally{_rPlayBusy=false;_saving=false;}
+    _gcContPending={src:'play'};
+  } finally{_rPlayBusy=false;_saving=false;gcContFlush();}
 }
 // Prompt numérico: solo acepta dígitos. Repite si el usuario escribe letras.
 function numPrompt(msg, defaultVal){
@@ -10378,7 +10630,7 @@ function inningErrorsSoFar(gid,inning,half,excludeEvId){
       &&e.unofficial!=='true'&&e.id!==excludeEvId;
   }).length;
 }
-async function rPlay(type){
+async function rPlay(type,opts){
   if(_rPlayBusy||_pollBusy){toast('Procesando jugada anterior...','info');return;}
   // Guard against double-tap (same play within 400ms)
   var now=Date.now();
@@ -10387,6 +10639,7 @@ async function rPlay(type){
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
   if(gmRef.paused){toast('Juego pausado. Reanuda el juego antes de registrar jugadas.','info');return;}
+  _gcContMode=!!(opts&&opts.cont);
   // Work on a deep copy to prevent mutation during async operations
   var gm=JSON.parse(JSON.stringify(gmRef));
   gm.inningScores=gm.inningScores||{};gm.bases=gm.bases||{first:null,second:null,third:null};
@@ -10826,7 +11079,7 @@ async function rPlay(type){
     }
     if(enBase>0){
       // ── Con corredores en base ── (antes exclusivo de Vitilla; ahora aplica a todos los deportes)
-      var errTipo=await numPromptAsync('ERROR - '+bName
+      var errTipo=(opts&&opts.forceThrow)?'1':await numPromptAsync('ERROR - '+bName
         +'\nCorredores en base: '+enBase
         +'\n\nTipo de error:\n1. Error en tiro luego de hit (corredor en base anota; bateador NO avanza turno)'
         +'\n2. Error cometido en jugada del bateador'
@@ -11236,8 +11489,16 @@ async function rPlay(type){
       var foOutIdx=foOrder.indexOf(foOut);
       var foNewBases={first:null,second:null,third:null};
       // Corredores DELANTE del eliminado (más cerca de home) no se mueven
+      // Corredores DELANTE del eliminado (mas cerca de home): los que anotaron salen de las bases; los que NO anotaron avanzan UNA base solo si
+      // estaban FORZADOS (todas las bases desde 1ra hasta la suya ocupadas) y la base de adelante quedo libre (porque alguien anoto).
+      // Ej.: bases llenas, out forzado al de 1ra y anota 1 -> anota el de 3ra, el de 2da (forzado) pasa a 3ra y el bateador queda en 1ra.
+      var foForced=function(base){var ix=foOrder.indexOf(base);for(var q=foOrder.length-1;q>=ix;q--){if(!b[foOrder[q]])return false;}return true;};
       for(var fi=0;fi<foOutIdx;fi++){
-        foNewBases[foOrder[fi]]=scored(b[foOrder[fi]])?null:(b[foOrder[fi]]||null);
+        var fbk=foOrder[fi],fpid=b[fbk];
+        if(!fpid||scored(fpid))continue;
+        var fdest=fbk;
+        if(fi>0&&foForced(fbk)&&!foNewBases[foOrder[fi-1]])fdest=foOrder[fi-1];
+        foNewBases[fdest]=fpid;
       }
       // Corredores DETRÁS del eliminado avanzan una base (cascada)
       var foChain=foOrder.slice(foOutIdx+1);
@@ -11507,6 +11768,7 @@ async function rPlay(type){
       setTimeout(function(){openPitDecisionM(gm.id,gm.awayTeamId,gm.homeTeamId);},500);
     } else {
       toast(type+' registrado','success');
+      if(type!=='HBP'&&type!=='BK')_gcContPending={src:(type==='E'?'err':'play')};
       // Doble play con 2+ corredores en base antes de la jugada: el destino de cada
       // corredor es ambiguo (depende de cómo se ejecutó el doble play), así que se le
       // pregunta al anotador cuáles bases continúan ocupadas para actualizar la pizarra.
@@ -11521,6 +11783,7 @@ async function rPlay(type){
   } finally {
     _rPlayBusy=false;
     _saving=false;
+    gcContFlush();
   }
 }
 
@@ -15178,6 +15441,7 @@ function calcStreaks(tourId, yearFilter, allowedTourIds, usePhase){
   Object.keys(batStreaks).forEach(function(pid){
     var s=batStreaks[pid];
     var p=playerOf(pid);
+    if(p&&tmNoStats(p.teamId))return;
     var tm=p?teamOf(p.teamId):null;
     if(s.cur>=5){
       // En racha activa — no incluir en pastBat aunque tenga lastEnded>=5
@@ -15248,6 +15512,7 @@ function calcStreaks(tourId, yearFilter, allowedTourIds, usePhase){
   Object.keys(pitStreaks).forEach(function(pid){
     var s=pitStreaks[pid];
     var p=playerOf(pid);
+    if(p&&tmNoStats(p.teamId))return;
     var tm=p?teamOf(p.teamId):null;
     if(s.curIp>=5){
       activePit.push({p:p,tm:tm,streak:s.curIp});
@@ -15317,6 +15582,7 @@ function calcStreaks(tourId, yearFilter, allowedTourIds, usePhase){
   Object.keys(pitWinStreaks).forEach(function(pid){
     var s=pitWinStreaks[pid];
     var p=playerOf(pid);
+    if(p&&tmNoStats(p.teamId))return;
     var tm=p?teamOf(p.teamId):null;
     if(s.cur>=5){
       activePitWin.push({p:p,tm:tm,streak:s.cur});
@@ -15448,6 +15714,7 @@ function pgStats(tid,sBy,pSBy){
   // en filterStatsDisplay() ya soportaba equipo, pero nunca llegaba a ver esas filas.
   var rawPlayersST=S.players.filter(function(p){
     if(tids.indexOf(p.teamId)<0)return false;
+    if(tmNoStats(p.teamId))return false;
     if(!statsQ)return true;
     if(p.name.toLowerCase().indexOf(statsQ)>=0)return true;
     var tm=teamOf(p.teamId);
@@ -15468,7 +15735,7 @@ function pgStats(tid,sBy,pSBy){
   var seenST={};
   rawPlayersST.forEach(function(p){
     if(seenST[p.id])return;
-    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     if(!relatedIds.length) relatedIds=[p.id];
     relatedIds.forEach(function(id){seenST[id]=true;});
     var activeRec=relatedIds.map(playerOf).filter(function(x){return x&&x.active!=='false';})[0];
@@ -15510,7 +15777,8 @@ function pgStats(tid,sBy,pSBy){
   pitPids.forEach(function(pid){
     if(seenPitST[pid])return;
     var p=playerOf(pid);if(!p)return;
-    var relatedIds=careerInstances(pid).filter(function(id){return pitPids.indexOf(id)>=0;});
+    if(tmNoStats(p.teamId))return;
+    var relatedIds=careerInstances(pid).filter(function(id){var rp0=playerOf(id);return pitPids.indexOf(id)>=0&&!(rp0&&tmNoStats(rp0.teamId));});
     if(!relatedIds.length) relatedIds=[pid];
     relatedIds.forEach(function(id){seenPitST[id]=true;});
     var activeRec=relatedIds.map(playerOf).filter(function(x){return x&&x.active!=='false';})[0];
@@ -15681,9 +15949,9 @@ function pgStats(tid,sBy,pSBy){
   // sumados, no en dos filas separadas por equipo.
   var defGroupsST=[];
   var seenDefST={};
-  S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;}).forEach(function(p){
+  S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);}).forEach(function(p){
     if(seenDefST[p.id])return;
-    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     if(!relatedIds.length) relatedIds=[p.id];
     relatedIds.forEach(function(id){seenDefST[id]=true;});
     var activeRec=relatedIds.map(playerOf).filter(function(x){return x&&x.active!=='false';})[0];
@@ -15886,7 +16154,7 @@ function pgLead(tid){
   divisionsLD.sort();
   var tidsFilteredLD=_LD.divFilter?tidsAllLD.filter(function(t){return(t.division||'')===_LD.divFilter;}):tidsAllLD;
   var tids=tidsFilteredLD.map(function(t){return t.id;});
-  var rawPlayers=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
+  var rawPlayers=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);});
   // Consolidar por identidad de carrera (careerInstances) restringido a los equipos en
   // alcance — cubre tanto "un subtorneo especifico" (equipo A + equipo B tras una
   // transferencia dentro de la misma temporada) como "Todos" (mismo jugador en distintos
@@ -15897,7 +16165,7 @@ function pgLead(tid){
   var seenLD={};
   rawPlayers.forEach(function(p){
     if(seenLD[p.id])return;
-    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var relatedIds=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     if(!relatedIds.length) relatedIds=[p.id];
     relatedIds.forEach(function(id){seenLD[id]=true;});
     var recs=relatedIds.map(playerOf).filter(function(x){return x;});
@@ -16064,7 +16332,7 @@ function pgStatsLife(sBy,pSBy){
   // registros independientes creados manualmente en distintos equipos/torneos sin haber sido importado.
   var seenRoots={};
   var careerPlayers=[];
-  S.players.filter(function(p){return lifeTeamIds.indexOf(p.teamId)>=0;}).forEach(function(p){
+  S.players.filter(function(p){return lifeTeamIds.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);}).forEach(function(p){
     var root=(p.name||'').trim().toLowerCase();
     if(!root)return;
     if(!seenRoots[root]){seenRoots[root]={rootId:root,ids:[],name:p.name,teams:[]};careerPlayers.push(seenRoots[root]);}
@@ -16259,7 +16527,7 @@ function pgLeadLife(){
   var pevs=S.pitching.filter(function(e){return officialGids.indexOf(e.gameId)>=0&&e.unofficial!=='true';});
   // Build unique career players (por NOMBRE normalizado, igual que en Stats de Por Vida)
   var seenRoots2={};var careerPlayers2=[];
-  S.players.filter(function(p){return lifeTeamIds2.indexOf(p.teamId)>=0;}).forEach(function(p){
+  S.players.filter(function(p){return lifeTeamIds2.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);}).forEach(function(p){
     var root=(p.name||'').trim().toLowerCase();
     if(!root)return;
     if(!seenRoots2[root]){seenRoots2[root]={rootId:root,ids:[],name:p.name,number:p.number,teams:[],photoUrl:'',recs:[]};careerPlayers2.push(seenRoots2[root]);}
@@ -16404,14 +16672,14 @@ function pgFeaturedByDate(){
   var teamScopeF=_awDivFilter?teamScope.filter(function(t){return(t.division||'')===_awDivFilter;}):teamScope;
   var tids=teamScopeF.map(function(t){return t.id;});
   var pool=awPool(gids);var evs=pool.evs,pevs=pool.pevs;
-  var poolAllFD=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
+  var poolAllFD=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);});
   var activePoolFD=poolAllFD.filter(function(p){return p.active!=='false';});
   // IMPORTANTE: usa careerInstances (mismo mecanismo de "de por vida"/transferencias), NO el
   // pool filtrado por activos — si se usara solo el pool activo, un jugador transferido de un
   // equipo a otro DENTRO del mismo subtorneo perderia silenciosamente los numeros logrados en
   // su equipo anterior (el registro inactivo nunca entraria al pool).
   function idsForName(p){
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     return related.length?related:[p.id];
   }
   // BUG CORREGIDO: el dedup se hacia por p.id ANTES de resolver la cadena de careerInstances,
@@ -16546,13 +16814,13 @@ function buildRankingListsRaw(){
       var a=pitByPitcher.get(e.pitcherId);if(!a){a=[];pitByPitcher.set(e.pitcherId,a);}a.push(e);
     });
   }
-  var activePoolRK=S.players.filter(function(p){return tidSet.has(p.teamId)&&p.active!=='false';});
+  var activePoolRK=S.players.filter(function(p){return tidSet.has(p.teamId)&&!tmNoStats(p.teamId)&&p.active!=='false';});
   // Igual que en Destacados en Fecha: careerInstances incluye el registro inactivo del equipo
   // anterior tras una transferencia, para no perder esos numeros del consolidado.
   var idsCache=new Map();
   function idsForName(p){
     var c=idsCache.get(p.id);if(c)return c;
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tidSet.has(rp.teamId);});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tidSet.has(rp.teamId)&&!tmNoStats(rp.teamId);});
     c=related.length?related:[p.id];idsCache.set(p.id,c);return c;
   }
   // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
@@ -16738,7 +17006,7 @@ function pgRankings(tid){
 // reemplazar a un jugador INACTIVO (pasa a tu lista de inactivos y sigue siendo tuyo). Se bloquea desde que
 // inicia el primer juego del día hasta que terminan todos. Los puntos los calcula el Worker.
 // ═══════════════════════════════════════════════════════════════════
-var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{}};
+var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{},wk:null,wkSel:'',wkAt:0};
 var FN_PH={regular:'Serie regular',playoff:'Playoff'};
 // Posiciones del cuadro (% del ancho/alto). El cuadro tiene proporción 100:130 y las tarjetas escalan con su ancho.
 var FN_XY={P:[50,63],C:[50,81],'1B':[86,63],'2B':[70,45],'3B':[14,63],SS:[30,45],LF:[14,27],CF:[50,9.5],RF:[86,27],DH:[14,81],UT:[86,81]};
@@ -16747,6 +17015,78 @@ var FN_XY_VIT={'2B':[50,45],'1B':[86,63]};
 function fnRk(p){return p&&p.rk&&p.rk.n?' <span title="'+(p.rk.t==='P'?'Puesto en el ranking de lanzadores de la fase de la plantilla':'Puesto en el ranking de bateadores de la fase de la plantilla')+'">('+p.rk.n+')</span>':'';}
 function fnEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fnPts(v){return String(Math.round((v||0)*100)/100);}
+
+// ═══════════════════════════════════════════════════════════════════
+// EQUIPO DE LA SEMANA: el mejor jugador de cada posicion del cuadro segun los puntos de Fantasia que sumo en la semana (lunes a domingo).
+// El servidor (getFantasyWeekTeam) manda TODAS las semanas de una vez; aqui solo se navega entre ellas.
+// ═══════════════════════════════════════════════════════════════════
+function fnWkD(iso){var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]:(iso||'');}
+function fnWkDefault(w){
+  var t=w.today||'',l=w.weeks||[];
+  for(var i=0;i<l.length;i++){if(l[i].start<=t)return l[i].start;}   // la semana mas reciente que ya empezo
+  return l.length?l[0].start:'';
+}
+function fnWkIdx(w){
+  var cur=_FN.wkSel||fnWkDefault(w),l=w.weeks||[];
+  for(var i=0;i<l.length;i++){if(l[i].start===cur)return i;}
+  return 0;
+}
+function fnWkGo(i){var w=_FN.wk;if(!w||!w.weeks[i])return;_FN.wkSel=w.weeks[i].start;fnRender();}
+function fnWkCard(slot,p,star){
+  var box='background:rgba(0,0,0,.68);border:2px '+(p?'solid':'dashed')+' '+(p?(star?'#ffd24a':'var(--acc)'):'rgba(255,255,255,.55)')+';border-radius:10px;padding:2px 1px;color:#fff;line-height:1.15;overflow:hidden';
+  var badge=p?'<div style="display:inline-block;background:'+(star?'#ffd24a':'var(--acc)')+';color:#000;font-weight:800;font-size:11px;border-radius:9px;padding:0 7px;margin-bottom:2px;line-height:16px">'+(star?'&#11088; ':'')+fnPts(p.pts)+'</div>':'';
+  return'<div style="width:74px;width:min(88px,19cqw);text-align:center">'
+    +'<div style="min-height:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">'+badge+'</div>'
+    +'<div style="'+box+'">'
+    +'<div style="font-size:9px;font-weight:800;color:var(--acc);white-space:nowrap">'+fnEsc(slot)+'</div>'
+    +(p?'<div style="display:flex;justify-content:center;margin:1px 0;pointer-events:none">'+playerAvatarHtml(p.photoUrl,p.name,26,'circle',p.number)+'</div>'
+        +'<div style="font-size:8.5px;font-weight:700;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+fnEsc(p.abbr||p.teamName)+'</div>'
+       :'<div style="height:26px;margin:1px 0"></div>')
+    +'</div>'
+    +'<div title="'+(p?fnEsc(p.name):'')+'" style="margin:2px -8px 0;min-height:22px;font-size:9px;line-height:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'
+    +(p?fnEsc(p.name):'<span style="opacity:.7">—</span>')+'</div></div>';
+}
+function fnWeekTab(){
+  var w=_FN.wk;
+  if(!w)return'<div class="card"><div class="empty">Cargando...</div></div>';
+  if(w.error)return'<div class="card"><div class="empty"><div style="color:#f87171;margin-bottom:10px">'+fnEsc(w.error)+'</div><button class="btn bp bsm" onclick="_FN.wk=null;fnRender();fnLoad()">Reintentar</button></div></div>';
+  if(w.noFantasy)return'<div class="card"><div class="empty"><div style="font-size:30px">&#11088;</div><div>El Equipo de la Semana se conforma solo en subtorneos que ya tienen plantillas de Fantasía creadas</div></div></div>';
+  if(!w.weeks.length)return'<div class="card"><div class="empty"><div style="font-size:30px">&#11088;</div><div>Aún no hay semanas con juegos finalizados en este subtorneo</div></div></div>';
+  var i=fnWkIdx(w),wk=w.weeks[i],vit=w.sport==='vitilla';
+  var live=(wk.start<=w.today&&w.today<=wk.end);
+  var byPos={};wk.players.forEach(function(p){byPos[p.slot]=p;});
+  var mvp=wk.players.slice().sort(function(a,b){return b.pts-a.pts;})[0];
+  var nav=function(lbl,idx,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4"':'onclick="fnWkGo('+idx+')"')+'>'+lbl+'</button>';};
+  var opts=w.weeks.map(function(x,k){return'<option value="'+k+'" '+(k===i?'selected':'')+'>'+fnWkD(x.start)+' – '+fnWkD(x.end)+(x.start<=w.today&&w.today<=x.end?' (en curso)':'')+'</option>';}).join('');
+  var h='<div class="card" style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap">'
+    +nav('&#9664; Anterior',i+1,i>=w.weeks.length-1)
+    +'<div style="flex:1;min-width:150px;text-align:center"><select class="fs" style="max-width:100%" onchange="fnWkGo(parseInt(this.value))">'+opts+'</select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:3px">'+wk.games+' juego'+(wk.games===1?'':'s')+' finalizado'+(wk.games===1?'':'s')+(live?' &middot; semana en curso (puede cambiar)':'')+'</div></div>'
+    +nav('Siguiente &#9654;',i-1,i<=0)+'</div></div>';
+  h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:2px">&#11088; Equipo de la Semana</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:10px">El mejor de cada posición según los puntos de Fantasía de la semana, esté en agencia libre o en una plantilla ('+fnWkD(wk.start)+' al '+fnWkD(wk.end)+'). Total del equipo: <b style="color:var(--acc)">'+fnPts(wk.total)+'</b> pts'+(mvp?' &middot; Jugador de la semana: <b>'+fnEsc(mvp.name)+'</b> ('+fnPts(mvp.pts)+')':'')+'</div>';
+  h+='<div style="position:relative;width:100%;max-width:460px;margin:0 auto;aspect-ratio:100/186;container-type:inline-size;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#2f7d3a 0%,#1d5428 75%);border:1px solid var(--bdr)">'
+    +'<svg viewBox="0 0 100 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><polygon points="50,174.2 88,135.5 50,96.8 12,135.5" fill="#b98b55" opacity=".5"/><polygon points="50,160.2 74,135.5 50,110.8 26,135.5" fill="#2a7a35"/><circle cx="50" cy="135.5" r="3" fill="#b98b55" opacity=".7"/></svg>';
+  (w.slots||[]).forEach(function(pos){
+    var xy=(vit&&FN_XY_VIT[pos])||FN_XY[pos]||[50,50],p=byPos[pos]||null;
+    h+='<div style="position:absolute;left:'+xy[0]+'%;top:'+(xy[1]/0.93).toFixed(2)+'%;transform:translate(-50%,-50%)">'+fnWkCard(pos,p,!!(p&&mvp&&p.id===mvp.id))+'</div>';
+  });
+  h+='</div></div>';
+  h+='<div class="card"><div style="font-weight:700;margin-bottom:6px">Detalle de la semana</div>'
+    +(w.slots||[]).map(function(pos,k){
+      var p=byPos[pos];
+      return'<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;'+(k?'border-top:1px solid var(--bdr);':'')+'">'
+        +'<div style="width:34px;text-align:center;font-weight:800;font-size:12px;color:var(--acc)">'+fnEsc(pos)+'</div>'
+        +(p?'<div style="flex-shrink:0">'+playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+fnEsc(p.name)+(mvp&&p.id===mvp.id?' &#11088;':'')+'</div>'
+          +'<div style="font-size:11px;color:var(--t3)">'+fnEsc(p.teamName||p.abbr)+(p.position?' &middot; '+fnEsc(p.position):'')+' &middot; '+p.gp+' J'+(p.line?' &middot; '+fnEsc(p.line):'')+'</div></div>'
+          +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div>'
+         :'<div style="flex:1;color:var(--t3);font-size:12px">Sin jugador esta semana</div>')
+        +'</div>';
+    }).join('')
+    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Se elige al mejor de cada posición registrada del jugador (los UT pueden ocupar cualquiera); DH y UT los ocupan los mejores bateadores que sobran. Los jugadores de equipos marcados &quot;sin estadísticas&quot; no participan. Los puntos usan el sistema de Fantasía del subtorneo.</div></div>';
+  return h;
+}
 // ═══════════════════════════════════════════════════════════════════
 // TARJETA INFORMATIVA DEL JUGADOR (Fantasy): se abre desde el cuadro, la banca/relevistas, "Mi roster" y la agencia libre.
 // Foto, equipo y posicion, resumen (pts por juego / pts fantasy / juegos), linea de bateo o pitcheo y ultimos juegos con sus puntos.
@@ -16807,7 +17147,7 @@ function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)
 function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
-  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='week')return{kind:'fase',phase:_FN.phase,day:''};
   if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
   return{kind:_FN.kind,phase:_FN.phase,day:''};
 }
@@ -16852,7 +17192,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;_FN.wk=null;_FN.wkSel='';}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -16863,6 +17203,13 @@ async function fnLoad(){
   var tid=_FN.tid;if(!tid)return;
   var cx=fnCtx(),key=[tid,cx.kind,cx.phase,cx.day].join('|');
   _FN.ckey=key;
+  if(_FN.tab==='week'){
+    var rw=await api('getFantasyWeekTeam',{tournamentId:tid});
+    if(key!==_FN.ckey||curP!=='fantasy')return;
+    _FN.wk=(rw&&rw.ok)?rw:{error:(rw&&rw.error)||'No se pudo cargar el Equipo de la Semana',weeks:[],slots:[]};
+    _FN.wkAt=Date.now();
+    fnRender();return;
+  }
   var r=await api('getFantasy',{tournamentId:tid,kind:cx.kind,phase:cx.phase,day:cx.day});
   if(key!==_FN.ckey||curP!=='fantasy')return;
   if(r&&r.ok){_FN.data=r;_FN.err='';_FN.ver=r.ver||null;_FN.dver=r.draftVer||0;_FN.fullAt=Date.now();_FN.pm={};r.players.forEach(function(p){_FN.pm[p.id]=p;});
@@ -16882,6 +17229,7 @@ function fnTick(){
   if(_FN.busy||_FN.editing||document.getElementById('modals').innerHTML)return;
   if(!autoWindowOpen())return;   // fuera del horario hábil configurado
   // Mientras arma su plantilla no se redibuja (no perder lo que va arrastrando)
+  if(_FN.tab==='week'){if(Date.now()-(_FN.wkAt||0)>300000)fnLoad();return;}
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnTickLoad();
 }
@@ -17604,6 +17952,7 @@ function fnCtxBar(){
   var phSel='<select class="fs" onchange="fnSetPhase(this.value)">'+Object.keys(FN_PH).map(function(k){return opt(k,FN_PH[k],_FN.phase);}).join('')+'</select>';
   var lb=function(t,c){return'<div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">'+t+'</label>'+c+'</div>';};
   var inner='';
+  if(_FN.tab==='week')return'';
   if(_FN.tab==='team'){
     inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
       +(_FN.kind==='fase'?lb('Fase',phSel):'');
@@ -18129,10 +18478,11 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
+  else if(_FN.tab==='week')h+=fnWeekTab();
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
     h+='<div class="card" id="fn-rank"><div style="font-weight:700;margin-bottom:6px">Clasificación — '+FN_PH[d.phase]+'</div>'+fnRankRows(d,false)
@@ -18471,7 +18821,7 @@ function pgAwards(){
 function awardPlayerOpts(tourId,selectedPid){
   if(!tourId) return '<option value="">-- Selecciona primero un torneo --</option>';
   var tids=S.teams.filter(function(p){return p.tournamentId===tourId;}).map(function(p){return p.id;});
-  var allPls=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
+  var allPls=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);});
   // Solo el registro ACTIVO de cada identidad — evita que un jugador transferido dentro de
   // este mismo subtorneo aparezca dos veces (una por cada equipo). Se muestran todos sus
   // equipos entre parentesis para que quede claro que jugo en mas de uno.
@@ -18483,14 +18833,14 @@ function awardPlayerOpts(tourId,selectedPid){
   var seenAw={};var uniq=[];
   activePls.forEach(function(p){
     if(seenAw[p.id])return;
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     (related.length?related:[p.id]).forEach(function(id){seenAw[id]=true;});
     uniq.push(p);
   });
   uniq.sort(function(a,b){return(a.name||'').localeCompare((b.name||''),'es',{sensitivity:'base'});});
   if(!uniq.length) return '<option value="">Sin jugadores en este torneo</option>';
   return uniq.map(function(p){
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     var teamNamesAw=[];(related.length?related:[p.id]).map(playerOf).filter(function(x){return x;}).forEach(function(r){var tm=teamOf(r.teamId);if(tm&&teamNamesAw.indexOf(tm.name)<0)teamNamesAw.push(tm.name);});
     var teamLbl=teamNamesAw.join(', ');
     return'<option value="'+p.id+'" '+(selectedPid===p.id?'selected':'')+'>#'+(p.number||'?')+' '+p.name+(teamLbl?' ('+teamLbl+')':'')+'</option>';
@@ -18649,12 +18999,12 @@ function awardCandidates(tourId,divFilter){
     var t=S.teams.filter(function(x){return x.id===tid;})[0];
     return t&&(t.division||'')===divFilter;
   }):tids;
-  var poolAllCand=S.players.filter(function(p){return _asDivTids.indexOf(p.teamId)>=0;});
+  var poolAllCand=S.players.filter(function(p){return _asDivTids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);});
   var activePoolCand=poolAllCand.filter(function(p){return p.active!=='false';});
   // Igual que en Destacados en Fecha/Rankings: careerInstances incluye el registro inactivo
   // del equipo anterior tras una transferencia, para no perder esos numeros del consolidado.
   function idsForName(p){
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&_asDivTids.indexOf(rp.teamId)>=0;});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&_asDivTids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     return related.length?related:[p.id];
   }
   // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
@@ -18816,10 +19166,10 @@ function allStarCandidates(tourId,divFilter){
   var _asAllTeams=S.teams.filter(function(t){return t.tournamentId===tourId;});
   var _asFiltTeams=divFilter?_asAllTeams.filter(function(t){return(t.division||'')===divFilter;}):_asAllTeams;
   var tids=_asFiltTeams.map(function(t){return t.id;});
-  var poolAllGG=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0;});
+  var poolAllGG=S.players.filter(function(p){return tids.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);});
   var activePoolGG=poolAllGG.filter(function(p){return p.active!=='false';});
   function idsForName(p){
-    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0;});
+    var related=careerInstances(p.id).filter(function(id){var rp=playerOf(id);return rp&&tids.indexOf(rp.teamId)>=0&&!tmNoStats(rp.teamId);});
     return related.length?related:[p.id];
   }
   // BUG CORREGIDO: dedup por p.id ANTES de resolver careerInstances duplicaba jugadores con
@@ -19730,7 +20080,7 @@ function pgToVsTo(){
   var allTeams=visibleTeams().filter(function(t){return tvtTeamIds.indexOf(t.id)>=0;}).sort(function(a,b){return a.name.localeCompare(b.name);});
   // Deduplicate players by normalized name
   var tvtSeenNames={};
-  var tvtPlayerPool=S.players.filter(function(p){return p.active!=='false'&&tvtTeamIds.indexOf(p.teamId)>=0;})
+  var tvtPlayerPool=S.players.filter(function(p){return p.active!=='false'&&tvtTeamIds.indexOf(p.teamId)>=0&&!tmNoStats(p.teamId);})
     .slice().sort(function(a,b){return a.name.localeCompare(b.name);});
   var allPlayers=tvtPlayerPool.filter(function(p){
     var key=(p.name||'').trim().toLowerCase();
@@ -21492,7 +21842,7 @@ function fantasyMoveCostCard(){
 // Los bloques se crean UNA vez por sesion: no se refrescan al navegar.
 // ═══════════════════════════════════════════════════════════════════════════════
 var _webAdsRendered={top:'',bottom:''},_webAdsFrames={},WEB_ADS_HIDE_PAGES=['gamecontrol','transmissionpanel'],_webAdsMsgOn=false;
-function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',top:String(c.webAdsCodeTop||'').trim(),bottom:String(c.webAdsCodeBottom||'').trim(),popOn:String(c.webAdsPopEnabled||'')==='1',pop:String(c.webAdsCodePop||'').trim()};}
+function webAdsCfg(){var c=S.config||{};return{on:String(c.webAdsEnabled||'')==='1',top:String(c.webAdsCodeTop||'').trim(),bottom:String(c.webAdsCodeBottom||'').trim(),popOn:String(c.webAdsPopEnabled||'')==='1',pop:String(c.webAdsCodePop||'').trim(),popMin:Math.min(1440,Math.max(1,parseInt(c.webAdsPopCooldownMin)||30))};}
 function webAdsValidCode(code){return !!code&&code.length<=6000&&/<script/i.test(code);}
 // Publico que puede ver anuncios web (banners y popunder): mismos interruptores que AdMob (Configuracion > Anuncios (AdMob)): visitantes y
 // usuarios de Google; nunca staff con usuario/contrasena, ni la app nativa, ni quien tenga el modulo 'hideads'.
@@ -21505,7 +21855,27 @@ function webAdsAllowed(){return webAdsAudienceOk()&&webAdsCfg().on;}
 // POPUNDER: el script debe correr en la pagina principal (necesita ver los clics del usuario), por eso NO va en iframe: solo se carga
 // para el publico anterior, una vez por carga de pagina, y solo si es un <script src="https://...">. No se puede descargar un script ya
 // cargado: si despues la sesion deja de ser elegible (p. ej. un visitante inicia sesion como staff), se recarga la pagina una vez.
-var _webAdsPopCode='';
+var _webAdsPopCode='',_webAdsPopGuardOn=false;
+// PAUSA del popunder: cuando le sale a un usuario (se detecta porque la ventana pierde el foco justo despues de un clic real, que es lo que
+// pasa al abrirse la pestana por detras) se guarda hasta cuando puede volver a salirle (localStorage de ESE dispositivo). Mientras dura la
+// pausa se bloquea window.open y los clics sinteticos en enlaces nuevos que haga el script; al pasar el tiempo se libera solo.
+function webAdsPopNext(){try{return parseInt(localStorage.getItem('vp_pop_next'))||0;}catch(e){return 0;}}
+function webAdsPopSetNext(ms){try{localStorage.setItem('vp_pop_next',String(Date.now()+ms));}catch(e){}}
+function webAdsPopGuard(){
+  if(_webAdsPopGuardOn)return;_webAdsPopGuardOn=true;
+  var wo=window.open;
+  window.open=function(){if(Date.now()<webAdsPopNext())return null;return wo.apply(window,arguments);};
+  document.addEventListener('click',function(e){
+    if(e.isTrusted||Date.now()>=webAdsPopNext())return;
+    var a=e.target&&e.target.closest?e.target.closest('a'):null;
+    if(a&&(a.target==='_blank'||a.target==='_new')){e.preventDefault();e.stopPropagation();}
+  },true);
+  var armed=0;
+  function fired(){if(armed&&Date.now()-armed<1500){armed=0;webAdsPopSetNext(webAdsCfg().popMin*60000);}}
+  document.addEventListener('pointerup',function(e){if(e.isTrusted&&Date.now()>=webAdsPopNext())armed=Date.now();},true);
+  window.addEventListener('blur',fired);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')fired();});
+}
 function webAdsValidPop(code){return !!code&&code.length<=3000&&/<script[^>]+src\s*=\s*["'](https:)?\/\/[^"']+["']/i.test(code);}
 function webAdsPopInit(){
   try{
@@ -21516,7 +21886,9 @@ function webAdsPopInit(){
       return;
     }
     if(_webAdsPopCode)return;   // ya cargado en esta pagina
+    if(webAdsPopNext()>Date.now())return;   // todavia en pausa porque ya le salio: se vuelve a evaluar al navegar
     _webAdsPopCode=c.pop;
+    webAdsPopGuard();
     var tpl=document.createElement('template');tpl.innerHTML=c.pop;
     tpl.content.querySelectorAll('script').forEach(function(old){
       var s=document.createElement('script');
@@ -21600,6 +21972,7 @@ function webAdsConfigCard(){
     +'<div class="fg"><label class="fl">Código del anuncio inferior (opcional; usa un código distinto al superior)</label><textarea class="fi" id="webAdsCodeBottom" rows="5" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.bottom)+'</textarea></div>'
     +'<div class="fg" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(128,128,128,.25)"><label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="webAdsPopOn" '+(c.popOn?'checked':'')+'> Activar anuncio <b>Popunder</b> (independiente de los banners)</label></div>'
     +'<div class="fg"><label class="fl">Código del popunder (el &lt;script src="..."&gt; que da Adsterra)</label><textarea class="fi" id="webAdsCodePop" rows="2" spellcheck="false" style="font-family:monospace;font-size:12px">'+fnEsc(c.pop)+'</textarea></div>'
+    +'<div class="fg"><label class="fl">Pausa del popunder: minutos antes de que pueda volver a salirle al mismo usuario (1–1440)</label><input class="fi" id="webAdsPopMin" type="number" min="1" max="1440" step="1" value="'+c.popMin+'"></div>'
     +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9888; El popunder se carga en la página principal (no en iframe) y abre una pestaña detrás cuando el visitante hace clic. Se muestra al mismo público que los banners (nunca staff) y una vez por carga de página; la frecuencia por usuario se limita en el panel de Adsterra, déjala baja.</div>'
     +'<div class="alert ai" style="font-size:12px;margin-top:4px;line-height:1.5">&#9654; Los banners se muestran solo en la <b>versión web</b> y al mismo público que AdMob, según los interruptores <b>Mostrar anuncios a Visitantes / a usuarios de Google</b> de la tarjeta <b>Anuncios (AdMob)</b>; los usuarios con usuario y contraseña (staff) <b>nunca</b> los ven, y tampoco quien tenga marcado el módulo <b>Ocultar anuncios (versión web)</b> en su perfil. En la app Android se usa AdMob, no estos bloques. Tampoco aparecen en la pantalla de login ni en Control de Juego/Transmisión. Deja un campo vacío para no usar esa posición. Sirven los códigos de <b>Banner</b> (728×90, 468×60, 320×50, 300×250...) y de <b>Native Banner</b>; no pegues el mismo código en las dos posiciones. Los cambios se ven al recargar la página.</div>'
     +'<div class="alert ai" style="font-size:12px;margin-top:6px;line-height:1.5">&#128065; <b>Probar:</b> como administrador (staff) tú no verás los anuncios en la app. Guarda el código y usa <b>Vista previa</b> para comprobar que carga, y para verlo en la app real entra como <b>visitante</b> (ventana de incógnito, sin iniciar sesión) con <b>Mostrar anuncios a Visitantes</b> activo en la tarjeta de AdMob.</div>'
@@ -21628,12 +22001,13 @@ function webAdsPreview(){
 async function saveWebAdsConfig(){
   var on=document.getElementById('webAdsOn').checked,t=fv('webAdsCodeTop').trim(),b=fv('webAdsCodeBottom').trim();
   var popOn=document.getElementById('webAdsPopOn').checked,pop=fv('webAdsCodePop').trim();
+  var popMin=Math.min(1440,Math.max(1,parseInt(fv('webAdsPopMin'))||30));
   if((t&&!webAdsValidCode(t))||(b&&!webAdsValidCode(b))){toast('El código debe ser el fragmento completo de Adsterra (con <script>) y de menos de 6000 caracteres','error');return;}
   if(on&&!t&&!b){toast('Pega al menos un código de anuncio (superior o inferior)','error');return;}
   if(t&&t===b){toast('El código superior e inferior no pueden ser el mismo: pide un segundo código en Adsterra','error');return;}
   if(pop&&!webAdsValidPop(pop)){toast('El popunder debe ser un <script src="https://..."> de Adsterra (menos de 3000 caracteres)','error');return;}
   if(popOn&&!pop){toast('Pega el código del popunder para activarlo','error');return;}
-  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsCodeTop',t],['webAdsCodeBottom',b],['webAdsPopEnabled',popOn?'1':'0'],['webAdsCodePop',pop]];
+  var kv=[['webAdsEnabled',on?'1':'0'],['webAdsCodeTop',t],['webAdsCodeBottom',b],['webAdsPopEnabled',popOn?'1':'0'],['webAdsCodePop',pop],['webAdsPopCooldownMin',String(popMin)]];
   _saving=true;var ok=true;
   for(var i=0;i<kv.length&&ok;i++){var r=await api('saveConfig',{key:kv[i][0],value:kv[i][1]});ok=!!(r&&r.ok);if(ok){S.config=S.config||{};S.config[kv[i][0]]=kv[i][1];}}
   _saving=false;
