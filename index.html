@@ -4307,11 +4307,9 @@ function getUserModsBase(u){
 // contrasena propia en la app) ni los visitantes lo ven, ni por el menu, ni por enlace directo (#/myprofile), ni por goNav.
 function canSeeMyProfile(){return !!S.user&&S.user.role!=='google'&&S.user.role!=='public';}
 function hasModuleAccess(moduleId){
-  // Seguro adicional: un usuario con cuenta de Google jamas ve el Panel de Transmision,
-  // incluso si el perfil que el admin le asigno (Configuracion > Acceso con Google) lo
-  // incluyera por error — este boton no es parte de lo que se le ofrece a esa via de acceso.
-  if(moduleId==='transmissionpanel'&&S.user&&S.user.role==='google')return false;
-  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore')&&S.user&&(S.user.role==='google'||S.user.role==='public'))return false;
+  // Panel de Transmision y transmision en vivo: los usuarios de Google los ven SOLO si el perfil que usan (Configuracion > Acceso con Google)
+  // tiene marcados esos permisos, igual que cualquier otro perfil. Los visitantes nunca.
+  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore')&&S.user&&S.user.role==='public')return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -5392,6 +5390,11 @@ function tfmSection(t){
     +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es fichar un jugador de la agencia libre (liberar 1 y fichar 1 cuenta como 1; liberar sin fichar no cuenta). <b>No cuentan</b> los jugadores inactivos que se liberan y se reemplazan en el mismo guardado, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por mes</label>'+inp('tfm-month',t.fantasyMaxMonth)+'</div><div class="fg"></div></div>'
+    +(function(){var ac={};try{ac=JSON.parse((S.config&&t.id&&S.config['fantasyAdv_'+t.id])||'{}')||{};}catch(e){}
+      return'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 10px">&#127919; ADIVINA EN FANTASY (solo administrador)</div>'
+      +'<div class="alert ai" style="font-size:12px">Puntos extra que gana un usuario de Fantasy si <b>acierta</b> cada tipo de adivinanza sobre los juegos del día de <b>este subtorneo</b>. Se suman al total de su plantilla. <b>0 = ese tipo queda deshabilitado</b> (si todos están en 0, no se muestra Adivina).</div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">&#127942; Ganador del juego</label>'+inp('tfa-winner',ac.winner||0)+'</div><div class="fg"><label class="fl">&#128290; Marcador exacto</label>'+inp('tfa-score',ac.score||0)+'</div></div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">&#9918; Ponches del abridor</label>'+inp('tfa-ks',ac.ks||0)+'</div><div class="fg"><label class="fl">&#128207; Diferencial de carreras</label>'+inp('tfa-diff',ac.diff||0)+'</div></div>';})()
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 10px">&#129309; APROBACIONES PARA CAMBIOS Y OFERTAS (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Cantidad <b>mínima de aprobaciones</b> que debe tener un cambio de jugadores (o una oferta que incluya intercambio de jugadores) entre plantillas de <b>este subtorneo</b> para efectuarse. Las dos partes del cambio siempre deben aprobar, así que el mínimo real es 2. <b>0 = deben aprobar todos</b> los usuarios con plantilla. Las ofertas solo por puntos las aprueba únicamente quien puso la oferta.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Aprobaciones mínimas</label>'+inp('tfm-appr',t.fantasyMinApprovals)+'</div>'
@@ -5522,6 +5525,8 @@ async function saveT(id){
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
   if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';}   // solo existe para el admin
+  var advCfg=null;
+  if(document.getElementById('tfa-winner')){var an=function(i){return Math.max(0,Math.round((parseFloat(fv(i))||0)*100)/100);};advCfg={winner:an('tfa-winner'),score:an('tfa-score'),ks:an('tfa-ks'),diff:an('tfa-diff')};}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
   if(S.user&&S.user.role==='google'){
     if(!t.parentTournamentId){toast('Elige el torneo padre','error');return;}
@@ -5529,6 +5534,10 @@ async function saveT(id){
     if(!id&&t.storageMode==='local'&&!confirm('Vas a crear este subtorneo en modo LOCAL: los datos quedarán solo en este dispositivo.\n\nSi luego deseas cambiarlo a la nube, deberás comunicarte con el administrador.\n\n¿Continuar?'))return;
   }
   var r=await api('saveTournament',{tournament:t});
+  if(r&&r.ok&&advCfg){   // puntos de Adivina del subtorneo (config fantasyAdv_<id>)
+    var advK='fantasyAdv_'+r.item.id,advV=JSON.stringify(advCfg),rc=await api('saveConfig',{key:advK,value:advV});
+    if(rc&&rc.ok){S.config=S.config||{};S.config[advK]=advV;}else toast('El subtorneo se guardó, pero no se pudieron guardar los puntos de Adivina','error');
+  }
   if(r&&r.ok){
     if(!id)S.tournaments.push(r.item);else S.tournaments=S.tournaments.map(function(x){return x.id===id?r.item:x;});
     try{refreshUnlimitedBadge();}catch(e){}
@@ -8099,7 +8108,7 @@ function lsRenderItems(host,items,gid,edit){
   items.forEach(function(it,idx){
     keep[it.id]=1;
     var el=have[it.id];
-    var src=lsItemUrl(it,gid);
+    var src=it.page==='img'?'':lsItemUrl(it,gid);
     if(!el){
       el=document.createElement('div');el.className='lsi'+(edit?' lse':'');el.setAttribute('data-id',it.id);
       el.innerHTML='<div class="lsi-fr"><iframe scrolling="no" loading="lazy" referrerpolicy="no-referrer" allowtransparency="true" tabindex="-1"></iframe></div>'
@@ -8108,7 +8117,12 @@ function lsRenderItems(host,items,gid,edit){
       if(edit)lsBindEdit(el,it);
     }
     var ifr=el.firstChild.firstChild;
-    if(ifr.getAttribute('data-src')!==src){ifr.setAttribute('data-src',src);ifr.src=src;}
+    if(it.page==='img'){   // imagen propia (biblioteca de la transmision): se muestra completa, sin deformarse y con fondo transparente
+      if(/^https?:\/\/[A-Za-z0-9.\-]+(:\d+)?\/img\/[a-f0-9]{32}\.(png|jpg|webp)$/.test(String(it.src||''))&&ifr.getAttribute('data-src')!==it.src){
+        ifr.setAttribute('data-src',it.src);
+        ifr.srcdoc='<!doctype html><html><body style="margin:0;background:transparent;overflow:hidden"><img src="'+it.src+'" style="display:block;width:100vw;height:100vh;object-fit:contain"></body></html>';
+      }
+    }else if(ifr.getAttribute('data-src')!==src){ifr.setAttribute('data-src',src);ifr.src=src;}
     lsApplyItem(el,it,idx);
   });
   Object.keys(have).forEach(function(k){if(!keep[k])host.removeChild(have[k]);});
@@ -8619,7 +8633,8 @@ function bcBoxHtml(gm){
 function bcIsMobile(){return IS_NATIVE_APP||camDevice()==='phone';}
 function bcGfxBodyHtml(){
   var cat=lsCatalog(),on=(_BC.layout||[]).map(function(x){return x.id;});
-  return'<div style="font-size:12px;color:var(--t2);margin-bottom:8px">Los marcados con &#10003; ya están en pantalla. Toca uno para agregarlo o quitarlo; luego muévelo y ajusta su tamaño sobre el video.</div>'
+  return'<button class="btn bs" style="width:100%;margin-bottom:10px" onclick="bcImgOpenM()">&#128444;&#65039; Mis imágenes</button>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:8px">Los marcados con &#10003; ya están en pantalla. Toca uno para agregarlo o quitarlo; luego muévelo y ajusta su tamaño sobre el video.</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
     +cat.map(function(c){var s=on.indexOf(c.id)>=0;return'<button class="btn '+(s?'bp':'bs')+'" style="text-align:left;padding:10px;font-size:13px;line-height:1.25" data-id="'+c.id+'" onclick="bcToggleGfx(this.getAttribute(\'data-id\'))">'+(s?'&#10003; ':'+ ')+nfEsc(c.label)+'</button>';}).join('')
     +'</div>';
@@ -8638,6 +8653,103 @@ function bcToggleGfx(id){
   bcCommitLayout();
   var mb=document.getElementById('bcg-body');if(mb){var sc=mb.scrollTop;mb.innerHTML=bcGfxBodyHtml();mb.scrollTop=sc;}
   try{bcStageSync();}catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MIS IMAGENES (panel de graficos de la transmision): cada usuario sube sus imagenes (logos de patrocinadores, avisos, fondos...) a su
+// biblioteca personal y las coloca en la pantalla como cualquier otro grafico (mover, tamano, zoom, quitar). Se guardan en el mismo bucket
+// de imagenes que los logos de equipos (uploadImage/R2) pero SOLO el usuario que las subio las ve y puede colocarlas.
+// ═══════════════════════════════════════════════════════════════════
+var _BCI={list:null,max:40,busy:false};
+function bcImgId(k){return'img-'+String(k).slice(0,12);}
+function bcImgInLayout(k){return(_BC.layout||[]).some(function(x){return x.id===bcImgId(k);});}
+async function bcImgLoad(force){
+  if(_BCI.list&&!force)return true;
+  var r=await api('listBroadcastImages',{});
+  if(r&&r.ok){_BCI.list=r.images||[];_BCI.max=r.max||40;return true;}
+  toast((r&&r.error)||'No se pudo cargar tus imágenes','error');return false;
+}
+function bcImgBodyHtml(){
+  var l=_BCI.list||[];
+  var grid=l.length?'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">'+l.map(function(im){
+      var on=bcImgInLayout(im.k);
+      return'<div style="position:relative;border:2px solid '+(on?'var(--acc)':'var(--bdr)')+';border-radius:10px;overflow:hidden;background:repeating-conic-gradient(#3b4252 0% 25%,#2e3440 0% 50%) 50%/14px 14px">'
+        +'<button type="button" data-k="'+im.k+'" onclick="bcImgToggle(this.getAttribute(\'data-k\'))" title="'+(on?'Quitar de la pantalla':'Poner en pantalla')+'" style="display:block;width:100%;aspect-ratio:1;border:0;padding:4px;background:none;cursor:pointer"><img src="'+nfEsc(im.url)+'" alt="" style="width:100%;height:100%;object-fit:contain"></button>'
+        +(on?'<div style="position:absolute;left:4px;top:4px;background:var(--acc);color:#000;font-weight:800;font-size:11px;border-radius:8px;padding:0 6px">&#10003; En pantalla</div>':'')
+        +'<button type="button" data-k="'+im.k+'" onclick="bcImgDelete(this.getAttribute(\'data-k\'))" title="Eliminar de mi biblioteca" style="position:absolute;right:3px;top:3px;border:0;background:rgba(0,0,0,.65);color:#fff;border-radius:6px;width:24px;height:24px;cursor:pointer">&#128465;</button>'
+        +'<div style="font-size:10px;padding:2px 5px;background:rgba(0,0,0,.65);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nfEsc(im.name)+'</div></div>';
+    }).join('')+'</div>'
+    :'<div class="empty" style="padding:18px 8px"><div style="font-size:30px">&#128444;&#65039;</div><div>Aún no has subido imágenes.</div></div>';
+  return'<div style="font-size:12px;color:var(--t2);margin-bottom:10px">Sube tus imágenes (PNG con fondo transparente, JPG o WebP) y toca una para ponerla o quitarla de la pantalla; luego muévela y ajusta su tamaño sobre el video. <b>Solo tú</b> ves y puedes usar estas imágenes. '+l.length+'/'+_BCI.max+'</div>'+grid;
+}
+async function bcImgOpenM(){
+  if(!_BC.id){toast('Primero inicia la transmisión','info');return;}
+  showM('<div class="mhd"><div class="mtl">&#128444;&#65039; Mis imágenes</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="bci-body"><div class="empty">Cargando...</div></div>'
+    +'<div class="mft"><label class="btn bs" style="cursor:pointer;margin:0">&#128193; Subir imagen<input type="file" accept="image/png,image/jpeg,image/webp,image/*" style="display:none" onchange="bcImgChosen(this)"></label><button class="btn bp" onclick="cM()">Listo</button></div>');
+  if(await bcImgLoad(true))bcImgRefresh();
+}
+function bcImgRefresh(){var b=document.getElementById('bci-body');if(b){var sc=b.scrollTop;b.innerHTML=bcImgBodyHtml();b.scrollTop=sc;}}
+function bcImgChosen(inp){
+  var f=inp.files&&inp.files[0];inp.value='';
+  if(!f)return;
+  if(!/^image\//.test(f.type||'')){toast('Elige un archivo de imagen','error');return;}
+  if(typeof S_isOnline!=='undefined'&&!S_isOnline){toast('Necesitas conexión para subir la imagen','error');return;}
+  if(_BCI.busy)return;
+  var url=URL.createObjectURL(f),img=new Image();
+  img.onload=function(){
+    URL.revokeObjectURL(url);
+    var LIM=380*1024,bytesOf=function(d){return Math.round((d.length-d.indexOf(',')-1)*0.75);};
+    var maxSide=1280,data='',ar=img.width/img.height;
+    for(var tries=0;tries<5;tries++){
+      var k=Math.min(1,maxSide/Math.max(img.width,img.height)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(img.width*k));c.height=Math.max(1,Math.round(img.height*k));
+      var ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);
+      data=c.toDataURL('image/png');                                   // PNG primero: conserva la transparencia
+      if(bytesOf(data)<=LIM)break;
+      var q=[0.85,0.72,0.6][Math.min(tries,2)];
+      var c2=document.createElement('canvas');c2.width=c.width;c2.height=c.height;var x2=c2.getContext('2d');
+      x2.fillStyle='#fff';x2.fillRect(0,0,c2.width,c2.height);x2.drawImage(img,0,0,c2.width,c2.height);
+      data=c2.toDataURL('image/jpeg',q);                               // si el PNG pesa demasiado: JPG (sin transparencia)
+      if(bytesOf(data)<=LIM)break;
+      maxSide=Math.round(maxSide*0.78);
+    }
+    if(bytesOf(data)>LIM){toast('La imagen es demasiado pesada aun reducida. Prueba con otra.','error');return;}
+    _BCI.busy=true;toast('Subiendo imagen...','info');
+    api('addBroadcastImage',{dataUrl:data,ar:ar,name:String(f.name||'').replace(/\.[^.]+$/,'')}).then(function(r){
+      _BCI.busy=false;
+      if(r&&r.ok&&r.image){
+        _BCI.list=(_BCI.list||[]).filter(function(x){return x.k!==r.image.k;});_BCI.list.unshift(r.image);
+        bcImgRefresh();toast('Imagen guardada en tu biblioteca','success');
+      }else toast((r&&r.error)||'No se pudo subir la imagen','error');
+    }).catch(function(){_BCI.busy=false;toast('No se pudo subir la imagen','error');});
+  };
+  img.onerror=function(){URL.revokeObjectURL(url);toast('No se pudo leer esa imagen (prueba con JPG o PNG)','error');};
+  img.src=url;
+}
+function bcImgToggle(k){
+  if(!_BC.id)return;
+  var im=(_BCI.list||[]).filter(function(x){return x.k===k;})[0];if(!im)return;
+  _BC.layout=_BC.layout||[];
+  var id=bcImgId(k);
+  if(_BC.layout.some(function(x){return x.id===id;})){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
+  else{
+    if(_BC.layout.length>=14){toast('Máximo 14 gráficos en pantalla. Quita alguno primero.','error');return;}
+    var ar=im.ar>0?im.ar:1,w=ar>=1?30:Math.max(8,Math.min(30,30*ar*(9/16)*1.6)),h=Math.min(90,w*(16/9)/ar),n=_BC.layout.length;
+    w=Math.round(w*10)/10;h=Math.round(h*10)/10;
+    _BC.layout.push({id:id,page:'img',k:k,src:im.url,team:'',q:{},x:8+(n%4)*4,y:8+(n%4)*6,w:w,h:h,lw:Math.round(w/100*LS_REF_W),lh:Math.round(h/100*LS_REF_H),z:n+1});
+  }
+  if(_BC.stageRedraw)_BC.stageRedraw();
+  bcCommitLayout();
+  try{bcStageSync();}catch(e){}
+  bcImgRefresh();
+}
+async function bcImgDelete(k){
+  if(!confirm('¿Eliminar esta imagen de tu biblioteca? Si está en la pantalla, también se quitará.'))return;
+  var r=await api('deleteBroadcastImage',{k:k});
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo eliminar','error');return;}
+  _BCI.list=(_BCI.list||[]).filter(function(x){return x.k!==k;});
+  if(bcImgInLayout(k)){_BC.layout=_BC.layout.filter(function(x){return x.id!==bcImgId(k);});if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();}
+  bcImgRefresh();
 }
 function bcLeftHtml(gm){
   return'<div class="bxs-h">ACCIONES</div>'
@@ -8688,11 +8800,12 @@ function bcOpenStage(){
   function drawTray(){
     document.getElementById('bcs-tray').innerHTML=cat.map(function(c){
       return'<button class="bcs-chip'+(has(c.id)?' on':'')+'" data-id="'+c.id+'">'+(has(c.id)?'&#10003; ':'+ ')+nfEsc(c.label)+'</button>';
-    }).join('');
+    }).join('')+'<button class="bcs-chip" data-act="imgs" title="Tus imágenes: súbelas y colócalas en la pantalla">&#128444;&#65039; Mis imágenes'+((_BC.layout||[]).filter(function(x){return x.page==='img';}).length?' ('+(_BC.layout||[]).filter(function(x){return x.page==='img';}).length+')':'')+'</button>';
   }
   function redraw(){lsRenderItems(host,_BC.layout,_BC.gameId,true);drawTray();}
   document.getElementById('bcs-tray').addEventListener('click',function(e){
     var b=e.target.closest('.bcs-chip');if(!b)return;
+    if(b.getAttribute('data-act')==='imgs'){bcImgOpenM();return;}
     var id=b.getAttribute('data-id'),c=cat.filter(function(x){return x.id===id;})[0];if(!c)return;
     if(has(id)){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
     else{
@@ -9303,6 +9416,11 @@ function pgGC(){
       +'</div>':'')
     +'</div>'
     +(cs?'<div id="gc-rplay-area"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">REGISTRAR JUGADA</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px">'
+    +'<button class="btn bs bsm" style="flex:1" onclick="rBSO(\'ball\')">+ Bola</button>'
+    +'<button class="btn bs bsm" style="flex:1" onclick="rBSO(\'strike\')">+ Strike</button>'
+    +'<button class="btn bs bsm" style="flex:1" onclick="rBSO(\'foul\')">Foul</button>'
+    +'</div>'
     +'<div class="pbts">'
     +'<div class="pbtn phit" data-t="H1" onclick="rPlay(this.dataset.t)">H1<br><span style="font-size:10px">SENCILLO</span></div>'
     +'<div class="pbtn phit" data-t="H2" onclick="rPlay(this.dataset.t)">H2<br><span style="font-size:10px">DOBLE</span></div>'
@@ -9324,11 +9442,6 @@ function pgGC(){
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)" onclick="wildPitch()">WP<br><span style="font-size:10px">WILD PITCH</span></div>'
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)" onclick="balk()">BK<br><span style="font-size:10px">BALK</span></div>'
     +'<div class="pbtn" style="border-color:var(--t3);color:var(--t3)'+(!(gm.bases&&(gm.bases.first||gm.bases.second||gm.bases.third))?';opacity:.35;pointer-events:none':'')+'" title="'+(!(gm.bases&&(gm.bases.first||gm.bases.second||gm.bases.third))?'Requiere al menos un corredor en base':'')+'" onclick="passBall()">PB<br><span style="font-size:10px">PASSED BALL</span></div>'
-    +'</div>'
-    +'<div style="display:flex;gap:6px">'
-    +'<button class="btn bs bsm" onclick="rBSO(\'ball\')">+ Bola</button>'
-    +'<button class="btn bs bsm" onclick="rBSO(\'strike\')">+ Strike</button>'
-    +'<button class="btn bs bsm" onclick="rBSO(\'foul\')">Foul</button>'
     +'</div></div>'
     :(gm.status==='final'
       ?'<div class="card"><div style="text-align:center;padding:18px 12px">'
@@ -9662,7 +9775,7 @@ async function delEvent(eid,gid){
 }
 
 // ── CONTINUIDAD DE LA JUGADA ─────────────────────────────────────────────────────────────────────────────────────────────────────
-// Despues de cada jugada (menos HBP y Balk) se pregunta si ocurrio un error o un out en la misma jugada. Si no hay corredores en base
+// Despues de cada jugada (menos BB, HBP y Balk) se pregunta si ocurrio un error o un out en la misma jugada. Si no hay corredores en base
 // (HR, ponche/out sin corredores, tercer out) no hay nada que preguntar. "Error" abre el flujo de ERROR EN TIRO (sin volver a elegir el
 // tipo) y "Out en jugada" el de siempre; al terminar cualquiera de los dos se pregunta si ocurrio otro o si finaliza. Cada evento se
 // registra por separado, igual que hoy.
@@ -9824,9 +9937,21 @@ async function _doOutEnJugada(forcedBase){
 // que el boton equivalente (_doStealBase, _doWildPitch/openWPBaseM, passBall, balk, rPlay, _doOutEnJugada), asi que preguntas, reglas,
 // estadisticas y "Deshacer" se comportan exactamente igual que al pulsar los botones.
 // ═══════════════════════════════════════════════════════════════════
-function gcAvatarSvg(col,num,isBat){
+var _gcPhId=0;
+function gcAvatarSvg(col,num,isBat,photo){
   col=col||'#2563eb';
   var n=String(num==null||num===''?'?':num).slice(0,3);
+  if(photo){   // jugador con foto: se muestra su foto en un circulo con borde del color del equipo y el numero en una chapita
+    var cid='gcph'+(++_gcPhId),ph=nfEsc(photo);
+    return'<svg width="40" height="46" viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
+      +'<defs><clipPath id="'+cid+'"><circle cx="20" cy="18" r="15"/></clipPath></defs>'
+      +(isBat?'<rect x="33" y="2" width="4" height="28" rx="2" fill="#d9b06a" stroke="#6b4a1e" stroke-width=".8" transform="rotate(18 35 16)"/>':'')
+      +'<circle cx="20" cy="18" r="15" fill="#f1c9a5"/>'
+      +'<image href="'+ph+'" xlink:href="'+ph+'" x="5" y="3" width="30" height="30" preserveAspectRatio="xMidYMid slice" clip-path="url(#'+cid+')"/>'
+      +'<circle cx="20" cy="18" r="15" fill="none" stroke="'+col+'" stroke-width="3"/><circle cx="20" cy="18" r="16.5" fill="none" stroke="#fff" stroke-width="1"/>'
+      +'<rect x="10" y="33" width="20" height="12" rx="6" fill="'+col+'" stroke="#fff" stroke-width="1.2"/>'
+      +'<text x="20" y="42.3" text-anchor="middle" font-size="'+(n.length>2?7:9)+'" font-weight="800" fill="#fff" stroke="#000" stroke-width=".35" font-family="Barlow Condensed,Arial,sans-serif">'+n+'</text></svg>';
+  }
   return'<svg width="40" height="46" viewBox="0 0 40 46" xmlns="http://www.w3.org/2000/svg">'
     +(isBat?'<rect x="30" y="3" width="4" height="28" rx="2" fill="#d9b06a" stroke="#6b4a1e" stroke-width=".8" transform="rotate(18 32 17)"/>':'')
     +'<rect x="9" y="22" width="22" height="20" rx="8" fill="'+col+'" stroke="#fff" stroke-width="1.5"/>'
@@ -9843,9 +9968,88 @@ function gcShortName(p){
   return'#'+(p.number||'?')+' '+last;
 }
 var _gcFld={bt:null};
+
+// ═══════════════════════════════════════════════════════════════════
+// ANIMACION DE JUGADAS EN EL CAMPO: cuando cambia el estado del juego (bases, outs, carreras o bateador) se comparan los jugadores de antes y
+// de ahora y se anima lo que paso: los corredores recorren las bases hasta la nueva (pasando por las intermedias), el bateador que llega a base
+// corre desde el home, los que anotan siguen hasta el home y desaparecen, los eliminados se apagan con "OUT" y en un jonron el bateador da la vuelta
+// completa. Se calcula en el mismo dibujo del campo, asi que lo ven igual el anotador y los visitantes (en cuanto reciben el cambio). No se anima
+// la primera vez que se abre el juego, ni al cambiar de entrada (salvo el 3er out), ni por simples sustituciones (sin cambio de outs/carreras/bases).
+// ═══════════════════════════════════════════════════════════════════
+var GC_POS={home:[50,84],first:[83,50],second:[50,16],third:[17,50]};
+var _gcAnim={gid:null,sig:'',bases:{},btId:null,runs:0,outs:0,inn:'',col:''};
+function gcPlanAnim(gm,bases,bt,col){
+  var A=_gcAnim,runs=(parseInt(gm.awayRuns)||0)+(parseInt(gm.homeRuns)||0),outs=parseInt(gm.outs)||0,inn=String(gm.currentInning)+'|'+String(gm.currentHalf);
+  var cur={};['first','second','third'].forEach(function(k){if(bases[k])cur[String(bases[k])]=k;});
+  var btId=bt?String(bt.id):null,sig=JSON.stringify([bases.first||'',bases.second||'',bases.third||'',btId,runs,outs,inn,gm.status]);
+  var plan=null;
+  if(A.gid===gm.id&&A.sig!==sig&&gm.status==='live'){
+    if(A.inn!==inn){
+      if(A.outs>=2&&A.btId)plan={moves:[],ghosts:[{pid:A.btId,from:'home',kind:'bout'}],col:A.col};   // el 3er out cierra la entrada
+    }else if(runs!==A.runs||outs!==A.outs||JSON.stringify(cur)!==JSON.stringify(A.bases)){
+      plan={moves:[],ghosts:[],col:col};
+      var prev=A.bases,dRuns=Math.max(0,runs-A.runs),dOuts=Math.max(0,outs-A.outs),rank={first:1,second:2,third:3};
+      Object.keys(cur).forEach(function(pid){
+        var to=cur[pid],from=prev[pid]||(pid===A.btId?'home':null);
+        if(from&&from!==to)plan.moves.push({pid:pid,from:from,to:to});
+      });
+      var left=Object.keys(prev).filter(function(pid){return!cur[pid];}).sort(function(a,b){return rank[prev[b]]-rank[prev[a]];});
+      var batGone=!!(A.btId&&!cur[A.btId]);
+      var nScore=Math.min(dRuns,left.length),batScored=batGone&&(dRuns-nScore)>0,batOut=batGone&&!batScored&&dOuts>0;
+      var outsLeft=dOuts-(batOut?1:0);
+      left.forEach(function(pid,i){
+        if(i<nScore)plan.ghosts.push({pid:pid,from:prev[pid],kind:'score'});
+        else if(outsLeft>0){plan.ghosts.push({pid:pid,from:prev[pid],kind:'out'});outsLeft--;}
+      });
+      if(batScored)plan.ghosts.push({pid:A.btId,from:'home',kind:'hr'});
+      else if(batOut)plan.ghosts.push({pid:A.btId,from:'home',kind:'bout'});
+    }
+  }
+  A.gid=gm.id;A.sig=sig;A.inn=inn;A.bases=cur;A.btId=btId;A.runs=runs;A.outs=outs;A.col=col;
+  return plan;
+}
+function gcRunAnim(plan){
+  var f=document.querySelector('.gcf');if(!f||!f.animate)return;
+  var seq=['home','first','second','third','home'],pt=function(k){return{left:GC_POS[k][0]+'%',top:GC_POS[k][1]+'%'};};
+  var pathOf=function(from,to){
+    var a=seq.indexOf(from),b=to==='home'?4:seq.indexOf(to);
+    return(a>=0&&b>a)?seq.slice(a,b+1):[from,to];
+  };
+  var STEP=420;
+  plan.moves.forEach(function(m){
+    var el=f.querySelector('.gcnode[data-pid="'+m.pid+'"]');if(!el)return;
+    var path=pathOf(m.from,m.to);
+    try{el.animate(path.map(pt),{duration:Math.max(450,(path.length-1)*STEP),easing:'ease-in-out'});}catch(e){}
+  });
+  plan.ghosts.forEach(function(g){
+    var pp=playerOf(g.pid);if(!pp)return;
+    var d=document.createElement('div');d.className='gcnode';d.style.pointerEvents='none';d.style.zIndex='4';
+    d.innerHTML='<div class="gcav">'+gcAvatarSvg(plan.col,pp.number,g.kind==='bout',pp.photoUrl)+'<span class="gcl">'+gcShortName(pp)+'</span></div>'
+      +(g.kind==='out'||g.kind==='bout'?'<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;font-weight:800;font-size:10px;border-radius:8px;padding:0 6px">OUT</div>':'')
+      +(g.kind==='score'||g.kind==='hr'?'<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);background:var(--acc);color:#000;font-weight:800;font-size:10px;border-radius:8px;padding:0 6px">+1</div>':'');
+    var frames,dur;
+    if(g.kind==='score'||g.kind==='hr'){
+      var path=g.kind==='hr'?['home','first','second','third','home']:pathOf(g.from,'home');
+      frames=path.map(function(k){return Object.assign(pt(k),{opacity:1});});
+      var last=frames[frames.length-1];frames.push(Object.assign({},last,{opacity:0}));
+      dur=(path.length-1)*STEP+500;
+    }else{   // eliminado: avanza un trecho hacia la siguiente base y se apaga
+      var nxt={home:'first',first:'second',second:'third',third:'home'}[g.from]||'home',a=GC_POS[g.from],b=GC_POS[nxt];
+      var mid={left:(a[0]+(b[0]-a[0])*0.45)+'%',top:(a[1]+(b[1]-a[1])*0.45)+'%'};
+      frames=[Object.assign(pt(g.from),{opacity:1,filter:'none'}),Object.assign({},mid,{opacity:1,filter:'none'}),Object.assign({},mid,{opacity:.9,filter:'grayscale(1) brightness(.7)'}),Object.assign({},mid,{opacity:0,filter:'grayscale(1) brightness(.5)'})];
+      dur=1500;
+    }
+    d.style.left=frames[0].left;d.style.top=frames[0].top;
+    f.appendChild(d);
+    var rm=function(){if(d.parentNode)d.parentNode.removeChild(d);};
+    try{var an=d.animate(frames,{duration:dur,easing:'ease-in-out',fill:'forwards'});an.onfinish=rm;}catch(e){rm();}
+    setTimeout(rm,dur+800);
+  });
+}
 function gcFieldHtml(gm,bases,bt,cs,batTeam){
   var nb=parseInt(gm.numBases)||2,col=(batTeam&&batTeam.color)||'#2563eb';
   _gcFld.bt=bt||null;
+  var _plan=gcPlanAnim(gm,bases,bt,col);
   var pos={home:[50,84],first:[83,50],second:[50,16],third:[17,50]};
   var vb={home:[115,173],first:[191,103],second:[115,33],third:[39,103]};
   function bs(k,on,faded){var c=vb[k];return'<rect x="'+(c[0]-6)+'" y="'+(c[1]-6)+'" width="12" height="12" rx="2" transform="rotate(45 '+c[0]+' '+c[1]+')" fill="'+(on?'var(--acc)':'#fff')+'" stroke="#0006" stroke-width="1"'+(faded?' opacity=".25"':'')+'/>';}
@@ -9859,13 +10063,15 @@ function gcFieldHtml(gm,bases,bt,cs,batTeam){
     var pp=isBat?bt:(pid?playerOf(pid):null);
     if(!pp)return'';
     var oc=(cs&&!gm.paused)?(isBat?'gcBatterMenu()':'gcRunnerMenu(\''+key+'\')'):'';
-    return'<div class="gcnode" style="left:'+pos[key][0]+'%;top:'+pos[key][1]+'%">'
+    return'<div class="gcnode" data-pid="'+nfEsc(String(pp.id))+'" style="left:'+pos[key][0]+'%;top:'+pos[key][1]+'%">'
       +'<button type="button" class="gcav'+(oc?' tap':'')+'" '+(oc?'onclick="'+oc+'"':'disabled style="cursor:default"')+' title="'+(oc?'Toca para anotar una jugada':'')+'">'
-      +gcAvatarSvg(col,pp.number,isBat)+'<span class="gcl">'+(isBat?'&#127951; ':'')+gcShortName(pp)+'</span></button></div>';
+      +gcAvatarSvg(col,pp.number,isBat,pp.photoUrl)+'<span class="gcl">'+(isBat?'&#127951; ':'')+gcShortName(pp)+'</span></button></div>';
   }
-  return'<div style="width:230px;max-width:100%"><div class="gcf" title="'+(cs?'Toca a un corredor o al bateador para anotar su jugada':'')+'">'+svg
+  var _gcOut='<div style="width:230px;max-width:100%"><div class="gcf" title="'+(cs?'Toca a un corredor o al bateador para anotar su jugada':'')+'">'+svg
     +node('third',bases.third,false)+node('second',bases.second,false)+node('first',bases.first,false)+node('home',null,true)+'</div>'
     +(cs?'<div style="font-size:10px;color:var(--t3);text-align:center;margin-top:4px">Toca a un jugador para anotar su jugada</div>':'')+'</div>';
+  if(_plan&&(_plan.moves.length||_plan.ghosts.length))setTimeout(function(){gcRunAnim(_plan);},60);   // el HTML ya estara en pantalla
+  return _gcOut;
 }
 function gcGuard(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];
@@ -10864,13 +11070,32 @@ async function rPlay(type,opts){
     var _sacCandidates=[bases.third,bases.second,bases.first].filter(Boolean);
     var _sacRemaining=_sacCandidates.slice(rbi);
     if(_sacRemaining.length>0){
+      // Con 2+ corredores que NO anotaron tambien se puede indicar que avanzo SOLO UNO de ellos (los demas se quedan). Solo se ofrecen los que
+      // pueden avanzar solos: su base de adelante debe quedar libre una vez que salen los que anotaron.
+      var _sacNb=parseInt(gm.numBases)||2,_sacScored=_sacCandidates.slice(0,rbi);
+      var _sacPost={first:_sacScored.indexOf(bases.first)>=0?null:(bases.first||null),second:_sacScored.indexOf(bases.second)>=0?null:(bases.second||null),third:_sacScored.indexOf(bases.third)>=0?null:(bases.third||null)};
+      var _sacNext=_sacNb>=3?{first:'second',second:'third'}:{first:'second'};
+      var _sacOneOpts=[];
+      if(_sacRemaining.length>1)['third','second','first'].forEach(function(bk){
+        var pid=_sacPost[bk];if(!pid||!_sacNext[bk]||_sacPost[_sacNext[bk]])return;
+        var pp=playerOf(pid);_sacOneOpts.push({pid:pid,label:({first:'1ra',second:'2da',third:'3ra'})[bk]+' base'+(pp?(' - #'+(pp.number||'?')+' '+pp.name):'')});
+      });
       var sacAdvSel=await numPromptAsync('SACRIFICIO - '+bName
-        +'\n¿Los corredores que NO anotaron avanzaron una base?'
-        +'\n1. Si, avanzaron una base'
+        +(_sacRemaining.length>1?'\n¿Qué pasó con los corredores que NO anotaron?':'\n¿Los corredores que NO anotaron avanzaron una base?')
+        +'\n1. '+(_sacRemaining.length>1?'Si, todos avanzaron una base':'Si, avanzaron una base')
         +'\n2. No, se quedaron en su base'
-        +'\n\nIngresa (1 o 2):','1');
+        +(_sacOneOpts.length?'\n3. Solo avanzó UNO de ellos (los demás se quedaron)':'')
+        +'\n\nIngresa ('+(_sacOneOpts.length?'1, 2 o 3':'1 o 2')+'):','1');
       if(sacAdvSel===null){_rPlayBusy=false;return;}
-      gm._sacAdvance=(parseInt(sacAdvSel)===1);
+      if(_sacOneOpts.length&&parseInt(sacAdvSel)===3){
+        var _sacWho=_sacOneOpts[0].pid;
+        if(_sacOneOpts.length>1){
+          var _sacPick=await numPromptAsync('SACRIFICIO - '+bName+'\n¿Cuál corredor avanzó una base?\n'+_sacOneOpts.map(function(o,i){return(i+1)+'. '+o.label;}).join('\n')+'\n\nIngresa el número (1-'+_sacOneOpts.length+'):','1');
+          if(_sacPick===null){_rPlayBusy=false;return;}
+          var _sacIx=parseInt(_sacPick)-1;if(_sacIx>=0&&_sacIx<_sacOneOpts.length)_sacWho=_sacOneOpts[_sacIx].pid;
+        }
+        gm._sacAdvance=false;gm._sacAdvOne=_sacWho;
+      }else gm._sacAdvance=(parseInt(sacAdvSel)===1);
     }
   } else if(type==='FO'){
     // Out Forzado: un corredor en base es forzado out (NO avanza), y el bateador llega safe a 1ra.
@@ -11459,7 +11684,9 @@ async function rPlay(type,opts){
       // avanzan una base cada uno (encadenado desde 3ra hacia 1ra) SOLO si el anotador indico
       // que hubo avance (gm._sacAdvance); si no, se quedan en su base actual.
       var doSacAdv=gm._sacAdvance;
+      var sacOne=gm._sacAdvOne;   // pid del UNICO corredor que avanzo una base (los demas se quedan)
       if(gm._sacAdvance!==undefined)delete gm._sacAdvance;
+      if(gm._sacAdvOne!==undefined)delete gm._sacAdvOne;
       if(nb>=3){
         var sThird=scored(b.third)?null:(b.third||null);
         var sSecond=scored(b.second)?null:(b.second||null);
@@ -11467,6 +11694,9 @@ async function rPlay(type,opts){
         if(doSacAdv){
           if(sThird===null&&sSecond){sThird=sSecond;sSecond=null;}
           if(sSecond===null&&sFirst){sSecond=sFirst;sFirst=null;}
+        } else if(sacOne){
+          if(sSecond===sacOne&&!sThird){sThird=sSecond;sSecond=null;}
+          else if(sFirst===sacOne&&!sSecond){sSecond=sFirst;sFirst=null;}
         }
         gm.bases={first:sFirst,second:sSecond,third:sThird};
       } else {
@@ -11474,7 +11704,7 @@ async function rPlay(type,opts){
         var sFirst2=scored(b.first)?null:(b.first||null);
         if(doSacAdv){
           if(sSecond2===null&&sFirst2){sSecond2=sFirst2;sFirst2=null;}
-        }
+        } else if(sacOne&&sFirst2===sacOne&&!sSecond2){sSecond2=sFirst2;sFirst2=null;}
         gm.bases={first:sFirst2,second:sSecond2,third:null};
       }
     } else if(type==='FO'){
@@ -11768,7 +11998,7 @@ async function rPlay(type,opts){
       setTimeout(function(){openPitDecisionM(gm.id,gm.awayTeamId,gm.homeTeamId);},500);
     } else {
       toast(type+' registrado','success');
-      if(type!=='HBP'&&type!=='BK')_gcContPending={src:(type==='E'?'err':'play')};
+      if(type!=='HBP'&&type!=='BK'&&type!=='BB')_gcContPending={src:(type==='E'?'err':'play')};   // BB, HBP y BK no preguntan continuidad
       // Doble play con 2+ corredores en base antes de la jugada: el destino de cada
       // corredor es ambiguo (depende de cómo se ejecutó el doble play), así que se le
       // pregunta al anotador cuáles bases continúan ocupadas para actualizar la pizarra.
@@ -13377,7 +13607,7 @@ function openSubM(type,runnerSubMode){
     }).join('');
   }
   showM('<div class="mhd"><div class="mtl">'+(type==='emergente'?'Bateador Emergente':'Cambio de Pitcher')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="fr c2">'
+    +'<div class="mbd">'+(type==='pitcher'?gcPitSubTabs('change'):'')+'<div class="fr c2">'
     +'<div class="fg"><label class="fl">'+(type==='pitcher'?'Pitcher que sale':'Sale')+'</label><select class="fs" id="so">'+saleOpts+'</select></div>'
     +'<div class="fg"><label class="fl">'+(type==='pitcher'?'Pitcher que entra':'Entra')+'</label><select class="fs" id="si" onchange="'+(type==='pitcher'?'updatePitInBatOptions(\''+gm.id+'\',\''+tid+'\',this.value)':'')+'">'+(bench.length?bench.map(function(p){var pos=(p.position||'').toUpperCase();return'<option value="'+p.id+'">#'+(p.number||'?')+' '+p.name+(pos?' ('+pos+')':'')+'</option>';}).join(''):'<option value="">Sin jugadores disponibles</option>')+'</select></div>'
     +'</div>'
@@ -13494,6 +13724,87 @@ async function applyRunnerSub(gid,tid,base){
   before.basesBefore=basesBefore;
   await logSubAction(gid,[tid],'pinch_run','Corredor emergente — #'+(outNm&&outNm.number||'?')+' '+(outNm?outNm.name:'?')+' sale, entra #'+(np&&np.number||'?')+' '+(np?np.name:'?'),before);
   cM();pgGC();toast('Corredor emergente aplicado','success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REINGRESAR AL ABRIDOR: pestana de "Cambio de Pitcher" para que el lanzador que INICIO el juego y ya salio vuelva a lanzar.
+//  - Vuelve a su turno al bate original solo si ese lugar lo ocupa el pitcher actual (o nadie); si no, vuelve solo a lanzar (no batea) y el pitcher
+//    que sale se queda en el juego en otra posicion (o sale, si no bateaba).
+//  - Su linea de pitcheo se reabre: sigue acumulando sobre la misma (ponches, carreras limpias, innings...). Se puede deshacer como un cambio normal.
+// ═══════════════════════════════════════════════════════════════════
+function gcPitSubTabs(active){
+  return'<div style="display:flex;gap:6px;margin-bottom:12px">'
+    +'<button class="btn '+(active==='change'?'bp':'bs')+' bsm" style="flex:1" onclick="openSubM(\'pitcher\')">&#8635; Cambio</button>'
+    +'<button class="btn '+(active==='reentry'?'bp':'bs')+' bsm" style="flex:1" onclick="openStarterReentryM()">&#8617;&#65039; Reingresar abridor</button></div>';
+}
+function gcStarterInfo(gm){
+  var isTop=gm.currentHalf==='top',tid=isTop?gm.homeTeamId:gm.awayTeamId;
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
+  var out={tid:tid,lu:lu,ok:false,why:''};
+  if(!lu||!lu.players){out.why='No hay lineup para el equipo que lanza.';return out;}
+  var recs=S.pitching.filter(function(p){return p.gameId===gm.id&&p.teamId===tid;});
+  var first=recs.slice().sort(function(a,b){return(parseInt(a.id)||0)-(parseInt(b.id)||0);})[0];
+  if(!first){out.why='El abridor aún no tiene registro de pitcheo en este juego.';return out;}
+  out.starterId=first.pitcherId;
+  var curLp=lu.players.filter(function(lp){return(lp.position||'').toUpperCase()==='P'&&!lp.replacedBy;})[0];
+  out.curLp=curLp||null;out.curId=curLp?curLp.playerId:null;
+  out.sLp=lu.players.filter(function(lp){return lp.playerId===out.starterId;})[0]||null;
+  if(!out.sLp){out.why='No se encontró al abridor en el lineup.';return out;}
+  if(out.starterId===out.curId){out.why='El abridor ya está lanzando.';return out;}
+  if(!out.curId){out.why='No hay un pitcher actual en el lineup.';return out;}
+  var others=lu.players.filter(function(lp){return lp.playerId!==out.starterId&&(lp.order||0)===(out.sLp.order||0)&&!lp.replacedBy;});
+  out.canSlot=others.length===0||(others.length===1&&others[0].playerId===out.curId);
+  out.ok=true;return out;
+}
+function openStarterReentryM(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  var info=gcStarterInfo(gm),sp=info.starterId?playerOf(info.starterId):null,cp=info.curId?playerOf(info.curId):null;
+  var body;
+  if(!info.ok)body='<div class="alert aw" style="font-size:13px">'+info.why+'</div>';
+  else{
+    var curBats=!(info.curLp&&(info.curLp.noBat===true||info.curLp.noBat==='true'));
+    body='<div class="alert ai" style="font-size:12px;margin-bottom:10px">Vuelve a lanzar el abridor <b>#'+(sp&&sp.number||'?')+' '+(sp?sp.name:'?')+'</b>. Sale del montículo: <b>#'+(cp&&cp.number||'?')+' '+(cp?cp.name:'?')+'</b>.</div>'
+      +'<label class="fl" style="margin-bottom:6px">¿Batea el abridor?</label>'
+      +'<div style="display:flex;flex-direction:column;gap:8px">'
+      +'<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--bdr);border-radius:8px;'+(info.canSlot?'cursor:pointer':'opacity:.45')+'"><input type="radio" name="sr-bat" value="slot" '+(info.canSlot?'checked':'disabled')+' onchange="document.getElementById(\'sr-pos-box\').style.display=\'none\'"> Sí, vuelve a su turno al bate original'+(info.canSlot?'':' <span style="font-size:11px;color:var(--t3)">(ese lugar ya lo ocupa otro jugador)</span>')+'</label>'
+      +'<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--bdr);border-radius:8px;cursor:pointer"><input type="radio" name="sr-bat" value="nobat" '+(info.canSlot?'':'checked')+' onchange="document.getElementById(\'sr-pos-box\').style.display=\''+(curBats?'block':'none')+'\'"> No batea (solo lanza)</label></div>'
+      +'<div id="sr-pos-box" style="margin-top:10px;display:'+((!info.canSlot&&curBats)?'block':'none')+'"><label class="fl">El pitcher que sale sigue bateando: nueva posición defensiva</label>'
+      +'<select class="fs" id="sr-pos"><option value="DH">DH</option><option value="C">C - Cátcher</option><option value="1B">1B</option><option value="2B">2B</option><option value="3B">3B</option><option value="SS">SS</option><option value="OF">OF</option><option value="UT">UT</option></select></div>';
+  }
+  showM('<div class="mhd"><div class="mtl">Cambio de Pitcher</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd">'+gcPitSubTabs('reentry')+body+'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'+(info.ok?'<button class="btn bp" data-gid="'+gm.id+'" onclick="applyStarterReentry(this.dataset.gid)">Reingresar abridor</button>':'')+'</div>');
+}
+async function applyStarterReentry(gid){
+  var gm=S.games.filter(function(x){return x.id===gid;})[0];if(!gm)return;
+  var info=gcStarterInfo(gm);if(!info.ok){toast(info.why,'error');return;}
+  var rad=document.querySelector('input[name="sr-bat"]:checked'),mode=rad?rad.value:(info.canSlot?'slot':'nobat');
+  if(mode==='slot'&&!info.canSlot){toast('Ese turno al bate ya lo ocupa otro jugador','error');return;}
+  var newPos=fv('sr-pos')||'DH',tid=info.tid,lu=info.lu,before=snapshotForUndo(gid,[tid]),curLeaves=false;
+  for(var i=0;i<lu.players.length;i++){
+    var lp=lu.players[i];
+    if(lp.playerId===info.starterId){
+      var np=Object.assign({},lp,{position:'P',noBat:mode==='slot'?false:true});delete np.replacedBy;lu.players[i]=np;
+    }else if(lp.playerId===info.curId){
+      var curNoBat=(lp.noBat===true||lp.noBat==='true');
+      if(mode==='slot'||curNoBat){lu.players[i]=Object.assign({},lp,{replacedBy:info.starterId});curLeaves=true;}   // sale del juego
+      else lu.players[i]=Object.assign({},lp,{position:newPos});                                                    // sigue bateando en otra posicion
+    }
+  }
+  S.pitching=S.pitching.map(function(p){
+    if(p.gameId!==gid||p.teamId!==tid)return p;
+    if(p.pitcherId===info.starterId)return Object.assign({},p,{pitchingClosed:false});
+    if(curLeaves&&p.pitcherId===info.curId)return Object.assign({},p,{pitchingClosed:true});
+    return p;
+  });
+  var chg=S.pitching.filter(function(p){return p.gameId===gid&&p.teamId===tid&&(p.pitcherId===info.starterId||(curLeaves&&p.pitcherId===info.curId));});
+  for(var j=0;j<chg.length;j++)await api('savePitching',{event:chg[j]});
+  _lastEvTs=Date.now();
+  await api('saveLineup',{lineup:lu});
+  S.lineups=S.lineups.map(function(l){return l.gameId===gid&&l.teamId===tid?lu:l;});
+  var sp=playerOf(info.starterId),cp=playerOf(info.curId);
+  await logSubAction(gid,[tid],'pitcher','Reingreso del abridor: #'+(sp&&sp.number||'?')+' '+(sp?sp.name:'?')+' vuelve a lanzar, sale #'+(cp&&cp.number||'?')+' '+(cp?cp.name:'?'),before);
+  cM();pgGC();toast('Abridor reingresado','success');
 }
 async function applySub(gid,tid,type){
   var outId=fv('so'),inId=fv('si');
@@ -17006,7 +17317,7 @@ function pgRankings(tid){
 // reemplazar a un jugador INACTIVO (pasa a tu lista de inactivos y sigue siendo tuyo). Se bloquea desde que
 // inicia el primer juego del día hasta que terminan todos. Los puntos los calcula el Worker.
 // ═══════════════════════════════════════════════════════════════════
-var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{},wk:null,wkSel:'',wkAt:0};
+var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{},wk:null,wkSel:'',wkAt:0,adv:null,advAt:0};
 var FN_PH={regular:'Serie regular',playoff:'Playoff'};
 // Posiciones del cuadro (% del ancho/alto). El cuadro tiene proporción 100:130 y las tarjetas escalan con su ancho.
 var FN_XY={P:[50,63],C:[50,81],'1B':[86,63],'2B':[70,45],'3B':[14,63],SS:[30,45],LF:[14,27],CF:[50,9.5],RF:[86,27],DH:[14,81],UT:[86,81]};
@@ -17015,6 +17326,108 @@ var FN_XY_VIT={'2B':[50,45],'1B':[86,63]};
 function fnRk(p){return p&&p.rk&&p.rk.n?' <span title="'+(p.rk.t==='P'?'Puesto en el ranking de lanzadores de la fase de la plantilla':'Puesto en el ranking de bateadores de la fase de la plantilla')+'">('+p.rk.n+')</span>':'';}
 function fnEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fnPts(v){return String(Math.round((v||0)*100)/100);}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADIVINA: el usuario adivina resultados de los juegos programados de HOY y gana los puntos que el admin fijo para ese tipo en el subtorneo.
+//  winner: quien gana (uno por juego) | score: marcador exacto | ks: ponches del abridor de un equipo | diff: equipo ganador + diferencia de carreras
+//  (marcador, ponches y diferencial: UNA por dia cada una, eligiendo el juego). Se puede cambiar hasta que el juego deje de estar programado.
+// ═══════════════════════════════════════════════════════════════════
+var FN_ADV_LBL={winner:'&#127942; Ganador',score:'&#128290; Marcador',ks:'&#9918; Ponches del abridor',diff:'&#128207; Diferencial de carreras'};
+var FN_ADV_ST={pending:['Pendiente','var(--t3)'],won:['&#10003; Acertó','#34d399'],lost:['&#10007; Falló','#f87171'],void:['Anulada','var(--t3)']};
+function fnAdvBadge(t,sz){
+  sz=sz||30;
+  if(t&&t.logo)return'<img src="'+fnEsc(t.logo)+'" alt="" style="width:'+sz+'px;height:'+sz+'px;border-radius:8px;object-fit:cover;flex-shrink:0">';
+  return'<div style="width:'+sz+'px;height:'+sz+'px;border-radius:8px;background:'+fnEsc((t&&t.color)||'#475569')+';color:#fff;font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+fnEsc(((t&&(t.abbr||t.name))||'?').slice(0,3))+'</div>';
+}
+function fnAdvNm(t,side){var x=t&&t[side];return x?(x.abbr||x.name||side):side;}
+function fnAdvDesc(kind,pick,g){
+  var p=String(pick||'').split(/[-:]/),n=function(side){return fnAdvNm(g,side);};
+  if(kind==='winner')return'Gana <b>'+fnEsc(n(pick))+'</b>';
+  if(kind==='score')return'Marcador <b>'+fnEsc(n('away'))+' '+fnEsc(p[0])+' - '+fnEsc(p[1])+' '+fnEsc(n('home'))+'</b>';
+  if(kind==='ks')return'Abridor de <b>'+fnEsc(n(p[0]))+'</b>: <b>'+fnEsc(p[1])+'</b> ponches';
+  if(kind==='diff')return'<b>'+fnEsc(n(p[0]))+'</b> gana por <b>'+fnEsc(p[1])+'</b> carrera'+(p[1]==='1'?'':'s');
+  return'';
+}
+function fnAdvChip(st){var c=FN_ADV_ST[st]||FN_ADV_ST.pending;return'<span style="font-size:10px;font-weight:700;color:'+c[1]+';border:1px solid '+c[1]+';border-radius:8px;padding:0 6px">'+c[0]+'</span>';}
+function fnAdvTab(){
+  var a=_FN.adv;
+  if(!a)return'<div class="card"><div class="empty">Cargando...</div></div>';
+  if(a.error)return'<div class="card"><div class="empty"><div style="color:#f87171;margin-bottom:10px">'+fnEsc(a.error)+'</div><button class="btn bp bsm" onclick="_FN.adv=null;fnRender();fnLoad()">Reintentar</button></div></div>';
+  if(!a.enabled)return'<div class="card"><div class="empty"><div style="font-size:30px">&#127919;</div><div>Adivina aún no está habilitada en este subtorneo (el administrador debe asignar puntos a las adivinanzas)</div></div></div>';
+  var cfg=a.cfg,kinds=['winner','score','ks','diff'].filter(function(k){return cfg[k]>0;});
+  var h='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#127919; Adivina</div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">Adivina cómo terminan los juegos de <b>hoy</b> y gana puntos extra para tu plantilla. Puedes cambiar tu adivinanza hasta que el juego inicie.</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+kinds.map(function(k){return'<span style="font-size:11px;background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;padding:2px 9px">'+FN_ADV_LBL[k]+' <b style="color:var(--acc)">+'+fnPts(cfg[k])+'</b></span>';}).join('')+'</div>'
+    +'<div style="font-size:12px;color:var(--t3)">'+(kinds.some(function(k){return k!=='winner';})?'Marcador, ponches y diferencial: una por día (tú eliges en qué juego). ':'')+'Puntos ganados en este subtorneo: <b style="color:var(--acc)">'+fnPts(a.totalWon)+'</b></div></div>';
+  if(!a.games.length)h+='<div class="card"><div class="empty"><div style="font-size:30px">&#128197;</div><div>No hay juegos programados para hoy</div></div></div>';
+  a.games.forEach(function(g){
+    var mine=a.mine.filter(function(m){return m.gameId===g.id;});
+    var live=!g.open;
+    h+='<div class="card" style="margin-bottom:10px">'
+      +'<div style="display:flex;align-items:center;gap:10px;justify-content:space-between">'
+      +'<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">'+fnAdvBadge(g.away)+'<div style="font-weight:700;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis">'+fnEsc(g.away.name||g.away.abbr)+'</div></div>'
+      +'<div style="text-align:center;font-size:11px;color:var(--t3);flex-shrink:0">'+(live&&g.status!==''?'<b style="color:var(--acc)">'+fnEsc(g.awayRuns==null?'':g.awayRuns)+' - '+fnEsc(g.homeRuns==null?'':g.homeRuns)+'</b><br>':'')+(g.time?fnEsc(g.time):'@')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;justify-content:flex-end"><div style="font-weight:700;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right">'+fnEsc(g.home.name||g.home.abbr)+'</div>'+fnAdvBadge(g.home)+'</div></div>';
+    if(g.open){
+      if(cfg.winner>0){
+        var mw=mine.filter(function(m){return m.kind==='winner';})[0],ws=mw?mw.pick:'';
+        var wb=function(side){var on=ws===side;return'<button class="btn '+(on?'bp':'bs')+' bsm" style="flex:1" onclick="fnAdvPick(\''+g.id+'\',\'winner\',\''+side+'\')">'+(on?'&#10003; ':'')+'Gana '+fnEsc(fnAdvNm(g,side))+'</button>';};
+        h+='<div style="display:flex;gap:8px;margin-top:10px">'+wb('away')+wb('home')+'</div>';
+      }
+      var others=kinds.filter(function(k){return k!=='winner';});
+      if(others.length)h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+others.map(function(k){
+        var has=mine.some(function(m){return m.kind===k;});
+        return'<button class="btn '+(has?'bp':'bs')+' bsm" onclick="fnAdvOpen(\''+g.id+'\',\''+k+'\')">'+(has?'&#10003; ':'')+FN_ADV_LBL[k]+'</button>';}).join('')+'</div>';
+    }else h+='<div style="font-size:11px;color:var(--t3);margin-top:8px">Este juego ya inició: no se puede adivinar ni cambiar.</div>';
+    if(mine.length)h+='<div style="margin-top:10px;border-top:1px solid var(--bdr);padding-top:8px">'+mine.map(function(m){
+      return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><div>'+FN_ADV_LBL[m.kind].split(' ')[0]+' '+fnAdvDesc(m.kind,m.pick,g)+'</div><div style="white-space:nowrap">'+fnAdvChip(m.status)+(m.status==='won'?' <b style="color:#34d399">+'+fnPts(m.points)+'</b>':'')+'</div></div>';}).join('')+'</div>';
+    h+='</div>';
+  });
+  // Mis adivinanzas de otros dias / ya calificadas
+  if(a.history.length){
+    h+='<div class="card"><div style="font-weight:700;margin-bottom:6px">Mis adivinanzas anteriores</div>'+a.history.map(function(r,i){
+      var g={away:r.away,home:r.home};
+      return'<div style="padding:7px 0;'+(i?'border-top:1px solid var(--bdr);':'')+'font-size:12px"><div style="display:flex;justify-content:space-between;gap:8px"><div style="color:var(--t3)">'+fnEsc(r.day)+' &middot; '+fnEsc(fnAdvNm(g,'away'))+' vs '+fnEsc(fnAdvNm(g,'home'))+(r.awayRuns!=null&&r.status!=='pending'?' ('+fnEsc(r.awayRuns)+'-'+fnEsc(r.homeRuns)+')':'')+'</div><div style="white-space:nowrap">'+fnAdvChip(r.status)+(r.status==='won'?' <b style="color:#34d399">+'+fnPts(r.points)+'</b>':'')+'</div></div>'
+        +'<div>'+FN_ADV_LBL[r.kind].split(' ')[0]+' '+fnAdvDesc(r.kind,r.pick,g)+'</div></div>';
+    }).join('')+'</div>';
+  }
+  return h;
+}
+async function fnAdvReload(){
+  var r=await api('getFantasyAdivina',{tournamentId:_FN.tid});
+  if(r&&r.ok){_FN.adv=r;_FN.advAt=Date.now();}
+  if(curP==='fantasy'&&_FN.tab==='adivina')fnRender();
+}
+async function fnAdvSend(gid,kind,pick){
+  var r=await api('saveFantasyAdivina',{tournamentId:_FN.tid,gameId:gid,kind:kind,pick:pick});
+  if(r&&r.ok){toast('Adivinanza guardada','success');await fnAdvReload();return true;}
+  toast((r&&r.error)||'No se pudo guardar','error');await fnAdvReload();return false;
+}
+function fnAdvPick(gid,kind,pick){fnAdvSend(gid,kind,pick);}
+function fnAdvOpen(gid,kind){
+  var a=_FN.adv;if(!a)return;
+  var g=a.games.filter(function(x){return x.id===gid;})[0];if(!g||!g.open)return;
+  var cur=a.mine.filter(function(m){return m.kind===kind;})[0],here=cur&&cur.gameId===gid;
+  var other=cur&&!here?a.games.filter(function(x){return x.id===cur.gameId;})[0]:null;
+  var pv=here?String(cur.pick).split(/[-:]/):[];
+  var sideSel=function(id,sel){return'<select class="fs" id="'+id+'"><option value="away"'+(sel==='away'?' selected':'')+'>'+fnEsc(g.away.name||g.away.abbr)+'</option><option value="home"'+(sel==='home'?' selected':'')+'>'+fnEsc(g.home.name||g.home.abbr)+'</option></select>';};
+  var num=function(id,v,min){return'<input class="fi" id="'+id+'" type="number" min="'+min+'" max="'+(kind==='score'?50:30)+'" inputmode="numeric" value="'+(v==null?'':fnEsc(v))+'" style="max-width:110px">';};
+  var body='';
+  if(kind==='score')body='<div style="display:flex;align-items:center;gap:10px;justify-content:center"><div style="text-align:center;font-size:12px">'+fnEsc(g.away.name||g.away.abbr)+'<br>'+num('adv-a',pv[0],0)+'</div><b>-</b><div style="text-align:center;font-size:12px">'+fnEsc(g.home.name||g.home.abbr)+'<br>'+num('adv-h',pv[1],0)+'</div></div>';
+  else if(kind==='ks')body='<div class="fg"><label class="fl">Abridor de</label>'+sideSel('adv-side',pv[0])+'</div><div class="fg"><label class="fl">Ponches que dará</label>'+num('adv-n',pv[1],0)+'</div>';
+  else body='<div class="fg"><label class="fl">Equipo ganador</label>'+sideSel('adv-side',pv[0])+'</div><div class="fg"><label class="fl">Gana por (carreras de diferencia)</label>'+num('adv-n',pv[1],1)+'</div>';
+  showM('<div class="mhd"><div class="mtl">'+FN_ADV_LBL[kind]+' &middot; +'+fnPts(a.cfg[kind])+' pts</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div style="font-size:12px;color:var(--t2);margin-bottom:10px;text-align:center"><b>'+fnEsc(g.away.name||g.away.abbr)+'</b> vs <b>'+fnEsc(g.home.name||g.home.abbr)+'</b>'+(g.time?' &middot; '+fnEsc(g.time):'')+'</div>'
+    +(other?'<div class="alert aw" style="font-size:12px;margin-bottom:10px">Ya tienes esta adivinanza en <b>'+fnEsc(fnAdvNm(other,'away'))+' vs '+fnEsc(fnAdvNm(other,'home'))+'</b>. Si guardas aquí, se moverá a este juego.</div>':'')
+    +body+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="fnAdvSave(\''+gid+'\',\''+kind+'\')">Guardar</button></div>');
+}
+async function fnAdvSave(gid,kind){
+  var v=function(id){var e=document.getElementById(id);return e?String(e.value).trim():'';};
+  var pick='';
+  if(kind==='score'){if(v('adv-a')===''||v('adv-h')===''){toast('Escribe el marcador de los dos equipos','error');return;}pick=parseInt(v('adv-a'))+'-'+parseInt(v('adv-h'));}
+  else{if(v('adv-n')===''){toast('Escribe un número','error');return;}pick=v('adv-side')+':'+parseInt(v('adv-n'));}
+  if(await fnAdvSend(gid,kind,pick))cM();
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // EQUIPO DE LA SEMANA: el mejor jugador de cada posicion del cuadro segun los puntos de Fantasia que sumo en la semana (lunes a domingo).
@@ -17084,7 +17497,7 @@ function fnWeekTab(){
          :'<div style="flex:1;color:var(--t3);font-size:12px">Sin jugador esta semana</div>')
         +'</div>';
     }).join('')
-    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Se elige al mejor de cada posición registrada del jugador (los UT pueden ocupar cualquiera); DH y UT los ocupan los mejores bateadores que sobran. Los jugadores de equipos marcados &quot;sin estadísticas&quot; no participan. Los puntos usan el sistema de Fantasía del subtorneo.</div></div>';
+    +'<div style="font-size:11px;color:var(--t3);margin-top:8px">Se elige al mejor de cada posición según la posición registrada del jugador (un RF no puede ocupar C; DH y UT solo los jugadores registrados como DH o UT). Los jugadores de equipos marcados &quot;sin estadísticas&quot; no participan. Los puntos usan el sistema de Fantasía del subtorneo.</div></div>';
   return h;
 }
 // ═══════════════════════════════════════════════════════════════════
@@ -17147,7 +17560,7 @@ function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)
 function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
-  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='week')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='week'||_FN.tab==='adivina')return{kind:'fase',phase:_FN.phase,day:''};
   if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
   return{kind:_FN.kind,phase:_FN.phase,day:''};
 }
@@ -17192,7 +17605,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;_FN.wk=null;_FN.wkSel='';}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;_FN.wk=null;_FN.wkSel='';_FN.adv=null;}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -17209,6 +17622,12 @@ async function fnLoad(){
     _FN.wk=(rw&&rw.ok)?rw:{error:(rw&&rw.error)||'No se pudo cargar el Equipo de la Semana',weeks:[],slots:[]};
     _FN.wkAt=Date.now();
     fnRender();return;
+  }
+  if(_FN.tab==='adivina'){
+    var ra=await api('getFantasyAdivina',{tournamentId:tid});
+    if(key!==_FN.ckey||curP!=='fantasy')return;
+    _FN.adv=(ra&&ra.ok)?ra:{error:(ra&&ra.error)||'No se pudo cargar Adivina'};
+    _FN.advAt=Date.now();fnRender();return;
   }
   var r=await api('getFantasy',{tournamentId:tid,kind:cx.kind,phase:cx.phase,day:cx.day});
   if(key!==_FN.ckey||curP!=='fantasy')return;
@@ -17230,6 +17649,7 @@ function fnTick(){
   if(!autoWindowOpen())return;   // fuera del horario hábil configurado
   // Mientras arma su plantilla no se redibuja (no perder lo que va arrastrando)
   if(_FN.tab==='week'){if(Date.now()-(_FN.wkAt||0)>300000)fnLoad();return;}
+  if(_FN.tab==='adivina'){if(Date.now()-(_FN.advAt||0)>60000)fnLoad();return;}
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnTickLoad();
 }
@@ -17952,7 +18372,7 @@ function fnCtxBar(){
   var phSel='<select class="fs" onchange="fnSetPhase(this.value)">'+Object.keys(FN_PH).map(function(k){return opt(k,FN_PH[k],_FN.phase);}).join('')+'</select>';
   var lb=function(t,c){return'<div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">'+t+'</label>'+c+'</div>';};
   var inner='';
-  if(_FN.tab==='week')return'';
+  if(_FN.tab==='week'||_FN.tab==='adivina')return'';
   if(_FN.tab==='team'){
     inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
       +(_FN.kind==='fase'?lb('Fase',phSel):'');
@@ -18478,11 +18898,12 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+tab('adivina','&#127919; Adivina')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
   else if(_FN.tab==='week')h+=fnWeekTab();
+  else if(_FN.tab==='adivina')h+=fnAdvTab();
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
     h+='<div class="card" id="fn-rank"><div style="font-weight:700;margin-bottom:6px">Clasificación — '+FN_PH[d.phase]+'</div>'+fnRankRows(d,false)
