@@ -248,16 +248,30 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .dot{width:13px;height:13px;border-radius:50%;background:var(--bdr2);}.dot.on{background:var(--acc);}
 .bslbl{font-size:10px;color:var(--t3);font-weight:700;letter-spacing:1px;}
 .diamond{position:relative;width:72px;height:72px;margin:0 auto;}
-.gcf{position:relative;width:230px;max-width:100%;aspect-ratio:230/206;margin:0 auto;border-radius:14px;overflow:hidden;background:#1b5e30;border:1px solid var(--bdr2)}
+.gcf{position:relative;width:230px;max-width:100%;aspect-ratio:230/246;margin:0 auto;border-radius:14px;overflow:hidden;background:#1b5e30;border:1px solid var(--bdr2)}
 .gcf svg.gcbg{position:absolute;inset:0;width:100%;height:100%}
-.gcnode{position:absolute;transform:translate(-50%,-66%);display:flex;flex-direction:column;align-items:center;z-index:2}
+.gcnode{position:absolute;transform:translate(-50%,-60%);display:flex;flex-direction:column;align-items:center;z-index:2}
 .gcav{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;font-family:inherit;color:#fff}
 .gcav.tap{cursor:pointer;transition:transform .12s}
 .gcav.tap:active{transform:scale(.92)}
 .gcav.tap svg{filter:drop-shadow(0 0 5px var(--acc))}
-.gcav .gcl{margin-top:1px;font-size:9px;font-weight:700;line-height:1.1;max-width:68px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.6);border-radius:6px;padding:1px 5px}
+.gcav .gcl{margin-top:1px;font-size:9px;font-weight:700;line-height:1.1;max-width:60px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.6);border-radius:6px;padding:1px 5px}
 .gcmb{padding:12px 6px;text-align:center;line-height:1.2;font-size:14px}
 .gcmg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.dvov{position:fixed;inset:0;z-index:9999;background:var(--bg);overflow:auto;padding:10px 12px 40px}
+.dvov .dvin{max-width:520px;margin:0 auto}
+.dvf{position:relative;width:100%;max-width:440px;aspect-ratio:1/1.15;margin:0 auto;border-radius:16px;overflow:hidden;border:1px solid var(--bdr2);background:#1b5e30}
+.dvf svg.dvbg{position:absolute;inset:0;width:100%;height:100%}
+.dvdef .gcav svg{width:30px;height:35px}
+.dvdef .gcl{font-size:8px;padding:0 4px;background:rgba(0,0,0,.45)}
+.dvf .gcnode:not(.dvdef) .gcl{max-width:58px}
+.dvdef{opacity:.92}
+.dvslot{position:absolute;transform:translate(-50%,-50%);width:72px;text-align:center;background:rgba(0,0,0,.7);border:2px dashed rgba(255,255,255,.55);border-radius:10px;padding:3px 2px;color:#fff;font-family:inherit;cursor:pointer;line-height:1.15}
+.dvslot.on{border:2px solid var(--acc)}
+.dvdie{width:84px;height:84px;background:#fff;border-radius:16px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:11px;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 -3px 0 rgba(0,0,0,.12)}
+.dvpip{width:15px;height:15px;border-radius:50%;background:#111;margin:auto}
+@keyframes dvshake{0%{transform:rotate(0)}25%{transform:rotate(-12deg) scale(1.06)}50%{transform:rotate(10deg)}75%{transform:rotate(-8deg) scale(1.04)}100%{transform:rotate(0)}}
+.dvdie.roll{animation:dvshake .28s infinite}
 .gcmg.g3{grid-template-columns:repeat(3,1fr)}
 .base{position:absolute;width:16px;height:16px;background:var(--bdr2);border-radius:3px;}
 .base.on{background:var(--acc);}
@@ -3859,6 +3873,7 @@ var ALL_MOD=[
   {id:'tournaments',lbl:'Torneos',ico:'🏆',sec:'General'},
   {id:'teams',lbl:'Equipos',ico:'👥',sec:'General'},
   {id:'amistoso',lbl:'Amistoso',ico:'🤝',sec:'General'},
+  {id:'diviertete',lbl:'Diviértete',ico:'🎲',sec:'General'},
   {id:'fantasy',lbl:'Liga de Fantasía',ico:'🎯',sec:'General'},
   {id:'schedule',lbl:'Calendario',ico:'📅',sec:'General'},
   {id:'gamecontrol',lbl:'Control de Juego',ico:'⚾',sec:'General'},
@@ -3898,7 +3913,7 @@ var ALL_MOD=[
 ];
 var BASE_PUB=['standings','schedule','teams','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','channels','streams','videos'];
 var BASE_SCR=['dashboard','schedule','gamecontrol','standings','stats','streaks','statslife','leaders','leaderslife','tovsto','rankings','awards','streams','fantasy'];
-var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',streams:'Transmisiones',livestream:'Transmitir en vivo',livestreamsave:'Guardar transmisiones',livestreamscore:'Anotar desde la transmisión',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
+var TITLES={dashboard:'Dashboard',tournaments:'Torneos',teams:'Equipos & Rosters',amistoso:'Amistoso',diviertete:'Diviértete',schedule:'Calendario',gamecontrol:'Control de Juego',transmissionpanel:'Panel Transmisión',addtolineup:'Agregar Jugador al Lineup',gameid:'ID del juego (Calendario)',hideads:'Ocultar anuncios',standings:'Posiciones',stats:'Estadisticas',streaks:'En Racha',statslife:'Stats de Por Vida',leaders:'Lideres',leaderslife:'Lideres de Por Vida',tovsto:'To vs To',rankings:'Rankings',fantasy:'Liga de Fantasía',awards:'Premiaciones',users:'Usuarios',profiles:'Perfiles de Acceso',license:'Licencia',settings:'Configuracion',myprofile:'Mi Perfil',channels:'Canales en Vivo',streams:'Transmisiones',livestream:'Transmitir en vivo',livestreamsave:'Guardar transmisiones',livestreamscore:'Anotar desde la transmisión',gsimport:'Importar desde Google Sheets',sponsors:'Patrocinadores y Afiliados'};
 TITLES.videos='Videos';
 TITLES.notifications='Notificaciones';
 var curP='';var PGS={};
@@ -4547,7 +4562,7 @@ function toggleSidebar(){
 function restoreSidebar(){
   try{if(localStorage.getItem('vsp_sb')==='1'){_sbCollapsed=false;toggleSidebar();}}catch(e){}
 }
-function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,streams:pgStreams,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif,videos:pgVideos};}
+function initPGS(){PGS={dashboard:pgDash,tournaments:pgTour,teams:pgTeams,amistoso:pgAmistoso,diviertete:pgDiv,schedule:pgSched,gamecontrol:pgGC,standings:pgStand,stats:pgStats,streaks:pgStreaks,statslife:pgStatsLife,leaders:pgLead,leaderslife:pgLeadLife,tovsto:pgToVsTo,rankings:pgRankings,fantasy:pgFantasy,awards:pgAwards,users:pgUsers,profiles:pgProfiles,license:pgLic,settings:pgSet,myprofile:pgMyProfile,channels:pgChannels,streams:pgStreams,gsimport:pgGSImport,sponsors:pgSponsors,notifications:pgNotif,videos:pgVideos};}
 // ── Zoom de tablas ──────────────────────────────────────────────────────
 // Permite al usuario alejar (o acercar) el contenido de TODAS las tablas
 // (.tw table) de la app, para poder ver todas las columnas sin depender
@@ -5392,9 +5407,12 @@ function tfmSection(t){
     +'<div class="fr c2"><div class="fg"><label class="fl">Por mes</label>'+inp('tfm-month',t.fantasyMaxMonth)+'</div><div class="fg"></div></div>'
     +(function(){var ac={};try{ac=JSON.parse((S.config&&t.id&&S.config['fantasyAdv_'+t.id])||'{}')||{};}catch(e){}
       return'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 10px">&#127919; ADIVINA EN FANTASY (solo administrador)</div>'
-      +'<div class="alert ai" style="font-size:12px">Puntos extra que gana un usuario de Fantasy si <b>acierta</b> cada tipo de adivinanza sobre los juegos del día de <b>este subtorneo</b>. Se suman al total de su plantilla. <b>0 = ese tipo queda deshabilitado</b> (si todos están en 0, no se muestra Adivina).</div>'
+      +'<div class="alert ai" style="font-size:12px">Puntos extra que gana un usuario de Fantasy si <b>acierta</b> cada tipo de adivinanza sobre los juegos del día de <b>este subtorneo</b>. Se suman al total de su plantilla. <b>0 = ese tipo queda deshabilitado</b> (si todos están en 0, no se muestra Adivina). Además puedes fijar un <b>costo</b> por crear cada adivinanza (se descuenta de su plantilla al crearla; si el juego se cancela se devuelve). <b>Costo 0 = gratis</b>.</div>'
       +'<div class="fr c2"><div class="fg"><label class="fl">&#127942; Ganador del juego</label>'+inp('tfa-winner',ac.winner||0)+'</div><div class="fg"><label class="fl">&#128290; Marcador exacto</label>'+inp('tfa-score',ac.score||0)+'</div></div>'
-      +'<div class="fr c2"><div class="fg"><label class="fl">&#9918; Ponches del abridor</label>'+inp('tfa-ks',ac.ks||0)+'</div><div class="fg"><label class="fl">&#128207; Diferencial de carreras</label>'+inp('tfa-diff',ac.diff||0)+'</div></div>';})()
+      +'<div class="fr c2"><div class="fg"><label class="fl">&#9918; Ponches del abridor</label>'+inp('tfa-ks',ac.ks||0)+'</div><div class="fg"><label class="fl">&#128207; Diferencial de carreras</label>'+inp('tfa-diff',ac.diff||0)+'</div></div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);margin:8px 0 6px">COSTO POR CREAR CADA ADIVINANZA (0 = gratis)</div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">&#127942; Costo ganador</label>'+inp('tfa-cwinner',(ac.costs&&ac.costs.winner)||0)+'</div><div class="fg"><label class="fl">&#128290; Costo marcador</label>'+inp('tfa-cscore',(ac.costs&&ac.costs.score)||0)+'</div></div>'
+      +'<div class="fr c2"><div class="fg"><label class="fl">&#9918; Costo ponches</label>'+inp('tfa-cks',(ac.costs&&ac.costs.ks)||0)+'</div><div class="fg"><label class="fl">&#128207; Costo diferencial</label>'+inp('tfa-cdiff',(ac.costs&&ac.costs.diff)||0)+'</div></div>';})()
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin:14px 0 10px">&#129309; APROBACIONES PARA CAMBIOS Y OFERTAS (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Cantidad <b>mínima de aprobaciones</b> que debe tener un cambio de jugadores (o una oferta que incluya intercambio de jugadores) entre plantillas de <b>este subtorneo</b> para efectuarse. Las dos partes del cambio siempre deben aprobar, así que el mínimo real es 2. <b>0 = deben aprobar todos</b> los usuarios con plantilla. Las ofertas solo por puntos las aprueba únicamente quien puso la oferta.</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Aprobaciones mínimas</label>'+inp('tfm-appr',t.fantasyMinApprovals)+'</div>'
@@ -5526,7 +5544,7 @@ async function saveT(id){
   }
   if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';}   // solo existe para el admin
   var advCfg=null;
-  if(document.getElementById('tfa-winner')){var an=function(i){return Math.max(0,Math.round((parseFloat(fv(i))||0)*100)/100);};advCfg={winner:an('tfa-winner'),score:an('tfa-score'),ks:an('tfa-ks'),diff:an('tfa-diff')};}   // solo existe para el admin
+  if(document.getElementById('tfa-winner')){var an=function(i){return Math.max(0,Math.round((parseFloat(fv(i))||0)*100)/100);};advCfg={winner:an('tfa-winner'),score:an('tfa-score'),ks:an('tfa-ks'),diff:an('tfa-diff'),costs:{winner:an('tfa-cwinner'),score:an('tfa-cscore'),ks:an('tfa-cks'),diff:an('tfa-cdiff')}};}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
   if(S.user&&S.user.role==='google'){
     if(!t.parentTournamentId){toast('Elige el torneo padre','error');return;}
@@ -9183,7 +9201,7 @@ function mlbZoneHtml(gid){
   if(_MLBZ.gid!==gid||!_MLBZ.loaded)return mlbZoneCard(head+muted('Cargando lanzamientos...'));
   if(_MLBZ.missing)return mlbZoneCard(head+muted('Falta crear la tabla <b>mlb_lanzamientos</b> en la base de datos (el SQL esta en el encabezado del worker).'));
   var d=_MLBZ.data,abs=(d&&d.abs)||[];
-  if(!abs.length)return mlbZoneCard(head+muted('No se han publicado lanzamientos para este juego (o la liga no los trae).'));
+  if(!abs.length)return mlbZoneCard(head+muted('No se ha publicado lanzamientos para este juego (o la liga no los trae).'));
   var n=abs.length,i=(_MLBZ.sel<0||_MLBZ.sel>=n)?n-1:_MLBZ.sel,ab=abs[i],latest=(i===n-1);
   var dr=mlbZoneDraw(ab,null),svg=dr.svg,rows=dr.rows,located=dr.located,COL=MLBZ_COL;
   var btn=function(lbl,dl,dis){return'<button class="btn bs bsm" '+(dis?'disabled style="opacity:.4" ':'')+'onclick="mlbZoneNav('+dl+')">'+lbl+'</button>';};
@@ -9976,7 +9994,7 @@ var _gcFld={bt:null};
 // completa. Se calcula en el mismo dibujo del campo, asi que lo ven igual el anotador y los visitantes (en cuanto reciben el cambio). No se anima
 // la primera vez que se abre el juego, ni al cambiar de entrada (salvo el 3er out), ni por simples sustituciones (sin cambio de outs/carreras/bases).
 // ═══════════════════════════════════════════════════════════════════
-var GC_POS={home:[50,84],first:[83,50],second:[50,16],third:[17,50]};
+var GC_POS={home:[50,86],first:[81,54],second:[50,20],third:[19,54]};
 var _gcAnim={gid:null,sig:'',bases:{},btId:null,runs:0,outs:0,inn:'',col:''};
 function gcPlanAnim(gm,bases,bt,col){
   var A=_gcAnim,runs=(parseInt(gm.awayRuns)||0)+(parseInt(gm.homeRuns)||0),outs=parseInt(gm.outs)||0,inn=String(gm.currentInning)+'|'+String(gm.currentHalf);
@@ -10008,9 +10026,10 @@ function gcPlanAnim(gm,bases,bt,col){
   A.gid=gm.id;A.sig=sig;A.inn=inn;A.bases=cur;A.btId=btId;A.runs=runs;A.outs=outs;A.col=col;
   return plan;
 }
-function gcRunAnim(plan){
-  var f=document.querySelector('.gcf');if(!f||!f.animate)return;
-  var seq=['home','first','second','third','home'],pt=function(k){return{left:GC_POS[k][0]+'%',top:GC_POS[k][1]+'%'};};
+function gcRunAnim(plan,sel,POS,lookup){
+  var f=document.querySelector(sel||'.gcf');if(!f||!f.animate)return;
+  var GP=POS||GC_POS;
+  var seq=['home','first','second','third','home'],pt=function(k){return{left:GP[k][0]+'%',top:GP[k][1]+'%'};};
   var pathOf=function(from,to){
     var a=seq.indexOf(from),b=to==='home'?4:seq.indexOf(to);
     return(a>=0&&b>a)?seq.slice(a,b+1):[from,to];
@@ -10022,7 +10041,7 @@ function gcRunAnim(plan){
     try{el.animate(path.map(pt),{duration:Math.max(450,(path.length-1)*STEP),easing:'ease-in-out'});}catch(e){}
   });
   plan.ghosts.forEach(function(g){
-    var pp=playerOf(g.pid);if(!pp)return;
+    var pp=(lookup||playerOf)(g.pid);if(!pp)return;
     var d=document.createElement('div');d.className='gcnode';d.style.pointerEvents='none';d.style.zIndex='4';
     d.innerHTML='<div class="gcav">'+gcAvatarSvg(plan.col,pp.number,g.kind==='bout',pp.photoUrl)+'<span class="gcl">'+gcShortName(pp)+'</span></div>'
       +(g.kind==='out'||g.kind==='bout'?'<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);background:#dc2626;color:#fff;font-weight:800;font-size:10px;border-radius:8px;padding:0 6px">OUT</div>':'')
@@ -10034,7 +10053,7 @@ function gcRunAnim(plan){
       var last=frames[frames.length-1];frames.push(Object.assign({},last,{opacity:0}));
       dur=(path.length-1)*STEP+500;
     }else{   // eliminado: avanza un trecho hacia la siguiente base y se apaga
-      var nxt={home:'first',first:'second',second:'third',third:'home'}[g.from]||'home',a=GC_POS[g.from],b=GC_POS[nxt];
+      var nxt={home:'first',first:'second',second:'third',third:'home'}[g.from]||'home',a=GP[g.from],b=GP[nxt];
       var mid={left:(a[0]+(b[0]-a[0])*0.45)+'%',top:(a[1]+(b[1]-a[1])*0.45)+'%'};
       frames=[Object.assign(pt(g.from),{opacity:1,filter:'none'}),Object.assign({},mid,{opacity:1,filter:'none'}),Object.assign({},mid,{opacity:.9,filter:'grayscale(1) brightness(.7)'}),Object.assign({},mid,{opacity:0,filter:'grayscale(1) brightness(.5)'})];
       dur=1500;
@@ -10050,22 +10069,22 @@ function gcFieldHtml(gm,bases,bt,cs,batTeam){
   var nb=parseInt(gm.numBases)||2,col=(batTeam&&batTeam.color)||'#2563eb';
   _gcFld.bt=bt||null;
   var _plan=gcPlanAnim(gm,bases,bt,col);
-  var pos={home:[50,84],first:[83,50],second:[50,16],third:[17,50]};
-  var vb={home:[115,173],first:[191,103],second:[115,33],third:[39,103]};
+  var pos=GC_POS;
+  var vb={home:[115,212],first:[186,133],second:[115,49],third:[44,133]};
   function bs(k,on,faded){var c=vb[k];return'<rect x="'+(c[0]-6)+'" y="'+(c[1]-6)+'" width="12" height="12" rx="2" transform="rotate(45 '+c[0]+' '+c[1]+')" fill="'+(on?'var(--acc)':'#fff')+'" stroke="#0006" stroke-width="1"'+(faded?' opacity=".25"':'')+'/>';}
-  var svg='<svg class="gcbg" viewBox="0 0 230 206" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
-    +'<polygon points="115,173 191,103 115,33 39,103" fill="#a8794a" opacity=".55"/>'
-    +'<polygon points="115,160 178,103 115,46 52,103" fill="#2a7a3b"/>'
-    +'<polyline points="115,173 191,103 115,33 39,103 115,173" fill="none" stroke="#fff" stroke-width="1.6" opacity=".7"/>'
+  var svg='<svg class="gcbg" viewBox="0 0 230 246" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+    +'<polygon points="115,222 196,133 115,40 34,133" fill="#a8794a" opacity=".55"/>'
+    +'<polygon points="115,198 172,133 115,66 58,133" fill="#2a7a3b"/>'
+    +'<polyline points="115,212 186,133 115,49 44,133 115,212" fill="none" stroke="#fff" stroke-width="1.6" opacity=".7"/>'
     +bs('first',!!bases.first,false)+bs('second',!!bases.second,false)+bs('third',!!bases.third,nb<3)
-    +'<polygon points="115,168 121,173 118.5,179 111.5,179 109,173" fill="#fff" stroke="#0006"/></svg>';
+    +'<polygon points="115,207 121,212 118.5,218 111.5,218 109,212" fill="#fff" stroke="#0006"/></svg>';
   function node(key,pid,isBat){
     var pp=isBat?bt:(pid?playerOf(pid):null);
     if(!pp)return'';
     var oc=(cs&&!gm.paused)?(isBat?'gcBatterMenu()':'gcRunnerMenu(\''+key+'\')'):'';
     return'<div class="gcnode" data-pid="'+nfEsc(String(pp.id))+'" style="left:'+pos[key][0]+'%;top:'+pos[key][1]+'%">'
       +'<button type="button" class="gcav'+(oc?' tap':'')+'" '+(oc?'onclick="'+oc+'"':'disabled style="cursor:default"')+' title="'+(oc?'Toca para anotar una jugada':'')+'">'
-      +gcAvatarSvg(col,pp.number,isBat,pp.photoUrl)+'<span class="gcl">'+(isBat?'&#127951; ':'')+gcShortName(pp)+'</span></button></div>';
+      +gcAvatarSvg(col,pp.number,isBat,pp.photoUrl)+'<span class="gcl">'+gcShortName(pp)+'</span></button></div>';
   }
   var _gcOut='<div style="width:230px;max-width:100%"><div class="gcf" title="'+(cs?'Toca a un corredor o al bateador para anotar su jugada':'')+'">'+svg
     +node('third',bases.third,false)+node('second',bases.second,false)+node('first',bases.first,false)+node('home',null,true)+'</div>'
@@ -17317,7 +17336,7 @@ function pgRankings(tid){
 // reemplazar a un jugador INACTIVO (pasa a tu lista de inactivos y sigue siendo tuyo). Se bloquea desde que
 // inicia el primer juego del día hasta que terminan todos. Los puntos los calcula el Worker.
 // ═══════════════════════════════════════════════════════════════════
-var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{},wk:null,wkSel:'',wkAt:0,adv:null,advAt:0};
+var _FN={vm:{},cat:null,sport:'',parent:'',year:0,tid:'',tab:'team',kind:'fase',phase:'regular',day:'',ckey:'',data:null,pm:{},slots:{},parked:[],name:'',sel:'',q:'',pf:'',timer:null,busy:false,err:'',editing:false,orig:{},dsel:[],dper:1,dbusy:false,dtimer:null,ctimer:null,skew:0,arranged:false,cdFired:{},wk:null,wkSel:'',wkAt:0,adv:null,advAt:0,divi:null,diviAt:0};
 var FN_PH={regular:'Serie regular',playoff:'Playoff'};
 // Posiciones del cuadro (% del ancho/alto). El cuadro tiene proporción 100:130 y las tarjetas escalan con su ancho.
 var FN_XY={P:[50,63],C:[50,81],'1B':[86,63],'2B':[70,45],'3B':[14,63],SS:[30,45],LF:[14,27],CF:[50,9.5],RF:[86,27],DH:[14,81],UT:[86,81]};
@@ -17357,8 +17376,8 @@ function fnAdvTab(){
   var cfg=a.cfg,kinds=['winner','score','ks','diff'].filter(function(k){return cfg[k]>0;});
   var h='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#127919; Adivina</div>'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">Adivina cómo terminan los juegos de <b>hoy</b> y gana puntos extra para tu plantilla. Puedes cambiar tu adivinanza hasta que el juego inicie.</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+kinds.map(function(k){return'<span style="font-size:11px;background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;padding:2px 9px">'+FN_ADV_LBL[k]+' <b style="color:var(--acc)">+'+fnPts(cfg[k])+'</b></span>';}).join('')+'</div>'
-    +'<div style="font-size:12px;color:var(--t3)">'+(kinds.some(function(k){return k!=='winner';})?'Marcador, ponches y diferencial: una por día (tú eliges en qué juego). ':'')+'Puntos ganados en este subtorneo: <b style="color:var(--acc)">'+fnPts(a.totalWon)+'</b></div></div>';
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+kinds.map(function(k){var cc=(cfg.costs&&cfg.costs[k])||0;return'<span style="font-size:11px;background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;padding:2px 9px">'+FN_ADV_LBL[k]+' <b style="color:var(--acc)">+'+fnPts(cfg[k])+'</b>'+(cc?' <span style="color:#fbbf24">· cuesta '+fnPts(cc)+'</span>':'')+'</span>';}).join('')+'</div>'
+    +'<div style="font-size:12px;color:var(--t3)">Puedes hacer cada tipo en todos los juegos de hoy. Puntos ganados: <b style="color:var(--acc)">'+fnPts(a.totalWon)+'</b>'+(a.totalCost?' &middot; Costo de tus adivinanzas: <b style="color:#fbbf24">-'+fnPts(a.totalCost)+'</b>':'')+'</div></div>';
   if(!a.games.length)h+='<div class="card"><div class="empty"><div style="font-size:30px">&#128197;</div><div>No hay juegos programados para hoy</div></div></div>';
   a.games.forEach(function(g){
     var mine=a.mine.filter(function(m){return m.gameId===g.id;});
@@ -17403,12 +17422,16 @@ async function fnAdvSend(gid,kind,pick){
   if(r&&r.ok){toast('Adivinanza guardada','success');await fnAdvReload();return true;}
   toast((r&&r.error)||'No se pudo guardar','error');await fnAdvReload();return false;
 }
-function fnAdvPick(gid,kind,pick){fnAdvSend(gid,kind,pick);}
+function fnAdvCostAsk(gid,kind){   // aviso de costo solo al crear una adivinanza nueva (cambiar una ya creada no vuelve a cobrar)
+  var a=_FN.adv,cc=(a&&a.cfg.costs&&a.cfg.costs[kind])||0;
+  if(!cc||a.mine.some(function(m){return m.gameId===gid&&m.kind===kind;}))return true;
+  return confirm('Esta adivinanza cuesta '+fnPts(cc)+' pts (se descuentan de tu plantilla; si aciertas ganas +'+fnPts(a.cfg[kind])+'). ¿Continuar?');
+}
+function fnAdvPick(gid,kind,pick){if(fnAdvCostAsk(gid,kind))fnAdvSend(gid,kind,pick);}
 function fnAdvOpen(gid,kind){
   var a=_FN.adv;if(!a)return;
   var g=a.games.filter(function(x){return x.id===gid;})[0];if(!g||!g.open)return;
-  var cur=a.mine.filter(function(m){return m.kind===kind;})[0],here=cur&&cur.gameId===gid;
-  var other=cur&&!here?a.games.filter(function(x){return x.id===cur.gameId;})[0]:null;
+  var cur=a.mine.filter(function(m){return m.kind===kind&&m.gameId===gid;})[0],here=!!cur,other=null;
   var pv=here?String(cur.pick).split(/[-:]/):[];
   var sideSel=function(id,sel){return'<select class="fs" id="'+id+'"><option value="away"'+(sel==='away'?' selected':'')+'>'+fnEsc(g.away.name||g.away.abbr)+'</option><option value="home"'+(sel==='home'?' selected':'')+'>'+fnEsc(g.home.name||g.home.abbr)+'</option></select>';};
   var num=function(id,v,min){return'<input class="fi" id="'+id+'" type="number" min="'+min+'" max="'+(kind==='score'?50:30)+'" inputmode="numeric" value="'+(v==null?'':fnEsc(v))+'" style="max-width:110px">';};
@@ -17418,7 +17441,7 @@ function fnAdvOpen(gid,kind){
   else body='<div class="fg"><label class="fl">Equipo ganador</label>'+sideSel('adv-side',pv[0])+'</div><div class="fg"><label class="fl">Gana por (carreras de diferencia)</label>'+num('adv-n',pv[1],1)+'</div>';
   showM('<div class="mhd"><div class="mtl">'+FN_ADV_LBL[kind]+' &middot; +'+fnPts(a.cfg[kind])+' pts</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div style="font-size:12px;color:var(--t2);margin-bottom:10px;text-align:center"><b>'+fnEsc(g.away.name||g.away.abbr)+'</b> vs <b>'+fnEsc(g.home.name||g.home.abbr)+'</b>'+(g.time?' &middot; '+fnEsc(g.time):'')+'</div>'
-    +(other?'<div class="alert aw" style="font-size:12px;margin-bottom:10px">Ya tienes esta adivinanza en <b>'+fnEsc(fnAdvNm(other,'away'))+' vs '+fnEsc(fnAdvNm(other,'home'))+'</b>. Si guardas aquí, se moverá a este juego.</div>':'')
+    +((!here&&a.cfg.costs&&a.cfg.costs[kind])?'<div class="alert aw" style="font-size:12px;margin-bottom:10px">Esta adivinanza cuesta <b>'+fnPts(a.cfg.costs[kind])+' pts</b>, que se descuentan de tu plantilla al guardarla.</div>':'')
     +body+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="fnAdvSave(\''+gid+'\',\''+kind+'\')">Guardar</button></div>');
 }
 async function fnAdvSave(gid,kind){
@@ -17426,7 +17449,416 @@ async function fnAdvSave(gid,kind){
   var pick='';
   if(kind==='score'){if(v('adv-a')===''||v('adv-h')===''){toast('Escribe el marcador de los dos equipos','error');return;}pick=parseInt(v('adv-a'))+'-'+parseInt(v('adv-h'));}
   else{if(v('adv-n')===''){toast('Escribe un número','error');return;}pick=v('adv-side')+':'+parseInt(v('adv-n'));}
+  if(!fnAdvCostAsk(gid,kind))return;
   if(await fnAdvSend(gid,kind,pick))cM();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DIVIERTETE (modulo): juego de dados con el campo (bateador, corredores y defensores). Ver el motor y las reglas en worker.js (DIVIERTETE).
+// Cliente: pagina del modulo (record, crear partida, unirse), pantalla de partida (overlay) con lineup por posicion, dado, campo animado y
+// sincronizacion por polling; y la pestana "Partidas" de Fantasia (retos entre plantillas con puntos apostados).
+// ═══════════════════════════════════════════════════════════════════
+var _DV={code:null,m:null,pool:null,poolCode:'',busy:false,anim:false,disp:null,lastEv:null,die:0,seen:0,poll:null,rolling:null,adShown:{},pk:{slot:'',q:'',all:false}};
+var _dvLink=(function(){try{return new URLSearchParams(location.search).get('div')||'';}catch(e){return'';}})();
+var DV_POS={P:[50,58],C:[50,94],'1B':[92,43],'2B':[67,22],'3B':[8,43],SS:[33,22],LF:[14,12],CF:[50,9],RF:[86,12],DH:[13,90]};   // defensores (juego)
+var DV_POSB={P:[50,56],C:[50,90],'1B':[85,44],'2B':[67,23],'3B':[15,44],SS:[33,23],LF:[16,11],CF:[50,7],RF:[84,11],DH:[13,88]};   // tarjetas del lineup
+var DV_BASES={home:[50,80],first:[80,58],second:[50,32],third:[20,58]};
+var DV_COL={a:'#2563eb',b:'#dc2626'};
+var DV_RES={H1:['Sencillo','#34d399'],H2:['Doble','#34d399'],H3:['Triple','#34d399'],HR:['¡JONRÓN!','#fbbf24'],K:['Ponche','#f87171'],OUT:['Out','#f87171']};
+var DV_PIPS={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+var DV_PIT={P:1,SP:1,RP:1,CL:1,CP:1,LHP:1,RHP:1};
+function dvWait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function dvDieHtml(n,cls){var pp=DV_PIPS[n]||[];var c='';for(var i=1;i<=9;i++)c+=pp.indexOf(i)>=0?'<div class="dvpip"></div>':'<div></div>';return'<div class="dvdie'+(cls?' '+cls:'')+'">'+c+'</div>';}
+function dvOther(k){return k==='a'?'b':'a';}
+function dvBatKey(st){return st.half==='top'?st.top:dvOther(st.top);}
+function dvReadyLu(lu,slots){return!!lu&&slots.every(function(k){return lu.some(function(x){return x.slot===k&&x.pid;});});}
+function dvInfo(m,pid){return(m.pinfo&&m.pinfo[pid])||{};}
+function dvPl(m,pid){var i=dvInfo(m,pid);return{id:pid,number:i.n,name:i.nm||'?',photoUrl:i.ph||''};}
+function dvLookup(pid){return _DV.m?dvPl(_DV.m,pid):null;}
+function dvTourName(id){var t=(S.tournaments||[]).filter(function(x){return String(x.id)===String(id);})[0];return t?t.name:'';}
+function dvName(m,k){return k==='a'?(m.a.name||'Jugador A'):(m.b.name||'Jugador B');}
+
+// ───────── pagina del modulo
+function pgDiv(){
+  ct('<div class="stl">&#127922; Diviértete</div>'
+    +'<div class="ssb">Juega con dados: arma tu lineup, lanza el dado en tu turno al bate y gana. 1 hit · 2 doble · 3 triple · 4 jonrón · 5 ponche · 6 out</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button class="btn bp" onclick="dvCreateM(\'cpu\')">&#129302; Jugar contra la máquina</button>'
+    +'<button class="btn bs" onclick="dvCreateM(\'pvp\')">&#128101; Crear partida con un amigo</button>'
+    +'<button class="btn bs" onclick="dvJoinCode()">&#128273; Unirme con código</button></div>'
+    +'<div id="dv-rec"></div><div id="dv-list" class="empty"><div style="font-size:36px">&#8987;</div><div>Cargando...</div></div>');
+  dvLoadList();
+}
+async function dvLoadList(){
+  var r=await api('divList',{});
+  var rec=document.getElementById('dv-rec'),el=document.getElementById('dv-list');if(!rec||!el)return;
+  if(!(r&&r.ok)){el.className='empty';el.innerHTML='<div style="font-size:36px">&#128274;</div><div>'+nfEsc((r&&r.error)||'No se pudo cargar')+'</div>';return;}
+  var c=r.record,box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:#34d399">'+w+'</span> - <span style="color:#f87171">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Ganadas - Perdidas</div></div>';};
+  rec.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+box('&#128101; Contra amigos',c.pvpW,c.pvpL)+box('&#129302; Contra la máquina',c.cpuW,c.cpuL)+box('&#127942; Total',c.pvpW+c.cpuW,c.pvpL+c.cpuL)+'</div>';
+  if(!r.matches.length){el.className='empty';el.innerHTML='<div style="font-size:40px">&#127922;</div><div>Aún no has jugado. ¡Lanza tu primera partida!</div>';return;}
+  el.className='';
+  el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Mis partidas</div>'+r.matches.map(function(x){
+    var st={invite:['Reto pendiente','var(--t3)'],lobby:['Armando lineups','#fbbf24'],playing:['En juego','var(--acc)'],finished:x.winner===x.me?['&#127942; Ganada','#34d399']:['Perdida','#f87171']}[x.status]||['','var(--t3)'];
+    var sc=(x.sa!=null&&x.sb!=null)?(x.me==='a'?x.sa+' - '+x.sb:x.sb+' - '+x.sa):'';
+    return'<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(x.mode==='cpu'?'&#129302; Máquina':'&#128101; '+nfEsc(x.rival||'Esperando rival'))+(x.fantasy?' <span style="font-size:10px;color:var(--acc)">&#127919; Fantasía '+(x.stake?x.stake+' pts':'')+'</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+nfEsc(x.tournament)+' &middot; '+x.innings+' inn. &middot; '+nfEsc(x.day)+(sc?' &middot; <b>'+sc+'</b>':'')+'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;color:'+st[1]+'">'+st[0]+'</span>'
+      +((x.status==='lobby'||x.status==='playing'||x.status==='invite')?'<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>':'<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>')+'</div></div>';
+  }).join('');
+}
+function dvCreateM(mode){
+  var l=(typeof toursByYear==='function'?toursByYear():[]);if(!l.length)l=S.tournaments||[];
+  if(!l.length){toast('No hay subtorneos disponibles. Filtra un torneo primero.','error');return;}
+  var sel=l.map(function(t){return'<option value="'+t.id+'" '+(String(S.tourFilter)===String(t.id)?'selected':'')+'>'+nfEsc(t.name)+'</option>';}).join('');
+  var inn=[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===3?'selected':'')+'>'+n+' inning'+(n>1?'s':'')+'</option>';}).join('');
+  showM('<div class="mhd"><div class="mtl">'+(mode==='cpu'?'&#129302; Jugar contra la máquina':'&#128101; Crear partida con un amigo')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="fg"><label class="fl">Subtorneo (de aquí salen los jugadores)</label><select class="fs" id="dvc-t">'+sel+'</select></div>'
+    +'<div class="fg"><label class="fl">¿De cuántos innings?</label><select class="fs" id="dvc-i">'+inn+'</select></div>'
+    +'<div style="font-size:12px;color:var(--t3)">'+(mode==='cpu'?'La máquina arma su equipo al azar. Tú eliges tu lineup por posición.':'Al crearla recibirás un link para compartir con tu rival. Cada uno arma su lineup y, cuando ambos estén listos, inician.')+'</div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="dvCreate(\''+mode+'\')">Crear</button></div>');
+}
+async function dvCreate(mode){
+  var t=fv('dvc-t'),i=fv('dvc-i');
+  var r=await api('divCreate',{tournamentId:t,innings:parseInt(i)||3,mode:mode});
+  if(r&&r.ok){cM();dvOpenWith(r.match);}else toast((r&&r.error)||'No se pudo crear la partida','error');
+}
+function dvJoinCode(){
+  var c=prompt('Escribe el código de la partida:','');
+  if(c&&c.trim())dvLinkOpen(c.trim().toUpperCase());
+}
+async function dvLinkOpen(code){
+  var r=await api('divGet',{code:code});
+  if(!(r&&r.ok)){toast((r&&r.error)||'Partida no encontrada','error');return;}
+  var m=r.match;
+  if(m.me){dvOpenWith(m);return;}
+  showM('<div class="mhd"><div class="mtl">&#127922; Invitación a jugar</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd" style="text-align:center"><div style="font-size:14px;line-height:1.6"><b>'+nfEsc(m.a.name)+'</b> te invita a una partida de dados de <b>'+m.innings+'</b> inning'+(m.innings>1?'s':'')+'.<br><span style="font-size:12px;color:var(--t3)">'+nfEsc(dvTourName(m.tournamentId))+'</span></div></div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Ahora no</button><button class="btn bp" onclick="dvJoin(\''+m.code+'\')">Unirme</button></div>');
+}
+async function dvJoin(code){
+  var r=await api('divJoin',{code:code});
+  if(r&&r.ok){cM();dvOpenWith(r.match);}else toast((r&&r.error)||'No se pudo unir a la partida','error');
+}
+async function dvOpen(code){
+  var r=await api('divGet',{code:code});
+  if(r&&r.ok&&r.match)dvOpenWith(r.match);else toast((r&&r.error)||'Partida no encontrada','error');
+}
+// ───────── pantalla de la partida
+function dvOpenWith(m){
+  dvClose(true);
+  _DV.code=m.code;_DV.m=m;_DV.seen=m.seq;_DV.disp=null;_DV.anim=false;_DV.busy=false;_DV.lastEv=(m.events||[]).slice(-1)[0]||null;_DV.die=_DV.lastEv?_DV.lastEv.die:0;
+  var ov=document.createElement('div');ov.id='divov';ov.className='dvov';
+  ov.innerHTML='<div class="dvin"><div id="dvbody"></div></div>';
+  document.body.appendChild(ov);
+  dvRender();
+  _DV.poll=setInterval(dvPoll,2500);
+}
+function dvClose(silent){
+  if(_DV.poll){clearInterval(_DV.poll);_DV.poll=null;}
+  var ov=document.getElementById('divov');if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);
+  if(!silent){_DV.m=null;_DV.code=null;try{if(curP==='diviertete')dvLoadList();else if(curP==='fantasy'&&_FN.tab==='divi')fnLoad();}catch(e){}}
+}
+async function dvPoll(){
+  var m=_DV.m;if(!m||_DV.busy||_DV.anim||!document.getElementById('divov'))return;
+  if(m.status==='finished'||m.status==='cancelled')return;
+  if(document.getElementById('modals').innerHTML)return;
+  var r=await api('divGet',{code:m.code,ver:m.ver});
+  if(!(r&&r.ok)||r.same||!r.match||_DV.busy||_DV.anim)return;
+  await dvApply(r.match);
+}
+async function dvApply(m2){
+  var old=_DV.m,evs=(m2.events||[]).filter(function(e){return e.n>_DV.seen;});
+  _DV.m=m2;
+  if(old&&old.status==='playing'&&evs.length&&m2.me){_DV.disp=old.state;await dvPlay(evs);}
+  _DV.seen=m2.seq;
+  if(!evs.length||true){var l=(m2.events||[]).slice(-1)[0];if(l){_DV.lastEv=l;_DV.die=l.die;}}
+  dvRender();dvEnd(m2);
+}
+function dvEnd(m){
+  if(m.status==='finished'&&!_DV.adShown[m.code]){_DV.adShown[m.code]=1;try{maybeInterstitial('save');}catch(e){}}
+}
+async function dvPlay(events){
+  _DV.anim=true;
+  for(var i=0;i<events.length;i++){
+    var ev=events[i];
+    if(!(i===0&&_DV.rolling==='done'))await dvRollAnim(ev.die,i===0?0:520);
+    _DV.rolling=null;_DV.disp=ev.snap;_DV.lastEv=ev;_DV.die=ev.die;dvRender();
+    await dvWait(ev.res==='HR'?1700:1150);
+  }
+  _DV.anim=false;_DV.disp=null;
+}
+function dvRollAnim(final,ms){
+  return new Promise(function(res){
+    var slot=document.getElementById('dvdieslot');
+    if(!slot||!ms){res();return;}
+    slot.innerHTML=dvDieHtml(1+Math.floor(Math.random()*6),'roll');
+    var t=setInterval(function(){var s2=document.getElementById('dvdieslot');if(s2)s2.innerHTML=dvDieHtml(1+Math.floor(Math.random()*6),'roll');},90);
+    setTimeout(function(){clearInterval(t);res();},ms);
+  });
+}
+async function dvDoRoll(){
+  var m=_DV.m;if(!m||_DV.busy||_DV.anim)return;
+  _DV.busy=true;
+  var slot=document.getElementById('dvdieslot'),t=null;
+  if(slot){slot.innerHTML=dvDieHtml(1+Math.floor(Math.random()*6),'roll');t=setInterval(function(){var s2=document.getElementById('dvdieslot');if(s2)s2.innerHTML=dvDieHtml(1+Math.floor(Math.random()*6),'roll');},90);}
+  var btn=document.getElementById('dvrollbtn');if(btn)btn.disabled=true;
+  var r=await api('divRoll',{code:m.code});
+  await dvWait(550);   // el dado rueda un momento aunque el servidor responda rapido
+  if(t)clearInterval(t);
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo lanzar el dado','error');_DV.busy=false;dvRender();return;}
+  _DV.rolling='done';_DV.m=r.match;_DV.disp=m.state;
+  _DV.busy=false;
+  await dvPlay(r.events||[]);
+  _DV.seen=r.match.seq;
+  dvRender();dvEnd(r.match);
+}
+// ───────── dibujo
+function dvHeader(m){
+  var st=m.state;
+  return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">'
+    +'<button class="btn bs bsm" onclick="dvClose()">&#8592; Salir</button>'
+    +'<div style="text-align:center"><div style="font-weight:800">&#127922; Diviértete</div><div style="font-size:11px;color:var(--t3)">Código <b>'+nfEsc(m.code)+'</b>'+(m.fantasy?' &middot; <span style="color:var(--acc)">&#127919; Desafío de Fantasía'+(m.stake?' '+m.stake+' pts':'')+'</span>':'')+'</div></div>'
+    +(m.status==='playing'||m.status==='lobby'||m.status==='invite'?'<button class="btn bs bsm" onclick="dvCancel()">'+(m.status==='playing'?'&#127987;&#65039; Abandonar':'Cancelar')+'</button>':'<span style="width:70px"></span>')+'</div>';
+}
+async function dvCancel(){
+  var m=_DV.m;if(!m)return;
+  if(!confirm(m.status==='playing'?'¿Abandonar la partida? Contará como derrota'+(m.stake?' y perderás los '+m.stake+' puntos apostados':'')+'.':'¿Cancelar esta partida?'))return;
+  var r=await api('divCancel',{code:m.code});
+  if(r&&r.ok){await dvApply(r.match);if(r.match.status==='cancelled')dvClose();}else toast((r&&r.error)||'No se pudo cancelar','error');
+}
+function dvRender(){
+  var ov=document.getElementById('divov'),m=_DV.m;if(!ov||!m)return;
+  var b=ov.querySelector('#dvbody');if(!b)return;
+  var h=dvHeader(m);
+  if(m.status==='invite')h+=dvInviteHtml(m);
+  else if(m.status==='lobby')h+=dvLobbyHtml(m);
+  else if(m.status==='playing'||m.status==='finished')h+=dvPlayHtml(m);
+  else h+='<div class="card"><div class="empty"><div style="font-size:34px">&#128683;</div><div>Esta partida fue cancelada.</div></div></div>';
+  b.innerHTML=h;
+  if(m.status==='playing'||m.status==='finished')dvFieldAnim(m);
+}
+function dvInviteHtml(m){
+  if(m.me==='b')return'<div class="card" style="text-align:center"><div style="font-size:34px">&#127919;</div><div style="font-weight:700;margin:6px 0"><b>'+nfEsc(m.a.name)+'</b> te retó a una partida de dados</div><div style="font-size:12px;color:var(--t3);margin-bottom:12px">'+m.innings+' innings &middot; apuesta de <b style="color:var(--acc)">'+m.stake+' pts</b>: el que gane se los lleva, el que pierda los resta de su plantilla.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center"><button class="btn bs" onclick="dvCancel()">Rechazar</button><button class="btn bp" onclick="dvAccept()">Aceptar reto</button></div></div>';
+  return'<div class="card" style="text-align:center"><div style="font-size:34px">&#8987;</div><div style="font-weight:700;margin:6px 0">Esperando que <b>'+nfEsc(m.b.name)+'</b> acepte tu reto</div><div style="font-size:12px;color:var(--t3)">'+m.innings+' innings &middot; apuesta de '+m.stake+' pts. Cuando acepte podrán armar sus lineups.</div></div>';
+}
+async function dvAccept(){
+  var m=_DV.m;if(!m)return;
+  var r=await api('divJoin',{code:m.code});
+  if(r&&r.ok)await dvApply(r.match);else toast((r&&r.error)||'No se pudo aceptar','error');
+}
+function dvShareHtml(m){
+  var base=(/^https?:/.test(location.protocol)&&location.hostname!=='localhost')?(location.origin+location.pathname):'https://vitilla.powerrdapp.com/';
+  var url=base+'?div='+m.code,msg='¡Te reto a una partida de dados en '+brandName()+'! Entra aquí: '+url;
+  return'<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">&#128279; Invita a tu rival</div><div style="font-size:12px;color:var(--t3);margin-bottom:8px">Comparte este link (debe iniciar sesión en la app) o dile el código <b>'+nfEsc(m.code)+'</b> para que use "Unirme con código".</div>'
+    +'<input class="fi" readonly value="'+nfEsc(url)+'" onclick="this.select()" style="margin-bottom:8px">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bs bsm" onclick="dvCopy(\''+url+'\')">Copiar link</button>'
+    +'<a class="btn bs bsm" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a>'
+    +(navigator.share?'<button class="btn bs bsm" onclick="navigator.share({title:\'Diviértete\',text:\''+msg.replace(/'/g,'')+'\'}).catch(function(){})">Compartir...</button>':'')+'</div></div>';
+}
+function dvCopy(t){try{navigator.clipboard.writeText(t).then(function(){toast('Link copiado','success');});}catch(e){prompt('Copia el link:',t);}}
+function dvSlotCard(m,k,pid){
+  var xy=DV_POSB[k]||[50,50],i=pid?dvInfo(m,pid):null;
+  return'<button class="dvslot'+(pid?' on':'')+'" style="left:'+xy[0]+'%;top:'+xy[1]+'%" onclick="dvPick(\''+k+'\')">'
+    +'<div style="font-size:9px;font-weight:800;color:var(--acc)">'+k+'</div>'
+    +(pid?'<div style="display:flex;justify-content:center;margin:1px 0;pointer-events:none">'+playerAvatarHtml(i.ph||'',i.nm||'',24,'circle',i.n)+'</div><div style="font-size:8.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">'+nfEsc((i.nm||'').split(' ').slice(-1)[0])+'</div>'
+         :'<div style="height:30px;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.8">+</div>')
+    +'</button>';
+}
+function dvBgSvg(){
+  return'<svg class="dvbg" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#1b5e30"/>'
+    +'<path d="M50 98 L102 38 A74 74 0 0 0 -2 38 Z" fill="#23703a"/><polygon points="50,90 90,58 50,24 10,58" fill="#a8794a" opacity=".55"/><polygon points="50,82 80,58 50,32 20,58" fill="#2a7a3b"/>'
+    +'<polyline points="50,82 80,58 50,32 20,58 50,82" fill="none" stroke="#fff" stroke-width=".6" opacity=".75"/>'
+    +'<polygon points="50,80 52.4,82 51.4,84.4 48.6,84.4 47.6,82" fill="#fff"/>'
+    +[[80,58],[50,32],[20,58]].map(function(c){return'<rect x="'+(c[0]-1.7)+'" y="'+(c[1]-1.7)+'" width="3.4" height="3.4" fill="#fff" transform="rotate(45 '+c[0]+' '+c[1]+')"/>';}).join('')+'</svg>';
+}
+function dvLobbyHtml(m){
+  var me=m.me,opp=dvOther(me),slots=m.slots,mine=m[me].lineup||[],oppLu=m[opp].lineup||[];
+  var byS={};mine.forEach(function(x){byS[x.slot]=x.pid;});
+  var myOk=dvReadyLu(mine,slots),oppOk=m.mode==='cpu'?true:dvReadyLu(oppLu,slots),hasOpp=m.mode==='cpu'||!!m.b.name;
+  var inn=me==='a'?'<select class="fs" style="width:auto;display:inline-block" onchange="dvSetInnings(this.value)">'+[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===m.innings?'selected':'')+'>'+n+' inning'+(n>1?'s':'')+'</option>';}).join('')+'</select>':'<b>'+m.innings+' innings</b>';
+  var h='';
+  if(me==='a'&&m.mode==='pvp'&&!m.fantasy&&!m.b.name)h+=dvShareHtml(m);
+  h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px"><div>&#127967; '+nfEsc(dvTourName(m.tournamentId))+'</div><div>'+inn+'</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:6px">'+(m.mode==='cpu'?'Rival: <b>&#129302; Máquina</b> (armará su equipo al azar al iniciar)':(hasOpp?'Rival: <b>'+nfEsc(m[opp].name)+'</b> '+(oppOk?'<span style="color:#34d399">&#10003; lineup listo</span>':'<span style="color:#fbbf24">armando su lineup...</span>'):'<span style="color:#fbbf24">Esperando que tu rival se una con el link...</span>'))+'</div></div>';
+  h+='<div class="card"><div style="font-weight:700;margin-bottom:2px">Tu lineup <span style="font-size:11px;color:var(--t3)">('+mine.length+'/'+slots.length+')</span></div><div style="font-size:11px;color:var(--t3);margin-bottom:8px">Toca cada posición para elegir un jugador. El orden al bate sigue el orden de las posiciones.</div>'
+    +'<div class="dvf">'+dvBgSvg()+slots.map(function(k){return dvSlotCard(m,k,byS[k]);}).join('')+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px"><button class="btn bs" onclick="dvRandomLineup()">&#127922; Completar al azar</button>'
+    +'<button class="btn bp" '+((myOk&&oppOk&&hasOpp)?'':'disabled style="opacity:.45"')+' onclick="dvStart()">&#9654; Iniciar partido</button></div>'
+    +(myOk&&!(oppOk&&hasOpp)?'<div style="font-size:11px;color:var(--t3);text-align:center;margin-top:8px">Tu lineup está listo. Falta tu rival para iniciar.</div>':'')+'</div>';
+  return h;
+}
+async function dvSetInnings(v){
+  var r=await api('divConfig',{code:_DV.m.code,innings:parseInt(v)});
+  if(r&&r.ok){_DV.m=r.match;dvRender();}else toast((r&&r.error)||'No se pudo cambiar','error');
+}
+async function dvSaveLineup(lineup,random){
+  var m=_DV.m;
+  var r=await api('divLineup',{code:m.code,lineup:lineup,random:!!random});
+  if(r&&r.ok){_DV.m=r.match;dvRender();return true;}
+  toast((r&&r.error)||'No se pudo guardar el lineup','error');return false;
+}
+function dvRandomLineup(){dvSaveLineup(_DV.m[_DV.m.me].lineup||[],true);}
+async function dvStart(){
+  var m=_DV.m;if(!m||_DV.busy)return;
+  _DV.busy=true;
+  var r=await api('divStart',{code:m.code});
+  _DV.busy=false;
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo iniciar','error');return;}
+  var evs=r.events||[];
+  _DV.m=r.match;
+  if(evs.length){_DV.disp={inn:1,half:'top',outs:0,bases:[null,null,null],sc:{a:0,b:0},idx:{a:0,b:0},top:r.match.state.top,over:false};_DV.rolling=null;await dvPlay(evs);}
+  _DV.seen=r.match.seq;dvRender();dvEnd(r.match);
+}
+// selector de jugadores
+async function dvPick(slot){
+  var m=_DV.m;if(!m)return;
+  if(!_DV.pool||_DV.poolCode!==m.code){
+    var r=await api('divPool',{code:m.code});
+    if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo cargar los jugadores','error');return;}
+    _DV.pool=r.players;_DV.poolCode=m.code;
+  }
+  _DV.pk={slot:slot,q:'',all:false};
+  showM('<div class="mhd"><div class="mtl">Elegir jugador &mdash; '+slot+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><input class="fi" id="dvpq" placeholder="Buscar por nombre, número o equipo" oninput="dvPickList()" style="margin-bottom:8px">'
+    +'<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t3);margin-bottom:8px"><input type="checkbox" id="dvpall" onchange="dvPickList()"> Mostrar jugadores de todas las posiciones</label>'
+    +'<div id="dvplist" style="max-height:52vh;overflow:auto"></div></div>');
+  dvPickList();
+}
+function dvPosOk(pos,slot){
+  var ps=String(pos||'').toUpperCase().split(/[\/,;|+\s]+/).filter(Boolean);
+  if(slot==='P')return ps.some(function(x){return DV_PIT[x];});
+  if(slot==='DH')return ps.length===0||!ps.every(function(x){return DV_PIT[x];});
+  return ps.indexOf(slot)>=0;
+}
+function dvPickList(){
+  var m=_DV.m,slot=_DV.pk.slot,q=(fv('dvpq')||'').toLowerCase().trim(),all=!!(document.getElementById('dvpall')||{}).checked;
+  var used={};['a','b'].forEach(function(k){(m[k].lineup||[]).forEach(function(x){if(!(k===m.me&&x.slot===slot))used[x.pid]=1;});});
+  var l=(_DV.pool||[]).filter(function(p){
+    if(used[p.id])return false;
+    if(!all&&!dvPosOk(p.pos,slot))return false;
+    return!q||(p.nm.toLowerCase().indexOf(q)>=0||String(p.n)===q||String(p.ab).toLowerCase().indexOf(q)>=0);
+  });
+  var el=document.getElementById('dvplist');if(!el)return;
+  el.innerHTML=l.length?l.slice(0,80).map(function(p){
+    return'<button class="btn bs" style="width:100%;display:flex;align-items:center;gap:10px;margin-bottom:6px;text-align:left;justify-content:flex-start" onclick="dvChoose(\''+p.id+'\')">'+playerAvatarHtml(p.ph,p.nm,30,'circle',p.n)
+      +'<div style="min-width:0;flex:1"><div style="font-weight:700;font-size:13px">'+nfEsc(p.nm)+'</div><div style="font-size:11px;color:var(--t3)">'+nfEsc(p.ab)+(p.pos?' &middot; '+nfEsc(p.pos):'')+'</div></div></button>';}).join('')
+    +(l.length>80?'<div style="font-size:11px;color:var(--t3);text-align:center">Mostrando 80 de '+l.length+'. Usa el buscador.</div>':'')
+    :'<div class="empty" style="padding:14px">No hay jugadores disponibles con ese filtro</div>';
+}
+async function dvChoose(pid){
+  var m=_DV.m,slot=_DV.pk.slot,lu=(m[m.me].lineup||[]).filter(function(x){return x.slot!==slot;});
+  lu.push({slot:slot,pid:pid});
+  if(await dvSaveLineup(lu,false))cM();
+}
+// partida en juego
+function dvDisplayState(m){return _DV.disp||m.state;}
+function dvScoreHtml(m,st){
+  var bk=dvBatKey(st),row=function(k){var bat=!st.over&&bk===k;return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0"><div style="font-weight:700;font-size:13px;'+(bat?'color:var(--acc)':'')+'">'+(bat?'&#127951; ':'')+nfEsc(dvName(m,k))+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800">'+st.sc[k]+'</div></div>';};
+  var outs=[0,1,2].map(function(i){return'<span style="display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:4px;background:'+(i<st.outs?'#f87171':'var(--bdr2)')+'"></span>';}).join('');
+  return'<div class="card" style="margin-bottom:10px">'+row(st.top)+row(dvOther(st.top))
+    +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--bdr);margin-top:4px;padding-top:6px;font-size:12px;color:var(--t2)"><div>'+(st.over?'<b>Final</b>':'Entrada <b>'+st.inn+'</b> '+(st.half==='top'?'&#9650;':'&#9660;')+' <span style="color:var(--t3)">de '+m.innings+'</span>')+'</div><div>Outs'+outs+'</div></div></div>';
+}
+function dvFieldAnim(m){
+  var st=dvDisplayState(m);if(!st)return;
+  var bk=dvBatKey(st),lu=m[bk].lineup||[],bp=lu.length?lu[(st.idx[bk]||0)%lu.length].pid:null;
+  var pg={id:'dv'+m.code,status:st.over?'over':'live',currentInning:st.inn,currentHalf:st.half,outs:st.outs,awayRuns:st.sc.a,homeRuns:st.sc.b};
+  var plan=gcPlanAnim(pg,{first:st.bases[0],second:st.bases[1],third:st.bases[2]},bp?{id:bp}:null,DV_COL[bk]);
+  if(plan&&(plan.moves.length||plan.ghosts.length))setTimeout(function(){gcRunAnim(plan,'.dvf[data-play]',DV_BASES,dvLookup);},40);
+}
+function dvNode(m,pid,xy,col,mode,label){
+  var i=dvInfo(m,pid),p={number:i.n,name:i.nm||'?'};
+  return'<div class="gcnode'+(mode==='def'?' dvdef':'')+'" data-pid="'+nfEsc(String(pid))+'" style="left:'+xy[0]+'%;top:'+xy[1]+'%'+(mode==='bat'?';z-index:4':(mode==='run'?';z-index:3':';z-index:1'))+'"><div class="gcav">'+gcAvatarSvg(col,i.n,mode==='bat',i.ph||'')+(mode==='def'?'<span class="gcl">'+nfEsc(label)+'</span>':'')+'</div></div>';
+}
+function dvFieldHtml(m,st){
+  var bk=dvBatKey(st),fk=dvOther(bk),h='<div class="dvf" data-play="1">'+dvBgSvg();
+  (m[fk].lineup||[]).forEach(function(x){if(DV_POS[x.slot]&&x.slot!=='DH')h+=dvNode(m,x.pid,DV_POS[x.slot],DV_COL[fk],'def',x.slot);});
+  ['first','second','third'].forEach(function(k,j){var pid=st.bases[j];if(pid)h+=dvNode(m,pid,DV_BASES[k],DV_COL[bk],'run');});
+  if(!st.over){var lu=m[bk].lineup||[];if(lu.length)h+=dvNode(m,lu[(st.idx[bk]||0)%lu.length].pid,DV_BASES.home,DV_COL[bk],'bat');}
+  return h+'</div>';
+}
+function dvEvText(m,ev){
+  var i=dvInfo(m,ev.pid),r=DV_RES[ev.res]||['',''];
+  return'<span style="color:'+DV_COL[ev.team]+';font-weight:700">'+nfEsc(i.nm||'Bateador')+'</span> &mdash; <b style="color:'+r[1]+'">'+r[0]+'</b>'+(ev.runs?' <span style="color:var(--acc)">(+'+ev.runs+' carrera'+(ev.runs>1?'s':'')+')</span>':'');
+}
+function dvLegend(m,st){
+  if(st.over)return'';
+  var bk=dvBatKey(st),lu=m[bk].lineup||[],col=DV_COL[bk],nm=function(pid){var i=dvInfo(m,pid);return'#'+nfEsc(i.n||'?')+' '+nfEsc(i.nm||'?');};
+  var parts=[];
+  if(lu.length)parts.push('<span><b style="color:'+col+'">&#127951; Al bate:</b> '+nm(lu[(st.idx[bk]||0)%lu.length].pid)+'</span>');
+  ['1ª','2ª','3ª'].forEach(function(l,j){if(st.bases[j])parts.push('<span><b style="color:'+col+'">'+l+':</b> '+nm(st.bases[j])+'</span>');});
+  return'<div style="display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;margin-top:10px;font-size:12px;color:var(--t2)">'+parts.join('')+'</div>';
+}
+function dvPlayHtml(m){
+  var st=dvDisplayState(m),bk=dvBatKey(st),mine=m.me===bk&&!st.over&&m.status==='playing'&&!_DV.anim&&!_DV.busy;
+  var le=_DV.lastEv,r=le?(DV_RES[le.res]||['','']):null;
+  var h=dvScoreHtml(m,st)+'<div class="card" style="margin-bottom:10px">'+dvFieldHtml(m,st)+dvLegend(m,st)+'</div>';
+  h+='<div class="card" style="margin-bottom:10px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap"><div id="dvdieslot">'+(_DV.die?dvDieHtml(_DV.die):dvDieHtml(0))+'</div><div style="min-width:150px">';
+  if(m.status==='finished'){
+    var won=m.winner===m.me;
+    h+='<div style="font-size:30px">'+(won?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+(won?'#34d399':'#f87171')+'">'+(won?'¡Ganaste!':'Perdiste')+'</div><div style="font-size:12px;color:var(--t3)">'+nfEsc(dvName(m,m.winner))+' gana '+st.sc[m.winner]+' a '+st.sc[dvOther(m.winner)]+(m.stake?'<br><b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'+':'-')+m.stake+' pts de Fantasía</b>':'')+'</div>'
+      +(m.mode==='cpu'?'<button class="btn bp bsm" style="margin-top:8px" onclick="dvRematch()">&#129302; Otra vs máquina</button>':'');
+  }else if(mine)h+='<button class="btn bp" id="dvrollbtn" style="font-size:16px;padding:12px 22px" onclick="dvDoRoll()">&#127922; Lanzar dado</button><div style="font-size:11px;color:var(--t3);margin-top:6px">Es tu turno al bate</div>';
+  else if(_DV.anim||_DV.busy)h+='<div style="font-size:13px;color:var(--t3)">Lanzando...</div>';
+  else h+='<div style="font-size:13px;color:var(--t2)">Turno al bate de <b>'+nfEsc(dvName(m,bk))+'</b>...<br><span style="font-size:11px;color:var(--t3)">espera su lanzamiento</span></div>';
+  h+='</div></div>'+(le?'<div style="margin-top:10px;font-size:13px">'+dvEvText(m,le)+'</div>':'')
+    +'<div style="font-size:10px;color:var(--t3);margin-top:8px">1 Hit &middot; 2 Doble &middot; 3 Triple &middot; 4 Jonrón &middot; 5 Ponche &middot; 6 Out</div></div>';
+  var evs=(m.events||[]).slice(-8).reverse();
+  if(evs.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:6px;font-size:13px">Jugadas</div>'+evs.map(function(e){return'<div style="font-size:12px;padding:3px 0;border-top:1px solid var(--bdr)"><span style="color:var(--t3)">'+e.inn+(e.half==='top'?'&#9650;':'&#9660;')+'</span> '+dvEvText(m,e)+'</div>';}).join('')+'</div>';
+  return h;
+}
+async function dvRematch(){
+  var m=_DV.m;if(!m)return;
+  var r=await api('divCreate',{tournamentId:m.tournamentId,innings:m.innings,mode:'cpu'});
+  if(r&&r.ok)dvOpenWith(r.match);else toast((r&&r.error)||'No se pudo crear','error');
+}
+// ───────── enlace ?div=CODIGO al abrir la app
+function dvCheckLink(){
+  if(!_dvLink||!S.user)return;
+  if(S.user.role==='public'){toast('Inicia sesión con tu cuenta para unirte a la partida','info');return;}
+  var c=_dvLink;_dvLink='';
+  try{history.replaceState(null,'',location.pathname+location.hash);}catch(e){}
+  setTimeout(function(){dvLinkOpen(c);},900);
+}
+var _dvRenderApp0=renderApp;
+renderApp=function(){_dvRenderApp0.apply(this,arguments);try{dvCheckLink();}catch(e){}};
+// ───────── Fantasia: pestana "Partidas" (retos de dados entre plantillas con puntos apostados)
+function fnDiviTab(){
+  var d=_FN.divi;
+  if(!d)return'<div class="card"><div class="empty">Cargando...</div></div>';
+  if(d.error)return'<div class="card"><div class="empty"><div style="color:#f87171;margin-bottom:10px">'+fnEsc(d.error)+'</div><button class="btn bp bsm" onclick="_FN.divi=null;fnRender();fnLoad()">Reintentar</button></div></div>';
+  var h='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#127922; Partidas de dados entre plantillas</div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px">Rétalo a una partida de <b>Diviértete</b> apostando puntos de tu plantilla: <b>el que gana se los lleva y el que pierde los resta</b>. Cuando tu rival acepte, ambos arman su lineup y juegan.</div>';
+  if(!d.mine)h+='<div class="alert aw" style="font-size:12px">Necesitas una plantilla de esta fase para retar a otros usuarios.</div>';
+  else if(!d.rivals.length)h+='<div class="alert ai" style="font-size:12px">Aún no hay otras plantillas en este concurso para retar.</div>';
+  else h+='<div class="fg"><label class="fl">Retar a</label><select class="fs" id="dvf-to">'+d.rivals.map(function(r){return'<option value="'+r.id+'">'+fnEsc(r.userName)+' — '+fnEsc(r.teamName)+' ('+fnPts(r.available)+' pts disp.)</option>';}).join('')+'</select></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Puntos a apostar (tienes '+fnPts(d.mine.available)+')</label><input class="fi" id="dvf-st" type="number" min="0" max="'+d.mine.available+'" step="0.5" value="1" inputmode="decimal"></div>'
+    +'<div class="fg"><label class="fl">Innings</label><select class="fs" id="dvf-in">'+[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===3?'selected':'')+'>'+n+'</option>';}).join('')+'</select></div></div>'
+    +'<button class="btn bp" onclick="fnDiviCreate()">&#127922; Enviar reto</button>';
+  h+='</div>';
+  if(d.matches.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:6px">Mis partidas de este concurso</div>'+d.matches.map(function(x,i){
+    var rival=x.me==='a'?x.bName:x.aName,line='',acts='';
+    if(x.status==='invite'&&x.me==='b'){line='<b>'+fnEsc(x.aName)+'</b> te retó: apuesta '+fnPts(x.stake)+' pts &middot; '+x.innings+' inn.';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Rechazar</button> <button class="btn bp bsm" onclick="fnDiviYes(\''+x.code+'\')">Aceptar</button>';}
+    else if(x.status==='invite'){line='Esperando a <b>'+fnEsc(rival)+'</b> &middot; '+fnPts(x.stake)+' pts';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Cancelar</button>';}
+    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+(x.me==='a'?x.sa+'-'+x.sb:x.sb+'-'+x.sa)+' &middot; <b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'Ganaste +':'Perdiste -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
+    else{line='vs <b>'+fnEsc(rival)+'</b> &middot; '+fnPts(x.stake)+' pts &middot; '+(x.status==='playing'?'<span style="color:var(--acc)">en juego</span>':'armando lineups');acts='<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>';}
+    return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;'+(i?'border-top:1px solid var(--bdr);':'')+'font-size:12px"><div>'+line+'</div><div style="display:flex;gap:6px">'+acts+'</div></div>';
+  }).join('')+'</div>';
+  return h;
+}
+async function fnDiviCreate(){
+  var to=fv('dvf-to'),st=parseFloat(fv('dvf-st'))||0,inn=parseInt(fv('dvf-in'))||3;
+  if(!to){toast('Elige a quién retar','error');return;}
+  var r=await api('divCreate',{tournamentId:_FN.tid,innings:inn,mode:'pvp',fantasy:{phase:_FN.phase,toFid:to,stake:st}});
+  if(r&&r.ok){toast('Reto enviado. Tu rival debe aceptarlo para iniciar.','success');fnLoad();}else toast((r&&r.error)||'No se pudo enviar el reto','error');
+}
+async function fnDiviYes(code){
+  var r=await api('divJoin',{code:code});
+  if(r&&r.ok){fnLoad();dvOpenWith(r.match);}else toast((r&&r.error)||'No se pudo aceptar','error');
+}
+async function fnDiviNo(code){
+  if(!confirm('¿Seguro?'))return;
+  var r=await api('divCancel',{code:code});
+  if(r&&r.ok){toast('Listo','success');fnLoad();}else toast((r&&r.error)||'No se pudo','error');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -17560,7 +17992,7 @@ function fnBenchKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.bench)||0);i++)
 function fnRelKeys(d){var a=[];for(var i=1;i<=((d.caps&&d.caps.relievers)||0);i++)a.push('R'+i);return a;}
 // Parámetros del concurso según la pestaña activa
 function fnCtx(){
-  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='week'||_FN.tab==='adivina')return{kind:'fase',phase:_FN.phase,day:''};
+  if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='week'||_FN.tab==='adivina'||_FN.tab==='divi')return{kind:'fase',phase:_FN.phase,day:''};
   if(_FN.tab==='daily')return{kind:'dia',phase:'',day:_FN.day||''};
   return{kind:_FN.kind,phase:_FN.phase,day:''};
 }
@@ -17605,7 +18037,7 @@ function fnOnSel(level,v){
   else _FN.tid=v;
   fnResolveSel();fnReset();fnRender();fnLoad();
 }
-function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;_FN.wk=null;_FN.wkSel='';_FN.adv=null;}
+function fnReset(){_FN.data=null;_FN.pm={};_FN.vm={};_FN.slots={};_FN.parked=[];_FN.name='';_FN.sel='';_FN.q='';_FN.pf='';_FN.err='';_FN.editing=false;_FN.orig={};_FN.dsel=[];_FN.dper=1;_FN.arranged=false;_FN.cdFired={};_FN.trades=null;_FN.tr={from:'',uid:'',to:'',offers:{}};_FN.chal=null;_FN.cf=null;_FN.wk=null;_FN.wkSel='';_FN.adv=null;_FN.divi=null;}
 // Cambio de pestaña / tipo / fase / día: otro concurso, se recarga
 function fnCtxChange(){fnReset();fnRender();fnLoad();}
 function fnSetTab(t){if(_FN.tab===t)return;_FN.tab=t;fnCtxChange();}
@@ -17622,6 +18054,12 @@ async function fnLoad(){
     _FN.wk=(rw&&rw.ok)?rw:{error:(rw&&rw.error)||'No se pudo cargar el Equipo de la Semana',weeks:[],slots:[]};
     _FN.wkAt=Date.now();
     fnRender();return;
+  }
+  if(_FN.tab==='divi'){
+    var rd=await api('getFantasyDivMatches',{tournamentId:tid,phase:cx.phase});
+    if(key!==_FN.ckey||curP!=='fantasy')return;
+    _FN.divi=(rd&&rd.ok)?rd:{error:(rd&&rd.error)||'No se pudieron cargar las partidas'};
+    _FN.diviAt=Date.now();fnRender();return;
   }
   if(_FN.tab==='adivina'){
     var ra=await api('getFantasyAdivina',{tournamentId:tid});
@@ -17650,6 +18088,7 @@ function fnTick(){
   // Mientras arma su plantilla no se redibuja (no perder lo que va arrastrando)
   if(_FN.tab==='week'){if(Date.now()-(_FN.wkAt||0)>300000)fnLoad();return;}
   if(_FN.tab==='adivina'){if(Date.now()-(_FN.advAt||0)>60000)fnLoad();return;}
+  if(_FN.tab==='divi'){if(Date.now()-(_FN.diviAt||0)>30000)fnLoad();return;}
   if(_FN.tab==='team'&&!(_FN.data&&_FN.data.hasMine))return;
   fnTickLoad();
 }
@@ -18104,15 +18543,17 @@ function fnAccessCard(d){
 }
 // Puntos ganados o perdidos en DESAFIOS, por fecha (el dia en que termino cada desafio): 1 vs 1, equipos y Royal Rumble.
 function fnChallengeDaysCard(d){
-  var rows=d.chDays||[],other=d.chOther||0;
-  if(d.kind!=='fase'||(!rows.length&&!other))return'';
+  var rows=d.chDays||[],other=d.chOther||0,advP=d.chAdv||0,divP=d.chDiv||0;
+  if(d.kind!=='fase'||(!rows.length&&!other&&!advP&&!divP))return'';
   var sum=0;rows.forEach(function(x){sum+=x.pts;});
   var chips=rows.slice(-20).map(function(r){
     var c=r.pts>0?'#3ecf6e':'var(--red)';
     return'<span style="font-size:11px;border:1px solid var(--bdr);border-radius:8px;padding:2px 7px">'+fnEsc((r.day||'').slice(5))+' &middot; '+fnEsc(r.label)+' <b style="color:'+c+'">'+(r.pts>0?'+':'')+fnPts(r.pts)+'</b></span>';
   }).join(' ');
   var oth=Math.abs(other)>=0.005?'<div style="font-size:11px;color:var(--t3);margin-top:6px">Cambios de jugadores con puntos ofrecidos: <b style="color:'+(other<0?'var(--red)':'#3ecf6e')+'">'+(other>0?'+':'')+fnPts(other)+'</b></div>':'';
-  var tot=Math.round((sum+other)*100)/100;
+  var ln=function(lbl,v){return Math.abs(v)>=0.005?'<div style="font-size:11px;color:var(--t3);margin-top:6px">'+lbl+': <b style="color:'+(v<0?'var(--red)':'#3ecf6e')+'">'+(v>0?'+':'')+fnPts(v)+'</b></div>':'';};
+  oth+=ln('Adivina (puntos ganados al adivinar, menos lo que costaron las adivinanzas)',advP)+ln('Partidas de Diviértete (puntos apostados)',divP);
+  var tot=Math.round((sum+other+advP+divP)*100)/100;
   return'<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><div style="font-weight:700">&#9876; Puntos por desafíos</div>'
     +'<div style="font-size:11px;color:var(--t3)">Lo que ganó o perdió tu plantilla en cada desafío terminado'+(rows.length>20?' &middot; últimos 20':'')+'</div></div>'
     +'<div style="font-family:Barlow Condensed,sans-serif;font-size:30px;font-weight:800;color:'+(tot<0?'var(--red)':'var(--acc)')+'">'+(tot>0?'+':'')+fnPts(tot)+'</div></div>'
@@ -18376,7 +18817,7 @@ function fnCtxBar(){
   if(_FN.tab==='team'){
     inner=lb('Tipo de plantilla','<select class="fs" onchange="fnSetKind(this.value)">'+opt('fase','Fase del torneo',_FN.kind)+opt('dia','Jugada diaria',_FN.kind)+'</select>')
       +(_FN.kind==='fase'?lb('Fase',phSel):'');
-  }else if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges')inner=lb('Fase',phSel);
+  }else if(_FN.tab==='rank'||_FN.tab==='trades'||_FN.tab==='challenges'||_FN.tab==='divi')inner=lb('Fase',phSel);
   else{
     var today=_FN.data?_FN.data.today:'';
     inner=lb('Día','<input type="date" class="fi" '+(today?'max="'+today+'"':'')+' value="'+fnEsc(_FN.day||(_FN.data?_FN.data.day:''))+'" onchange="fnSetDay(this.value)">');
@@ -18898,12 +19339,13 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+tab('adivina','&#127919; Adivina')+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+tab('adivina','&#127919; Adivina')+tab('divi','&#127922; Partidas')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
   else if(_FN.tab==='week')h+=fnWeekTab();
   else if(_FN.tab==='adivina')h+=fnAdvTab();
+  else if(_FN.tab==='divi')h+=fnDiviTab();
   else if(!d)h+='<div class="card"><div class="empty">'+(_FN.err?'<div style="color:#f87171;margin-bottom:10px">'+fnEsc(_FN.err)+'</div><button class="btn bp bsm" onclick="_FN.err=\'\';fnRender();fnLoad()">Reintentar</button>':'Cargando...')+'</div></div>';
   else if(_FN.tab==='rank'){
     h+='<div class="card" id="fn-rank"><div style="font-weight:700;margin-bottom:6px">Clasificación — '+FN_PH[d.phase]+'</div>'+fnRankRows(d,false)
@@ -22276,7 +22718,7 @@ function webAdsAllowed(){return webAdsAudienceOk()&&webAdsCfg().on;}
 // POPUNDER: el script debe correr en la pagina principal (necesita ver los clics del usuario), por eso NO va en iframe: solo se carga
 // para el publico anterior, una vez por carga de pagina, y solo si es un <script src="https://...">. No se puede descargar un script ya
 // cargado: si despues la sesion deja de ser elegible (p. ej. un visitante inicia sesion como staff), se recarga la pagina una vez.
-var _webAdsPopCode='',_webAdsPopGuardOn=false;
+var _webAdsPopCode='',_webAdsPopGuardOn=false,_webAdsPopSpent=false,_webAdsPopTimer=null;
 // PAUSA del popunder: cuando le sale a un usuario (se detecta porque la ventana pierde el foco justo despues de un clic real, que es lo que
 // pasa al abrirse la pestana por detras) se guarda hasta cuando puede volver a salirle (localStorage de ESE dispositivo). Mientras dura la
 // pausa se bloquea window.open y los clics sinteticos en enlaces nuevos que haga el script; al pasar el tiempo se libera solo.
@@ -22292,7 +22734,7 @@ function webAdsPopGuard(){
     if(a&&(a.target==='_blank'||a.target==='_new')){e.preventDefault();e.stopPropagation();}
   },true);
   var armed=0;
-  function fired(){if(armed&&Date.now()-armed<1500){armed=0;webAdsPopSetNext(webAdsCfg().popMin*60000);}}
+  function fired(){if(armed&&Date.now()-armed<1500){armed=0;webAdsPopSetNext(webAdsCfg().popMin*60000);_webAdsPopSpent=true;webAdsPopSchedule();}}
   document.addEventListener('pointerup',function(e){if(e.isTrusted&&Date.now()>=webAdsPopNext())armed=Date.now();},true);
   window.addEventListener('blur',fired);
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')fired();});
@@ -22306,16 +22748,41 @@ function webAdsPopInit(){
       else{try{sessionStorage.removeItem('vpPopReload');}catch(e){}}
       return;
     }
-    if(_webAdsPopCode)return;   // ya cargado en esta pagina
-    if(webAdsPopNext()>Date.now())return;   // todavia en pausa porque ya le salio: se vuelve a evaluar al navegar
+    if(_webAdsPopCode){   // ya cargado en esta pagina: si ya le salio y la pausa termino, se vuelve a armar (el script de Adsterra se da de baja solo despues de salir)
+      if(_webAdsPopSpent&&webAdsPopNext()<=Date.now())webAdsPopRearm();
+      return;
+    }
+    if(webAdsPopNext()>Date.now()){_webAdsPopSpent=true;webAdsPopSchedule();return;}   // todavia en pausa porque ya le salio: se arma solo al terminar la pausa
     _webAdsPopCode=c.pop;
     webAdsPopGuard();
-    var tpl=document.createElement('template');tpl.innerHTML=c.pop;
-    tpl.content.querySelectorAll('script').forEach(function(old){
-      var s=document.createElement('script');
-      for(var i=0;i<old.attributes.length;i++)s.setAttribute(old.attributes[i].name,old.attributes[i].value);
-      s.text=old.text;(document.body||document.documentElement).appendChild(s);
-    });
+    webAdsPopInject(c.pop);
+  }catch(e){}
+}
+function webAdsPopInject(code){
+  var tpl=document.createElement('template');tpl.innerHTML=code;
+  tpl.content.querySelectorAll('script').forEach(function(old){
+    var s=document.createElement('script');
+    for(var i=0;i<old.attributes.length;i++)s.setAttribute(old.attributes[i].name,old.attributes[i].value);
+    s.setAttribute('data-vp-pop','1');
+    s.text=old.text;(document.body||document.documentElement).appendChild(s);
+  });
+}
+// El script del popunder, una vez que abre la pestana, deja de escuchar clics hasta que la pagina se recarga. Por eso, cuando termina la pausa
+// configurada se quita y se vuelve a cargar: asi vuelve a quedar armado para el siguiente clic SIN recargar la app (antes nunca volvia a salir).
+function webAdsPopSchedule(){
+  if(_webAdsPopTimer)clearTimeout(_webAdsPopTimer);
+  var ms=Math.max(1000,webAdsPopNext()-Date.now()+500);
+  _webAdsPopTimer=setTimeout(function(){_webAdsPopTimer=null;webAdsPopRearm();},ms);
+}
+function webAdsPopRearm(){
+  try{
+    var c=webAdsCfg();
+    if(!(webAdsAudienceOk()&&c.popOn&&webAdsValidPop(c.pop)))return;
+    if(webAdsPopNext()>Date.now()){webAdsPopSchedule();return;}
+    _webAdsPopSpent=false;
+    document.querySelectorAll('script[data-vp-pop]').forEach(function(n){if(n.parentNode)n.parentNode.removeChild(n);});
+    if(!_webAdsPopCode){_webAdsPopCode=c.pop;webAdsPopGuard();}
+    webAdsPopInject(c.pop);
   }catch(e){}
 }
 // Banners "iframe" de Adsterra traen atOptions con 'width' y 'height' fijos; los Native Banner no (alto automatico).
