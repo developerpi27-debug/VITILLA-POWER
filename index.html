@@ -8600,16 +8600,56 @@ function bcToggleMic(){
 async function bcFlip(){
   if(!_BC.id||_BC.flipping)return;
   _BC.flipping=true;
+  var md=navigator.mediaDevices,dims=_BC.dims||[1280,720];
   var nxt=_BC.cam==='environment'?'user':'environment';
+  var oldT=(_BC.stream&&_BC.stream.getVideoTracks()[0])||null;
+  var oldSet=(oldT&&oldT.getSettings)?oldT.getSettings():{};
+  var oldId=oldSet.deviceId||'';
+  function cons(extra){return{video:Object.assign({width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},extra),audio:false};}
+  async function open(extra){try{return await md.getUserMedia(cons(extra));}catch(e){return null;}}
+  // ¿La pista nueva es realmente OTRA cámara?
+  function isOther(t){
+    var st=(t&&t.getSettings)?t.getSettings():{};
+    if(st.facingMode&&oldSet.facingMode)return st.facingMode!==oldSet.facingMode;
+    if(st.deviceId&&oldId)return st.deviceId!==oldId;
+    return true;
+  }
   try{
-    var ns=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:nxt},width:{ideal:_BC.dims[0]},height:{ideal:_BC.dims[1]},frameRate:{ideal:30,max:30}}});
+    // En la mayoría de celulares Android NO se puede abrir una segunda cámara mientras la primera sigue activa
+    // (getUserMedia falla con NotReadableError), por eso primero se libera la actual y, si no se logra, se restaura.
+    if(oldT){try{oldT.stop();}catch(e){}}
+    var ns=await open({facingMode:{exact:nxt}});
+    if(ns&&!isOther(ns.getVideoTracks()[0])){ns.getTracks().forEach(function(t){t.stop();});ns=null;}
+    if(!ns){ns=await open({facingMode:{ideal:nxt}});if(ns&&!isOther(ns.getVideoTracks()[0])){ns.getTracks().forEach(function(t){t.stop();});ns=null;}}
+    if(!ns){
+      // Respaldo por deviceId (PC / dispositivos que no informan facingMode): siguiente cámara de la lista
+      try{
+        var devs=(await md.enumerateDevices()).filter(function(d){return d.kind==='videoinput'&&d.deviceId;});
+        if(devs.length>1){
+          var ix=devs.map(function(d){return d.deviceId;}).indexOf(oldId);
+          for(var k=1;k<devs.length&&!ns;k++){
+            var cand=devs[(ix+k+devs.length)%devs.length];
+            ns=await open({deviceId:{exact:cand.deviceId}});
+          }
+        }
+      }catch(e){}
+    }
+    var restored=false;
+    if(!ns){
+      // No se pudo cambiar: se vuelve a abrir la cámara anterior para no cortar el video de la transmisión
+      ns=(oldId?await open({deviceId:{exact:oldId}}):null)||await open({facingMode:{ideal:_BC.cam}});
+      restored=true;
+    }
+    if(!ns){toast('No se pudo cambiar de cámara.','error');_BC.flipping=false;return;}
     var nt=ns.getVideoTracks()[0];
     var snd=_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
     if(snd&&(!_BC.prog||_BC.prog==='local'))await snd.replaceTrack(nt);
-    _BC.stream.getVideoTracks().forEach(function(t){t.stop();_BC.stream.removeTrack(t);});
-    _BC.stream.addTrack(nt);_BC.cam=nxt;
+    _BC.stream.getVideoTracks().forEach(function(t){try{t.stop();}catch(e){}_BC.stream.removeTrack(t);});
+    _BC.stream.addTrack(nt);
+    if(!restored){var fm=(nt.getSettings&&nt.getSettings().facingMode)||'';_BC.cam=(fm==='user'||fm==='environment')?fm:nxt;}
     var v=document.getElementById('bcf-v');if(v&&(!_BC.prog||_BC.prog==='local')){v.srcObject=_BC.stream;}
     var v2=document.getElementById('bcs-v');if(v2&&(!_BC.prog||_BC.prog==='local')){v2.srcObject=_BC.stream;}
+    if(restored)toast('Este dispositivo no permite cambiar de cámara durante la transmisión.','info');
   }catch(e){toast('No se pudo cambiar de cámara.','error');}
   _BC.flipping=false;
 }
@@ -12017,7 +12057,9 @@ async function rPlay(type,opts){
       setTimeout(function(){openPitDecisionM(gm.id,gm.awayTeamId,gm.homeTeamId);},500);
     } else {
       toast(type+' registrado','success');
-      if(type!=='HBP'&&type!=='BK'&&type!=='BB')_gcContPending={src:(type==='E'?'err':'play')};   // BB, HBP y BK no preguntan continuidad
+      // DP con 2+ corredores: primero se pregunta a quiénes les hicieron los outs (modal de bases); la continuidad se pregunta DESPUÉS (applyDPBases)
+      var _dpAsksBases=(type==='DP'&&!sideRetired&&enBase>=2);
+      if(type!=='HBP'&&type!=='BK'&&type!=='BB'&&!_dpAsksBases)_gcContPending={src:(type==='E'?'err':'play')};   // BB, HBP y BK no preguntan continuidad
       // Doble play con 2+ corredores en base antes de la jugada: el destino de cada
       // corredor es ambiguo (depende de cómo se ejecutó el doble play), así que se le
       // pregunta al anotador cuáles bases continúan ocupadas para actualizar la pizarra.
@@ -13063,6 +13105,8 @@ async function applyDPBases(gid,omit){
     pgGC();
     toast('Bases actualizadas','success');
   } finally { _saving=false; }
+  // Ya resueltos los outs del doble play: ahora sí se pregunta la continuidad de la jugada (error / out adicional)
+  if(gm.status==='live'){_gcContPending={src:'play'};gcContFlush();}
 }
 
 function openSendToBaseM(){
@@ -13762,15 +13806,24 @@ function gcStarterInfo(gm){
   var out={tid:tid,lu:lu,ok:false,why:''};
   if(!lu||!lu.players){out.why='No hay lineup para el equipo que lanza.';return out;}
   var recs=S.pitching.filter(function(p){return p.gameId===gm.id&&p.teamId===tid;});
-  var first=recs.slice().sort(function(a,b){return(parseInt(a.id)||0)-(parseInt(b.id)||0);})[0];
-  if(!first){out.why='El abridor aún no tiene registro de pitcheo en este juego.';return out;}
-  out.starterId=first.pitcherId;
+  // El ABRIDOR es quien inició el juego como P en el lineup ORIGINAL (snapshot guardado en el primer save), sin importar que luego
+  // haya cambiado de posición por un cambio de defensa (ej. P <-> 1B). Respaldo (juegos sin snapshot): el primer registro de pitcheo
+  // por timestamp (y por orden de llegada si empatan o no hay timestamp), nunca por el texto del id.
+  var origP=(lu.originalPlayers||[]).filter(function(lp){return(lp.position||'').toUpperCase()==='P';})[0];
+  if(origP)out.starterId=origP.playerId;
+  else{
+    var first=recs.map(function(p,i){return{p:p,i:i};}).sort(function(a,b){var ta=a.p.timestamp||'',tb=b.p.timestamp||'';return ta<tb?-1:ta>tb?1:a.i-b.i;})[0];
+    if(!first){out.why='El abridor aún no tiene registro de pitcheo en este juego.';return out;}
+    out.starterId=first.p.pitcherId;
+  }
   var curLp=lu.players.filter(function(lp){return(lp.position||'').toUpperCase()==='P'&&!lp.replacedBy;})[0];
   out.curLp=curLp||null;out.curId=curLp?curLp.playerId:null;
-  out.sLp=lu.players.filter(function(lp){return lp.playerId===out.starterId;})[0]||null;
+  out.sLp=lu.players.filter(function(lp){return lp.playerId===out.starterId;}).slice(-1)[0]||null;
   if(!out.sLp){out.why='No se encontró al abridor en el lineup.';return out;}
   if(out.starterId===out.curId){out.why='El abridor ya está lanzando.';return out;}
   if(!out.curId){out.why='No hay un pitcher actual en el lineup.';return out;}
+  // El abridor sigue en el juego en otra posición (cambio de defensa): el reingreso es un simple intercambio de posiciones
+  if(!out.sLp.replacedBy){out.swapMode=true;out.ok=true;return out;}
   var others=lu.players.filter(function(lp){return lp.playerId!==out.starterId&&(lp.order||0)===(out.sLp.order||0)&&!lp.replacedBy;});
   out.canSlot=others.length===0||(others.length===1&&others[0].playerId===out.curId);
   out.ok=true;return out;
@@ -13780,6 +13833,10 @@ function openStarterReentryM(){
   var info=gcStarterInfo(gm),sp=info.starterId?playerOf(info.starterId):null,cp=info.curId?playerOf(info.curId):null;
   var body;
   if(!info.ok)body='<div class="alert aw" style="font-size:13px">'+info.why+'</div>';
+  else if(info.swapMode){
+    var sPosTxt=(info.sLp&&info.sLp.position)||'?';
+    body='<div class="alert ai" style="font-size:12px;margin-bottom:10px">El abridor <b>#'+(sp&&sp.number||'?')+' '+(sp?sp.name:'?')+'</b> sigue en el juego como <b>'+sPosTxt+'</b>. Vuelve a lanzar y <b>#'+(cp&&cp.number||'?')+' '+(cp?cp.name:'?')+'</b> pasa a '+sPosTxt+' (intercambio de posiciones, nadie sale del juego).</div>';
+  }
   else{
     var curBats=!(info.curLp&&(info.curLp.noBat===true||info.curLp.noBat==='true'));
     body='<div class="alert ai" style="font-size:12px;margin-bottom:10px">Vuelve a lanzar el abridor <b>#'+(sp&&sp.number||'?')+' '+(sp?sp.name:'?')+'</b>. Sale del montículo: <b>#'+(cp&&cp.number||'?')+' '+(cp?cp.name:'?')+'</b>.</div>'
@@ -13800,6 +13857,20 @@ async function applyStarterReentry(gid){
   var rad=document.querySelector('input[name="sr-bat"]:checked'),mode=rad?rad.value:(info.canSlot?'slot':'nobat');
   if(mode==='slot'&&!info.canSlot){toast('Ese turno al bate ya lo ocupa otro jugador','error');return;}
   var newPos=fv('sr-pos')||'DH',tid=info.tid,lu=info.lu,before=snapshotForUndo(gid,[tid]),curLeaves=false;
+  if(info.swapMode){
+    // El abridor sigue en el lineup (cambio de defensa): intercambio de posiciones P <-> su posición actual
+    var sPos=info.sLp.position,sDone=false,cDone=false;
+    for(var q=0;q<lu.players.length;q++){
+      var lq=lu.players[q];
+      if(!sDone&&lq===info.sLp){lu.players[q]=Object.assign({},lq,{position:'P'});sDone=true;}
+      else if(!cDone&&lq===info.curLp){
+        var cNoBat=(lq.noBat===true||lq.noBat==='true');
+        if(cNoBat){lu.players[q]=Object.assign({},lq,{replacedBy:info.starterId});curLeaves=true;}   // pitcher que no bateaba: sale del juego
+        else lu.players[q]=Object.assign({},lq,{position:sPos});
+        cDone=true;
+      }
+    }
+  } else
   for(var i=0;i<lu.players.length;i++){
     var lp=lu.players[i];
     if(lp.playerId===info.starterId){
