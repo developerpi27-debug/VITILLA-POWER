@@ -8209,11 +8209,22 @@ function openBroadcastM(gid){
     +'<div style="font-size:13px;color:var(--t2);margin-bottom:12px">'+nfEsc((teamOf(gm.awayTeamId)||{}).name||'Visitante')+' vs '+nfEsc((teamOf(gm.homeTeamId)||{}).name||'Local')+'</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Cámara</label><select class="fi" id="bc-cam"><option value="environment">Trasera</option><option value="user">Delantera</option></select></div>'
     +'<div class="fg"><label class="fl">Calidad</label><select class="fi" id="bc-res"><option value="720" selected>720p (recomendada)</option><option value="1080">1080p</option><option value="480">480p (poca señal)</option></select></div></div>'
+    +'<div class="fg" id="bc-devfg" style="display:none"><label class="fl">Cámara de este equipo (cámara 1)</label><select class="fi" id="bc-dev"><option value="">Automática (según Trasera / Delantera)</option></select></div>'
     +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-mic" checked style="accent-color:var(--acc);width:16px;height:16px"> Transmitir con micrófono</label>'
     +(canSave?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-rec" checked style="accent-color:var(--acc);width:16px;height:16px"> Guardar la transmisión (queda en el módulo Transmisiones)</label>'
       :'<div style="font-size:11px;color:var(--t3);margin:6px 0">Esta transmisión no se guarda: al terminar se elimina.</div>')
     +'<div class="alert ai" style="font-size:12px;margin-top:10px">El marcador y los gráficos los ve cada espectador encima del video; tú los eliges y mueves en <b>&#129513; Pantalla</b>. Puedes seguir anotando normalmente. Se mantendrá la pantalla encendida mientras transmites.</div>'
     +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" id="bc-go" data-gid="'+nfEsc(gm.id)+'" onclick="bcStart(this.dataset.gid)">&#128308; Iniciar transmisión</button></div>');
+  bcFillDevices();
+}
+// Lista las cámaras del equipo para elegir cuál es la cámara 1 (solo si hay 2 o más)
+async function bcFillDevices(){
+  try{
+    var devs=(await navigator.mediaDevices.enumerateDevices()).filter(function(d){return d.kind==='videoinput'&&d.deviceId;});
+    var sel=document.getElementById('bc-dev'),fg=document.getElementById('bc-devfg');if(!sel||!fg||devs.length<2)return;
+    sel.innerHTML='<option value="">Automática (según Trasera / Delantera)</option>'+devs.map(function(d,i){return'<option value="'+nfEsc(d.deviceId)+'">'+nfEsc(d.label||('Cámara '+(i+1)))+'</option>';}).join('');
+    fg.style.display='';
+  }catch(e){}
 }
 async function bcStart(gid){
   if(_BC.id)return;
@@ -8221,9 +8232,12 @@ async function bcStart(gid){
   function reset(){if(btn){btn.disabled=false;btn.innerHTML='&#128308; Iniciar transmisión';}}
   var cam=fv('bc-cam')||'environment',res=fv('bc-res')||'720',mic=!!(document.getElementById('bc-mic')||{}).checked,rec=!!(document.getElementById('bc-rec')||{}).checked;
   var dims={'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[res]||[1280,720];
-  var stream;
+  var stream,dev=fv('bc-dev')||'';
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cam},width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},audio:mic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false});
+    var vc={width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},ac=mic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false;
+    if(dev)vc.deviceId={exact:dev};else vc.facingMode={ideal:cam};
+    try{stream=await navigator.mediaDevices.getUserMedia({video:vc,audio:ac});}
+    catch(e1){if(!dev)throw e1;delete vc.deviceId;vc.facingMode={ideal:cam};stream=await navigator.mediaDevices.getUserMedia({video:vc,audio:ac});}   // la cámara elegida no abrió: se usa la automática
   }catch(e){
     reset();
     toast(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara y al micrófono para transmitir.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','error');return;
@@ -8405,10 +8419,10 @@ function camRenderM(){
     }else if(c.conn==='connected'){
       hh+='<div class="cam-card'+(on?' on':'')+'">'+(on?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="'+c.id+'" muted autoplay playsinline></video><div class="cap"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><span>'+(on?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\''+c.id+'\')">Al aire</button> ')+'<button class="btn bd" style="padding:3px 8px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></span></div></div>';
     }else{
-      hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div style="margin:6px 0">'+(c.status==='lost'?'Sin señal. Si la cámara sigue abierta, se reconecta sola.':'Conectando…')+'</div><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></div></div>';
+      hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div style="margin:6px 0">'+(c.local?'Esta cámara se desconectó. Quítala y vuelve a agregarla.':(c.status==='lost'?'Sin señal. Si la cámara sigue abierta, se reconecta sola.':'Conectando…'))+'</div><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></div></div>';
     }
   });
-  hh+='</div><div style="display:flex;gap:8px"><button class="btn bp" style="flex:1" '+(used>=max?'disabled':'')+' onclick="camAdd()">+ Agregar cámara'+(used>=max?' (límite alcanzado)':'')+'</button>'+(L.length?'<button class="btn bs" onclick="cM();camOpenMosaic()">&#9638; Mosaico</button>':'')+'</div>'
+  hh+='</div><div style="display:flex;gap:8px"><button class="btn bp" style="flex:1" '+(used>=max?'disabled':'')+' onclick="camAdd()">+ Agregar cámara'+(used>=max?' (límite alcanzado)':'')+'</button><button class="btn bs" '+(used>=max?'disabled':'')+' title="Usa otra cámara conectada a este mismo equipo, sin códigos ni QR" onclick="camAddLocalM()">&#128421; Cámara de esta PC</button>'+(L.length?'<button class="btn bs" onclick="cM();camOpenMosaic()">&#9638; Mosaico</button>':'')+'</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">Mantén esta pantalla y las de las cámaras encendidas y con la app abierta. Lo ideal es que todos estén en la misma red Wi-Fi. El audio sale siempre de este dispositivo.</div>';
   box.innerHTML=hh;
   Array.prototype.forEach.call(box.querySelectorAll('video[data-cv]'),function(v){
@@ -8465,6 +8479,35 @@ async function camAdd(){
   _BC.camOrder.push(r.link.id);
   camRender();camSchedule(true);
 }
+// Cámaras conectadas a ESTE mismo equipo (USB, capturadora, integrada): se abren aquí y entran a la mesa como una cámara más (sin código ni QR).
+async function camAddLocalM(){
+  if(!_BC.id)return;
+  var devs=[];
+  try{devs=(await navigator.mediaDevices.enumerateDevices()).filter(function(d){return d.kind==='videoinput'&&d.deviceId;});}catch(e){}
+  var used={},cur=_BC.stream&&_BC.stream.getVideoTracks()[0],cs=(cur&&cur.getSettings)?cur.getSettings():{};
+  if(cs.deviceId)used[cs.deviceId]=1;
+  camList().forEach(function(c){if(c.deviceId)used[c.deviceId]=1;});
+  var free=devs.filter(function(d){return!used[d.deviceId];});
+  var body=free.length?'<div style="font-size:12px;color:var(--t2);margin-bottom:8px">Elige la cámara de este equipo que quieres sumar a la mesa:</div>'+free.map(function(d,i){
+      var lb=d.label||('Cámara '+(i+1));
+      return'<button class="btn bs" style="width:100%;margin-bottom:6px;text-align:left" data-d="'+nfEsc(d.deviceId)+'" data-l="'+nfEsc(lb)+'" onclick="camAddLocal(this.dataset.d,this.dataset.l)">&#128247; '+nfEsc(lb)+'</button>';}).join('')
+    :'<div class="empty" style="padding:14px">No hay otras cámaras disponibles en este equipo (las que ya están en uso no se repiten). Conecta otra cámara y vuelve a intentar.</div>';
+  showM('<div class="mhd"><div class="mtl">&#128421; Cámara de esta PC</div><button class="bx" onclick="camOpenM()">&#10005;</button></div><div class="mbd">'+body
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5">Algunas cámaras USB o capturadoras solo se pueden abrir en un programa a la vez; si falla, ciérrala en el otro programa o pestaña.</div></div><div class="mft"><button class="btn bs" onclick="camOpenM()">Volver</button></div>');
+}
+async function camAddLocal(devId,label){
+  if(!_BC.id)return;
+  var max=_BC.camMax||camMaxLocal();
+  if(camList().length+1>=max){toast('Límite de cámaras alcanzado ('+max+').','info');camOpenM();return;}
+  var dims=_BC.dims||[1280,720],ns;
+  try{ns=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:devId},width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},audio:false});}
+  catch(e){toast('No se pudo abrir esa cámara'+(e&&e.name==='NotReadableError'?': otro programa o pestaña la está usando.':'.'),'error');camOpenM();return;}
+  var t=ns.getVideoTracks()[0],id='pc'+Date.now().toString(36);
+  var c={id:id,local:true,deviceId:devId,label:label||'Cámara de esta PC',code:'',status:'live',conn:'connected',seen:true,stream:ns,track:t};
+  t.onended=function(){if(c.track===t)camLost(c);};
+  _BC.cams=_BC.cams||{};_BC.camOrder=_BC.camOrder||[];_BC.cams[id]=c;_BC.camOrder.push(id);
+  camRender();camOpenM();toast((c.label)+' agregada','success');
+}
 function camCopy(id){
   var c=(_BC.cams||{})[id];if(!c)return;var url=camUrl(c.code);
   if(navigator.share){navigator.share({title:'Cámara para la transmisión',text:'Código '+c.code,url:url}).catch(function(){});return;}
@@ -8474,7 +8517,8 @@ function camRemove(id){
   var c=(_BC.cams||{})[id];if(!c)return;
   if(_BC.prog===id)camSwitch('local');
   try{if(c.pc){c.pc.onconnectionstatechange=null;c.pc.close();}}catch(e){}
-  apiRaw('camLinkClose',{id:id}).catch(function(){});
+  if(c.local){try{c.track.onended=null;}catch(e){}try{if(c.stream)c.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}}
+  else apiRaw('camLinkClose',{id:id}).catch(function(){});
   delete _BC.cams[id];_BC.camOrder=(_BC.camOrder||[]).filter(function(x){return x!==id;});
   camRender();
 }
@@ -8537,8 +8581,9 @@ function camLost(c){
 // Sondeo de enlaces: rapido mientras se espera/conecta una camara, lento cuando todas estan conectadas (cuida las lecturas de la base)
 function camSchedule(now){
   clearTimeout(_BC.camT);
-  if(!_BC.id||!camList().length)return;
-  var busy=camList().some(function(c){return c.conn!=='connected';});
+  var rl=camList().filter(function(c){return!c.local;});
+  if(!_BC.id||!rl.length)return;
+  var busy=rl.some(function(c){return c.conn!=='connected';});
   _BC.camT=setTimeout(camPoll,now?300:(busy?2000:8000));
 }
 async function camPoll(){
@@ -8558,7 +8603,7 @@ async function camPoll(){
 function camCleanup(b){
   try{clearTimeout(b.camT);}catch(e){}
   try{var mo=document.getElementById('cam-mos');if(mo)mo.remove();if(b.mosRs)window.removeEventListener('resize',b.mosRs);}catch(e){}
-  Object.keys(b.cams||{}).forEach(function(id){var c=b.cams[id];try{if(c.pc){c.pc.onconnectionstatechange=null;c.pc.close();}}catch(e){}apiRaw('camLinkClose',{id:id}).catch(function(){});});
+  Object.keys(b.cams||{}).forEach(function(id){var c=b.cams[id];try{if(c.pc){c.pc.onconnectionstatechange=null;c.pc.close();}}catch(e){}if(c.local){try{c.track.onended=null;}catch(e){}try{if(c.stream)c.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}}else apiRaw('camLinkClose',{id:id}).catch(function(){});});
 }
 // ── Ventanita flotante del transmisor (vista previa + controles), movible ──────────────────────────────────────────────────────────
 function bcMount(){
@@ -17752,11 +17797,11 @@ function dvName(m,k){return k==='a'?(m.a.name||'Jugador A'):(m.b.name||'Jugador 
 // ───────── pagina del modulo
 function pgDiv(){
   ct('<div class="stl">&#127922; Diviértete</div>'
-    +'<div class="ssb">Juega con dados: arma tu lineup, lanza el dado en tu turno al bate y gana. 1 hit · 2 doble · 3 triple · 4 jonrón · 5 ponche · 6 out</div>'
+    +'<div class="ssb">Juega con dados: arma tu lineup, lanza el dado en tu turno al bate y gana. 1 hit · 2 doble · 3 triple · 4 jonrón · 5 ponche · 6 out. Juega un solo juego o una serie al mejor de 3, 5, 7 o 9.</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button class="btn bp" onclick="dvCreateM(\'cpu\')">&#129302; Jugar contra la máquina</button>'
     +'<button class="btn bs" onclick="dvCreateM(\'pvp\')">&#128101; Crear partida con un amigo</button>'
     +'<button class="btn bs" onclick="dvJoinCode()">&#128273; Unirme con código</button></div>'
-    +'<div id="dv-rec"></div><div id="dv-rank"></div><div id="dv-list" class="empty"><div style="font-size:36px">&#8987;</div><div>Cargando...</div></div>');
+    +'<div id="dv-rec"></div><div id="dv-ser"></div><div id="dv-rank"></div><div id="dv-list" class="empty"><div style="font-size:36px">&#8987;</div><div>Cargando...</div></div>');
   dvLoadList();dvLoadRanking();
 }
 async function dvLoadRanking(){
@@ -17767,14 +17812,14 @@ async function dvLoadRanking(){
   var th='style="text-align:center;padding:5px 4px;font-size:10px;color:var(--t3);font-weight:700"';
   el.innerHTML='<div class="card" style="margin-bottom:14px"><div style="font-weight:700;margin-bottom:2px">&#127942; Ranking de ganadores</div>'
     +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Todas las partidas terminadas (vs máquina, amigos y desafíos). Orden: mejor porcentaje de victorias y luego más victorias.</div>'
-    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th '+th+'>#</th><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Jugador</th><th '+th+'>V</th><th '+th+'>D</th><th '+th+'>%</th><th '+th+'>&#129302;</th><th '+th+'>&#128101;</th></tr></thead><tbody>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th '+th+'>#</th><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Jugador</th><th '+th+'>V</th><th '+th+'>D</th><th '+th+'>%</th><th '+th+'>&#129302;</th><th '+th+'>&#128101;</th><th '+th+'>&#127942; S</th></tr></thead><tbody>'
     +r.rows.map(function(x,i){
       var pc=(x.pct*100).toFixed(0)+'%';
       return'<tr style="border-top:1px solid var(--bdr);'+(x.me?'background:rgba(245,166,35,.12);font-weight:700':'')+'"><td style="text-align:center;padding:6px 4px">'+(medal[i]||(i+1))+'</td><td style="padding:6px 4px">'+nfEsc(x.name)+(x.me?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</td>'
         +'<td style="text-align:center;color:#34d399">'+x.w+'</td><td style="text-align:center;color:#f87171">'+x.l+'</td><td style="text-align:center;font-weight:700">'+pc+'</td>'
-        +'<td style="text-align:center;font-size:11px;color:var(--t3)">'+x.cpuW+'-'+x.cpuL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+x.pvpW+'-'+x.pvpL+'</td></tr>';
+        +'<td style="text-align:center;font-size:11px;color:var(--t3)">'+x.cpuW+'-'+x.cpuL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+x.pvpW+'-'+x.pvpL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+(x.serW||0)+'-'+(x.serL||0)+'</td></tr>';
     }).join('')+'</tbody></table></div>'
-    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · &#129302; vs máquina (V-D) · &#128101; vs amigos y desafíos (V-D)</div></div>';
+    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · &#129302; vs máquina (V-D) · &#128101; vs amigos y desafíos (V-D) · &#127942; S = series (V-D). Una serie cuenta 1 sola victoria o derrota al terminar.</div></div>';
 }
 async function dvLoadList(){
   var r=await api('divList',{});
@@ -17782,9 +17827,10 @@ async function dvLoadList(){
   if(!(r&&r.ok)){el.className='empty';el.innerHTML='<div style="font-size:36px">&#128274;</div><div>'+nfEsc((r&&r.error)||'No se pudo cargar')+'</div>';return;}
   var c=r.record,box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:#34d399">'+w+'</span> - <span style="color:#f87171">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Ganadas - Perdidas</div></div>';};
   rec.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+box('&#128101; Contra amigos',c.pvpW,c.pvpL)+box('&#129302; Contra la máquina',c.cpuW,c.cpuL)+box('&#127942; Total',c.pvpW+c.cpuW,c.pvpL+c.cpuL)+'</div>';
-  if(!r.matches.length){el.className='empty';el.innerHTML='<div style="font-size:40px">&#127922;</div><div>Aún no has jugado. ¡Lanza tu primera partida!</div>';return;}
+  var se=document.getElementById('dv-ser');if(se)se.innerHTML=dvSeriesHtml(r);
+  if(!r.matches.length){if((r.series||[]).length){el.className='';el.innerHTML='';return;}el.className='empty';el.innerHTML='<div style="font-size:40px">&#127922;</div><div>Aún no has jugado. ¡Lanza tu primera partida!</div>';return;}
   el.className='';
-  el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Mis partidas</div>'+r.matches.map(function(x){
+  el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Mis juegos sueltos</div>'+r.matches.map(function(x){
     var st={invite:['Reto pendiente','var(--t3)'],lobby:['Armando lineups','#fbbf24'],playing:['En juego','var(--acc)'],finished:x.winner===x.me?['&#127942; Ganada','#34d399']:['Perdida','#f87171']}[x.status]||['','var(--t3)'];
     var sc=(x.sa!=null&&x.sb!=null)?(x.me==='a'?x.sa+' - '+x.sb:x.sb+' - '+x.sa):'';
     return'<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(x.mode==='cpu'?'&#129302; Máquina':'&#128101; '+nfEsc(x.rival||'Esperando rival'))+(x.fantasy?' <span style="font-size:10px;color:var(--acc)">&#127919; Fantasía '+(x.stake?x.stake+' pts':'')+'</span>':'')+'</div>'
@@ -17793,21 +17839,113 @@ async function dvLoadList(){
       +((x.status==='lobby'||x.status==='playing'||x.status==='invite')?'<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>':'<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>')+'</div></div>';
   }).join('');
 }
-function dvCreateM(mode){
-  var l=(typeof toursByYear==='function'?toursByYear():[]);if(!l.length)l=S.tournaments||[];
-  if(!l.length){toast('No hay subtorneos disponibles. Filtra un torneo primero.','error');return;}
-  var sel=l.map(function(t){return'<option value="'+t.id+'" '+(String(S.tourFilter)===String(t.id)?'selected':'')+'>'+nfEsc(t.name)+'</option>';}).join('');
+// Selección propia de Diviértete (igual que Fantasía): deporte > torneo padre > año > subtorneo. De ahí salen los jugadores.
+var _DVC={sport:'',parent:'',year:0,tid:'',cat:null};
+function dvcResolve(){
+  var c=_DVC.cat||{parents:S.parentTournaments||[],tours:S.tournaments||[]},pts=c.parents||[],tours=c.tours||[];
+  var sports=SPORT_TYPES.filter(function(s){return pts.some(function(x){return (x.type||'vitilla')===s.id;});});
+  if(!sports.some(function(s){return s.id===_DVC.sport;}))_DVC.sport=sports.length?sports[0].id:'';
+  var parents=pts.filter(function(x){return (x.type||'vitilla')===_DVC.sport;});
+  if(!parents.some(function(x){return String(x.id)===String(_DVC.parent);}))_DVC.parent=parents.length?parents[0].id:'';
+  var subs=tours.filter(function(x){return String(x.parentTournamentId)===String(_DVC.parent);});
+  var years=[];subs.forEach(function(x){var y=parseInt(x.year)||0;if(years.indexOf(y)<0)years.push(y);});
+  years.sort(function(a,b){return b-a;});
+  if(years.indexOf(_DVC.year)<0)_DVC.year=years.length?years[0]:0;
+  var list=subs.filter(function(x){return (parseInt(x.year)||0)===_DVC.year;});
+  if(!list.some(function(x){return String(x.id)===String(_DVC.tid);})){
+    var latest=list.slice().sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''))||String(b.id).localeCompare(String(a.id));})[0];
+    _DVC.tid=latest?latest.id:'';
+  }
+  return{sports:sports,parents:parents,years:years,list:list};
+}
+function dvcSelHtml(){
+  var sel=dvcResolve();
+  function o(arr,cur,val,lbl){return arr.map(function(x){var v=val(x);return'<option value="'+nfEsc(String(v))+'" '+(String(v)===String(cur)?'selected':'')+'>'+nfEsc(String(lbl(x)))+'</option>';}).join('');}
+  function f(level,label,opts){return'<div class="fg"><label class="fl">'+label+'</label><select class="fs" onchange="dvcOnSel(\''+level+'\',this.value)">'+opts+'</select></div>';}
+  return'<div class="fr c2">'+f('sport','Deporte',o(sel.sports,_DVC.sport,function(x){return x.id;},function(x){return x.lbl;}))
+    +f('parent','Torneo',o(sel.parents,_DVC.parent,function(x){return x.id;},function(x){return x.name;}))+'</div>'
+    +'<div class="fr c2">'+f('year','Año',o(sel.years,_DVC.year,function(x){return x;},function(x){return x||'—';}))
+    +f('tid','Subtorneo (de aquí salen los jugadores)',o(sel.list,_DVC.tid,function(x){return x.id;},function(x){return x.name;}))+'</div>';
+}
+function dvcOnSel(level,v){
+  if(level==='sport'){_DVC.sport=v;_DVC.parent='';_DVC.year=0;_DVC.tid='';}
+  else if(level==='parent'){_DVC.parent=v;_DVC.year=0;_DVC.tid='';}
+  else if(level==='year'){_DVC.year=parseInt(v)||0;_DVC.tid='';}
+  else _DVC.tid=v;
+  var el=document.getElementById('dvc-sel');if(el)el.innerHTML=dvcSelHtml();
+}
+function dvBoLabel(n){return n>1?'Serie al mejor de '+n+' (gana quien llegue a '+(Math.floor(n/2)+1)+')':'Un solo juego';}
+async function dvCreateM(mode){
+  if(!_DVC.cat){
+    var rc=await api('divCatalog',{});
+    _DVC.cat=(rc&&rc.ok)?{parents:rc.parents,tours:rc.tours}:{parents:S.parentTournaments||[],tours:S.tournaments||[]};
+  }
+  // arranca con el torneo que tengas filtrado en la app (si hay); si no, el último subtorneo creado
+  var pre=S.tourFilter?(_DVC.cat.tours||[]).filter(function(x){return String(x.id)===String(S.tourFilter);})[0]:null;
+  if(pre){var pp=(_DVC.cat.parents||[]).filter(function(x){return String(x.id)===String(pre.parentTournamentId);})[0];if(pp){_DVC.sport=pp.type||'vitilla';_DVC.parent=pp.id;_DVC.year=parseInt(pre.year)||0;_DVC.tid=pre.id;}}
+  var sel=dvcResolve();
+  if(!sel.list.length&&!_DVC.tid){toast('No hay subtorneos disponibles.','error');return;}
   var inn=[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===3?'selected':'')+'>'+n+' inning'+(n>1?'s':'')+'</option>';}).join('');
+  var bo=[1,3,5,7,9].map(function(n){return'<option value="'+n+'">'+dvBoLabel(n)+'</option>';}).join('');
   showM('<div class="mhd"><div class="mtl">'+(mode==='cpu'?'&#129302; Jugar contra la máquina':'&#128101; Crear partida con un amigo')+'</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="fg"><label class="fl">Subtorneo (de aquí salen los jugadores)</label><select class="fs" id="dvc-t">'+sel+'</select></div>'
-    +'<div class="fg"><label class="fl">¿De cuántos innings?</label><select class="fs" id="dvc-i">'+inn+'</select></div>'
-    +'<div style="font-size:12px;color:var(--t3)">'+(mode==='cpu'?'La máquina arma su equipo al azar. Tú eliges tu lineup por posición.':'Al crearla recibirás un link para compartir con tu rival. Cada uno arma su lineup y, cuando ambos estén listos, inician.')+'</div></div>'
+    +'<div class="mbd"><div id="dvc-sel">'+dvcSelHtml()+'</div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">¿De cuántos innings cada juego?</label><select class="fs" id="dvc-i">'+inn+'</select></div>'
+    +'<div class="fg"><label class="fl">Formato</label><select class="fs" id="dvc-bo">'+bo+'</select></div></div>'
+    +'<div style="font-size:12px;color:var(--t3)">'+(mode==='cpu'?'La máquina arma su equipo al azar. Tú eliges tu lineup por posición.':'Al crearla recibirás un link para compartir con tu rival. Cada uno arma su lineup y, cuando ambos estén listos, inician.')
+    +' En una serie, el ranking cuenta solo 1 victoria o 1 derrota cuando la serie termina.</div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" onclick="dvCreate(\''+mode+'\')">Crear</button></div>');
 }
 async function dvCreate(mode){
-  var t=fv('dvc-t'),i=fv('dvc-i');
-  var r=await api('divCreate',{tournamentId:t,innings:parseInt(i)||3,mode:mode});
+  var t=_DVC.tid,i=fv('dvc-i'),bo=parseInt(fv('dvc-bo'))||1;
+  if(!t){toast('Elige un subtorneo','error');return;}
+  var r=await api('divCreate',{tournamentId:t,innings:parseInt(i)||3,mode:mode,bestOf:bo});
   if(r&&r.ok){cM();dvOpenWith(r.match);}else toast((r&&r.error)||'No se pudo crear la partida','error');
+}
+// Marcador de la serie (banner dentro de la partida)
+function dvSerHtml(m){
+  var s=m.series;if(!s)return'';
+  var me=m.me||'a',op=dvOther(me),mw=me==='a'?s.aWins:s.bWins,ow=me==='a'?s.bWins:s.aWins;
+  return'<div class="card" style="margin-bottom:10px;text-align:center;padding:8px 10px"><div style="font-size:11px;color:var(--t3)">&#127942; Serie al mejor de <b>'+s.bestOf+'</b> &middot; Juego '+(m.gameNo||1)+' &middot; gana quien llegue a '+s.need+'</div>'
+    +'<div style="font-family:Barlow Condensed,sans-serif;font-size:24px;font-weight:800">'+nfEsc(dvName(m,me))+' <span style="color:var(--acc)">'+mw+'</span> - <span style="color:var(--acc)">'+ow+'</span> '+nfEsc(dvName(m,op))+'</div></div>';
+}
+// Bloque de resultado cuando termina un juego (suelto, juego de una serie o final de la serie)
+function dvFinishedHtml(m,st){
+  var won=m.winner===m.me,s=m.series,col=function(w){return w?'#34d399':'#f87171';};
+  var sc=nfEsc(dvName(m,m.winner))+' gana '+st.sc[m.winner]+' a '+st.sc[dvOther(m.winner)];
+  if(s&&s.status!=='finished'&&s.curCode&&s.curCode!==m.code){
+    return'<div style="font-size:30px">'+(won?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+col(won)+'">'+(won?'Ganaste el juego ':'Perdiste el juego ')+(m.gameNo||1)+'</div><div style="font-size:12px;color:var(--t3)">'+sc+'</div>'
+      +'<button class="btn bp bsm" style="margin-top:8px" onclick="dvOpen(\''+s.curCode+'\')">Siguiente juego &#9654;</button>';
+  }
+  if(s){
+    var sw=s.winner===m.me;
+    return'<div style="font-size:30px">'+(sw?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+col(sw)+'">'+(sw?'¡Ganaste la serie!':'Perdiste la serie')+'</div>'
+      +'<div style="font-size:12px;color:var(--t3)">Serie '+(m.me==='a'?s.aWins+' - '+s.bWins:s.bWins+' - '+s.aWins)+' &middot; último juego: '+sc
+      +(m.stake?'<br><b style="color:'+col(sw)+'">'+(sw?'+':'-')+m.stake+' pts de Fantasía</b>':'')+'</div>'
+      +(m.mode==='cpu'?'<button class="btn bp bsm" style="margin-top:8px" onclick="dvRematch()">&#129302; Otra serie vs máquina</button>':'');
+  }
+  return'<div style="font-size:30px">'+(won?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+col(won)+'">'+(won?'¡Ganaste!':'Perdiste')+'</div><div style="font-size:12px;color:var(--t3)">'+sc
+    +(m.stake?'<br><b style="color:'+col(won)+'">'+(won?'+':'-')+m.stake+' pts de Fantasía</b>':'')+'</div>'
+    +(m.mode==='cpu'?'<button class="btn bp bsm" style="margin-top:8px" onclick="dvRematch()">&#129302; Otra vs máquina</button>':'');
+}
+// Página Diviértete: récord de series, enfrentamientos por rival y mis series
+function dvSeriesHtml(r){
+  var sr=r.seriesRecord||{pvpW:0,pvpL:0,cpuW:0,cpuL:0},sl=r.series||[],hh=r.h2h||[];
+  if(!sl.length)return'';
+  var box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:#34d399">'+w+'</span> - <span style="color:#f87171">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Series ganadas - perdidas</div></div>';};
+  var th='style="text-align:center;padding:5px 4px;font-size:10px;color:var(--t3);font-weight:700"';
+  var h='<div style="font-weight:700;margin:4px 0 8px">&#127942; Mis series</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    +box('&#128101; Series vs amigos',sr.pvpW,sr.pvpL)+box('&#129302; Series vs máquina',sr.cpuW,sr.cpuL)+box('&#127942; Total series',sr.pvpW+sr.cpuW,sr.pvpL+sr.cpuL)+'</div>';
+  if(hh.length)h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px;font-size:13px">Enfrentamientos de serie</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Rival</th><th '+th+'>Series V-D</th><th '+th+'>Juegos V-D</th><th '+th+'>Carreras</th></tr></thead><tbody>'
+    +hh.map(function(x){return'<tr style="border-top:1px solid var(--bdr)"><td style="padding:6px 4px">'+(x.cpu?'&#129302; ':'&#128101; ')+nfEsc(x.rival)+'</td><td style="text-align:center;font-weight:700"><span style="color:#34d399">'+x.sw+'</span>-<span style="color:#f87171">'+x.sl+'</span></td><td style="text-align:center">'+x.gw+'-'+x.gl+'</td><td style="text-align:center;color:var(--t3)">'+x.rf+' - '+x.ra+'</td></tr>';}).join('')
+    +'</tbody></table></div><div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · Carreras = a favor - en contra, dentro de las series</div></div>';
+  h+=sl.map(function(x){
+    var st=x.status==='finished'?(x.winner===x.me?['&#127942; Serie ganada','#34d399']:['Serie perdida','#f87171']):(x.status==='invite'?['Reto pendiente','var(--t3)']:['En juego','var(--acc)']);
+    return'<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(x.mode==='cpu'?'&#129302; Máquina':'&#128101; '+nfEsc(x.rival||'Esperando rival'))+' <span style="font-size:10px;color:var(--acc)">Mejor de '+x.bestOf+'</span>'+(x.fantasy?' <span style="font-size:10px;color:var(--acc)">&#127919; Fantasía '+(x.stake?x.stake+' pts':'')+'</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--t3)">'+nfEsc(x.tournament)+' &middot; '+x.innings+' inn. &middot; '+nfEsc(x.day)+' &middot; <b>'+x.mw+' - '+x.ow+'</b></div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;color:'+st[1]+'">'+st[0]+'</span>'
+      +(x.code?'<button class="btn '+(x.status==='finished'?'bs':'bp')+' bsm" onclick="dvOpen(\''+x.code+'\')">'+(x.status==='finished'?'Ver':'Abrir')+'</button>':'')+'</div></div>';
+  }).join('');
+  return h;
 }
 function dvJoinCode(){
   var c=prompt('Escribe el código de la partida:','');
@@ -17819,7 +17957,7 @@ async function dvLinkOpen(code){
   var m=r.match;
   if(m.me){dvOpenWith(m);return;}
   showM('<div class="mhd"><div class="mtl">&#127922; Invitación a jugar</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd" style="text-align:center"><div style="font-size:14px;line-height:1.6"><b>'+nfEsc(m.a.name)+'</b> te invita a una partida de dados de <b>'+m.innings+'</b> inning'+(m.innings>1?'s':'')+'.<br><span style="font-size:12px;color:var(--t3)">'+nfEsc(dvTourName(m.tournamentId))+'</span></div></div>'
+    +'<div class="mbd" style="text-align:center"><div style="font-size:14px;line-height:1.6"><b>'+nfEsc(m.a.name)+'</b> te invita a '+(m.bestOf>1?'una <b>serie al mejor de '+m.bestOf+'</b> de dados':'una partida de dados')+' de <b>'+m.innings+'</b> inning'+(m.innings>1?'s':'')+' por juego.<br><span style="font-size:12px;color:var(--t3)">'+nfEsc(dvTourName(m.tournamentId))+'</span></div></div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Ahora no</button><button class="btn bp" onclick="dvJoin(\''+m.code+'\')">Unirme</button></div>');
 }
 async function dvJoin(code){
@@ -17906,11 +18044,12 @@ function dvHeader(m){
   return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">'
     +'<button class="btn bs bsm" onclick="dvClose()">&#8592; Salir</button>'
     +'<div style="text-align:center"><div style="font-weight:800">&#127922; Diviértete <button id="dvsfxbtn" class="btn bs bsm" style="padding:0 7px;margin-left:4px" title="Sonido" onclick="dvToggleSfx()">'+(_SFX.on?'&#128266;':'&#128263;')+'</button></div><div style="font-size:11px;color:var(--t3)">Código <b>'+nfEsc(m.code)+'</b>'+(m.fantasy?' &middot; <span style="color:var(--acc)">&#127919; Desafío de Fantasía'+(m.stake?' '+m.stake+' pts':'')+'</span>':'')+'</div></div>'
-    +(m.status==='playing'||m.status==='lobby'||m.status==='invite'?'<button class="btn bs bsm" onclick="dvCancel()">'+(m.status==='playing'?'&#127987;&#65039; Abandonar':'Cancelar')+'</button>':'<span style="width:70px"></span>')+'</div>';
+    +(m.status==='playing'||m.status==='lobby'||m.status==='invite'?'<button class="btn bs bsm" onclick="dvCancel()">'+((m.status==='playing'||(m.series&&m.series.games>0))?'&#127987;&#65039; Abandonar'+(m.series?' serie':''):'Cancelar')+'</button>':'<span style="width:70px"></span>')+'</div>';
 }
 async function dvCancel(){
   var m=_DV.m;if(!m)return;
-  if(!confirm(m.status==='playing'?'¿Abandonar la partida? Contará como derrota'+(m.stake?' y perderás los '+m.stake+' puntos apostados':'')+'.':'¿Cancelar esta partida?'))return;
+  var _ser=m.series&&(m.status==='playing'||m.series.games>0);
+  if(!confirm((m.status==='playing'||_ser)?(_ser?'¿Abandonar la serie? La serie contará como derrota':'¿Abandonar la partida? Contará como derrota')+(m.stake?' y perderás los '+m.stake+' puntos apostados':'')+'.':'¿Cancelar esta partida?'))return;
   var r=await api('divCancel',{code:m.code});
   if(r&&r.ok){await dvApply(r.match);if(r.match.status==='cancelled')dvClose();}else toast((r&&r.error)||'No se pudo cancelar','error');
 }
@@ -17926,9 +18065,9 @@ function dvRender(){
   if(m.status==='playing'||m.status==='finished')dvFieldAnim(m);
 }
 function dvInviteHtml(m){
-  if(m.me==='b')return'<div class="card" style="text-align:center"><div style="font-size:34px">&#127919;</div><div style="font-weight:700;margin:6px 0"><b>'+nfEsc(m.a.name)+'</b> te retó a una partida de dados</div><div style="font-size:12px;color:var(--t3);margin-bottom:12px">'+m.innings+' innings &middot; apuesta de <b style="color:var(--acc)">'+m.stake+' pts</b>: el que gane se los lleva, el que pierda los resta de su plantilla.</div>'
+  if(m.me==='b')return'<div class="card" style="text-align:center"><div style="font-size:34px">&#127919;</div><div style="font-weight:700;margin:6px 0"><b>'+nfEsc(m.a.name)+'</b> te retó a '+(m.bestOf>1?'una serie de dados al mejor de '+m.bestOf:'una partida de dados')+'</div><div style="font-size:12px;color:var(--t3);margin-bottom:12px">'+m.innings+' innings'+(m.bestOf>1?' por juego':'')+' &middot; apuesta de <b style="color:var(--acc)">'+m.stake+' pts</b>: el que gane '+(m.bestOf>1?'la serie':'')+' se los lleva, el que pierda los resta de su plantilla.</div>'
     +'<div style="display:flex;gap:8px;justify-content:center"><button class="btn bs" onclick="dvCancel()">Rechazar</button><button class="btn bp" onclick="dvAccept()">Aceptar reto</button></div></div>';
-  return'<div class="card" style="text-align:center"><div style="font-size:34px">&#8987;</div><div style="font-weight:700;margin:6px 0">Esperando que <b>'+nfEsc(m.b.name)+'</b> acepte tu reto</div><div style="font-size:12px;color:var(--t3)">'+m.innings+' innings &middot; apuesta de '+m.stake+' pts. Cuando acepte podrán armar sus lineups.</div></div>';
+  return'<div class="card" style="text-align:center"><div style="font-size:34px">&#8987;</div><div style="font-weight:700;margin:6px 0">Esperando que <b>'+nfEsc(m.b.name)+'</b> acepte tu reto</div><div style="font-size:12px;color:var(--t3)">'+m.innings+' innings'+(m.bestOf>1?' &middot; serie al mejor de '+m.bestOf:'')+' &middot; apuesta de '+m.stake+' pts. Cuando acepte podrán armar sus lineups.</div></div>';
 }
 async function dvAccept(){
   var m=_DV.m;if(!m)return;
@@ -17965,7 +18104,7 @@ function dvLobbyHtml(m){
   var byS={};mine.forEach(function(x){byS[x.slot]=x.pid;});
   var myOk=dvReadyLu(mine,slots),oppOk=m.mode==='cpu'?true:dvReadyLu(oppLu,slots),hasOpp=m.mode==='cpu'||!!m.b.name;
   var inn=me==='a'?'<select class="fs" style="width:auto;display:inline-block" onchange="dvSetInnings(this.value)">'+[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===m.innings?'selected':'')+'>'+n+' inning'+(n>1?'s':'')+'</option>';}).join('')+'</select>':'<b>'+m.innings+' innings</b>';
-  var h='';
+  var h=dvSerHtml(m);
   if(me==='a'&&m.mode==='pvp'&&!m.fantasy&&!m.b.name)h+=dvShareHtml(m);
   h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px"><div>&#127967; '+nfEsc(dvTourName(m.tournamentId))+'</div><div>'+inn+'</div></div>'
     +'<div style="font-size:12px;color:var(--t3);margin-top:6px">'+(m.mode==='cpu'?'Rival: <b>&#129302; Máquina</b> (armará su equipo al azar al iniciar)':(hasOpp?'Rival: <b>'+nfEsc(m[opp].name)+'</b> '+(oppOk?'<span style="color:#34d399">&#10003; lineup listo</span>':'<span style="color:#fbbf24">armando su lineup...</span>'):'<span style="color:#fbbf24">Esperando que tu rival se una con el link...</span>'))+'</div></div>';
@@ -18082,12 +18221,10 @@ function dvLegend(m,st){
 function dvPlayHtml(m){
   var st=dvDisplayState(m),bk=dvBatKey(st),mine=m.me===bk&&!st.over&&m.status==='playing'&&!_DV.anim&&!_DV.busy;
   var le=_DV.lastEv,r=le?(DV_RES[le.res]||['','']):null;
-  var h=dvScoreHtml(m,st)+'<div class="card" style="margin-bottom:10px">'+dvFieldHtml(m,st)+dvLegend(m,st)+'</div>';
+  var h=dvSerHtml(m)+dvScoreHtml(m,st)+'<div class="card" style="margin-bottom:10px">'+dvFieldHtml(m,st)+dvLegend(m,st)+'</div>';
   h+='<div class="card" style="margin-bottom:10px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap"><div id="dvdieslot">'+(_DV.die?dvDieHtml(_DV.die):dvDieHtml(0))+'</div><div style="min-width:150px">';
   if(m.status==='finished'){
-    var won=m.winner===m.me;
-    h+='<div style="font-size:30px">'+(won?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+(won?'#34d399':'#f87171')+'">'+(won?'¡Ganaste!':'Perdiste')+'</div><div style="font-size:12px;color:var(--t3)">'+nfEsc(dvName(m,m.winner))+' gana '+st.sc[m.winner]+' a '+st.sc[dvOther(m.winner)]+(m.stake?'<br><b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'+':'-')+m.stake+' pts de Fantasía</b>':'')+'</div>'
-      +(m.mode==='cpu'?'<button class="btn bp bsm" style="margin-top:8px" onclick="dvRematch()">&#129302; Otra vs máquina</button>':'');
+    h+=dvFinishedHtml(m,st);
   }else if(mine)h+='<button class="btn bp" id="dvrollbtn" style="font-size:16px;padding:12px 22px" onclick="dvDoRoll()">&#127922; Lanzar dado</button><div style="font-size:11px;color:var(--t3);margin-top:6px">Es tu turno al bate</div>';
   else if(_DV.anim||_DV.busy)h+='<div style="font-size:13px;color:var(--t3)">Lanzando...</div>';
   else h+='<div style="font-size:13px;color:var(--t2)">Turno al bate de <b>'+nfEsc(dvName(m,bk))+'</b>...<br><span style="font-size:11px;color:var(--t3)">espera su lanzamiento</span></div>';
@@ -18099,7 +18236,7 @@ function dvPlayHtml(m){
 }
 async function dvRematch(){
   var m=_DV.m;if(!m)return;
-  var r=await api('divCreate',{tournamentId:m.tournamentId,innings:m.innings,mode:'cpu'});
+  var r=await api('divCreate',{tournamentId:m.tournamentId,innings:m.innings,mode:'cpu',bestOf:m.bestOf||1});
   if(r&&r.ok)dvOpenWith(r.match);else toast((r&&r.error)||'No se pudo crear','error');
 }
 // ───────── enlace ?div=CODIGO al abrir la app
@@ -18118,14 +18255,23 @@ function fnDiviTab(){
   if(!d)return'<div class="card"><div class="empty">Cargando...</div></div>';
   if(d.error)return'<div class="card"><div class="empty"><div style="color:#f87171;margin-bottom:10px">'+fnEsc(d.error)+'</div><button class="btn bp bsm" onclick="_FN.divi=null;fnRender();fnLoad()">Reintentar</button></div></div>';
   var h='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#127922; Partidas de dados entre plantillas</div>'
-    +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px">Rétalo a una partida de <b>Diviértete</b> apostando puntos de tu plantilla: <b>el que gana se los lleva y el que pierde los resta</b>. Cuando tu rival acepte, ambos arman su lineup y juegan.</div>';
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px">Rétalo a una partida de <b>Diviértete</b> apostando puntos de tu plantilla: <b>el que gana se los lleva y el que pierde los resta</b>. Puedes retar a un solo juego o a una <b>serie al mejor de 3, 5, 7 o 9</b>: en la serie se lleva los puntos quien gane la serie. Cuando tu rival acepte, ambos arman su lineup y juegan.</div>';
   if(!d.mine)h+='<div class="alert aw" style="font-size:12px">Necesitas una plantilla de esta fase para retar a otros usuarios.</div>';
   else if(!d.rivals.length)h+='<div class="alert ai" style="font-size:12px">Aún no hay otras plantillas en este concurso para retar.</div>';
   else h+='<div class="fg"><label class="fl">Retar a</label><select class="fs" id="dvf-to">'+d.rivals.map(function(r){return'<option value="'+r.id+'">'+fnEsc(r.userName)+' — '+fnEsc(r.teamName)+' ('+fnPts(r.available)+' pts disp.)</option>';}).join('')+'</select></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Puntos a apostar (tienes '+fnPts(d.mine.available)+')</label><input class="fi" id="dvf-st" type="number" min="0" max="'+d.mine.available+'" step="0.5" value="1" inputmode="decimal"></div>'
     +'<div class="fg"><label class="fl">Innings</label><select class="fs" id="dvf-in">'+[1,2,3,4,5,6,7,8,9].map(function(n){return'<option value="'+n+'" '+(n===3?'selected':'')+'>'+n+'</option>';}).join('')+'</select></div></div>'
+    +'<div class="fg"><label class="fl">Formato</label><select class="fs" id="dvf-bo">'+[1,3,5,7,9].map(function(n){return'<option value="'+n+'">'+(n>1?'Serie al mejor de '+n+' (se lleva los puntos quien gane la serie)':'Un solo juego')+'</option>';}).join('')+'</select></div>'
     +'<button class="btn bp" onclick="fnDiviCreate()">&#127922; Enviar reto</button>';
   h+='</div>';
+  if(d.series&&d.series.length)h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">Mis series de este concurso</div>'+d.series.map(function(x,i){
+    var rival=x.me==='a'?x.bName:x.aName,mw=x.me==='a'?x.aWins:x.bWins,ow=x.me==='a'?x.bWins:x.aWins,line='',acts='',pre='Serie al mejor de '+x.bestOf;
+    if(x.status==='invite'&&x.me==='b'){line='<b>'+fnEsc(x.aName)+'</b> te retó a una '+pre.toLowerCase()+' &middot; apuesta '+fnPts(x.stake)+' pts (se los lleva quien gane la serie)';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Rechazar</button> <button class="btn bp bsm" onclick="fnDiviYes(\''+x.code+'\')">Aceptar</button>';}
+    else if(x.status==='invite'){line='Esperando a <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; '+fnPts(x.stake)+' pts';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Cancelar</button>';}
+    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; '+mw+'-'+ow+' &middot; <b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'Ganaste la serie +':'Perdiste la serie -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
+    else{line='vs <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; <b>'+mw+'-'+ow+'</b> &middot; '+fnPts(x.stake)+' pts &middot; <span style="color:var(--acc)">en juego</span>';acts='<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>';}
+    return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;'+(i?'border-top:1px solid var(--bdr);':'')+'font-size:12px"><div>'+line+'</div><div style="display:flex;gap:6px">'+acts+'</div></div>';
+  }).join('')+'</div>';
   if(d.matches.length)h+='<div class="card"><div style="font-weight:700;margin-bottom:6px">Mis partidas de este concurso</div>'+d.matches.map(function(x,i){
     var rival=x.me==='a'?x.bName:x.aName,line='',acts='';
     if(x.status==='invite'&&x.me==='b'){line='<b>'+fnEsc(x.aName)+'</b> te retó: apuesta '+fnPts(x.stake)+' pts &middot; '+x.innings+' inn.';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Rechazar</button> <button class="btn bp bsm" onclick="fnDiviYes(\''+x.code+'\')">Aceptar</button>';}
@@ -18139,7 +18285,7 @@ function fnDiviTab(){
 async function fnDiviCreate(){
   var to=fv('dvf-to'),st=parseFloat(fv('dvf-st'))||0,inn=parseInt(fv('dvf-in'))||3;
   if(!to){toast('Elige a quién retar','error');return;}
-  var r=await api('divCreate',{tournamentId:_FN.tid,innings:inn,mode:'pvp',fantasy:{phase:_FN.phase,toFid:to,stake:st}});
+  var r=await api('divCreate',{tournamentId:_FN.tid,innings:inn,mode:'pvp',bestOf:parseInt(fv('dvf-bo'))||1,fantasy:{phase:_FN.phase,toFid:to,stake:st}});
   if(r&&r.ok){toast('Reto enviado. Tu rival debe aceptarlo para iniciar.','success');fnLoad();}else toast((r&&r.error)||'No se pudo enviar el reto','error');
 }
 async function fnDiviYes(code){
@@ -19713,6 +19859,23 @@ function fnOpenInfo(){
     +'<li '+li+'>&#127942; <b>Ranking de ganadores</b> (Desafíos &gt; Ranking de ganadores): clasifica a los usuarios por <b>puntos netos</b> (ganados menos perdidos) o por <b>eficiencia</b> (% de desafíos ganados sobre los jugados; el empate cuenta como jugado). Incluye 1 vs 1, equipo vs equipo y Royal Rumble terminados de la fase.</li>'
     +((wpl.length&&wgap>0&&wmin>0)?'<li '+li+'>&#128197; <b>Desafío semanal obligatorio</b>: los lugares <b>'+wpl.join(', ')+'</b> de la clasificación deben lanzar al menos <b>un desafío 1 vs 1 por semana</b> (lunes a domingo, hora RD) con una apuesta '+wrng+'. Solo rige cuando el promedio de puntos de esos lugares supera en <b>'+fnPts(wgap)+' pts</b> o más a los del lugar '+wref+'. Quien no cumpla pierde <b>'+fnPts(wpen)+' pts</b> (nunca bajan de 0). Si el retado rechaza el desafío cuenta como cumplido, salvo que él también esté entre los lugares obligados; si lo cancelas tú, no cuenta. '+((wt1||wt2)?'Recibes un recordatorio si aún no lo has hecho: '+(wt1?'el lunes a las <b>'+fnEsc(wt1)+'</b>':'')+((wt1&&wt2)?' y ':'')+(wt2?'el domingo a las <b>'+fnEsc(wt2)+'</b>':'')+'.':'')+'</li>':'')
     +'<li '+li+'>Los desafíos solo existen en plantillas de <b>fase</b> y su resultado se suma o resta a tu puntaje.</li></ul>';
+  var dvTxt=sec('Partidas de dados (Diviértete)')
+    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>En la pestaña <b>Partidas</b> retas a otra plantilla a un juego de dados del módulo <b>Diviértete</b> apostando puntos de tu plantilla de fase (no puedes apostar más de los que tienes disponibles). El reto lo debe <b>aceptar tu rival</b>; si lo rechazas, lo retiras o se cancela antes de empezar, no cuesta puntos.</li>'
+    +'<li '+li+'>Cada uno arma su <b>lineup</b> con jugadores del subtorneo (una persona por posición del cuadro) y elige cuántos <b>innings</b> dura cada juego (1 a 9). Quien está al bate lanza el dado en el servidor (nadie puede hacer trampa): <b>1 sencillo, 2 doble, 3 triple, 4 jonrón, 5 ponche, 6 out</b>. Los corredores avanzan tantas bases como el golpe, 3 outs cambian la mitad, el local gana sin batear si ya va arriba y, si hay empate, se juegan extra innings.</li>'
+    +'<li '+li+'>Puedes retar a <b>un solo juego</b> o a una <b>serie al mejor de 3, 5, 7 o 9</b>: gana la serie quien llegue primero a la mitad más uno de los juegos, y los juegos se crean uno tras otro con los mismos lineups. <b>Quien gana el juego o la serie se lleva lo apostado y el perdedor lo pierde</b> (en una serie se paga una sola vez, al terminar la serie).</li>'
+    +'<li '+li+'>Mientras el reto está pendiente o en juego, lo apostado queda <b>reservado</b> en ambas plantillas y no lo puedes usar en otro desafío, oferta o compra. <b>Abandonar</b> un juego en curso cuenta como derrota (en una serie ya empezada, como derrota de la serie) y pierdes los puntos.</li>'
+    +'<li '+li+'>Las partidas de Diviértete que juegas sin apuesta (contra la máquina o contra amigos) no mueven puntos de Fantasía; solo cuentan para el ranking de ganadores del propio módulo Diviértete (una serie cuenta 1 victoria o 1 derrota cuando termina).</li></ul>';
+  var AD=(_FN.adv&&_FN.adv.enabled&&_FN.adv.cfg)?_FN.adv.cfg:null,adKinds=AD?['winner','score','ks','diff'].filter(function(k){return AD[k]>0;}):[];
+  var adTxt=sec('Adivina')
+    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>En la pestaña <b>Adivina</b> pronosticas cómo terminan los juegos de <b>hoy</b> (ganador, marcador, ponches del abridor, diferencial de carreras) y ganas puntos extra para tu plantilla de fase si aciertas. Puedes cambiar tu adivinanza hasta que el juego deje de estar programado.</li>'
+    +'<li '+li+'>El administrador fija <b>por subtorneo</b> cuántos puntos da cada tipo (un tipo con 0 puntos queda deshabilitado) y puede ponerle un <b>costo</b>: ese costo se descuenta al crear la adivinanza, se gane o se pierda, y se devuelve si el juego se cancela o se anula. Los aciertos se corrigen cuando el juego termina.'+(adKinds.length?' En este subtorneo: '+adKinds.map(function(k){var cc=(AD.costs&&AD.costs[k])||0;return FN_ADV_LBL[k]+' <b>+'+fnPts(AD[k])+'</b>'+(cc?' (cuesta '+fnPts(cc)+')':'');}).join(', ')+'.':'')+'</li></ul>';
+  var wkTxt=sec('Equipo de la Semana')
+    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'>En la pestaña <b>Equipo de la Semana</b> se arma, por cada semana (lunes a domingo, hora RD) con juegos finalizados, el <b>mejor jugador de cada posición del cuadro</b> según los puntos de Fantasía que sumó esa semana (con el mismo sistema de puntos del subtorneo), sin importar si está en una plantilla o en la agencia libre.</li>'
+    +'<li '+li+'>Se muestra el total de puntos del equipo y el <b>Jugador de la semana</b> (el que más puntos sumó). Puedes navegar a las semanas anteriores; la semana en curso puede cambiar hasta que terminen sus juegos. Solo aparece en subtorneos que ya tienen plantillas, y los jugadores de equipos marcados <b>sin estadísticas</b> no entran. Es informativo: no suma ni resta puntos a tu plantilla.</li></ul>';
+  var ahOn=cfg.autoHoursOn==='1'&&/^\d{1,2}:\d{2}$/.test(String(cfg.autoHoursStart||'').trim())&&/^\d{1,2}:\d{2}$/.test(String(cfg.autoHoursEnd||'').trim());
+  var hrTxt=sec('Horario de las actualizaciones automáticas')
+    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+(ahOn?'>&#9200; Las actualizaciones automáticas solo corren de <b>'+fnEsc(String(cfg.autoHoursStart).trim())+'</b> a <b>'+fnEsc(String(cfg.autoHoursEnd).trim()==='00:00'?'medianoche (00:00)':String(cfg.autoHoursEnd).trim())+'</b> (hora de República Dominicana). Fuera de ese horario se pausan los procesos automáticos de Fantasía: inicio y cierre de <b>desafíos</b> entre plantillas, vencimiento y decisión de <b>cambios</b> pendientes y la <b>penalidad del desafío semanal</b>, además de la sincronización de juegos y rosters de MLB y el refresco automático de la pantalla.':'>&#9200; Por ahora las actualizaciones automáticas corren <b>todo el día</b>. El administrador puede limitarlas a un horario (por ejemplo de 8:00 a. m. a medianoche); fuera de él se pausarían los procesos automáticos de Fantasía (cierre de desafíos, vencimiento de cambios y penalidad semanal), la sincronización de MLB y el refresco automático de la pantalla.')+'</li>'
+    +'<li '+li+'>Lo que haces tú a mano (guardar tu plantilla, proponer o aprobar cambios y ofertas, retar, adivinar, jugar tus partidas de dados, abrir pantallas) <b>siempre funciona</b>, y los recordatorios push de Fantasía siguen llegando a su hora. Al abrirse de nuevo el horario, los procesos pendientes se ponen al día solos.</li></ul>';
   showM('<div class="mhd"><div class="mtl">&#127919; Liga de Fantasía — Cómo funciona</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd" style="font-size:13px;color:var(--t2);line-height:1.55">'
     +sec('La mecánica')
@@ -19723,13 +19886,14 @@ function fnOpenInfo(){
     +'<li '+li+'>Cada jugador solo puede estar en <b>una plantilla</b>: si otro usuario ya lo eligió, no aparece. ¡Elige rápido!</li>'
     +'<li '+li+'>Ya guardada puedes <b>gestionarla</b>: mover jugadores entre cuadro, banca y <b>relevistas</b> (el cuadro puede quedar con posiciones vacías; lo que sume un jugador mientras no está en el cuadro no te afecta), <b>liberar</b> jugadores para abrir espacio (conservas los puntos que ya te dieron) y <b>fichar</b> agentes libres del roster general si tienes espacio.</li>'
     +'<li '+li+'>Los <b>relevistas</b> son jugadores de tu banca que, si lanzan, te suman sus puntos de pitcheo (solo pitcheo).</li>'
+    +((_FN.sport==='baseball'||_FN.sport==='softball')?'<li '+li+'>&#9918; <b>Lanzadores</b>: en baseball y softball un lanzador solo puede ocupar la posición <b>P</b> del cuadro (o estar en la banca o en relevistas), y en relevistas solo entran lanzadores o jugadores UT. '+(_FN.sport==='baseball'?'La posición <b>UT</b> (bateador utility) no admite lanzadores; un jugador UT puede ir en cualquier posición del cuadro, y si lo colocas como lanzador y lanza y batea, te suma puntos de pitcheo y de bateo.':'')+'</li>':'')
     +'<li '+li+'>Si un jugador tuyo pasa a <b>inactivo</b> en Equipos puedes reemplazarlo por otro del roster general; el inactivo queda en tu lista de inactivos (no vuelve a la agencia libre) y podrás usarlo de nuevo cuando se active.</li>'
     +'<li '+li+'>&#128274; Desde que inicia el <b>primer juego del día</b> (hora RD) la plantilla se bloquea hasta que terminen todos los juegos del día en el subtorneo. Las plantillas diarias tampoco se pueden crear una vez inicia el primer juego.</li>'
     +'<li '+li+'>Solo suman los jugadores del <b>cuadro</b>, desde que entran a él; la banca no suma. Los puntos ganados por quien sale se conservan.</li>'
     +(mg>0?'<li '+li+'>Solo puedes crear tu plantilla mientras el subtorneo tenga menos de <b>'+mg+'</b> juegos finalizados.</li>':'')
-    +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado, m\u00e1s o menos los puntos de <b>desafíos, cambios y ofertas</b> y menos los gastados en <b>movimientos adicionales</b> y las <b>penalidades</b> del desafío semanal obligatorio.</li>'
+    +'<li '+li+'>Tu puntaje en una plantilla de fase = <b>puntos de jugadas</b> + <b>puntos por acceso diario</b> + <b>victorias diarias</b>, que se muestran por separado, m\u00e1s o menos los puntos de <b>desafíos (incluidas las partidas de dados), cambios y ofertas</b>, más los ganados en <b>Adivina</b> (menos lo que cuesta cada adivinanza) y menos los gastados en <b>movimientos adicionales</b> y las <b>penalidades</b> del desafío semanal obligatorio.</li>'
     +'<li '+li+'>El usuario con más puntos en la clasificación <b>Diaria</b> de cada día cerrado gana '+(((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts)||0)>0?'<b>'+fnPts((_FN.data&&_FN.data.dailyWin)||Number(cfg.fantasyDailyWinPts))+' puntos de victoria diaria</b>':'puntos de victoria diaria')+', que se suman a tu plantilla de la fase de ese día.</li></ul>'
-    +mov+chl
+    +mov+chl+dvTxt+adTxt+wkTxt+hrTxt
     +sec('Puntos por jugada ('+fnEsc(tour.name||'subtorneo')+')')
     +row('Sencillo (H1)',pv('asPtsH1',1))+row('Doble (H2)',pv('asPtsH2',2))+row('Triple (H3)',pv('asPtsH3',3))+row('Jonrón (HR)',pv('asPtsHr',4))
     +row('Base por bolas (BB)',pv('asPtsBb',1))+row('Remolcada (RBI)',pv('asPtsRbi',1))+row('Carrera anotada (R)',pv('asPtsR',1))+row('Base robada (SB)',pv('asPtsSb',0))
