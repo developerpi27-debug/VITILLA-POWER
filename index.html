@@ -20,7 +20,7 @@ window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();win
 <style>
 :root{--bg:#0a0e1a;--bg2:#111827;--bg3:#1a2235;--card:#162032;--card2:#1e2d45;--acc:#f5a623;--acc2:#e8901a;--grn:#22c55e;--red:#ef4444;--blu:#3b82f6;--txt:#f0f4f8;--t2:#94a3b8;--t3:#64748b;--bdr:rgba(255,255,255,.08);--bdr2:rgba(255,255,255,.15);--r:10px;
   --info-txt:#93c5fd;--warn-txt:#fbbf24;--succ-txt:#4ade80;--err-txt:#f87171;
-  --mq-g1:#0a1020;--mq-g2:#0f1a2e;}
+  --mq-g1:#0a1020;--mq-g2:#0f1a2e;--dv-pur:#a78bfa;}
 /* ── Tema claro (opcional, boton en la barra superior junto al zoom de tablas) ──────────────
    Redefine las MISMAS variables CSS que usa toda la app (fondos, texto, bordes, acento), asi
    que todo lo que ya esta construido con var(--bg)/var(--txt)/var(--t2)/etc. se ajusta solo,
@@ -34,7 +34,7 @@ window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();win
    de Patrocinadores (.spg-bar-wrap) — antes eran un azul-marino fijo sin importar el tema. */
 :root[data-theme="light"]{--bg:#f3f5f9;--bg2:#ffffff;--bg3:#eef1f6;--card:#ffffff;--card2:#eef1f6;--acc:#c66a00;--acc2:#a85900;--grn:#15803d;--red:#dc2626;--blu:#2563eb;--txt:#0f172a;--t2:#475569;--t3:#64748b;--bdr:rgba(15,23,42,.10);--bdr2:rgba(15,23,42,.18);
   --info-txt:#1d4ed8;--warn-txt:#b45309;--succ-txt:#15803d;--err-txt:#b91c1c;
-  --mq-g1:#ffffff;--mq-g2:#eef1f6;}
+  --mq-g1:#ffffff;--mq-g2:#eef1f6;--dv-pur:#6d28d9;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;}
 button{font-family:'Barlow',sans-serif;cursor:pointer;}
@@ -8200,6 +8200,198 @@ async function lsWhipPublish(url,stream,hPx){
   return{pc:pc,resource:res};
 }
 // ═════════════ TRANSMISOR ═════════════
+// ═══ YOUTUBE LIVE (cliente): conectar canal, programar, y enviar la transmisión de la app a YouTube ═══
+var _YT={st:null,poll:null,url:'',items:[]};
+var YT_PRIV='<option value="public">Pública</option><option value="unlisted">No listada (solo con el enlace)</option><option value="private">Privada</option>';
+function ytOpenUrl(url){   // celular (app Android) y PC: Google no permite iniciar sesión dentro del WebView, por eso se abre el navegador
+  try{
+    if(typeof IS_NATIVE_APP!=='undefined'&&IS_NATIVE_APP){
+      if(window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.Browser){Capacitor.Plugins.Browser.open({url:url});return;}
+      window.open(url,'_system');return;
+    }
+  }catch(e){}
+  window.open(url,'_blank');
+}
+function ytCopy(txt){try{navigator.clipboard.writeText(txt).then(function(){toast('Enlace copiado','success');},function(){prompt('Copia el enlace:',txt);});}catch(e){prompt('Copia el enlace:',txt);}}
+async function ytLoadStatus(){var r=await api('ytStatus',{});_YT.st=(r&&r.ok)?r:{ok:false,error:(r&&r.error)||'No se pudo consultar YouTube',configured:false,connected:false};return _YT.st;}
+function ytDtLocal(d){var p=function(n){return String(n).padStart(2,'0');};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
+function ytFmt(iso){if(!iso)return'';try{return new Date(iso).toLocaleString('es-DO',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});}catch(e){return iso;}}
+var YT_LIFE={created:'creada',ready:'lista',testing:'en pruebas',liveStarting:'iniciando',live:'EN VIVO',complete:'terminada',revoked:'cancelada'};
+// ── Pantalla: conectar canal + programar ──
+async function ytOpenM(){
+  showM('<div class="mhd"><div class="mtl">📺 YouTube Live</div><button class="bx" onclick="ytCloseM()">&#10005;</button></div><div class="mbd" id="yt-body"><div class="empty">Cargando…</div></div>');
+  await ytRender();
+}
+function ytCloseM(){clearInterval(_YT.poll);_YT.poll=null;cM();}
+async function ytRender(){
+  var st=await ytLoadStatus(),box=document.getElementById('yt-body');if(!box)return;
+  if(!st.ok){box.innerHTML='<div class="alert aw" style="font-size:13px">'+nfEsc(st.error||'No disponible')+'</div>';return;}
+  if(!st.configured){box.innerHTML='<div class="alert aw" style="font-size:13px;line-height:1.5">YouTube aún no está configurado en el servidor.'+(st.canManage?' Falta cargar las credenciales de Google y el servidor de reenvío (guía: carpeta <b>relay</b>, archivo <b>LEEME.md</b>).':' Pídele al administrador que lo configure.')+'</div>';return;}
+  if(!st.connected){
+    box.innerHTML=st.canManage
+      ?'<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:12px">Conecta el canal de YouTube donde se publicarán las transmisiones. Se abrirá Google para que elijas la cuenta y aceptes los permisos.</div><button class="btn bp" style="width:100%" onclick="ytConnect()">Conectar canal de YouTube</button>'
+      :'<div class="alert ai" style="font-size:13px">Aún no hay un canal de YouTube conectado. Un administrador debe conectarlo.</div>';
+    return;
+  }
+  var d0=new Date(Date.now()+3600000);d0.setMinutes(0,0,0);
+  box.innerHTML='<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:13px">Canal conectado: <b>'+nfEsc(st.channel||'—')+'</b></div>'+(st.canManage?'<button class="btn bs bsm" onclick="ytDisconnect()">Desconectar</button>':'')+'</div>'
+    +(st.relay?'':'<div class="alert aw" style="font-size:12px;margin-bottom:10px">El servidor de reenvío no está configurado: puedes programar transmisiones, pero todavía no se puede enviar el video a YouTube.</div>')
+    +'<div style="font-weight:700;margin-bottom:6px" id="yt-ftl">Programar transmisión</div>'
+    +'<input type="hidden" id="yt-id" value="">'
+    +'<div class="fg"><label class="fl">Título</label><input class="fi" id="yt-t" maxlength="100" placeholder="Ej: Final Liga 2026 · Tigres vs Leones"></div>'
+    +'<div class="fg"><label class="fl">Descripción (opcional)</label><textarea class="fi" id="yt-d" rows="3" maxlength="4000" placeholder="Torneo, hora, patrocinadores…"></textarea></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Fecha y hora</label><input class="fi" type="datetime-local" id="yt-w" value="'+ytDtLocal(d0)+'"></div>'
+    +'<div class="fg"><label class="fl">Privacidad</label><select class="fi" id="yt-p">'+YT_PRIV+'</select></div></div>'
+    +'<div class="fg" id="yt-lfg"><label class="fl">Latencia</label><select class="fi" id="yt-l"><option value="low" selected>Baja (recomendada)</option><option value="ultraLow">Ultra baja (sin resolución 1080p)</option><option value="normal">Normal (más estable)</option></select></div>'
+    +'<div style="display:flex;gap:8px"><button class="btn bp" id="yt-sv" style="flex:1" onclick="ytSaveForm()">Programar</button><button class="btn bs" id="yt-cx" style="display:none" onclick="ytRender()">Cancelar edición</button></div>'
+    +'<div style="font-weight:700;margin:16px 0 6px">Próximas transmisiones</div><div id="yt-list"><div class="empty">Cargando…</div></div>';
+  ytLoadList();
+}
+async function ytLoadList(){
+  var r=await api('ytList',{}),el=document.getElementById('yt-list');if(!el)return;
+  if(!(r&&r.ok)){el.innerHTML='<div class="alert aw" style="font-size:12px">'+nfEsc((r&&r.error)||'No se pudo cargar la lista')+'</div>';return;}
+  _YT.items=r.items||[];
+  if(!_YT.items.length){el.innerHTML='<div class="empty" style="padding:12px">No hay transmisiones programadas.</div>';return;}
+  el.innerHTML=_YT.items.map(function(b){
+    return'<div class="card" style="margin-bottom:8px"><div style="font-weight:700;font-size:13px">'+nfEsc(b.title)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin:2px 0 8px">'+nfEsc(ytFmt(b.start))+' &middot; '+({public:'Pública',unlisted:'No listada',private:'Privada'}[b.privacy]||nfEsc(b.privacy))+' &middot; '+nfEsc(YT_LIFE[b.status]||b.status)+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn bs bsm" data-i="'+nfEsc(b.id)+'" onclick="ytEdit(this.dataset.i)">Editar</button>'
+      +'<button class="btn bs bsm" data-u="'+nfEsc(b.watchUrl)+'" onclick="ytOpenUrl(this.dataset.u)">Ver en YouTube</button>'
+      +'<button class="btn bs bsm" data-u="'+nfEsc(b.watchUrl)+'" onclick="ytCopy(this.dataset.u)">Copiar enlace</button>'
+      +'<button class="btn bd bsm" data-i="'+nfEsc(b.id)+'" onclick="ytDel(this.dataset.i)">Eliminar</button></div></div>';
+  }).join('');
+}
+function ytEdit(id){
+  var b=(_YT.items||[]).filter(function(x){return x.id===id;})[0];if(!b)return;
+  document.getElementById('yt-id').value=b.id;document.getElementById('yt-t').value=b.title;document.getElementById('yt-d').value=b.description||'';
+  try{document.getElementById('yt-w').value=ytDtLocal(new Date(b.start));}catch(e){}
+  document.getElementById('yt-p').value=b.privacy||'public';
+  document.getElementById('yt-lfg').style.display='none';
+  document.getElementById('yt-ftl').textContent='Editar transmisión';document.getElementById('yt-sv').textContent='Guardar cambios';document.getElementById('yt-cx').style.display='';
+  var box=document.getElementById('yt-body');if(box&&box.parentNode&&box.parentNode.scrollTo)box.parentNode.scrollTo(0,0);
+}
+async function ytSaveForm(){
+  var id=fv('yt-id'),t=(fv('yt-t')||'').trim(),w=fv('yt-w');
+  if(!t){toast('Escribe el título','error');return;}
+  if(!w){toast('Elige la fecha y hora','error');return;}
+  var d=new Date(w);if(isNaN(d.getTime())){toast('Fecha no válida','error');return;}
+  if(!id&&d.getTime()<Date.now()+60000){toast('Elige una fecha futura para programarla','error');return;}
+  var btn=document.getElementById('yt-sv');if(btn)btn.disabled=true;
+  var r=await api('ytSave',{id:id,title:t,description:fv('yt-d')||'',startAt:d.toISOString(),privacy:fv('yt-p')||'public',latency:fv('yt-l')||'low'});
+  if(btn)btn.disabled=false;
+  if(r&&r.ok){toast(id?'Cambios guardados':'Transmisión programada en YouTube','success');ytRender();}
+  else toast((r&&r.error)||'No se pudo guardar en YouTube','error');
+}
+async function ytDel(id){
+  if(!confirm('¿Eliminar esta transmisión programada de YouTube?'))return;
+  var r=await api('ytDelete',{id:id});
+  if(r&&r.ok){toast('Transmisión eliminada','success');ytLoadList();}else toast((r&&r.error)||'No se pudo eliminar','error');
+}
+async function ytDisconnect(){
+  if(!confirm('¿Desconectar el canal de YouTube? Las transmisiones ya programadas seguirán en YouTube.'))return;
+  var r=await api('ytDisconnect',{});
+  if(r&&r.ok){toast('Canal desconectado','success');ytRender();}else toast((r&&r.error)||'No se pudo desconectar','error');
+}
+async function ytConnect(){
+  var r=await api('ytConnectUrl',{});
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo iniciar la conexión','error');return;}
+  _YT.url=r.url;ytOpenUrl(r.url);
+  var box=document.getElementById('yt-body');
+  if(box)box.innerHTML='<div class="alert ai" style="font-size:13px;line-height:1.5">Se abrió Google en otra ventana. Elige la cuenta del canal, acepta los permisos y vuelve aquí: esta pantalla se actualizará sola.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn bs bsm" onclick="ytCopy(_YT.url)">Copiar enlace</button><button class="btn bs bsm" onclick="ytOpenUrl(_YT.url)">Abrir de nuevo</button></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">Si no se abrió, copia el enlace y pégalo en el navegador (Chrome). Si Google dice "app no verificada", toca <b>Avanzada &gt; Continuar</b>.</div>';
+  clearInterval(_YT.poll);var n=0;
+  _YT.poll=setInterval(async function(){
+    n++;if(n>60||!document.getElementById('yt-body')){clearInterval(_YT.poll);return;}
+    var s=await ytLoadStatus();
+    if(s&&s.connected){clearInterval(_YT.poll);toast('Canal de YouTube conectado','success');ytRender();}
+  },3000);
+}
+// ── Al iniciar la transmision: elegir a que transmision de YouTube enviar ──
+function ytStartSectionHtml(){
+  return'<div class="fg" id="bc-ytfg" style="display:none;margin-top:6px"><label class="fl">📺 Enviar también a YouTube</label>'
+    +'<select class="fi" id="bc-yt" onchange="ytStartSel()"><option value="">No enviar a YouTube</option></select>'
+    +'<div id="bc-ytnew" style="display:none;margin-top:8px"><div class="fr c2"><div class="fg"><label class="fl">Título en YouTube</label><input class="fi" id="bc-ytt" maxlength="100" placeholder="Vacío = Visitante vs Local"></div>'
+    +'<div class="fg"><label class="fl">Privacidad</label><select class="fi" id="bc-ytp">'+YT_PRIV+'</select></div></div></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5" id="bc-ythint"></div></div>';
+}
+async function ytFillStart(){
+  if(!document.getElementById('bc-ytfg'))return;
+  var st=await ytLoadStatus(),fg=document.getElementById('bc-ytfg');if(!fg||!st.ok||!st.configured)return;
+  fg.style.display='';
+  var sel=document.getElementById('bc-yt'),hint=document.getElementById('bc-ythint');
+  if(!st.connected){hint.innerHTML=st.canManage?'Aún no hay canal conectado. <a href="#" onclick="ytOpenM();return false" style="color:var(--acc)">Conectar canal</a>':'Aún no hay un canal de YouTube conectado (lo conecta un administrador).';sel.disabled=true;return;}
+  if(!st.relay){hint.textContent='El servidor de reenvío a YouTube aún no está configurado.';sel.disabled=true;return;}
+  hint.innerHTML='Canal: <b>'+nfEsc(st.channel||'')+'</b> &middot; <a href="#" onclick="ytOpenM();return false" style="color:var(--acc)">Programar / configurar</a>';
+  var r=await api('ytList',{}),opts='<option value="">No enviar a YouTube</option><option value="new">Crear una transmisión nueva ahora</option>';
+  if(r&&r.ok)(r.items||[]).forEach(function(b){opts+='<option value="'+nfEsc(b.id)+'">'+nfEsc(b.title)+' &middot; '+nfEsc(ytFmt(b.start))+'</option>';});
+  sel=document.getElementById('bc-yt');if(sel)sel.innerHTML=opts;
+}
+function ytStartSel(){var n=document.getElementById('bc-ytnew');if(n)n.style.display=(fv('bc-yt')==='new')?'':'none';}
+// ── Durante la transmision ──
+async function bcYtGo(sel,opt){
+  if(!_BC.id)return;
+  _BC.yt={state:'starting'};bcYtRefreshUi();
+  var p={streamId:_BC.id};if(sel==='new')p.create={title:(opt&&opt.title)||'',privacy:(opt&&opt.privacy)||'public'};else p.broadcastId=sel;
+  var r=await api('ytStart',p);
+  if(!_BC.id)return;
+  if(r&&r.ok){
+    _BC.yt={state:'live',broadcastId:r.broadcastId,watchUrl:r.watchUrl};
+    toast('📺 Enviando a YouTube… tarda unos segundos en aparecer','success');
+    clearInterval(_BC.ytT);_BC.ytT=setInterval(bcYtPoll,30000);setTimeout(bcYtPoll,6000);
+  }else{_BC.yt={state:'error',err:(r&&r.error)||'No se pudo enviar a YouTube'};toast('YouTube: '+_BC.yt.err,'error');}
+  bcYtRefreshUi();
+}
+async function bcYtPoll(){
+  if(!_BC.id||!_BC.yt||_BC.yt.state==='error'||_BC.yt.state==='starting')return;
+  var r=await api('ytState',{streamId:_BC.id});
+  if(!_BC.id||!_BC.yt)return;
+  if(r&&r.ok&&r.linked){_BC.yt.info=r;_BC.yt.watchUrl=r.watchUrl||_BC.yt.watchUrl;}
+  else if(r&&r.ok&&!r.linked){_BC.yt=null;clearInterval(_BC.ytT);}
+  bcYtRefreshUi();
+}
+function bcYtRefreshUi(){
+  var y=_BC.yt,b=document.getElementById('bcf-ytb'),btn=document.getElementById('bcf-yt');
+  if(btn)btn.style.opacity=(y&&y.state!=='error')?'1':'.6';
+  if(!b)return;
+  if(!y){b.style.display='none';return;}
+  var i=y.info||{},tx='📺 conectando',col='#fbbf24';
+  if(y.state==='error'){tx='📺 error';col='#f87171';}
+  else if(i.life==='live'||i.life==='liveStarting'){tx='📺 EN VIVO';col='#34d399';}
+  else if(i.relayReady){tx='📺 enviando';col='#34d399';}
+  b.style.display='';b.style.color=col;b.textContent=tx;
+}
+function bcYtPanel(){
+  if(!_BC.id)return;
+  var y=_BC.yt,h='';
+  if(y&&(y.state==='live'||y.state==='starting')){
+    var i=y.info||{},ST={active:'recibiendo video',inactive:'sin video todavía',ready:'lista',error:'con error',created:'creada'},HL={good:'buena',ok:'aceptable',bad:'mala',noData:'sin datos'};
+    var row=function(k,v){return'<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--t3)">'+k+'</span><b>'+v+'</b></div>';};
+    h='<div class="mbd">'
+      +(y.state==='starting'?'<div class="alert ai" style="font-size:13px">Conectando con YouTube…</div>':
+        row('Servidor de reenvío',i.relayReady?'conectado':'esperando el video…')+row('YouTube recibe',nfEsc(ST[i.stream]||'—'))+row('Transmisión',nfEsc(YT_LIFE[i.life]||'—'))+row('Calidad de la señal',nfEsc(HL[i.health]||'—')))
+      +'<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">YouTube muestra el video con unos segundos de retraso respecto a la app. El estado se actualiza cada 30 segundos.</div></div>'
+      +'<div class="mft" style="flex-wrap:wrap"><button class="btn bs" onclick="cM()">Cerrar</button>'
+      +(y.watchUrl?'<button class="btn bs" onclick="ytOpenUrl(_BC.yt.watchUrl)">Ver en YouTube</button><button class="btn bs" onclick="ytCopy(_BC.yt.watchUrl)">Copiar enlace</button>':'')
+      +'<button class="btn bd" onclick="bcYtStop()">Detener envío</button></div>';
+  }else{
+    h='<div class="mbd">'+(y&&y.state==='error'?'<div class="alert aw" style="font-size:13px;margin-bottom:10px">'+nfEsc(y.err||'Error')+'</div>':'<div style="font-size:13px;color:var(--t2);margin-bottom:8px">Esta transmisión no se está enviando a YouTube.</div>')
+      +ytStartSectionHtml()+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" onclick="bcYtStartNow()">Enviar a YouTube ahora</button></div>';
+  }
+  showM('<div class="mhd"><div class="mtl">📺 YouTube</div><button class="bx" onclick="cM()">&#10005;</button></div>'+h);
+  if(!y||y.state==='error')ytFillStart();
+}
+function bcYtStartNow(){
+  var sel=fv('bc-yt');if(!sel){toast('Elige una transmisión de YouTube o "Crear una nueva ahora"','info');return;}
+  var o={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public'};
+  _BC.yt=null;cM();bcYtGo(sel,o);
+}
+async function bcYtStop(){
+  if(!confirm('¿Detener el envío a YouTube? La transmisión de YouTube se terminará; la de la app sigue.'))return;
+  cM();var r=await api('ytStop',{streamId:_BC.id});
+  clearInterval(_BC.ytT);_BC.yt=null;bcYtRefreshUi();
+  toast((r&&r.ok)?'Envío a YouTube detenido':((r&&r.error)||'No se pudo detener'),(r&&r.ok)?'success':'error');
+}
 function openBroadcastM(gid){
   if(_BC.id){bcShowPanel();return;}
   var gm=(S.games||[]).filter(function(g){return String(g.id)===String(gid);})[0];if(!gm)return;
@@ -8214,9 +8406,10 @@ function openBroadcastM(gid){
     +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-mic" checked style="accent-color:var(--acc);width:16px;height:16px"> Transmitir con micrófono</label>'
     +(canSave?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-rec" checked style="accent-color:var(--acc);width:16px;height:16px"> Guardar la transmisión (queda en el módulo Transmisiones)</label>'
       :'<div style="font-size:11px;color:var(--t3);margin:6px 0">Esta transmisión no se guarda: al terminar se elimina.</div>')
+    +ytStartSectionHtml()
     +'<div class="alert ai" style="font-size:12px;margin-top:10px">El marcador y los gráficos los ve cada espectador encima del video; tú los eliges y mueves en <b>&#129513; Pantalla</b>. Puedes seguir anotando normalmente. Se mantendrá la pantalla encendida mientras transmites.</div>'
     +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" id="bc-go" data-gid="'+nfEsc(gm.id)+'" onclick="bcStart(this.dataset.gid)">&#128308; Iniciar transmisión</button></div>');
-  bcFillDevices();
+  bcFillDevices();ytFillStart();
 }
 // Lista las cámaras del equipo para elegir cuál es la cámara 1 (solo si hay 2 o más)
 async function bcFillDevices(){
@@ -8233,6 +8426,7 @@ async function bcStart(gid){
   function reset(){if(btn){btn.disabled=false;btn.innerHTML='&#128308; Iniciar transmisión';}}
   var cam=fv('bc-cam')||'environment',res=fv('bc-res')||'720',mic=!!(document.getElementById('bc-mic')||{}).checked,rec=!!(document.getElementById('bc-rec')||{}).checked;
   var dims={'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[res]||[1280,720];
+  var ytSel=fv('bc-yt')||'',ytOpt={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public'};
   var stream,dev=fv('bc-dev')||'';
   try{
     var vc={width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},ac=mic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false;
@@ -8261,6 +8455,7 @@ async function bcStart(gid){
   _BC.pingT=setInterval(bcPing,45000);
   _BC.stT=setInterval(bcStats,3000);
   toast('¡Estás transmitiendo en vivo!','success');
+  if(ytSel)bcYtGo(ytSel,ytOpt);
   try{goNav('gamecontrol');}catch(e){}
 }
 function bcWatchPc(pc){
@@ -8328,7 +8523,7 @@ function bcPing(){
 function bcStopLocal(msg){
   var b=_BC;_BC={};
   try{camCleanup(b);}catch(e){}
-  try{clearInterval(b.pingT);clearInterval(b.tmT);clearInterval(b.stT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
+  try{clearInterval(b.pingT);clearInterval(b.tmT);clearInterval(b.stT);clearInterval(b.ytT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
   try{if(b.res)fetch(b.res,{method:'DELETE'}).catch(function(){});}catch(e){}
   try{if(b.pc)b.pc.close();}catch(e){}
   try{if(b.stream)b.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
@@ -8612,14 +8807,15 @@ function bcMount(){
   var pos={};try{pos=JSON.parse(localStorage.getItem('vp_bc_pos')||'{}');}catch(e){}
   var el=document.createElement('div');el.id='bc-float';el.className='bcf';
   el.style.right=(pos.r!=null?pos.r:10)+'px';el.style.bottom=(pos.b!=null?pos.b:84)+'px';
-  el.innerHTML='<div class="bcf-bar" id="bcf-drag"><span class="bcf-dot"></span><b id="bcf-st">EN VIVO</b><span id="bcf-tm">00:00</span><button class="bcf-min" id="bcf-min" title="Minimizar">&#8211;</button></div>'
+  el.innerHTML='<div class="bcf-bar" id="bcf-drag"><span class="bcf-dot"></span><b id="bcf-st">EN VIVO</b><span id="bcf-ytb" style="display:none;font-size:11px;font-weight:800;margin-left:6px"></span><span id="bcf-tm">00:00</span><button class="bcf-min" id="bcf-min" title="Minimizar">&#8211;</button></div>'
     +'<video id="bcf-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div id="bcf-cams" class="bcf-cams"></div>'
-    +'<div class="bcf-btns"><button id="bcf-mic" title="Micrófono">&#127908;</button><button id="bcf-flip" title="Cambiar cámara">&#128260;</button><button id="bcf-camb" title="Cámaras: enlazar y elegir la toma al aire">&#128247;</button><button id="bcf-scr" title="Pantalla: gráficos que ven los espectadores">&#129513;</button><button id="bcf-end" class="bcf-stop" title="Finalizar transmisión">&#9209;</button></div>';
+    +'<div class="bcf-btns"><button id="bcf-mic" title="Micrófono">&#127908;</button><button id="bcf-flip" title="Cambiar cámara">&#128260;</button><button id="bcf-camb" title="Cámaras: enlazar y elegir la toma al aire">&#128247;</button><button id="bcf-scr" title="Pantalla: gráficos que ven los espectadores">&#129513;</button><button id="bcf-yt" title="YouTube: enviar esta transmisión a YouTube">&#128250;</button><button id="bcf-end" class="bcf-stop" title="Finalizar transmisión">&#9209;</button></div>';
   document.body.appendChild(el);
   var v=document.getElementById('bcf-v');v.srcObject=_BC.stream;try{v.play();}catch(e){}
   document.getElementById('bcf-scr').onclick=bcOpenStage;
   camStyles();document.getElementById('bcf-camb').onclick=camOpenM;camRender();
   document.getElementById('bcf-end').onclick=bcEnd;
+  document.getElementById('bcf-yt').onclick=bcYtPanel;bcYtRefreshUi();
   document.getElementById('bcf-flip').onclick=bcFlip;
   document.getElementById('bcf-mic').onclick=bcToggleMic;
   document.getElementById('bcf-min').onclick=function(){el.classList.toggle('bcf-mini');};
@@ -9169,7 +9365,8 @@ function renderStreams(){
   var canDel=hasModuleAccess('livestreamsave');
   var head='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap">'
     +'<div><div class="stl">&#128225; Transmisiones</div><div class="ssb">Juegos transmitidos en vivo desde la app</div></div>'
-    +'<select class="fi" style="width:auto;min-width:180px" onchange="setSharedTour(this.value);pgStreams()">'+tOpts+'</select></div>';
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+(hasModuleAccess('livestream')?'<button class="btn bs bsm" onclick="ytOpenM()">&#128250; YouTube</button>':'')
+    +'<select class="fi" style="width:auto;min-width:180px" onchange="setSharedTour(this.value);pgStreams()">'+tOpts+'</select></div></div>';
   var liveHtml=live.length?'<div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--red);margin:4px 0 10px">&#128308; EN VIVO AHORA</div><div class="vgrid">'+live.map(function(s){
     return'<div class="vcard" data-sid="'+nfEsc(s.id)+'" onclick="openStreamPlayer(this.dataset.sid)"><div class="vthumb" style="background:#000"><span class="vplay">&#9654;</span><span class="lsbadge">EN VIVO</span></div>'
       +'<div class="vinfo"><div class="vtitle">'+nfEsc(s.title||'Juego en vivo')+'</div><div class="vmeta"><span>'+nfEsc(s.by||'')+'</span><span>&middot; '+vidAgo(s.startedAt)+'</span></div></div></div>';
@@ -12605,6 +12802,7 @@ async function undoSubAction(gm,last){
       S.lineups=S.lineups.map(function(l){return(l.gameId===luBefore.gameId&&l.teamId===luBefore.teamId)?luBefore:l;});
       await api('saveLineup',{lineup:luBefore});
     }
+    if(before.batIdx){gm.awayBatterIdx=before.batIdx.away;gm.homeBatterIdx=before.batIdx.home;await api('saveGame',{game:gm});S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});}
     // Restaurar pitcheo: sobreescribir los registros que ya existian a sus valores previos, y
     // ELIMINAR los que se crearon DESPUES del snapshot (ej. el registro nuevo del pitcher
     // entrante) — "antes" del cambio ese registro no existia.
@@ -14230,6 +14428,41 @@ async function applySub(gid,tid,type){
 // orden actual. Visible/oculto por el permiso "addtolineup" (ver hasModuleAccess), igual que
 // el boton de Panel de Transmision.
 // ═══════════════════════════════════════════════════════════════════
+// Orden al bate "efectivo" de un lineup (mismo criterio que usa el control de juego para avanzar el turno)
+function atlOrdered(lu){
+  var out=[];if(!lu||!lu.players)return out;
+  var rp=lu.players.filter(function(lp){return lp.replacedBy||lp.noBat;}).map(function(lp){return lp.playerId;}),slots=[];
+  lu.players.forEach(function(lp){var s=lp.order||0;if(slots.indexOf(s)<0)slots.push(s);});
+  slots.sort(function(a,b){return a-b;});
+  slots.forEach(function(slot){
+    var inSlot=lu.players.filter(function(lp){return(lp.order||0)===slot;});
+    var cur=inSlot.filter(function(lp){return rp.indexOf(lp.playerId)<0;});
+    if(cur.length===0){var allNoBat=inSlot.every(function(lp){return lp.noBat===true||lp.noBat==='true';});if(!allNoBat)out.push(inSlot[inSlot.length-1]);}
+    else out.push(cur[cur.length-1]);
+  });
+  if(!out.length)out=lu.players.slice();
+  return out;
+}
+// Turnos disponibles para insertar: solo los que aun no han bateado en la vuelta actual (desde el bateador que sigue)
+function atlTurnInfo(gm,tid){
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
+  var ord=(lu&&lu.players&&lu.players.length)?atlOrdered(lu):[],len=ord.length;
+  var isAway=tid===gm.awayTeamId,raw=isAway?(parseInt(gm.awayBatterIdx)||0):(parseInt(gm.homeBatterIdx)||0);
+  var pos=len?raw%len:0,batting=((gm.currentHalf==='top')===isAway);
+  var inCount=batting&&((parseInt(gm.balls)||0)>0||(parseInt(gm.strikes)||0)>0);   // bateador a mitad de turno: no se le puede quitar el turno
+  var minK=Math.min(inCount?pos+2:pos+1,len+1);
+  return{lu:lu,ord:ord,len:len,raw:raw,pos:pos,batting:batting,minK:minK,isAway:isAway,inCount:inCount};
+}
+function atlTurnOptsHtml(gm,tid){
+  var ti=atlTurnInfo(gm,tid),o='';
+  for(var k=ti.minK;k<=ti.len+1;k++){
+    var who=k<=ti.len?ti.ord[k-1]:null,wp=who?playerOf(who.playerId):null;
+    var lbl='Turno '+k+(wp?' · antes de #'+(wp.number||'?')+' '+wp.name+((k-1===ti.pos)?(ti.batting?' (bate ahora)':' (abre la próxima entrada)'):''):' · al final del orden');
+    o+='<option value="'+k+'"'+(k===ti.len+1?' selected':'')+'>'+lbl+'</option>';
+  }
+  var note=ti.minK>1?'Ya batearon los turnos 1 al '+(ti.minK-1)+' en esta vuelta, por eso no están disponibles.'+(ti.inCount&&ti.minK===ti.pos+2?' El bateador en turno ya tiene conteo.':''):'Aún no ha bateado ningún turno en esta vuelta: puedes elegir cualquiera.';
+  return{opts:o,note:note};
+}
 function openAddToLineupM(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
   var aw=teamOf(gm.awayTeamId),hw=teamOf(gm.homeTeamId);
@@ -14251,7 +14484,7 @@ function openAddToLineupM(){
       +'</div>';
   }
   showM('<div class="mhd"><div class="mtl">&#10133; Agregar Jugador al Lineup</div><button class="bx" onclick="cM()">&#10005;</button></div>'
-    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">El jugador se agrega SIEMPRE despues del ultimo bateador del orden actual.</div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;margin-bottom:12px">Podrás elegir en qué turno al bate entra (solo turnos que aún no han bateado). Los demás se recorren un turno. Si eliges el último, entra al final del orden.</div>'
     +'<div style="display:flex;gap:16px">'+colHtml(gm.awayTeamId,aw,'aw')+colHtml(gm.homeTeamId,hw,'hm')+'</div>'
     +'</div>'
   );
@@ -14261,10 +14494,14 @@ function pickAddToLineupPos(side,tid){
   var pid=sel&&sel.value;
   if(!pid){toast('Selecciona un jugador','error');return;}
   var p=playerOf(pid);
+  var _gm=S.games.filter(function(x){return x.id===S.game;})[0],_turn=_gm?atlTurnOptsHtml(_gm,tid):{opts:'',note:''};
   var pOpts=POS.map(function(ps){return'<option value="'+ps+'" '+(lineupPosOf(p&&p.position)===ps?'selected':'')+'>'+ps+'</option>';}).join('');
   showM('<div class="mhd"><div class="mtl">&#9918; Posición de entrada</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd"><div style="font-size:13px;color:var(--t2);margin-bottom:12px">#'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entrará a jugar en:</div>'
     +'<select class="fs" id="atl-pos">'+pOpts+'</select>'
+    +'<div style="font-size:13px;color:var(--t2);margin:14px 0 6px">Turno al bate:</div>'
+    +'<select class="fs" id="atl-turn">'+_turn.opts+'</select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.5">'+_turn.note+'</div>'
     +'</div>'
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" data-side="'+side+'" data-tid="'+tid+'" data-pid="'+pid+'" onclick="confirmAddToLineup(this.dataset.side,this.dataset.tid,this.dataset.pid)">Confirmar</button></div>'
   );
@@ -14276,15 +14513,23 @@ async function confirmAddToLineup(side,tid,pid){
   var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];
   if(!lu){toast('Lineup no encontrado','error');return;}
   if(lu.players.some(function(lp){return lp.playerId===pid;})){toast('Ese jugador ya está en el lineup','error');return;}
+  var ti=atlTurnInfo(gm,tid),k=parseInt(fv('atl-turn'))||(ti.len+1);
+  if(k<ti.minK||k>ti.len+1){toast('Ese turno ya bateó. Elige el turno '+ti.minK+' o uno posterior.','error');return;}
   var _before=snapshotForUndo(gm.id,[tid]);
-  var maxOrder=lu.players.reduce(function(mx,lp){return Math.max(mx,lp.order||0);},0);
-  var p=playerOf(pid);
-  lu.players.push({playerId:pid,order:maxOrder+1,position:pos,originalPosition:null,isSubstitute:true,replacedPlayerId:null,noBat:false});
+  _before.batIdx={away:parseInt(gm.awayBatterIdx)||0,home:parseInt(gm.homeBatterIdx)||0};   // para que "Deshacer" tambien devuelva el turno al bate
+  var p=playerOf(pid),newOrder;
+  if(k>ti.len){newOrder=lu.players.reduce(function(mx,lp){return Math.max(mx,lp.order||0);},0)+1;}   // al final del orden
+  else{newOrder=ti.ord[k-1].order||0;lu.players.forEach(function(lp){if((lp.order||0)>=newOrder)lp.order=(lp.order||0)+1;});}   // el que estaba en ese turno y los siguientes se recorren
+  lu.players.push({playerId:pid,order:newOrder,position:pos,originalPosition:null,isSubstitute:true,replacedPlayerId:null,noBat:false});
+  // el orden creció en 1: se reajusta el contador para que siga tocando al mismo bateador (o al nuevo si entró en el turno actual)
+  var idxChanged=false;
+  if(ti.len>0){var lap=Math.floor(ti.raw/ti.len),ni=lap*(ti.len+1)+ti.pos;if(ni!==ti.raw){if(ti.isAway)gm.awayBatterIdx=ni;else gm.homeBatterIdx=ni;idxChanged=true;}}
   await api('saveLineup',{lineup:lu});
   S.lineups=S.lineups.map(function(l){return l.gameId===gm.id&&l.teamId===tid?lu:l;});
-  var _label='Jugador agregado al lineup: #'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entra jugando '+pos;
+  if(idxChanged){await api('saveGame',{game:gm});S.games=S.games.map(function(x){return x.id===gm.id?gm:x;});}
+  var _label='Jugador agregado al lineup: #'+(p&&p.number||'?')+' '+(p?p.name:'?')+' entra jugando '+pos+(k>ti.len?' (al final del orden)':' (turno '+k+' al bate)');
   await logSubAction(gm.id,[tid],'add_to_lineup',_label,_before);
-  cM();pgGC();toast('Jugador agregado al lineup','success');
+  cM();pgGC();toast('Jugador agregado al lineup en el turno '+Math.min(k,ti.len+1),'success');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -17701,7 +17946,7 @@ var DV_POS={P:[50,58],C:[50,94],'1B':[92,43],'2B':[67,22],'3B':[8,43],SS:[33,22]
 var DV_POSB={P:[50,56],C:[50,90],'1B':[85,44],'2B':[67,23],'3B':[15,44],SS:[33,23],LF:[16,11],CF:[50,7],RF:[84,11],DH:[13,88]};   // tarjetas del lineup
 var DV_BASES={home:[50,80],first:[80,58],second:[50,32],third:[20,58]};
 var DV_COL={a:'#2563eb',b:'#dc2626'};
-var DV_RES={RL:['Ruleta','#a78bfa'],H1:['Sencillo','#34d399'],H2:['Doble','#34d399'],H3:['Triple','#34d399'],HR:['¡JONRÓN!','#fbbf24'],K:['Ponche','#f87171'],OUT:['Out','#f87171']};
+var DV_RES={RL:['Ruleta','var(--dv-pur)'],H1:['Sencillo','var(--succ-txt)'],H2:['Doble','var(--succ-txt)'],H3:['Triple','var(--succ-txt)'],HR:['¡JONRÓN!','var(--warn-txt)'],K:['Ponche','var(--err-txt)'],OUT:['Out','var(--err-txt)']};
 var DV_PIPS={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 var DV_PIT={P:1,SP:1,RP:1,CL:1,CP:1,LHP:1,RHP:1};
 
@@ -17818,7 +18063,7 @@ async function dvLoadRanking(){
     +r.rows.map(function(x,i){
       var pc=(x.pct*100).toFixed(0)+'%';
       return'<tr style="border-top:1px solid var(--bdr);'+(x.me?'background:rgba(245,166,35,.12);font-weight:700':'')+'"><td style="text-align:center;padding:6px 4px">'+(medal[i]||(i+1))+'</td><td style="padding:6px 4px">'+nfEsc(x.name)+(x.me?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</td>'
-        +'<td style="text-align:center;color:#34d399">'+x.w+'</td><td style="text-align:center;color:#f87171">'+x.l+'</td><td style="text-align:center;font-weight:700">'+pc+'</td>'
+        +'<td style="text-align:center;color:var(--succ-txt)">'+x.w+'</td><td style="text-align:center;color:var(--err-txt)">'+x.l+'</td><td style="text-align:center;font-weight:700">'+pc+'</td>'
         +'<td style="text-align:center;font-size:11px;color:var(--t3)">'+x.cpuW+'-'+x.cpuL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+x.pvpW+'-'+x.pvpL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+(x.serW||0)+'-'+(x.serL||0)+'</td></tr>';
     }).join('')+'</tbody></table></div>'
     +'<div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · &#129302; vs máquina (V-D) · &#128101; vs amigos y desafíos (V-D) · &#127942; S = series (V-D). Una serie cuenta 1 sola victoria o derrota al terminar.</div></div>';
@@ -17827,7 +18072,7 @@ async function dvLoadList(){
   var r=await api('divList',{});
   var rec=document.getElementById('dv-rec'),el=document.getElementById('dv-list');if(!rec||!el)return;
   if(!(r&&r.ok)){el.className='empty';el.innerHTML='<div style="font-size:36px">&#128274;</div><div>'+nfEsc((r&&r.error)||'No se pudo cargar')+'</div>';return;}
-  var c=r.record,box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:#34d399">'+w+'</span> - <span style="color:#f87171">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Ganadas - Perdidas</div></div>';};
+  var c=r.record,box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:var(--succ-txt)">'+w+'</span> - <span style="color:var(--err-txt)">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Ganadas - Perdidas</div></div>';};
   rec.innerHTML='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+box('&#128101; Contra amigos',c.pvpW,c.pvpL)+box('&#129302; Contra la máquina',c.cpuW,c.cpuL)+box('&#127942; Total',c.pvpW+c.cpuW,c.pvpL+c.cpuL)+'</div>';
   var se=document.getElementById('dv-ser');if(se)se.innerHTML=dvSeriesHtml(r);
   var meb=document.getElementById('dv-me');if(meb)meb.innerHTML=dvMeHtml(r.alias||'');
@@ -17835,7 +18080,7 @@ async function dvLoadList(){
   if(!r.matches.length){if((r.series||[]).length){el.className='';el.innerHTML='';return;}el.className='empty';el.innerHTML='<div style="font-size:40px">&#127922;</div><div>Aún no has jugado. ¡Lanza tu primera partida!</div>';return;}
   el.className='';
   el.innerHTML='<div style="font-weight:700;margin-bottom:8px">Mis juegos sueltos</div>'+r.matches.map(function(x){
-    var st={invite:['Reto pendiente','var(--t3)'],lobby:['Armando lineups','#fbbf24'],playing:['En juego','var(--acc)'],finished:x.winner===x.me?['&#127942; Ganada','#34d399']:['Perdida','#f87171']}[x.status]||['','var(--t3)'];
+    var st={invite:['Reto pendiente','var(--t3)'],lobby:['Armando lineups','var(--warn-txt)'],playing:['En juego','var(--acc)'],finished:x.winner===x.me?['&#127942; Ganada','var(--succ-txt)']:['Perdida','var(--err-txt)']}[x.status]||['','var(--t3)'];
     var sc=(x.sa!=null&&x.sb!=null)?(x.me==='a'?x.sa+' - '+x.sb:x.sb+' - '+x.sa):'';
     return'<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(x.mode==='cpu'?'&#129302; Máquina':'&#128101; '+nfEsc(x.rival||'Esperando rival'))+(x.fantasy?' <span style="font-size:10px;color:var(--acc)">&#127919; Fantasía '+(x.stake?x.stake+' pts':'')+'</span>':'')+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+nfEsc(x.tournament)+' &middot; '+x.innings+' inn. &middot; '+nfEsc(x.day)+(sc?' &middot; <b>'+sc+'</b>':'')+'</div></div>'
@@ -17915,7 +18160,7 @@ function dvSerHtml(m){
 }
 // Bloque de resultado cuando termina un juego (suelto, juego de una serie o final de la serie)
 function dvFinishedHtml(m,st){
-  var won=m.winner===m.me,s=m.series,col=function(w){return w?'#34d399':'#f87171';};
+  var won=m.winner===m.me,s=m.series,col=function(w){return w?'var(--succ-txt)':'var(--err-txt)';};
   var sc=nfEsc(dvName(m,m.winner))+' gana '+st.sc[m.winner]+' a '+st.sc[dvOther(m.winner)];
   if(s&&s.status!=='finished'&&s.curCode&&s.curCode!==m.code){
     return'<div style="font-size:30px">'+(won?'&#127942;':'&#128532;')+'</div><div style="font-weight:800;font-size:16px;color:'+col(won)+'">'+(won?'Ganaste el juego ':'Perdiste el juego ')+(m.gameNo||1)+'</div><div style="font-size:12px;color:var(--t3)">'+sc+'</div>'
@@ -17936,15 +18181,15 @@ function dvFinishedHtml(m,st){
 function dvSeriesHtml(r){
   var sr=r.seriesRecord||{pvpW:0,pvpL:0,cpuW:0,cpuL:0},sl=r.series||[],hh=r.h2h||[];
   if(!sl.length)return'';
-  var box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:#34d399">'+w+'</span> - <span style="color:#f87171">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Series ganadas - perdidas</div></div>';};
+  var box=function(t,w,l){return'<div style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--bdr);border-radius:12px;padding:10px 12px;text-align:center"><div style="font-size:11px;color:var(--t3)">'+t+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800"><span style="color:var(--succ-txt)">'+w+'</span> - <span style="color:var(--err-txt)">'+l+'</span></div><div style="font-size:10px;color:var(--t3)">Series ganadas - perdidas</div></div>';};
   var th='style="text-align:center;padding:5px 4px;font-size:10px;color:var(--t3);font-weight:700"';
   var h='<div style="font-weight:700;margin:4px 0 8px">&#127942; Mis series</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
     +box('&#128101; Series vs amigos',sr.pvpW,sr.pvpL)+box('&#129302; Series vs máquina',sr.cpuW,sr.cpuL)+box('&#127942; Total series',sr.pvpW+sr.cpuW,sr.pvpL+sr.cpuL)+'</div>';
   if(hh.length)h+='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px;font-size:13px">Enfrentamientos de serie</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Rival</th><th '+th+'>Series V-D</th><th '+th+'>Juegos V-D</th><th '+th+'>Carreras</th></tr></thead><tbody>'
-    +hh.map(function(x){return'<tr style="border-top:1px solid var(--bdr)"><td style="padding:6px 4px">'+(x.cpu?'&#129302; ':'&#128101; ')+nfEsc(x.rival)+'</td><td style="text-align:center;font-weight:700"><span style="color:#34d399">'+x.sw+'</span>-<span style="color:#f87171">'+x.sl+'</span></td><td style="text-align:center">'+x.gw+'-'+x.gl+'</td><td style="text-align:center;color:var(--t3)">'+x.rf+' - '+x.ra+'</td></tr>';}).join('')
+    +hh.map(function(x){return'<tr style="border-top:1px solid var(--bdr)"><td style="padding:6px 4px">'+(x.cpu?'&#129302; ':'&#128101; ')+nfEsc(x.rival)+'</td><td style="text-align:center;font-weight:700"><span style="color:var(--succ-txt)">'+x.sw+'</span>-<span style="color:var(--err-txt)">'+x.sl+'</span></td><td style="text-align:center">'+x.gw+'-'+x.gl+'</td><td style="text-align:center;color:var(--t3)">'+x.rf+' - '+x.ra+'</td></tr>';}).join('')
     +'</tbody></table></div><div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · Carreras = a favor - en contra, dentro de las series</div></div>';
   h+=sl.map(function(x){
-    var st=x.status==='finished'?(x.winner===x.me?['&#127942; Serie ganada','#34d399']:['Serie perdida','#f87171']):(x.status==='invite'?['Reto pendiente','var(--t3)']:['En juego','var(--acc)']);
+    var st=x.status==='finished'?(x.winner===x.me?['&#127942; Serie ganada','var(--succ-txt)']:['Serie perdida','var(--err-txt)']):(x.status==='invite'?['Reto pendiente','var(--t3)']:['En juego','var(--acc)']);
     return'<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap"><div style="min-width:0"><div style="font-weight:700;font-size:13px">'+(x.mode==='cpu'?'&#129302; Máquina':'&#128101; '+nfEsc(x.rival||'Esperando rival'))+' <span style="font-size:10px;color:var(--acc)">Mejor de '+x.bestOf+'</span>'+(x.fantasy?' <span style="font-size:10px;color:var(--acc)">&#127919; Fantasía '+(x.stake?x.stake+' pts':'')+'</span>':'')+'</div>'
       +'<div style="font-size:11px;color:var(--t3)">'+nfEsc(x.tournament)+' &middot; '+x.innings+' inn. &middot; '+nfEsc(x.day)+' &middot; <b>'+x.mw+' - '+x.ow+'</b></div></div>'
       +'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;color:'+st[1]+'">'+st[0]+'</span>'
@@ -17957,11 +18202,12 @@ function dvRlStyles(){
   if(document.getElementById('dvrl-css'))return;
   var st=document.createElement('style');st.id='dvrl-css';
   st.textContent='.dvrl{position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:12px}'
-   +'.dvrlc{background:var(--bg2,#14181f);border:1px solid var(--bdr2,#333);border-radius:16px;padding:14px;max-width:420px;width:100%;text-align:center;max-height:96vh;overflow:auto}'
+   +'.dvrlc{background:var(--bg2);color:var(--txt);border:1px solid var(--bdr2);border-radius:16px;padding:14px;max-width:420px;width:100%;text-align:center;max-height:96vh;overflow:auto}'
+   +'.dvrl-ttl{font-weight:800;font-size:17px}.dvrl-msg{min-height:44px;font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center;margin:4px 0}'
    +'.dvrlw{position:relative;width:min(78vw,320px);height:min(78vw,320px);margin:8px auto}'
    +'.dvrlw svg{width:100%;height:100%;display:block;transition:transform 4.6s cubic-bezier(.12,.7,.1,1)}'
    +'.dvrlp{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-size:28px;color:#fbbf24;z-index:2;filter:drop-shadow(0 1px 2px #000)}'
-   +'.dvflash{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:10060;background:rgba(20,24,31,.96);border:2px solid var(--acc,#f5a623);border-radius:14px;padding:12px 18px;font-weight:800;font-size:16px;text-align:center;max-width:88vw;animation:dvfl 2.6s ease forwards}'
+   +'.dvflash{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:10060;background:var(--bg2);color:var(--txt);box-shadow:0 6px 24px rgba(0,0,0,.35);border:2px solid var(--acc);border-radius:14px;padding:12px 18px;font-weight:800;font-size:16px;text-align:center;max-width:88vw;animation:dvfl 2.6s ease forwards}'
    +'@keyframes dvfl{0%{opacity:0;transform:translateX(-50%) scale(.8)}12%{opacity:1;transform:translateX(-50%) scale(1)}85%{opacity:1}100%{opacity:0}}';
   document.head.appendChild(st);
 }
@@ -18001,7 +18247,7 @@ function dvRlSfx(ev){
 function dvRlFlash(txt,good){
   dvRlStyles();
   var ov=document.getElementById('divov')||document.body,d=document.createElement('div');
-  d.className='dvflash';d.style.borderColor=good?'#34d399':'#f87171';d.innerHTML=txt;ov.appendChild(d);
+  d.className='dvflash';d.style.borderColor=good?'var(--grn)':'var(--red)';d.innerHTML=txt;ov.appendChild(d);
   setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2700);
 }
 function dvRlWheelSvg(slots){
@@ -18029,6 +18275,23 @@ async function dvOpenRoulette(){
     +'<div style="display:flex;gap:8px;justify-content:center"><button class="btn bs" id="dvrl-x" onclick="dvRlClose()">Cerrar</button><button class="btn bp" id="dvrl-go" style="font-size:16px;padding:10px 22px" onclick="dvRlGo()">🎰 ¡Girar!</button></div></div>';
   document.body.appendChild(ov);
 }
+// El rival (o la maquina) gira la ruleta: se muestra en pantalla girando, con las mismas casillas, y luego el resultado
+async function dvRlWatch(ev,nm){
+  var w=ev.rl&&ev.rl.w;
+  if(!w||w.length<2||typeof ev.rl.idx!=='number'){dvRlFlash('🎰 '+nfEsc(nm)+' '+dvRlMsg(ev,false,nm),dvRlGood(ev));await dvWait(2600);return;}   // eventos viejos sin casillas
+  dvRlStyles();dvRlClose();
+  var ov=document.createElement('div');ov.id='dvrl';ov.className='dvrl';
+  ov.innerHTML='<div class="dvrlc"><div class="dvrl-ttl">🎰 '+nfEsc(nm)+' gira la ruleta…</div><div class="dvrlw"><div class="dvrlp">&#9660;</div>'+dvRlWheelSvg(w)+'</div><div id="dvrl-msg" class="dvrl-msg"></div></div>';
+  document.body.appendChild(ov);
+  var svg=document.getElementById('dvrl-svg'),per=360/w.length;
+  if(svg){var cen=ev.rl.idx*per+per/2,jit=(Math.random()-.5)*per*.6;setTimeout(function(){svg.style.transform='rotate('+(2160-(cen+jit))+'deg)';},60);}
+  await dvWait(4800);
+  var msg=document.getElementById('dvrl-msg');
+  if(msg){msg.style.color=dvRlGood(ev)?'var(--succ-txt)':'var(--err-txt)';msg.textContent=nm+' '+dvRlMsg(ev,false,nm);}
+  dvRlSfx(ev);
+  await dvWait(2600);
+  dvRlClose();
+}
 function dvRlClose(){var o=document.getElementById('dvrl');if(o&&o.parentNode)o.parentNode.removeChild(o);}
 async function dvRlGo(){
   var m=_DV.m;if(!m||_DV.busy)return;
@@ -18042,7 +18305,7 @@ async function dvRlGo(){
   if(svg){var cen=r.idx*per+per/2,jit=(Math.random()-.5)*per*.6;setTimeout(function(){svg.style.transform='rotate('+(2160-(cen+jit))+'deg)';},60);}
   await dvWait(4800);
   var ev=(r.events||[])[0],msg=document.getElementById('dvrl-msg');
-  if(ev&&ev.rl&&msg){var g=dvRlGood(ev);msg.style.color=g?'#34d399':'#f87171';msg.textContent=dvRlMsg(ev,true,'');dvRlSfx(ev);}
+  if(ev&&ev.rl&&msg){var g=dvRlGood(ev);msg.style.color=g?'var(--succ-txt)':'var(--err-txt)';msg.textContent=dvRlMsg(ev,true,'');dvRlSfx(ev);}
   var nn=document.getElementById('dvrl-n');if(nn&&r.match&&r.match.state&&r.match.state.spins)nn.textContent=r.match.state.spins[m.me]||0;
   await dvWait(2200);
   dvRlClose();
@@ -18119,7 +18382,7 @@ function divRlCard(){
 }
 function dvRlTotal(){
   var t=0;document.querySelectorAll('[data-rlk]').forEach(function(i){t+=Math.min(10,Math.max(0,parseInt(i.value)||0));});
-  var e=document.getElementById('rl-total');if(e){e.textContent=t;e.style.color=t>48?'#f87171':'';}
+  var e=document.getElementById('rl-total');if(e){e.textContent=t;e.style.color=t>48?'var(--err-txt)':'';}
   return t;
 }
 function dvRlDefaults(){document.querySelectorAll('[data-rlk]').forEach(function(i){i.value=DV_RL_DEF[i.getAttribute('data-rlk')]||0;});dvRlTotal();}
@@ -18149,6 +18412,24 @@ async function saveDivFanLimits(){
   if(d>0&&p>d){toast('El máximo entre dos usuarios no puede superar el máximo diario','error');return;}
   var rs=[await api('saveConfig',{key:'divFanDailyMax',value:String(d)}),await api('saveConfig',{key:'divFanPairMax',value:String(p)}),await api('saveConfig',{key:'divFanStakeMin',value:String(mn)}),await api('saveConfig',{key:'divFanStakeMax',value:String(mx)})];
   if(rs.every(function(r){return r&&r.ok;})){S.config=S.config||{};S.config.divFanDailyMax=String(d);S.config.divFanPairMax=String(p);S.config.divFanStakeMin=String(mn);S.config.divFanStakeMax=String(mx);toast('Límites guardados','success');}else toast('Error al guardar los límites','error');
+}
+// ── Configuracion: recalificar adivinanzas perdidas (por si alguna acerto y se calificó mal) ──
+function advRegradeCard(){
+  return'<div class="card" style="margin-bottom:14px"><div class="chd"><div class="ctl">🎯 Adivina: recalificar adivinanzas perdidas</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px;line-height:1.5">Vuelve a revisar las adivinanzas marcadas como perdidas y corrige las que en realidad eran aciertos (por ejemplo, ponches del abridor mal contados). <b>Revisar</b> solo muestra qué cambiaría; <b>Corregir</b> suma los puntos.</div>'
+    +'<div class="fg"><label class="fl">Tipo</label><select class="fs" id="advrg-k"><option value="ks">Ponches del abridor</option><option value="winner">Ganador</option><option value="score">Marcador exacto</option><option value="diff">Diferencial de carreras</option></select></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn bs" onclick="advRegrade(true)">Revisar (sin cambiar)</button><button class="btn bp" onclick="advRegrade(false)">Corregir y dar puntos</button></div></div>';
+}
+async function advRegrade(dry){
+  var k=fv('advrg-k')||'ks';
+  if(!dry&&!confirm('¿Corregir las adivinanzas perdidas que en realidad acertaron y sumar sus puntos?'))return;
+  var r=await api('fantasyAdivinaRegrade',{kind:k,dry:!!dry});
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo revisar','error');return;}
+  var rows=(r.report||[]).map(function(x){
+    return'<div class="card" style="margin-bottom:6px;font-size:12px;line-height:1.5"><b>'+nfEsc(x.user)+'</b> · '+nfEsc(x.day||'')+' · apostó <b>'+nfEsc(x.pick)+'</b>'+(x.actual?'<br>Abridor: '+nfEsc(x.actual)+' ponches':'')
+      +'<br><b style="color:'+(/^(corregida|se corregir)/.test(x.result)?'var(--succ-txt)':'var(--t2)')+'">'+nfEsc(x.result)+'</b></div>';
+  }).join('')||'<div class="empty" style="padding:12px">No hay adivinanzas perdidas de ese tipo.</div>';
+  showM('<div class="mhd"><div class="mtl">🎯 '+(r.dry?'Revisión':'Resultado')+'</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div style="font-size:13px;margin-bottom:8px">Revisadas: <b>'+r.checked+'</b> · '+(r.dry?'se corregirían':'corregidas')+': <b>'+r.fixed+'</b></div>'+rows+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
 function dvJoinCode(){
   var c=prompt('Escribe el código de la partida:','');
@@ -18213,8 +18494,8 @@ async function dvPlay(events){
     if(ev.rl){   // jugada de la ruleta: sin dado; el rival ve el resultado en un aviso
       _DV.rolling=null;_DV.disp=ev.snap;_DV.lastEv=ev;_DV.die=ev.die||_DV.die;dvRender();
       var mm=_DV.m,isMe=mm&&ev.team===mm.me,nmv=mm?dvName(mm,ev.team):'';
-      if(!_DV.rlSelf){dvRlSfx(ev);if(mm)dvRlFlash('🎰 '+nfEsc(nmv)+' '+dvRlMsg(ev,false,nmv),dvRlGood(ev));}
-      await dvWait(ev.res==='HR'?3500:2600);
+      if(!_DV.rlSelf&&mm){await dvRlWatch(ev,nmv);}   // el rival / la maquina gira: se ve la ruleta girando
+      else await dvWait(ev.res==='HR'?3500:2600);
       continue;
     }
     if(!(i===0&&_DV.rolling==='done'))await dvRollAnim(ev.die,i===0?0:520);
@@ -18320,7 +18601,7 @@ function dvLobbyHtml(m){
   var h=dvSerHtml(m);
   if(me==='a'&&m.mode==='pvp'&&!m.fantasy&&!m.b.name)h+=dvShareHtml(m);
   h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px"><div>&#127967; '+nfEsc(dvTourName(m.tournamentId))+'</div><div>'+inn+'</div></div>'
-    +'<div style="font-size:12px;color:var(--t3);margin-top:6px">'+(m.mode==='cpu'?'Rival: <b>&#129302; Máquina</b> (armará su equipo al azar al iniciar)':(hasOpp?'Rival: <b>'+nfEsc(m[opp].name)+'</b> '+(oppOk?'<span style="color:#34d399">&#10003; lineup listo</span>':'<span style="color:#fbbf24">armando su lineup...</span>'):'<span style="color:#fbbf24">Esperando que tu rival se una con el link...</span>'))+'</div></div>';
+    +'<div style="font-size:12px;color:var(--t3);margin-top:6px">'+(m.mode==='cpu'?'Rival: <b>&#129302; Máquina</b> (armará su equipo al azar al iniciar)':(hasOpp?'Rival: <b>'+nfEsc(m[opp].name)+'</b> '+(oppOk?'<span style="color:var(--succ-txt)">&#10003; lineup listo</span>':'<span style="color:var(--warn-txt)">armando su lineup...</span>'):'<span style="color:var(--warn-txt)">Esperando que tu rival se una con el link...</span>'))+'</div></div>';
   h+='<div class="card"><div style="font-weight:700;margin-bottom:2px">Tu lineup <span style="font-size:11px;color:var(--t3)">('+mine.length+'/'+slots.length+')</span></div><div style="font-size:11px;color:var(--t3);margin-bottom:8px">Toca cada posición para elegir un jugador. El orden al bate sigue el orden de las posiciones.</div>'
     +'<div class="dvf">'+dvBgSvg()+slots.map(function(k){return dvSlotCard(m,k,byS[k]);}).join('')+'</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px"><button class="btn bs" onclick="dvRandomLineup()">&#127922; Completar al azar</button>'
@@ -18395,7 +18676,7 @@ async function dvChoose(pid){
 function dvDisplayState(m){return _DV.disp||m.state;}
 function dvScoreHtml(m,st){
   var bk=dvBatKey(st),row=function(k){var bat=!st.over&&bk===k;return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0"><div style="font-weight:700;font-size:13px;'+(bat?'color:var(--acc)':'')+'">'+(bat?'&#127951; ':'')+nfEsc(dvName(m,k))+(st.spins&&st.spins[k]?' <span title="Giros de ruleta" style="font-size:11px;color:var(--acc)">🎰'+st.spins[k]+'</span>':'')+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:800">'+st.sc[k]+'</div></div>';};
-  var outs=[0,1,2].map(function(i){return'<span style="display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:4px;background:'+(i<st.outs?'#f87171':'var(--bdr2)')+'"></span>';}).join('');
+  var outs=[0,1,2].map(function(i){return'<span style="display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:4px;background:'+(i<st.outs?'var(--err-txt)':'var(--bdr2)')+'"></span>';}).join('');
   return'<div class="card" style="margin-bottom:10px">'+row(st.top)+row(dvOther(st.top))
     +'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--bdr);margin-top:4px;padding-top:6px;font-size:12px;color:var(--t2)"><div>'+(st.over?'<b>Final</b>':'Entrada <b>'+st.inn+'</b> '+(st.half==='top'?'&#9650;':'&#9660;')+' <span style="color:var(--t3)">de '+m.innings+'</span>')+'</div><div>Outs'+outs+'</div></div></div>';
 }
@@ -18468,7 +18749,7 @@ renderApp=function(){_dvRenderApp0.apply(this,arguments);try{dvCheckLink();}catc
 function fnDiviTab(){
   var d=_FN.divi;
   if(!d)return'<div class="card"><div class="empty">Cargando...</div></div>';
-  if(d.error)return'<div class="card"><div class="empty"><div style="color:#f87171;margin-bottom:10px">'+fnEsc(d.error)+'</div><button class="btn bp bsm" onclick="_FN.divi=null;fnRender();fnLoad()">Reintentar</button></div></div>';
+  if(d.error)return'<div class="card"><div class="empty"><div style="color:var(--err-txt);margin-bottom:10px">'+fnEsc(d.error)+'</div><button class="btn bp bsm" onclick="_FN.divi=null;fnRender();fnLoad()">Reintentar</button></div></div>';
   if(d.canDivi===false)return'<div class="card"><div class="empty"><div style="font-size:36px">&#128274;</div><div>Tu perfil no tiene habilitado el botón Partidas. Pídele al administrador que lo active en Perfiles.</div></div></div>';
   var h='<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:4px">&#127922; Partidas de dados entre plantillas</div>'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px">Rétalo a una partida de <b>Diviértete</b> apostando puntos de tu plantilla: <b>el que gana se los lleva y el que pierde los resta</b>. Puedes retar a un solo juego o a una <b>serie al mejor de 3, 5, 7 o 9</b>: en la serie se lleva los puntos quien gane la serie. Cuando tu rival acepte, ambos arman su lineup y juegan.</div>'+fnDiviMeta(d);
@@ -18484,7 +18765,7 @@ function fnDiviTab(){
     var rival=x.me==='a'?x.bName:x.aName,mw=x.me==='a'?x.aWins:x.bWins,ow=x.me==='a'?x.bWins:x.aWins,line='',acts='',pre='Serie al mejor de '+x.bestOf;
     if(x.status==='invite'&&x.me==='b'){line='<b>'+fnEsc(x.aName)+'</b> te retó a una '+pre.toLowerCase()+' &middot; apuesta '+fnPts(x.stake)+' pts (se los lleva quien gane la serie)';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Rechazar</button> <button class="btn bp bsm" onclick="fnDiviYes(\''+x.code+'\')">Aceptar</button>';}
     else if(x.status==='invite'){line='Esperando a <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; '+fnPts(x.stake)+' pts';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Cancelar</button>';}
-    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; '+mw+'-'+ow+' &middot; <b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'Ganaste la serie +':'Perdiste la serie -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
+    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; '+mw+'-'+ow+' &middot; <b style="color:'+(won?'var(--succ-txt)':'var(--err-txt)')+'">'+(won?'Ganaste la serie +':'Perdiste la serie -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
     else{line='vs <b>'+fnEsc(rival)+'</b> &middot; '+pre+' &middot; <b>'+mw+'-'+ow+'</b> &middot; '+fnPts(x.stake)+' pts &middot; <span style="color:var(--acc)">en juego</span>';acts='<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>';}
     return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;'+(i?'border-top:1px solid var(--bdr);':'')+'font-size:12px"><div>'+line+'</div><div style="display:flex;gap:6px">'+acts+'</div></div>';
   }).join('')+'</div>';
@@ -18492,7 +18773,7 @@ function fnDiviTab(){
     var rival=x.me==='a'?x.bName:x.aName,line='',acts='';
     if(x.status==='invite'&&x.me==='b'){line='<b>'+fnEsc(x.aName)+'</b> te retó: apuesta '+fnPts(x.stake)+' pts &middot; '+x.innings+' inn.';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Rechazar</button> <button class="btn bp bsm" onclick="fnDiviYes(\''+x.code+'\')">Aceptar</button>';}
     else if(x.status==='invite'){line='Esperando a <b>'+fnEsc(rival)+'</b> &middot; '+fnPts(x.stake)+' pts';acts='<button class="btn bs bsm" onclick="fnDiviNo(\''+x.code+'\')">Cancelar</button>';}
-    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+(x.me==='a'?x.sa+'-'+x.sb:x.sb+'-'+x.sa)+' &middot; <b style="color:'+(won?'#34d399':'#f87171')+'">'+(won?'Ganaste +':'Perdiste -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
+    else if(x.status==='finished'){var won=x.winner===x.me;line='vs <b>'+fnEsc(rival)+'</b> &middot; '+(x.me==='a'?x.sa+'-'+x.sb:x.sb+'-'+x.sa)+' &middot; <b style="color:'+(won?'var(--succ-txt)':'var(--err-txt)')+'">'+(won?'Ganaste +':'Perdiste -')+fnPts(x.stake)+' pts</b>';acts='<button class="btn bs bsm" onclick="dvOpen(\''+x.code+'\')">Ver</button>';}
     else{line='vs <b>'+fnEsc(rival)+'</b> &middot; '+fnPts(x.stake)+' pts &middot; '+(x.status==='playing'?'<span style="color:var(--acc)">en juego</span>':'armando lineups');acts='<button class="btn bp bsm" onclick="dvOpen(\''+x.code+'\')">Abrir</button>';}
     return'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;'+(i?'border-top:1px solid var(--bdr);':'')+'font-size:12px"><div>'+line+'</div><div style="display:flex;gap:6px">'+acts+'</div></div>';
   }).join('')+'</div>';
@@ -19986,6 +20267,7 @@ function fnRender(){
   var mine=d?d.teams.filter(function(x){return x.isMine;})[0]:null;
   function sOpt(arr,cur,val,lbl){return arr.map(function(x){var v=val(x);return'<option value="'+fnEsc(v)+'" '+(String(v)===String(cur)?'selected':'')+'>'+fnEsc(lbl(x))+'</option>';}).join('');}
   function sf(level,label,opts){return'<div style="flex:1;min-width:130px"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">'+label+'</label><select class="fs" style="width:100%" onchange="fnOnSel(\''+level+'\',this.value)">'+opts+'</select></div>';}
+  if(_FN.tab==='divi'&&!hasModuleAccess('fantasydivi'))_FN.tab='team';   // sin permiso en el perfil: nunca se muestra (ni por aviso push)
   var tab=function(id,l){return'<button class="btn '+(_FN.tab===id?'bp':'bs')+' bsm" onclick="fnSetTab(\''+id+'\')">'+l+'</button>';};
   var h='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px"><div><div class="stl">&#127919; Liga de Fantasía</div><div class="ssb">Arma tu plantilla (cuadro + banca) por fase del torneo o por día y compite por puntos</div></div>'
     +'<button class="btn bs bsm" onclick="fnOpenInfo()">&#8505; Cómo funciona</button></div>'
@@ -19994,7 +20276,7 @@ function fnRender(){
     +sf('parent','Torneo',sOpt(sel.parents,_FN.parent,function(x){return x.id;},function(x){return x.name;}))
     +sf('year','Año',sOpt(sel.years,_FN.year,function(x){return x;},function(x){return x||'—';}))
     +sf('tid','Subtorneo',sOpt(sel.list,_FN.tid,function(x){return x.id;},function(x){return x.name;}))
-    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+tab('adivina','&#127919; Adivina')+((d&&d.canDivi===false)?'':tab('divi','&#127922; Partidas'))+'</div>'
+    +'</div><div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">'+tab('team','Mi Plantilla')+tab('rank','Clasificación')+tab('trades','Cambios')+tab('challenges','Desafíos')+tab('daily','Diaria')+tab('week','&#11088; Equipo de la Semana')+tab('adivina','&#127919; Adivina')+(hasModuleAccess('fantasydivi')?tab('divi','&#127922; Partidas'):'')+'</div>'
     +(_FN.tid?fnCtxBar():'')+'</div>';
   if(d&&_FN.tid&&d.inactiveAlert&&d.inactiveAlert.length)h+=fnInactiveAlert(d.inactiveAlert);
   if(!_FN.tid)h+='<div class="card"><div class="empty">No hay subtorneos disponibles</div></div>';
@@ -23163,7 +23445,7 @@ function pgSet(){
       +'</div>'
       +fnCfgCard()
       +followLimitsCard()
-      +divRlCard()+divFanLimitsCard()+fantasyMoveCostCard()
+      +advRegradeCard()+divRlCard()+divFanLimitsCard()+fantasyMoveCostCard()
       +fantasyGroupMaxCard()
       +fantasyTradeDaysCard()
       +fantasyWeeklyCard()
