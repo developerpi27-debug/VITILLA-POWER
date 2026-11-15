@@ -7764,6 +7764,7 @@ function showFeaturedM(gid){
     if(!x)return'<div class="empty" style="padding:10px"><div style="font-size:11px">Sin datos suficientes</div></div>';
     var line=isPit?(x.ip.toFixed(1)+' IP &middot; '+x.k+'K &middot; '+x.er+'ER'+(x.w>0?' &middot; Ganador':x.sv>0?' &middot; Salvado':'')):(x.h+'H '+x.hr+'HR '+x.rbi+'RBI '+x.r+'R');
     return'<div style="text-align:center;padding:8px 4px">'
+      +(x.p.photoUrl?'<div style="display:flex;justify-content:center;margin-bottom:8px">'+playerAvatarHtml(x.p.photoUrl,x.p.name,76,'circle',x.p.number)+'</div>':'')
       +'<div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;color:var(--acc)">#'+(x.p.number||'?')+' '+x.p.name+'</div>'
       +'<div style="font-size:12px;color:var(--t2)">'+(x.tm?x.tm.name:'&mdash;')+'</div>'
       +'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+line+'</div>'
@@ -12406,7 +12407,7 @@ async function rPlay(type,opts){
         // dejar al anotador viendo un estado que solo existe en su pantalla.
         S.events=S.events.filter(function(x){return x.id!==evId;});
         var _di=er.dupInfo;
-        toast('Ya hay una jugada registrada para este bateador'+(_di?' ('+_di.type+', entrada '+_di.inning+(_di.half==='top'?'▲':'▼')+')':'')+' — se descartó la nueva y se sincronizó el juego. Si fue por un Deshacer, vuelve a intentar.','error');
+        toast('La última jugada registrada en el juego ya es de este bateador'+(_di?' ('+_di.type+', entrada '+_di.inning+(_di.half==='top'?'▲':'▼')+')':'')+' — se descartó la nueva y se sincronizó el juego. Si fue por un Deshacer, vuelve a intentar.','error');
         try{ await loadGameSliceOnly(gm.id,true); }catch(e2){}
         if(curP==='gamecontrol') pgGC();
         return;
@@ -18085,15 +18086,15 @@ async function dvLoadRanking(){
   var medal=['&#129351;','&#129352;','&#129353;'];
   var th='style="text-align:center;padding:5px 4px;font-size:10px;color:var(--t3);font-weight:700"';
   el.innerHTML='<div class="card" style="margin-bottom:14px"><div style="font-weight:700;margin-bottom:2px">&#127942; Ranking de ganadores</div>'
-    +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Todas las partidas terminadas (vs máquina, amigos y desafíos). Orden: mejor porcentaje de victorias y luego más victorias.</div>'
-    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th '+th+'>#</th><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Jugador</th><th '+th+'>V</th><th '+th+'>D</th><th '+th+'>%</th><th '+th+'>&#129302;</th><th '+th+'>&#128101;</th><th '+th+'>&#127942; S</th></tr></thead><tbody>'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Todas las partidas terminadas (vs máquina, amigos y desafíos). Mismo orden que Posiciones: 1) juegos sobre .500 (V − D), 2) % de victorias, 3) serie particular, 4) diferencial en la serie particular, 5) diferencial general de carreras.</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th '+th+'>#</th><th style="text-align:left;padding:5px 4px;font-size:10px;color:var(--t3)">Jugador</th><th '+th+'>V</th><th '+th+'>D</th><th '+th+'>±</th><th '+th+'>%</th><th '+th+'>&#129302;</th><th '+th+'>&#128101;</th><th '+th+'>&#127942; S</th></tr></thead><tbody>'
     +r.rows.map(function(x,i){
       var pc=(x.pct*100).toFixed(0)+'%';
       return'<tr style="border-top:1px solid var(--bdr);'+(x.me?'background:rgba(245,166,35,.12);font-weight:700':'')+'"><td style="text-align:center;padding:6px 4px">'+(medal[i]||(i+1))+'</td><td style="padding:6px 4px">'+nfEsc(x.name)+(x.me?' <span style="font-size:10px;color:var(--acc)">(tú)</span>':'')+'</td>'
-        +'<td style="text-align:center;color:var(--succ-txt)">'+x.w+'</td><td style="text-align:center;color:var(--err-txt)">'+x.l+'</td><td style="text-align:center;font-weight:700">'+pc+'</td>'
+        +'<td style="text-align:center;color:var(--succ-txt)">'+x.w+'</td><td style="text-align:center;color:var(--err-txt)">'+x.l+'</td><td style="text-align:center;font-weight:700">'+(x.above>0?'+':'')+x.above+'</td><td style="text-align:center">'+pc+'</td>'
         +'<td style="text-align:center;font-size:11px;color:var(--t3)">'+x.cpuW+'-'+x.cpuL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+x.pvpW+'-'+x.pvpL+'</td><td style="text-align:center;font-size:11px;color:var(--t3)">'+(x.serW||0)+'-'+(x.serL||0)+'</td></tr>';
     }).join('')+'</tbody></table></div>'
-    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · &#129302; vs máquina (V-D) · &#128101; vs amigos y desafíos (V-D) · &#127942; S = series (V-D). Una serie cuenta 1 sola victoria o derrota al terminar.</div></div>';
+    +'<div style="font-size:10px;color:var(--t3);margin-top:6px">V = victorias · D = derrotas · ± = juegos sobre .500 (V − D) · &#129302; vs máquina (V-D) · &#128101; vs amigos y desafíos (V-D) · &#127942; S = series (V-D). Una serie cuenta 1 sola victoria o derrota al terminar.</div></div>';
 }
 async function dvLoadList(){
   var r=await api('divList',{});
