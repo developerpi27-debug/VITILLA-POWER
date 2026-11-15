@@ -134,7 +134,7 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 /* ── Transmision en vivo ── */
 .vgrid{display:block}
 .lsbadge{position:absolute;top:8px;left:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;letter-spacing:.5px}
-.bcf{position:fixed;z-index:8500;width:188px;background:#0b1220;border:1px solid rgba(255,255,255,.2);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);overflow:hidden;touch-action:none;user-select:none}
+.bcf{position:fixed;z-index:8500;width:228px;max-width:calc(100vw - 12px);background:#0b1220;border:1px solid rgba(255,255,255,.2);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);overflow:hidden;touch-action:none;user-select:none}
 .bcf-bar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#1a2438;color:#fff;font-size:11px;cursor:grab}
 .bcf-bar b{font-size:11px;letter-spacing:.5px}.bcf-bar b.bcf-warn{color:#f5a623}
 .bcf-dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:bcfp 1.2s infinite}
@@ -142,8 +142,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bcf-bar span#bcf-tm{margin-left:auto;font-variant-numeric:tabular-nums;opacity:.85}
 .bcf-min{background:none;border:none;color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
 .bcf video{display:block;width:100%;aspect-ratio:16/9;background:#000;object-fit:cover;pointer-events:none}
-.bcf-btns{display:flex;justify-content:space-around;padding:5px 4px;background:#101a2c}
-.bcf-btns button{background:#1a2438;border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;font-size:15px;padding:5px 9px;cursor:pointer}
+.bcf-btns{display:flex;flex-wrap:wrap;gap:4px;justify-content:space-around;padding:5px 4px;background:#101a2c}
+.bcf-btns button{background:#1a2438;border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;font-size:15px;padding:5px 7px;cursor:pointer}
 .bcf-btns button.bcf-stop{background:#7f1d1d}
 .bcf.bcf-mini video,.bcf.bcf-mini .bcf-btns{display:none}
 .bcs{position:fixed;inset:0;z-index:8600;background:var(--bg,#0b1220);display:flex;flex-direction:column;padding:10px;gap:8px;overflow:auto}
@@ -8391,10 +8391,21 @@ function bcYtPanel(){
       +'<button class="btn bd" onclick="bcYtStop()">Detener envío</button></div>';
   }else{
     h='<div class="mbd">'+(y&&y.state==='error'?'<div class="alert aw" style="font-size:13px;margin-bottom:10px">'+nfEsc(y.err||'Error')+'</div>':'<div style="font-size:13px;color:var(--t2);margin-bottom:8px">Esta transmisión no se está enviando a YouTube.</div>')
-      +ytStartSectionHtml()+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" onclick="bcYtStartNow()">Enviar a YouTube ahora</button></div>';
+      +'<div id="bc-ytbody"><div class="empty" style="padding:14px">Comprobando YouTube…</div></div></div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" id="bc-ytsend" disabled onclick="bcYtStartNow()">Enviar a YouTube ahora</button></div>';
   }
   showM('<div class="mhd"><div class="mtl">📺 YouTube</div><button class="bx" onclick="cM()">&#10005;</button></div>'+h);
-  if(!y||y.state==='error')ytFillStart();
+  if(!y||y.state==='error')bcYtPanelFill();
+}
+async function bcYtPanelFill(){
+  var st=await ytLoadStatus(),box=document.getElementById('bc-ytbody');if(!box)return;
+  var warn=function(t,extra){box.innerHTML='<div class="alert aw" style="font-size:13px;line-height:1.5">'+t+'</div>'+(extra||'');};
+  if(!st.ok){warn(nfEsc(st.error||'No se pudo consultar YouTube'));return;}
+  if(!st.configured){warn('YouTube aún no está configurado en el servidor (credenciales de Google y servidor de reenvío). Cuando esté listo, aquí podrás elegir la transmisión de YouTube o crear una nueva.');return;}
+  if(!st.connected){warn('Todavía no hay un canal de YouTube conectado.'+(st.canManage?'':' Un administrador debe conectarlo.'),st.canManage?'<button class="btn bp" style="margin-top:10px;width:100%" onclick="ytOpenM()">Conectar canal de YouTube</button>':'');return;}
+  if(!st.relay){warn('El servidor de reenvío a YouTube aún no está configurado: todavía no se puede enviar el video. Sí puedes programar transmisiones.','<button class="btn bs" style="margin-top:10px;width:100%" onclick="ytOpenM()">Programar / configurar</button>');return;}
+  box.innerHTML=ytStartSectionHtml();
+  await ytFillStart();
+  var snd=document.getElementById('bc-ytsend');if(snd)snd.disabled=false;
 }
 function bcYtStartNow(){
   var sel=fv('bc-yt');if(!sel){toast('Elige una transmisión de YouTube o "Crear una nueva ahora"','info');return;}
@@ -12394,7 +12405,8 @@ async function rPlay(type,opts){
         // sincronizar este juego con el servidor para reflejar lo que realmente paso, en vez de
         // dejar al anotador viendo un estado que solo existe en su pantalla.
         S.events=S.events.filter(function(x){return x.id!==evId;});
-        toast('Esta jugada ya fue registrada por otro anotador — se descarto y se sincronizo el juego.','error');
+        var _di=er.dupInfo;
+        toast('Ya hay una jugada registrada para este bateador'+(_di?' ('+_di.type+', entrada '+_di.inning+(_di.half==='top'?'▲':'▼')+')':'')+' — se descartó la nueva y se sincronizó el juego. Si fue por un Deshacer, vuelve a intentar.','error');
         try{ await loadGameSliceOnly(gm.id,true); }catch(e2){}
         if(curP==='gamecontrol') pgGC();
         return;
