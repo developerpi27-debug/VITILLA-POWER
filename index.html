@@ -3910,6 +3910,11 @@ var ALL_MOD=[
   {id:'camlim4',lbl:'Cámaras en transmisión: máximo 4 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
   {id:'camlim6',lbl:'Cámaras en transmisión: máximo 6 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
   {id:'camlim8',lbl:'Cámaras en transmisión: máximo 8 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
+  {id:'ovlim2',lbl:'Gráficos e imágenes en pantalla: máximo 2 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
+  {id:'ovlim4',lbl:'Gráficos e imágenes en pantalla: máximo 4 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
+  {id:'ovlim6',lbl:'Gráficos e imágenes en pantalla: máximo 6 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
+  {id:'ovlim8',lbl:'Gráficos e imágenes en pantalla: máximo 8 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
+  {id:'ovlim10',lbl:'Gráficos e imágenes en pantalla: máximo 10 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
   {id:'hideads',lbl:'Ocultar anuncios (versión web)',ico:'🚫',sec:'General'},
@@ -4546,7 +4551,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -8249,6 +8254,7 @@ async function ytRender(){
       :'<div class="alert ai" style="font-size:13px">Aún no hay un canal de YouTube conectado. Un administrador debe conectarlo.</div>';
     return;
   }
+  _YT.thumb='';
   var d0=new Date(Date.now()+3600000);d0.setMinutes(0,0,0);
   box.innerHTML='<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:13px">Canal conectado: <b>'+nfEsc(st.channel||'—')+'</b></div>'+(st.canManage?'<button class="btn bs bsm" onclick="ytDisconnect()">Desconectar</button>':'')+'</div>'
     +(st.relay?'':'<div class="alert aw" style="font-size:12px;margin-bottom:10px">El servidor de reenvío no está configurado: puedes programar transmisiones, pero todavía no se puede enviar el video a YouTube.</div>')
@@ -8258,6 +8264,8 @@ async function ytRender(){
     +'<div class="fg"><label class="fl">Descripción (opcional)</label><textarea class="fi" id="yt-d" rows="3" maxlength="4000" placeholder="Torneo, hora, patrocinadores…"></textarea></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Fecha y hora</label><input class="fi" type="datetime-local" id="yt-w" value="'+ytDtLocal(d0)+'"></div>'
     +'<div class="fg"><label class="fl">Privacidad</label><select class="fi" id="yt-p">'+YT_PRIV+'</select></div></div>'
+    +'<div class="fg"><label class="fl">Público: ¿es contenido para niños?</label><select class="fi" id="yt-k">'+YT_KIDS+'</select><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">YouTube exige indicarlo. Si dices que sí, desactiva el chat en vivo y los comentarios.</div></div>'
+    +'<div class="fg"><label class="fl">Miniatura (opcional)</label><input type="file" accept="image/*" id="yt-th" onchange="ytPickThumb(this)"><div id="yt-thpv" style="margin-top:6px"></div><div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Se ajusta a 1280×720. YouTube solo permite miniaturas personalizadas en canales verificados (youtube.com/verify).</div></div>'
     +'<div class="fg" id="yt-lfg"><label class="fl">Latencia</label><select class="fi" id="yt-l"><option value="low" selected>Baja (recomendada)</option><option value="ultraLow">Ultra baja (sin resolución 1080p)</option><option value="normal">Normal (más estable)</option></select></div>'
     +'<div style="display:flex;gap:8px"><button class="btn bp" id="yt-sv" style="flex:1" onclick="ytSaveForm()">Programar</button><button class="btn bs" id="yt-cx" style="display:none" onclick="ytRender()">Cancelar edición</button></div>'
     +'<div style="font-weight:700;margin:16px 0 6px">Próximas transmisiones</div><div id="yt-list"><div class="empty">Cargando…</div></div>';
@@ -8282,6 +8290,7 @@ function ytEdit(id){
   document.getElementById('yt-id').value=b.id;document.getElementById('yt-t').value=b.title;document.getElementById('yt-d').value=b.description||'';
   try{document.getElementById('yt-w').value=ytDtLocal(new Date(b.start));}catch(e){}
   document.getElementById('yt-p').value=b.privacy||'public';
+  document.getElementById('yt-k').value=b.kids?'yes':'no';
   document.getElementById('yt-lfg').style.display='none';
   document.getElementById('yt-ftl').textContent='Editar transmisión';document.getElementById('yt-sv').textContent='Guardar cambios';document.getElementById('yt-cx').style.display='';
   var box=document.getElementById('yt-body');if(box&&box.parentNode&&box.parentNode.scrollTo)box.parentNode.scrollTo(0,0);
@@ -8293,10 +8302,15 @@ async function ytSaveForm(){
   var d=new Date(w);if(isNaN(d.getTime())){toast('Fecha no válida','error');return;}
   if(!id&&d.getTime()<Date.now()+60000){toast('Elige una fecha futura para programarla','error');return;}
   var btn=document.getElementById('yt-sv');if(btn)btn.disabled=true;
-  var r=await api('ytSave',{id:id,title:t,description:fv('yt-d')||'',startAt:d.toISOString(),privacy:fv('yt-p')||'public',latency:fv('yt-l')||'low'});
+  var r=await api('ytSave',{id:id,title:t,description:fv('yt-d')||'',startAt:d.toISOString(),privacy:fv('yt-p')||'public',kids:fv('yt-k')||'no',latency:fv('yt-l')||'low'});
   if(btn)btn.disabled=false;
-  if(r&&r.ok){toast(id?'Cambios guardados':'Transmisión programada en YouTube','success');ytRender();}
-  else toast((r&&r.error)||'No se pudo guardar en YouTube','error');
+  if(!(r&&r.ok)){toast((r&&r.error)||'No se pudo guardar en YouTube','error');return;}
+  toast(id?'Cambios guardados':'Transmisión programada en YouTube','success');
+  if(_YT.thumb){   // miniatura: si falla (canal sin verificar) la transmisión ya quedó creada
+    var th=await api('ytThumb',{id:r.id,image:_YT.thumb});
+    toast((th&&th.ok)?'Miniatura subida':((th&&th.error)||'No se pudo subir la miniatura'),(th&&th.ok)?'success':'error');
+  }
+  ytRender();
 }
 async function ytDel(id){
   if(!confirm('¿Eliminar esta transmisión programada de YouTube?'))return;
@@ -8328,7 +8342,8 @@ function ytStartSectionHtml(){
   return'<div class="fg" id="bc-ytfg" style="display:none;margin-top:6px"><label class="fl">📺 Enviar también a YouTube</label>'
     +'<select class="fi" id="bc-yt" onchange="ytStartSel()"><option value="">No enviar a YouTube</option></select>'
     +'<div id="bc-ytnew" style="display:none;margin-top:8px"><div class="fr c2"><div class="fg"><label class="fl">Título en YouTube</label><input class="fi" id="bc-ytt" maxlength="100" placeholder="Vacío = Visitante vs Local"></div>'
-    +'<div class="fg"><label class="fl">Privacidad</label><select class="fi" id="bc-ytp">'+YT_PRIV+'</select></div></div></div>'
+    +'<div class="fg"><label class="fl">Privacidad</label><select class="fi" id="bc-ytp">'+YT_PRIV+'</select></div></div>'
+    +'<div class="fg"><label class="fl">¿Es contenido para niños?</label><select class="fi" id="bc-ytk">'+YT_KIDS+'</select></div></div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5" id="bc-ythint"></div></div>';
 }
 async function ytFillStart(){
@@ -8345,10 +8360,333 @@ async function ytFillStart(){
 }
 function ytStartSel(){var n=document.getElementById('bc-ytnew');if(n)n.style.display=(fv('bc-yt')==='new')?'':'none';}
 // ── Durante la transmision ──
+// ── YouTube: miniatura (se ajusta a 1280x720 JPG, máx. 2 MB) ──
+function ytPickThumb(inp){
+  var f=inp&&inp.files&&inp.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var im=new Image();
+    im.onload=function(){
+      var W=1280,H=720,cv=document.createElement('canvas');cv.width=W;cv.height=H;var cx=cv.getContext('2d');
+      var sc=Math.max(W/im.width,H/im.height),sw=W/sc,sh=H/sc;   // recorte centrado para llenar 16:9
+      cx.fillStyle='#000';cx.fillRect(0,0,W,H);cx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,0,0,W,H);
+      var q=0.9,d=cv.toDataURL('image/jpeg',q);
+      while(d.length>2500000&&q>0.4){q-=0.1;d=cv.toDataURL('image/jpeg',q);}
+      _YT.thumb=d;
+      var pv=document.getElementById('yt-thpv');if(pv)pv.innerHTML='<img src="'+d+'" style="width:100%;max-width:260px;border-radius:8px;border:1px solid var(--bdr)"> <button class="btn bs bsm" onclick="ytClearThumb()">Quitar</button>';
+    };
+    im.onerror=function(){toast('No se pudo leer la imagen','error');};
+    im.src=rd.result;
+  };
+  rd.readAsDataURL(f);
+}
+function ytClearThumb(){_YT.thumb='';var pv=document.getElementById('yt-thpv');if(pv)pv.innerHTML='';var i=document.getElementById('yt-th');if(i)i.value='';}
+var YT_KIDS='<option value="no">No, no es contenido para niños</option><option value="yes">Sí, es contenido para niños</option>';
+// ── Estadisticas y chat en vivo ──
+function bcYtStatsHtml(i){
+  if(!i||i.viewers===undefined)return'<span style="color:var(--t3)">Las estadísticas aparecen cuando YouTube empieza a recibir el video.</span>';
+  var n=(_BC.ytChat&&_BC.ytChat.n)||0;
+  return'<b>&#128065; '+i.viewers+'</b> viendo ahora &nbsp;&middot;&nbsp; <b>&#128077; '+i.likes+'</b> likes &nbsp;&middot;&nbsp; <b>&#9654; '+i.views+'</b> vistas &nbsp;&middot;&nbsp; <b>&#128172; '+n+'</b> mensajes del chat';
+}
+function ytChatRender(){
+  var box=document.getElementById('yt-chat');if(!box)return;
+  var c=_BC.ytChat||{items:[]};
+  if(c.note&&!c.items.length){box.innerHTML='<div style="color:var(--t3)">'+nfEsc(c.note)+'</div>';return;}
+  box.innerHTML=c.items.length?c.items.slice(-40).map(function(m){return'<div style="margin-bottom:4px;line-height:1.35"><b style="color:'+(m.owner?'var(--acc)':(m.mod?'var(--grn)':'var(--t2)'))+'">'+nfEsc(m.author)+'</b>: '+nfEsc(m.text)+'</div>';}).join(''):'<div style="color:var(--t3)">Aún no hay mensajes en el chat.</div>';
+  box.scrollTop=box.scrollHeight;
+  var st=document.getElementById('yt-stats');if(st)st.innerHTML=bcYtStatsHtml((_BC.yt&&_BC.yt.info)||null);
+}
+function ytChatStart(){
+  clearInterval(_BC.ytChatT);
+  _BC.ytChat=_BC.ytChat||{items:[],token:'',chatId:'',n:0,seen:{},note:''};
+  var tick=async function(){
+    if(!document.getElementById('yt-chat')||!_BC.id||!_BC.yt){clearInterval(_BC.ytChatT);return;}   // se consulta solo con la ventana abierta (cuida la cuota de YouTube)
+    var r=await api('ytChat',{streamId:_BC.id,chatId:_BC.ytChat.chatId,pageToken:_BC.ytChat.token});
+    if(!(r&&r.ok)||!_BC.ytChat)return;
+    var c=_BC.ytChat;c.chatId=r.chatId||c.chatId;if(r.next)c.token=r.next;c.note=r.note||'';
+    (r.items||[]).forEach(function(m){if(!c.seen[m.id]){c.seen[m.id]=1;c.items.push(m);c.n++;}});
+    ytChatRender();
+  };
+  tick();_BC.ytChatT=setInterval(tick,20000);
+}
+// ═══ TRANSMISION "CON GRAFICOS" (solo PC con Chrome / Edge) ═══
+// El escenario completo (camara + TODOS los graficos e imagenes, tal como los pones y cambias) se dibuja en un recuadro de salida que queda DEBAJO de la
+// interfaz y se captura con "Element Capture" (la captura ignora lo que lo tape). Ese video capturado reemplaza al de la camara en el MISMO envio a
+// Cloudflare, asi que viaja con los graficos dentro: llega igual a la app, a las paginas publicas y a YouTube, sin recodificar en el servidor.
+// Mientras esta activo, el servidor les devuelve a los espectadores una lista de graficos vacia (streamBurn) para que no se dibujen dos veces.
+var BCB_CSS='html.bcb-on{background:var(--bg)}html.bcb-on body{position:relative;z-index:0;background:var(--bg);min-height:100vh}';
+function bcCmpSupported(){try{var c=document.createElement('canvas');return !!(c.captureStream&&c.getContext&&window.RTCPeerConnection&&window.createImageBitmap&&window.MediaStream);}catch(e){return false;}}
+// 'capture' = PC con Chrome/Edge (captura de la pestana) · 'canvas' = celular (la app Android no tiene captura de pantalla): el propio dispositivo compone camara + graficos en un canvas
+function bcBurnMode(){
+  if(camDevice()==='pc'&&navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia&&window.RestrictionTarget)return'capture';
+  return bcCmpSupported()?'canvas':'';
+}
+function bcBurnSupported(){return!!bcBurnMode();}
+function bcProgramTrack(){   // el video que esta "al aire" (camara local u otra camara elegida en la mesa)
+  if(_BC.prog&&_BC.prog!=='local'){var c=(_BC.cams||{})[_BC.prog];if(c&&c.track&&c.track.readyState==='live')return c.track;}
+  return _BC.stream&&_BC.stream.getVideoTracks()[0];
+}
+function bcVideoSender(){return _BC.pc&&_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];}
+// Cambia el video al aire; con graficos incrustados la camara va DENTRO del escenario capturado y el envio no se toca
+async function bcSendVideo(track){
+  var b=_BC.burn;
+  if(b&&b.on){b.video.srcObject=new MediaStream([track]);try{await b.video.play();}catch(e){}return;}
+  var snd=bcVideoSender();if(snd)await snd.replaceTrack(track);
+}
+function bcBurnRedraw(){var b=_BC.burn;if(!b||!b.on)return;if(b.mode==='canvas'){bcCmpSync();return;}var ov=document.getElementById('bcburn-ov');if(ov)lsRenderItems(ov,_BC.layout||[],_BC.gameId,false);}
+function bcBurnCleanup(b){
+  b=b||_BC.burn;if(!b)return;
+  b.on=false;
+  try{if(b.mode==='canvas')bcCmpCleanup(b);}catch(e){}
+  try{b.track.onended=null;b.track.stop();}catch(e){}
+  try{if(b.cap)b.cap.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  try{if(b.video)b.video.srcObject=null;}catch(e){}
+  var h=document.getElementById('bcburn');if(h)h.remove();
+  document.documentElement.classList.remove('bcb-on');
+}
+function bcBurnPanelRefresh(){var e=document.getElementById('bc-burnsec');if(e)e.innerHTML=bcBurnSectionHtml();}
+async function bcBurnStart(){
+  if(!_BC.id||!_BC.pc){toast('Primero inicia la transmisión.','info');return;}
+  if(_BC.burn&&_BC.burn.on)return;
+  var _bm=bcBurnMode();
+  if(!_bm){toast('Este dispositivo no permite incrustar gráficos en el video (falta compatibilidad con canvas / WebRTC).','error');return;}
+  if(_bm==='canvas'){return bcCmpStart();}
+  if(_BC.burnBusy)return;_BC.burnBusy=true;
+  var host=null,cap=null;
+  var fail=function(msg){try{if(cap)cap.getTracks().forEach(function(t){t.stop();});}catch(e){}if(host)host.remove();document.documentElement.classList.remove('bcb-on');_BC.burnBusy=false;toast(msg,'error');bcBurnPanelRefresh();};
+  try{
+    if(!document.getElementById('bcb-css')){var st=document.createElement('style');st.id='bcb-css';st.textContent=BCB_CSS;document.head.appendChild(st);}
+    // recuadro de salida 16:9 (hasta 1280 de ancho, lo que quepa en la ventana), por DEBAJO de la interfaz
+    var cw=document.documentElement.clientWidth,ch=document.documentElement.clientHeight,vw=Math.min(1280,cw),vh=Math.round(vw*9/16);
+    if(vh>ch){vh=ch;vw=Math.round(vh*16/9);}
+    host=document.createElement('div');host.id='bcburn';
+    host.style.cssText='position:fixed;left:0;top:0;width:'+vw+'px;height:'+vh+'px;z-index:-1;overflow:hidden;background:#000;pointer-events:none';
+    host.innerHTML='<video id="bcburn-v" muted playsinline autoplay style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover"></video><div id="bcburn-ov" style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden"></div>';
+    document.body.appendChild(host);document.documentElement.classList.add('bcb-on');
+    var v=document.getElementById('bcburn-v'),cur=bcProgramTrack();
+    if(!cur){fail('No hay video de la cámara para incrustar.');return;}
+    v.srcObject=new MediaStream([cur]);try{await v.play();}catch(e){}
+    lsRenderItems(document.getElementById('bcburn-ov'),_BC.layout||[],_BC.gameId,false);
+    // captura de ESTA pestaña, recortada solo al recuadro de salida
+    try{cap=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:30,max:30},width:{ideal:1920},height:{ideal:1080}},audio:false,preferCurrentTab:true,selfBrowserSurface:'include',surfaceSwitching:'exclude'});}
+    catch(e){fail('No se activó: en la ventana del navegador elige "Esta pestaña" y toca Compartir.');return;}
+    var t=cap.getVideoTracks()[0];
+    try{var rt=await RestrictionTarget.fromElement(host);await t.restrictTo(rt);}
+    catch(e){fail('El navegador no pudo capturar el escenario ('+(e&&e.name||'error')+'). Elige "Esta pestaña" y usa Chrome o Edge actualizado.');return;}
+    try{t.contentHint='motion';}catch(e){}
+    var snd=bcVideoSender();if(!snd){fail('No hay envío de video activo.');return;}
+    var prev=snd.track;
+    await snd.replaceTrack(t);
+    _BC.burn={on:true,host:host,video:v,cap:cap,track:t};
+    t.onended=function(){bcBurnStop(true);};   // "Dejar de compartir" del navegador
+    var r=await api('streamBurn',{id:_BC.id,on:true});
+    if(!(r&&r.ok)){   // sin la marca en el servidor los espectadores dibujarian los graficos dos veces: se revierte
+      var err=(r&&r.error)||'No se pudo activar en el servidor.';
+      try{if(prev)await snd.replaceTrack(prev);}catch(e){}
+      bcBurnCleanup(_BC.burn);_BC.burn=null;_BC.burnBusy=false;toast(err,'error');bcBurnPanelRefresh();return;
+    }
+    _BC.burnBusy=false;bcYtRefreshUi();bcBurnPanelRefresh();
+    toast('🎨 Gráficos dentro del video activados. Mantén esta pestaña abierta.','success');
+  }catch(e){fail('No se pudo activar los gráficos en el video.');}
+}
+async function bcBurnStop(auto){
+  var b=_BC.burn;if(!b||!b.on)return;
+  var id=_BC.id;
+  bcBurnCleanup(b);_BC.burn=null;
+  try{var snd=bcVideoSender(),cur=bcProgramTrack();if(snd&&cur)await snd.replaceTrack(cur);}catch(e){}   // la camara vuelve a ser lo que se envia
+  if(id){try{await api('streamBurn',{id:id,on:false});}catch(e){}}
+  bcYtRefreshUi();bcBurnPanelRefresh();
+  toast(auto?'Se dejó de compartir la pestaña: el video vuelve a salir sin los gráficos incrustados.':'Gráficos dentro del video desactivados.',auto?'info':'success');
+}
+async function bcBurnReapply(){   // tras reconectar con Cloudflare (nuevo envio): se vuelve a poner el escenario capturado
+  var b=_BC.burn;if(!b||!b.on)return;
+  var snd=bcVideoSender();
+  if(snd&&b.track&&b.track.readyState==='live'){try{await snd.replaceTrack(b.track);}catch(e){}}else bcBurnStop(true);
+}
+// ═══ GRAFICOS DENTRO DEL VIDEO EN EL CELULAR (compositor en canvas) ═══
+// Android WebView no tiene captura de pantalla, asi que el celular arma el video por su cuenta: dibuja la camara en un canvas 16:9 y, encima,
+// los graficos (cada uno es una imagen que le manda una copia oculta de la pagina del grafico servida por el Worker en /g/..., ver serveGfxPage)
+// y las imagenes propias. canvas.captureStream() es el video que reemplaza al de la camara en el MISMO envio a Cloudflare (igual que en PC),
+// asi que llega con los graficos dentro a la app, a las paginas publicas y a YouTube. El servidor deja de pedirle graficos a los espectadores (streamBurn).
+var BCC_FPS=4;
+function bcCmpOrigin(){try{return new URL(CFG.workerUrl,location.href).origin;}catch(e){return'*';}}
+function bcCmpUrl(it){
+  var u=new URL('/g/'+it.page,CFG.workerUrl);
+  u.searchParams.set('game',_BC.gameId);if(it.team)u.searchParams.set('team',it.team);
+  Object.keys(it.q||{}).forEach(function(k){u.searchParams.set(k,it.q[k]);});
+  u.searchParams.set('edit','0');u.searchParams.set('embed','1');u.searchParams.set('snap','1');
+  return u.href;
+}
+function bcCmpTell(e,cmd){
+  try{
+    if(!e||!e.fr||!e.fr.contentWindow)return;
+    var m={lsnap:1,cmd:cmd},b=_BC.burn;
+    if(cmd==='cfg'){m.pr=e.pr||1;m.fps=(b&&b.fps)||BCC_FPS;}
+    e.fr.contentWindow.postMessage(m,bcCmpOrigin());
+  }catch(x){}
+}
+function bcCmpDrop(e){
+  if(!e)return;
+  try{if(e.bmp&&e.bmp.close)e.bmp.close();}catch(x){}
+  if(e.fr){try{bcCmpTell(e,'stop');}catch(x){}try{e.fr.onload=null;e.fr.src='about:blank';e.fr.remove();}catch(x){}}
+}
+function bcCmpMsg(ev){
+  var b=_BC.burn,d=ev.data;
+  if(!b||!b.on||b.mode!=='canvas'||!d||d.lsnap!==1)return;
+  var ent=null;
+  Object.keys(b.items).forEach(function(k){var e=b.items[k];if(e.fr&&e.fr.contentWindow===ev.source)ent=e;});   // solo se aceptan mensajes de NUESTROS iframes
+  if(!ent)return;
+  if(d.t==='ready'||d.t==='lib'){bcCmpTell(ent,'cfg');bcCmpTell(ent,'start');}
+  else if(d.t==='frame'&&d.bmp){
+    var old=ent.bmp;ent.bmp=d.bmp;ent.n=(ent.n||0)+1;ent.err='';
+    try{if(old&&old.close)old.close();}catch(x){}
+  }
+  else if(d.t==='err'){ent.err=String(d.msg||'error').slice(0,120);}
+}
+// Crea / actualiza / quita las copias ocultas de los graficos segun el layout actual (se llama cada vez que pones, mueves, cambias o quitas algo)
+function bcCmpSync(){
+  var b=_BC.burn;if(!b||!b.on||b.mode!=='canvas')return;
+  var list=_BC.layout||[],keep={},ng=0;
+  list.forEach(function(it){if(it.page!=='img')ng++;});
+  b.fps=ng<=2?5:(ng<=4?4:3);   // mas graficos = menos cuadros por segundo de cada uno (cuida bateria y CPU)
+  list.forEach(function(it){
+    keep[it.id]=1;var e=b.items[it.id];
+    if(it.page==='img'){   // imagen propia: se dibuja directo, sin pagina intermedia
+      var src=String(it.src||'');
+      if(!/^https?:\/\/[A-Za-z0-9.\-]+(:\d+)?\/img\/[a-f0-9]{32}\.(png|jpg|webp)$/.test(src))return;
+      if(!e||e.src!==src){
+        if(e)bcCmpDrop(e);
+        var ne={kind:'img',src:src,img:new Image(),ok:false,err:false};
+        ne.img.crossOrigin='anonymous';   // /img/ responde con CORS abierto: sin esto el canvas quedaria "contaminado" y el video saldria negro
+        ne.img.onload=function(){ne.ok=true;};ne.img.onerror=function(){ne.err=true;};ne.img.src=src;
+        b.items[it.id]=ne;
+      }
+      return;
+    }
+    var url=bcCmpUrl(it),zm=lsZoom(it);
+    var fw=Math.max(40,Math.round(it.w/100*LS_REF_W/zm)),fh=Math.max(20,Math.round(lsItemH(it)/100*LS_REF_H/zm));   // mismo tamano de caja que ve el espectador
+    var pr=Math.max(0.5,Math.min(3,b.cw/LS_REF_W*zm));   // resolucion de la foto = la que ocupara en el video
+    if(!e||e.url!==url){
+      if(e)bcCmpDrop(e);
+      var fr=document.createElement('iframe');
+      fr.setAttribute('scrolling','no');fr.setAttribute('tabindex','-1');fr.setAttribute('referrerpolicy','no-referrer');fr.setAttribute('allowtransparency','true');
+      fr.style.cssText='position:absolute;left:0;top:0;border:0;background:transparent;width:'+fw+'px;height:'+fh+'px';
+      e={kind:'gfx',url:url,fr:fr,bmp:null,n:0,err:'',t0:Date.now(),w:fw,h:fh,pr:pr};
+      b.items[it.id]=e;
+      fr.onload=function(){bcCmpTell(e,'cfg');bcCmpTell(e,'start');};
+      fr.src=url;b.host.appendChild(fr);
+    }else if(e.w!==fw||e.h!==fh||Math.abs(e.pr-pr)>0.01){
+      e.w=fw;e.h=fh;e.pr=pr;e.fr.style.width=fw+'px';e.fr.style.height=fh+'px';bcCmpTell(e,'cfg');
+    }
+  });
+  Object.keys(b.items).forEach(function(k){if(!keep[k]){bcCmpDrop(b.items[k]);delete b.items[k];}});
+}
+// Un cuadro del video de salida: camara (rellena el 16:9, igual que en tu Pantalla) + graficos en el orden del layout
+function bcCmpDraw(){
+  var b=_BC.burn;if(!b||!b.on||b.mode!=='canvas')return;
+  var ctx=b.ctx,cw=b.cw,ch=b.ch,v=b.video;
+  try{
+    ctx.fillStyle='#000';ctx.fillRect(0,0,cw,ch);
+    if(v&&v.videoWidth>0){var sc=Math.max(cw/v.videoWidth,ch/v.videoHeight),dw=v.videoWidth*sc,dh=v.videoHeight*sc;ctx.drawImage(v,(cw-dw)/2,(ch-dh)/2,dw,dh);}
+    (_BC.layout||[]).forEach(function(it){
+      var e=b.items[it.id];if(!e)return;
+      var x=it.x/100*cw,y=it.y/100*ch,w=it.w/100*cw,h=lsItemH(it)/100*ch;
+      if(e.kind==='img'){
+        if(e.ok&&e.img.naturalWidth>0){var k=Math.min(w/e.img.naturalWidth,h/e.img.naturalHeight),iw=e.img.naturalWidth*k,ih=e.img.naturalHeight*k;ctx.drawImage(e.img,x+(w-iw)/2,y+(h-ih)/2,iw,ih);}   // completa, sin deformarse (como en la Pantalla)
+      }else if(e.bmp){ctx.drawImage(e.bmp,x,y,w,h);}
+    });
+  }catch(err){}
+}
+function bcCmpCleanup(b){
+  try{clearInterval(b.timer);clearInterval(b.uiT);clearTimeout(b.chk1);clearTimeout(b.chk2);}catch(e){}
+  try{window.removeEventListener('message',bcCmpMsg);}catch(e){}
+  try{Object.keys(b.items||{}).forEach(function(k){bcCmpDrop(b.items[k]);});b.items={};}catch(e){}
+}
+// Estado de cada grafico para el panel (para saber cual no esta llegando)
+function bcCmpStatus(){
+  var b=_BC.burn;if(!b||!b.on||b.mode!=='canvas')return[];
+  var cat=lsCatalog(),now=Date.now();
+  return(_BC.layout||[]).map(function(it){
+    var e=b.items[it.id],lb=it.page==='img'?'Imagen':lsPlain((cat.filter(function(c){return c.id===it.id;})[0]||{}).label||it.id),st='load',tx='cargando…';
+    if(e){
+      if(e.kind==='img'){if(e.ok){st='ok';tx='lista';}else if(e.err){st='err';tx='no se pudo cargar';}}
+      else if(e.err){st='err';tx=e.err;}
+      else if(e.n>0){st='ok';tx='lista';}
+      else if(now-e.t0>12000){st='err';tx='sin respuesta (¿el Worker tiene la ruta /g/?)';}
+    }else if(it.page==='img'){st='err';tx='imagen no válida';}
+    return{label:lb,st:st,tx:tx};
+  });
+}
+async function bcCmpStart(){
+  if(_BC.burnBusy)return;_BC.burnBusy=true;
+  var host=null,v=null,out=null,prev=null;
+  var fail=function(msg){
+    try{if(_BC.burn&&_BC.burn.mode==='canvas'){var s2=bcVideoSender(),c2=bcProgramTrack();if(s2&&c2)s2.replaceTrack(c2).catch(function(){});bcBurnCleanup(_BC.burn);_BC.burn=null;}}catch(e){}
+    try{if(out)out.getTracks().forEach(function(t){t.stop();});}catch(e){}
+    try{if(v)v.srcObject=null;}catch(e){}
+    if(host)host.remove();document.documentElement.classList.remove('bcb-on');_BC.burnBusy=false;toast(msg,'error');bcBurnPanelRefresh();
+  };
+  try{
+    if(!document.getElementById('bcb-css')){var st=document.createElement('style');st.id='bcb-css';st.textContent=BCB_CSS;document.head.appendChild(st);}
+    var cw=(_BC.dims&&_BC.dims[0])||1280,ch=(_BC.dims&&_BC.dims[1])||720;
+    var cur=bcProgramTrack();if(!cur){fail('No hay video de la cámara para incrustar.');return;}
+    var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+    var ctx=cv.getContext('2d',{alpha:false});
+    // contenedor de las copias ocultas de los graficos: por DEBAJO de la interfaz (igual que el recuadro de salida de la PC), con el tamano del escenario de referencia
+    host=document.createElement('div');host.id='bcburn';
+    host.style.cssText='position:fixed;left:0;top:0;width:'+LS_REF_W+'px;height:'+LS_REF_H+'px;z-index:-1;overflow:hidden;background:#000;pointer-events:none';
+    v=document.createElement('video');v.muted=true;v.autoplay=true;v.setAttribute('playsinline','');v.style.cssText='position:absolute;left:0;top:0;width:2px;height:2px';
+    host.appendChild(v);document.body.appendChild(host);document.documentElement.classList.add('bcb-on');
+    v.srcObject=new MediaStream([cur]);try{await v.play();}catch(e){}
+    out=cv.captureStream(30);var t=out.getVideoTracks()[0];
+    if(!t){fail('Este dispositivo no pudo crear el video con gráficos.');return;}
+    try{t.contentHint='motion';}catch(e){}
+    var snd=bcVideoSender();if(!snd){fail('No hay envío de video activo.');return;}
+    prev=snd.track;
+    var b={on:true,mode:'canvas',host:host,video:v,cv:cv,ctx:ctx,out:out,track:t,items:{},cw:cw,ch:ch,fps:BCC_FPS,tainted:false};
+    _BC.burn=b;
+    window.addEventListener('message',bcCmpMsg);
+    bcCmpSync();bcCmpDraw();
+    b.timer=setInterval(bcCmpDraw,33);
+    // diagnostico: si algo dejo el canvas "contaminado" (imagen sin CORS) el navegador manda video NEGRO; se detecta y se avisa
+    var chk=function(){try{b.ctx.getImageData(0,0,1,1);b.tainted=false;}catch(e){b.tainted=true;}};
+    b.chk1=setTimeout(chk,5000);b.chk2=setTimeout(chk,20000);
+    b.uiT=setInterval(function(){var sg=JSON.stringify(bcCmpStatus())+(b.tainted?'1':'0');if(sg!==b.sig){b.sig=sg;bcBurnPanelRefresh();}},2000);
+    await snd.replaceTrack(t);
+    t.onended=function(){bcBurnStop(true);};
+    var r=await api('streamBurn',{id:_BC.id,on:true});
+    if(!(r&&r.ok)){   // sin la marca en el servidor los espectadores dibujarian los graficos dos veces: se revierte
+      var err=(r&&r.error)||'No se pudo activar en el servidor.';
+      try{if(prev)await snd.replaceTrack(prev);}catch(e){}
+      bcBurnCleanup(_BC.burn);_BC.burn=null;_BC.burnBusy=false;document.documentElement.classList.remove('bcb-on');toast(err,'error');bcBurnPanelRefresh();return;
+    }
+    _BC.burnBusy=false;bcYtRefreshUi();bcBurnPanelRefresh();
+    toast('🎨 Gráficos dentro del video activados. Mantén la app abierta y la pantalla encendida.','success');
+  }catch(e){fail('No se pudo activar los gráficos en el video.');}
+}
+function bcBurnSectionHtml(){
+  var on=!!(_BC.burn&&_BC.burn.on),m=bcBurnMode(),ok=!!m,cv=on?(_BC.burn.mode==='canvas'):(m==='canvas');
+  var rows='';
+  if(on&&cv){
+    rows=bcCmpStatus().map(function(x){return'<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0"><span>'+nfEsc(x.label)+'</span><span style="text-align:right;color:'+(x.st==='ok'?'var(--succ-txt)':(x.st==='err'?'var(--err-txt,#e5484d)':'var(--t3)'))+'">'+nfEsc(x.tx)+'</span></div>';}).join('');
+    if(rows)rows='<div style="margin:8px 0;padding:6px 10px;border:1px solid var(--bdr);border-radius:8px">'+rows+'</div>';
+    if(_BC.burn.tainted)rows+='<div class="alert aw" style="font-size:12px;margin-bottom:8px">Una imagen sin permiso (CORS) contaminó el video: puede estar saliendo en negro. Quita la última imagen que agregaste.</div>';
+  }
+  var txOn=cv
+    ?'<b style="color:var(--succ-txt)">Activado.</b> Tu celular dibuja la cámara + los gráficos e imágenes de tu <b>Pantalla</b> y envía ese video, también a YouTube. Sigue poniendo, cambiando y quitando gráficos como siempre. Mantén la app abierta y la pantalla encendida.'
+    :'<b style="color:var(--succ-txt)">Activado.</b> Lo que ves en tu escenario (cámara + todos los gráficos e imágenes) es lo que se transmite, también a YouTube. Sigue poniendo, cambiando y quitando gráficos como siempre.';
+  var txOff=cv
+    ?'Hace que los gráficos e imágenes que pongas viajen <b>dentro del video</b>, para que se vean también en YouTube. Tu celular los dibuja (no usa servidor, pero gasta más batería y datos). No te pedirá compartir la pantalla.'
+    :'Hace que los gráficos e imágenes que pongas viajen <b>dentro del video</b>, para que se vean también en YouTube. Tu PC los dibuja; no usa servidor. Al activarlo, el navegador te pedirá compartir una pestaña: elige <b>Esta pestaña</b>.';
+  return'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-weight:700;font-size:13px;margin-bottom:4px">🎨 Gráficos dentro del video'+(cv?'':' (PC)')+'</div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">'+(on?txOn:txOff)+'</div>'+rows
+    +(ok?'<button class="btn '+(on?'bs':'bp')+'" style="width:100%" onclick="'+(on?'bcBurnStop(false)':'bcBurnStart()')+'">'+(on?'Desactivar gráficos en el video':'Activar gráficos en el video')+'</button>'
+        :'<div class="alert aw" style="font-size:12px">Este dispositivo o navegador no admite esta función.</div>')+'</div>';
+}
 async function bcYtGo(sel,opt){
   if(!_BC.id)return;
   _BC.yt={state:'starting'};bcYtRefreshUi();
-  var p={streamId:_BC.id};if(sel==='new')p.create={title:(opt&&opt.title)||'',privacy:(opt&&opt.privacy)||'public'};else p.broadcastId=sel;
+  var p={streamId:_BC.id};if(sel==='new')p.create={title:(opt&&opt.title)||'',privacy:(opt&&opt.privacy)||'public',kids:(opt&&opt.kids)||'no'};else p.broadcastId=sel;
   var r=await api('ytStart',p);
   if(!_BC.id)return;
   if(r&&r.ok){
@@ -8362,7 +8700,7 @@ async function bcYtPoll(){
   if(!_BC.id||!_BC.yt||_BC.yt.state==='error'||_BC.yt.state==='starting')return;
   var r=await api('ytState',{streamId:_BC.id});
   if(!_BC.id||!_BC.yt)return;
-  if(r&&r.ok&&r.linked){_BC.yt.info=r;_BC.yt.watchUrl=r.watchUrl||_BC.yt.watchUrl;}
+  if(r&&r.ok&&r.linked){_BC.yt.info=r;_BC.yt.watchUrl=r.watchUrl||_BC.yt.watchUrl;var _st=document.getElementById('yt-stats');if(_st)_st.innerHTML=bcYtStatsHtml(r);}
   else if(r&&r.ok&&!r.linked){_BC.yt=null;clearInterval(_BC.ytT);}
   bcYtRefreshUi();
 }
@@ -8370,11 +8708,12 @@ function bcYtRefreshUi(){
   var y=_BC.yt,b=document.getElementById('bcf-ytb'),btn=document.getElementById('bcf-yt');
   if(btn)btn.style.opacity=(y&&y.state!=='error')?'1':'.6';
   if(!b)return;
-  if(!y){b.style.display='none';return;}
+  if(!y){var on0=_BC.burn&&_BC.burn.on;b.style.display=on0?'':'none';if(on0){b.style.color='var(--acc)';b.textContent='🎨 gráficos en el video';}return;}
   var i=y.info||{},tx='📺 conectando',col='#fbbf24';
   if(y.state==='error'){tx='📺 error';col='#f87171';}
-  else if(i.life==='live'||i.life==='liveStarting'){tx='📺 EN VIVO';col='#34d399';}
+  else if(i.life==='live'||i.life==='liveStarting'){tx='📺 EN VIVO'+(i.viewers!==undefined?' · 👁 '+i.viewers:'');col='#34d399';}
   else if(i.relayReady){tx='📺 enviando';col='#34d399';}
+  if(_BC.burn&&_BC.burn.on)tx+=' · 🎨';
   b.style.display='';b.style.color=col;b.textContent=tx;
 }
 function bcYtPanel(){
@@ -8385,17 +8724,20 @@ function bcYtPanel(){
     var row=function(k,v){return'<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--bdr)"><span style="color:var(--t3)">'+k+'</span><b>'+v+'</b></div>';};
     h='<div class="mbd">'
       +(y.state==='starting'?'<div class="alert ai" style="font-size:13px">Conectando con YouTube…</div>':
-        row('Servidor de reenvío',i.relayReady?'conectado':'esperando el video…')+row('YouTube recibe',nfEsc(ST[i.stream]||'—'))+row('Transmisión',nfEsc(YT_LIFE[i.life]||'—'))+row('Calidad de la señal',nfEsc(HL[i.health]||'—')))
-      +'<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">YouTube muestra el video con unos segundos de retraso respecto a la app. El estado se actualiza cada 30 segundos.</div></div>'
+        '<div id="yt-stats" style="font-size:13px;padding:8px 0;border-bottom:1px solid var(--bdr)">'+bcYtStatsHtml(i)+'</div>'
+        +row('Servidor de reenvío',i.relayReady?'conectado':'esperando el video…')+row('YouTube recibe',nfEsc(ST[i.stream]||'—'))+row('Transmisión',nfEsc(YT_LIFE[i.life]||'—'))+row('Calidad de la señal',nfEsc(HL[i.health]||'—'))
+        +'<div style="font-weight:700;font-size:12px;margin:12px 0 4px">&#128172; Chat en vivo</div><div id="yt-chat" class="card" style="padding:8px;max-height:170px;overflow:auto;font-size:12px"><div style="color:var(--t3)">Cargando…</div></div>')
+      +'<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">YouTube muestra el video con unos segundos de retraso respecto a la app. El estado se actualiza cada 30 segundos.</div><div id="bc-burnsec">'+bcBurnSectionHtml()+'</div></div>'
       +'<div class="mft" style="flex-wrap:wrap"><button class="btn bs" onclick="cM()">Cerrar</button>'
       +(y.watchUrl?'<button class="btn bs" onclick="ytOpenUrl(_BC.yt.watchUrl)">Ver en YouTube</button><button class="btn bs" onclick="ytCopy(_BC.yt.watchUrl)">Copiar enlace</button>':'')
       +'<button class="btn bd" onclick="bcYtStop()">Detener envío</button></div>';
   }else{
     h='<div class="mbd">'+(y&&y.state==='error'?'<div class="alert aw" style="font-size:13px;margin-bottom:10px">'+nfEsc(y.err||'Error')+'</div>':'<div style="font-size:13px;color:var(--t2);margin-bottom:8px">Esta transmisión no se está enviando a YouTube.</div>')
-      +'<div id="bc-ytbody"><div class="empty" style="padding:14px">Comprobando YouTube…</div></div></div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" id="bc-ytsend" disabled onclick="bcYtStartNow()">Enviar a YouTube ahora</button></div>';
+      +'<div id="bc-ytbody"><div class="empty" style="padding:14px">Comprobando YouTube…</div></div><div id="bc-burnsec">'+bcBurnSectionHtml()+'</div></div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button><button class="btn bp" id="bc-ytsend" disabled onclick="bcYtStartNow()">Enviar a YouTube ahora</button></div>';
   }
   showM('<div class="mhd"><div class="mtl">📺 YouTube</div><button class="bx" onclick="cM()">&#10005;</button></div>'+h);
   if(!y||y.state==='error')bcYtPanelFill();
+  if(y&&y.state==='live')ytChatStart();
 }
 async function bcYtPanelFill(){
   var st=await ytLoadStatus(),box=document.getElementById('bc-ytbody');if(!box)return;
@@ -8410,7 +8752,7 @@ async function bcYtPanelFill(){
 }
 function bcYtStartNow(){
   var sel=fv('bc-yt');if(!sel){toast('Elige una transmisión de YouTube o "Crear una nueva ahora"','info');return;}
-  var o={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public'};
+  var o={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public',kids:fv('bc-ytk')||'no'};
   _BC.yt=null;cM();bcYtGo(sel,o);
 }
 async function bcYtStop(){
@@ -8433,6 +8775,7 @@ function openBroadcastM(gid){
     +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-mic" checked style="accent-color:var(--acc);width:16px;height:16px"> Transmitir con micrófono</label>'
     +(canSave?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-rec" checked style="accent-color:var(--acc);width:16px;height:16px"> Guardar la transmisión (queda en el módulo Transmisiones)</label>'
       :'<div style="font-size:11px;color:var(--t3);margin:6px 0">Esta transmisión no se guarda: al terminar se elimina.</div>')
+    +(bcBurnMode()==='canvas'?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-burn" style="accent-color:var(--acc);width:16px;height:16px"> 🎨 Incrustar gráficos e imágenes dentro del video (para verlos en YouTube)</label>':'')
     +ytStartSectionHtml()
     +'<div class="alert ai" style="font-size:12px;margin-top:10px">El marcador y los gráficos los ve cada espectador encima del video; tú los eliges y mueves en <b>&#129513; Pantalla</b>. Puedes seguir anotando normalmente. Se mantendrá la pantalla encendida mientras transmites.</div>'
     +'</div><div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button><button class="btn bp" id="bc-go" data-gid="'+nfEsc(gm.id)+'" onclick="bcStart(this.dataset.gid)">&#128308; Iniciar transmisión</button></div>');
@@ -8453,7 +8796,8 @@ async function bcStart(gid){
   function reset(){if(btn){btn.disabled=false;btn.innerHTML='&#128308; Iniciar transmisión';}}
   var cam=fv('bc-cam')||'environment',res=fv('bc-res')||'720',mic=!!(document.getElementById('bc-mic')||{}).checked,rec=!!(document.getElementById('bc-rec')||{}).checked;
   var dims={'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[res]||[1280,720];
-  var ytSel=fv('bc-yt')||'',ytOpt={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public'};
+  var burnSel=!!(document.getElementById('bc-burn')||{}).checked;
+  var ytSel=fv('bc-yt')||'',ytOpt={title:(fv('bc-ytt')||'').trim(),privacy:fv('bc-ytp')||'public',kids:fv('bc-ytk')||'no'};
   var stream,dev=fv('bc-dev')||'';
   try{
     var vc={width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30,max:30}},ac=mic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false;
@@ -8483,6 +8827,7 @@ async function bcStart(gid){
   _BC.stT=setInterval(bcStats,3000);
   toast('¡Estás transmitiendo en vivo!','success');
   if(ytSel)bcYtGo(ytSel,ytOpt);
+  if(burnSel)setTimeout(function(){try{bcBurnStart();}catch(e){}},800);
   try{goNav('gamecontrol');}catch(e){}
 }
 function bcWatchPc(pc){
@@ -8549,6 +8894,7 @@ function bcPing(){
 }
 function bcStopLocal(msg){
   var b=_BC;_BC={};
+  try{bcBurnCleanup(b.burn);}catch(e){}
   try{camCleanup(b);}catch(e){}
   try{clearInterval(b.pingT);clearInterval(b.tmT);clearInterval(b.stT);clearInterval(b.ytT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
   try{if(b.res)fetch(b.res,{method:'DELETE'}).catch(function(){});}catch(e){}
@@ -8758,11 +9104,12 @@ async function camSwitch(id){
   if(!track)return;
   var snd=_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
   if(!snd){toast('No se pudo cambiar de cámara.','error');return;}
-  try{await snd.replaceTrack(track);_BC.prog=id;camPreview(id);camRender();}
+  try{await bcSendVideo(track);_BC.prog=id;camPreview(id);camRender();}
   catch(e){toast('No se pudo cambiar a esa cámara.','error');}
 }
 // Tras reconectar con Cloudflare (nuevo envio) se vuelve a poner al aire la camara elegida
 function camApplyProg(){
+  if(_BC.burn&&_BC.burn.on){bcBurnReapply();return;}
   var id=_BC.prog||'local';if(id==='local')return;
   var c=(_BC.cams||{})[id],t=c&&c.track;
   var snd=_BC.pc&&_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
@@ -8921,7 +9268,7 @@ async function bcFlip(){
     if(!ns){toast('No se pudo cambiar de cámara.','error');_BC.flipping=false;return;}
     var nt=ns.getVideoTracks()[0];
     var snd=_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
-    if(snd&&(!_BC.prog||_BC.prog==='local'))await snd.replaceTrack(nt);
+    if(snd&&(!_BC.prog||_BC.prog==='local'))await bcSendVideo(nt);
     _BC.stream.getVideoTracks().forEach(function(t){try{t.stop();}catch(e){}_BC.stream.removeTrack(t);});
     _BC.stream.addTrack(nt);
     if(!restored){var fm=(nt.getSettings&&nt.getSettings().facingMode)||'';_BC.cam=(fm==='user'||fm==='environment')?fm:nxt;}
@@ -8979,12 +9326,19 @@ function bcOpenGfxM(){
   if(!_BC.id)return;
   showM('<div class="mhd"><div class="mtl">&#129513; Gráficos en pantalla</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="bcg-body">'+bcGfxBodyHtml()+'</div><div class="mft"><button class="btn bp" onclick="cM()">Listo</button></div>');
 }
+// Tope de graficos / imagenes a la vez segun el perfil (ovlim2..10); sin ninguno marcado rige el maximo general de 14
+function ovMax(){if(S.user&&S.user.role==='admin')return 14;var cap=0;[2,4,6,8,10].forEach(function(n){if(hasModuleAccess('ovlim'+n))cap=Math.max(cap,n);});return cap||14;}
+function ovCanAdd(){
+  var n=(_BC.layout||[]).length,mx=ovMax();
+  if(n>=mx){toast('Tu perfil permite máximo '+mx+' gráfico'+(mx>1?'s':'')+' o imagen'+(mx>1?'es':'')+' a la vez. Quita alguno primero.','error');return false;}
+  return true;
+}
 function bcToggleGfx(id){
   if(!_BC.id)return;
   var c=lsCatalog().filter(function(x){return x.id===id;})[0];if(!c)return;
   _BC.layout=_BC.layout||[];
   if(_BC.layout.some(function(x){return x.id===id;})){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
-  else{var d=lsDefFor(c.page,_BC.layout.length);_BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:d.x,y:d.y,w:d.w,h:d.h,z:_BC.layout.length+1});}
+  else{if(!ovCanAdd())return;var d=lsDefFor(c.page,_BC.layout.length);_BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:d.x,y:d.y,w:d.w,h:d.h,z:_BC.layout.length+1});}
   if(_BC.stageRedraw)_BC.stageRedraw();
   bcCommitLayout();
   var mb=document.getElementById('bcg-body');if(mb){var sc=mb.scrollTop;mb.innerHTML=bcGfxBodyHtml();mb.scrollTop=sc;}
@@ -9069,7 +9423,7 @@ function bcImgToggle(k){
   var id=bcImgId(k);
   if(_BC.layout.some(function(x){return x.id===id;})){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
   else{
-    if(_BC.layout.length>=14){toast('Máximo 14 gráficos en pantalla. Quita alguno primero.','error');return;}
+    if(!ovCanAdd())return;
     var ar=im.ar>0?im.ar:1,w=ar>=1?30:Math.max(8,Math.min(30,30*ar*(9/16)*1.6)),h=Math.min(90,w*(16/9)/ar),n=_BC.layout.length;
     w=Math.round(w*10)/10;h=Math.round(h*10)/10;
     _BC.layout.push({id:id,page:'img',k:k,src:im.url,team:'',q:{},x:8+(n%4)*4,y:8+(n%4)*6,w:w,h:h,lw:Math.round(w/100*LS_REF_W),lh:Math.round(h/100*LS_REF_H),z:n+1});
@@ -9145,6 +9499,7 @@ function bcOpenStage(){
     var id=b.getAttribute('data-id'),c=cat.filter(function(x){return x.id===id;})[0];if(!c)return;
     if(has(id)){_BC.layout=_BC.layout.filter(function(x){return x.id!==id;});}
     else{
+      if(!ovCanAdd())return;
       var d=lsDefFor(c.page,_BC.layout.length);
       _BC.layout.push({id:c.id,page:c.page,team:c.team,q:lsQueryFor(c),x:d.x,y:d.y,w:d.w,h:d.h,z:_BC.layout.length+1});
     }
@@ -9216,6 +9571,7 @@ function lsBindEdit(el,it0){
 }
 // Guarda el layout (con espera de 0.6 s para no mandar cada movimiento) y recuerda el ultimo usado para la proxima transmision
 function bcCommitLayout(){
+  try{bcBurnRedraw();}catch(e){}
   clearTimeout(_BC.saveT);
   _BC.saveT=setTimeout(function(){
     if(!_BC.id)return;
@@ -24026,7 +24382,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
