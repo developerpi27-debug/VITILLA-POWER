@@ -179,7 +179,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bxs-note{font-size:12px;color:var(--t3);padding:8px}
 @media(max-width:900px){.bcs-main.bcs-sc{flex-direction:column;align-items:stretch;flex:none}.bcs-side{width:auto;overflow:visible}.bcs-center{overflow:visible}.bcs-left{order:2;display:flex;flex-wrap:wrap;gap:6px}.bcs-left .btn{display:inline-block;width:auto;margin:0}.bcs-left .bxs-h{width:100%}.bcs-center{order:1}.bcs-right{order:3;width:auto}.bcs-sc .bcs-stage{width:100%}}
 .bcs-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;flex:none}
-.bcc{position:absolute;z-index:40;display:flex;flex-direction:column;background:rgba(10,14,24,.84);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;overflow:hidden}
+.bcs-wm{position:absolute;z-index:60;pointer-events:none;background:rgba(0,0,0,.45);color:#fff;font-family:Barlow Condensed,Arial Narrow,Impact,sans-serif;font-weight:800;letter-spacing:.08em;border-radius:6px;line-height:1.1;user-select:none}.bcs-wm b{color:#f59e0b}
+.bcc{position:absolute;z-index:70;display:flex;flex-direction:column;background:rgba(10,14,24,.84);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;overflow:hidden}
 .bcc-h{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,.14);font-size:11px;font-weight:700;cursor:grab;touch-action:none;user-select:none;flex:none}
 .bcc-x{background:none;border:0;color:#fff;font-size:14px;cursor:pointer;padding:0 4px}
 .bcc-l{flex:1;min-height:0;overflow-y:auto;padding:6px 8px;font-size:12px;line-height:1.35;touch-action:pan-y;-webkit-overflow-scrolling:touch}
@@ -1920,6 +1921,7 @@ async function api(action,data){
       if(OFFLINE_ACTIONS[action]){
         // No perder el cambio: encolarlo igual que si estuviera offline, y
         // forzar un logout limpio para que el usuario renueve el token.
+        if(action==='saveGame'&&data&&data.game&&!data.game.id)data.game.id=nid();
         await enqueueOutbox(action,data);
         toast('Tu sesión expiró — el cambio quedó pendiente de sincronizar. Inicia sesión de nuevo.','error');
         doLogout();
@@ -1947,6 +1949,7 @@ async function api(action,data){
     return res;
   }catch(e){
     if(OFFLINE_ACTIONS[action]){
+      if(action==='saveGame'&&data&&data.game&&!data.game.id)data.game.id=nid();   // juego nuevo sin red: id propio (el servidor lo conserva al sincronizar)
       await enqueueOutbox(action,data);
       setOnlineState(false);
       return synthOfflineResult(action,data);
@@ -3931,6 +3934,7 @@ var ALL_MOD=[
   {id:'livestream',lbl:'Transmitir en vivo desde la app (cámara + gráficos)',ico:'🔴',sec:'General'},
   {id:'livestreamsave',lbl:'Transmisiones: guardar la grabación (si no, se elimina al terminar)',ico:'💾',sec:'General'},
   {id:'livestreamscore',lbl:'Transmisión: anotar jugadas desde la Pantalla de transmisión',ico:'⚾',sec:'General'},
+  {id:'livestreamwm',lbl:'Transmisión: marca de agua "VBS POWER" dentro del video (app y YouTube)',ico:'🏷️',sec:'General'},
   {id:'camlim1',lbl:'Cámaras en transmisión: máximo 1 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
   {id:'camlim2',lbl:'Cámaras en transmisión: máximo 2 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
   {id:'camlim4',lbl:'Cámaras en transmisión: máximo 4 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
@@ -4380,7 +4384,7 @@ function canSeeMyProfile(){return !!S.user&&S.user.role!=='google'&&S.user.role!
 function hasModuleAccess(moduleId){
   // Panel de Transmision y transmision en vivo: los usuarios de Google los ven SOLO si el perfil que usan (Configuracion > Acceso con Google)
   // tiene marcados esos permisos, igual que cualquier otro perfil. Los visitantes nunca.
-  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore')&&S.user&&S.user.role==='public')return false;
+  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore'||moduleId==='livestreamwm')&&S.user&&S.user.role==='public')return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -4577,7 +4581,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -7833,12 +7837,12 @@ function lineupSetup(gid,gm){
     +'<div class="mbd"><div class="alert ai" style="font-size:12px">Agrega jugadores. El pitcher debe tener posicion P para tracking automatico.</div>'
     +'<div class="g2" style="gap:20px">'
     +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--acc);margin-bottom:8px">'+(aw?aw.name:'Visitante')+'</div>'
-    +'<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:4px">DISPONIBLES</div>'
+    +luQuickHtml('aw',gm.awayTeamId)
     +'<div id="ra" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>'
     +'<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:4px">LINEUP (<span id="ca">0</span>)</div>'
     +'<div id="la" style="max-height:220px;overflow-y:auto"></div></div>'
     +'<div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;color:var(--blu);margin-bottom:8px">'+(hw?hw.name:'Local')+'</div>'
-    +'<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:4px">DISPONIBLES</div>'
+    +luQuickHtml('hm',gm.homeTeamId)
     +'<div id="rh" style="max-height:220px;overflow-y:auto;margin-bottom:8px"></div>'
     +'<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:4px">LINEUP (<span id="ch">0</span>)</div>'
     +'<div id="lh" style="max-height:220px;overflow-y:auto"></div></div>'
@@ -7846,6 +7850,61 @@ function lineupSetup(gid,gm){
     +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'
     +'<button class="btn bp" data-gid="'+gid+'" data-awt="'+gm.awayTeamId+'" data-hwt="'+gm.homeTeamId+'" onclick="saveLS(this.dataset.gid,this.dataset.awt,this.dataset.hwt)">Guardar e Iniciar &#9654;</button></div>','mlg');
   renderLU('aw',gm.awayTeamId);renderLU('hm',gm.homeTeamId);
+}
+// ── Agregar un jugador a un equipo SIN salir del formulario de lineup ──
+// Se guarda igual que desde Equipos (mismo savePlayer, misma validacion de nombre repetido y mismos permisos) y aparece al instante en
+// DISPONIBLES: el lineup que ya se armo no se toca ni se pierde.
+function luQuickHtml(side,teamId){
+  var px=side==='aw'?'a':'h';
+  var lbl='<span style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px">DISPONIBLES</span>';
+  if(!canDo('create','teams'))return'<div style="margin-bottom:4px">'+lbl+'</div>';
+  var pOpts=POS.map(function(ps){return'<option value="'+ps+'">'+ps+'</option>';}).join('');
+  return'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">'+lbl
+    +'<button type="button" class="btn bs bsm" data-s="'+side+'" onclick="luQuickOpen(this.dataset.s)">+ Nuevo jugador</button></div>'
+    +'<div id="luq-'+px+'" style="display:none;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--card2)">'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="luqn-'+px+'" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
+    +'<div class="fg"><label class="fl"># Dorsal</label><input class="fi" id="luqm-'+px+'" type="number"></div></div>'
+    +'<div class="fr c3"><div class="fg"><label class="fl">Posición</label><select class="fs" id="luqp-'+px+'">'+pOpts+'</select></div>'
+    +'<div class="fg"><label class="fl">Batea</label><select class="fs" id="luqb-'+px+'"><option value="R">Der.</option><option value="L">Zur.</option><option value="S">Switch</option></select></div>'
+    +'<div class="fg"><label class="fl">Lanza</label><select class="fs" id="luqt-'+px+'"><option value="R">Der.</option><option value="L">Zur.</option></select></div></div>'
+    +'<div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="btn bs bsm" data-s="'+side+'" onclick="luQuickOpen(this.dataset.s)">Cancelar</button>'
+    +'<button type="button" class="btn bp bsm" id="luqs-'+px+'" data-s="'+side+'" data-t="'+teamId+'" onclick="luQuickSave(this.dataset.s,this.dataset.t)">Guardar jugador</button></div></div>';
+}
+function luQuickOpen(side){
+  var px=side==='aw'?'a':'h',f=document.getElementById('luq-'+px);if(!f)return;
+  var open=f.style.display==='none';
+  f.style.display=open?'block':'none';
+  if(open){var n=document.getElementById('luqn-'+px);if(n)n.focus();}
+}
+var _luqBusy=false;
+async function luQuickSave(side,teamId){
+  if(_luqBusy||_pmBusy)return;
+  var px=side==='aw'?'a':'h',g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  var name=(g('luqn-'+px)||'').trim().toUpperCase();
+  if(!name){toast('Nombre requerido','error');return;}
+  if(!ltLoc(teamId)&&(!S_isOnline||navigator.onLine===false)){toast('Sin conexión: para agregar un jugador nuevo al equipo se necesita internet.','error');return;}
+  // mismo control de nombre repetido que en Equipos (mismo nombre en el mismo deporte)
+  var dupSport=effectiveLifeSport();
+  var dup=S.players.filter(function(x){
+    if((x.name||'').trim().toLowerCase()!==name.toLowerCase())return false;
+    if(dupSport){var xTm=teamOf(x.teamId),xSport=xTm?teamSportType(xTm):'';if(xSport&&xSport!==dupSport)return false;}
+    return true;
+  });
+  if(dup.length){toast('Ya existe un jugador con ese nombre. Si es el mismo, impórtalo desde Equipos > Jugador > "Importar Existente"; si no, agrégale un segundo nombre o apellido.','error');return;}
+  var p={id:nid(),name:name,number:g('luqm-'+px),position:g('luqp-'+px)||'OF',bats:g('luqb-'+px)||'R',throws:g('luqt-'+px)||'R',teamId:teamId,dob:null,photoUrl:'',rookie:'false'};
+  var btn=document.getElementById('luqs-'+px);
+  _luqBusy=true;var prevSaving=_saving;_saving=true;if(btn)btn.disabled=true;
+  try{
+    var r=await api('savePlayer',{player:p});
+    if(r&&r.ok){
+      var it=r.item||p;
+      if(!S.players.some(function(x){return x.id===it.id;}))S.players.push(it);
+      ['luqn-','luqm-'].forEach(function(k){var e=document.getElementById(k+px);if(e)e.value='';});
+      var f=document.getElementById('luq-'+px);if(f)f.style.display='none';
+      renderLU(side,teamId);   // aparece ya en DISPONIBLES; el lineup armado queda igual
+      var tm=teamOf(teamId);toast('Jugador agregado al roster'+(tm?' de '+tm.name:''),'success');
+    }else toast(r&&r.error||'Error','error');
+  }finally{_luqBusy=false;_saving=prevSaving;if(btn)btn.disabled=false;}
 }
 function renderLU(side,teamId){
   var all=S.players.filter(function(p){return p.teamId===teamId&&p.active!=='false'&&p.active!==false&&p.active!=='0';});
@@ -8518,12 +8577,14 @@ async function bcBurnStart(){
 }
 async function bcBurnStop(auto){
   var b=_BC.burn;if(!b||!b.on)return;
+  if(_BC.wm&&!auto){toast('La marca de agua "VBS POWER" va dentro del video: no se puede desactivar mientras tu perfil la tenga.','info');return;}
   var id=_BC.id;
   bcBurnCleanup(b);_BC.burn=null;
   try{var snd=bcVideoSender(),cur=bcProgramTrack();if(snd&&cur)await snd.replaceTrack(cur);}catch(e){}   // la camara vuelve a ser lo que se envia
   if(id){try{await api('streamBurn',{id:id,on:false});}catch(e){}}
   bcYtRefreshUi();bcBurnPanelRefresh();
   toast(auto?'Se dejó de compartir la pestaña: el video vuelve a salir sin los gráficos incrustados.':'Gráficos dentro del video desactivados.',auto?'info':'success');
+  if(auto&&_BC.wm&&_BC.id&&!_BC.wmRetry){_BC.wmRetry=setTimeout(function(){if(_BC){_BC.wmRetry=null;if(_BC.id&&!(_BC.burn&&_BC.burn.on))bcBurnStart();}},2500);}   // con marca de agua se vuelve a activar solo
 }
 async function bcBurnReapply(){   // tras reconectar con Cloudflare (nuevo envio): se vuelve a poner el escenario capturado
   var b=_BC.burn;if(!b||!b.on)return;
@@ -8608,6 +8669,27 @@ function bcCmpSync(){
   });
   Object.keys(b.items).forEach(function(k){if(!keep[k]){bcCmpDrop(b.items[k]);delete b.items[k];}});
 }
+// ═══ MARCA DE AGUA "VBS POWER" (esquina inferior derecha) ═══
+// La activa el perfil (Perfiles > Modulos > marca de agua). Se dibuja dentro del video, asi la ven los espectadores de la app y de YouTube;
+// va despues de todos los graficos e imagenes (nada la tapa) y no se puede apagar mientras el perfil la tenga.
+function bcWmDraw(ctx,cw,ch){
+  var fs=Math.round(ch*0.045),pad=Math.round(fs*0.5),mg=Math.round(cw*0.02);
+  ctx.save();
+  ctx.font='800 '+fs+'px "Barlow Condensed","Arial Narrow",Impact,sans-serif';
+  try{ctx.letterSpacing=Math.max(1,Math.round(fs*0.08))+'px';}catch(e){}
+  ctx.textBaseline='middle';ctx.textAlign='left';
+  var a='VBS ',b='POWER',wa=ctx.measureText(a).width,wb=ctx.measureText(b).width,w=Math.round(wa+wb+pad*2),h=Math.round(fs+pad*1.1),x=cw-mg-w,y=ch-mg-h,r=Math.round(h*0.28);
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  ctx.fillStyle='rgba(0,0,0,.45)';ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.96)';ctx.fillText(a,x+pad,y+h/2+1);
+  ctx.fillStyle='#f59e0b';ctx.fillText(b,x+pad+wa,y+h/2+1);
+  ctx.restore();
+}
+function bcWmFit(){
+  var st=document.getElementById('bcs-stage'),w=document.getElementById('bcs-wm');if(!st||!w)return;
+  var W=st.clientWidth||640,fs=Math.max(9,Math.round(W*9/16*0.045));
+  w.style.fontSize=fs+'px';w.style.right=Math.round(W*0.02)+'px';w.style.bottom=Math.round(W*0.02)+'px';w.style.padding=Math.round(fs*0.3)+'px '+Math.round(fs*0.5)+'px';
+}
 // Un cuadro del video de salida: camara (rellena el 16:9, igual que en tu Pantalla) + graficos en el orden del layout
 function bcCmpDraw(){
   var b=_BC.burn;if(!b||!b.on||b.mode!=='canvas')return;
@@ -8622,6 +8704,7 @@ function bcCmpDraw(){
         if(e.ok&&e.img.naturalWidth>0){var k=Math.min(w/e.img.naturalWidth,h/e.img.naturalHeight),iw=e.img.naturalWidth*k,ih=e.img.naturalHeight*k;ctx.drawImage(e.img,x+(w-iw)/2,y+(h-ih)/2,iw,ih);}   // completa, sin deformarse (como en la Pantalla)
       }else if(e.bmp){ctx.drawImage(e.bmp,x,y,w,h);}
     });
+    if(_BC.wm)bcWmDraw(ctx,cw,ch);   // marca de agua SIEMPRE al final: ningun grafico ni imagen la tapa
   }catch(err){}
 }
 function bcCmpCleanup(b){
@@ -8719,7 +8802,7 @@ function bcBurnSectionHtml(){
     :'Hace que los gráficos e imágenes que pongas viajen <b>dentro del video</b>, para que se vean también en YouTube. Tu PC los dibuja; no usa servidor. Al activarlo, el navegador te pedirá compartir una pestaña: elige <b>Esta pestaña</b>.';
   return'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-weight:700;font-size:13px;margin-bottom:4px">🎨 Gráficos dentro del video'+(cv?'':' (PC)')+'</div>'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">'+(on?txOn:txOff)+'</div>'+rows
-    +(ok?'<button class="btn '+(on?'bs':'bp')+'" style="width:100%" onclick="'+(on?'bcBurnStop(false)':'bcBurnStart()')+'">'+(on?'Desactivar gráficos en el video':'Activar gráficos en el video')+'</button>'
+    +(ok?((on&&_BC.wm)?'<div class="alert ai" style="font-size:12px">&#127991;&#65039; Tu perfil incluye la marca de agua <b>VBS POWER</b>: va dentro del video (esquina inferior derecha) y no se puede desactivar.</div>':'<button class="btn '+(on?'bs':'bp')+'" style="width:100%" onclick="'+(on?'bcBurnStop(false)':'bcBurnStart()')+'">'+(on?'Desactivar gráficos en el video':'Activar gráficos en el video')+'</button>')
         :'<div class="alert aw" style="font-size:12px">Este dispositivo o navegador no admite esta función.</div>')+'</div>';
 }
 async function bcYtGo(sel,opt){
@@ -8859,7 +8942,7 @@ async function bcStart(gid){
     apiRaw('streamEnd',{id:r.stream.id,keep:false}).catch(function(){});
     toast('No se pudo conectar con el servidor de video. Revisa tu conexión e inténtalo de nuevo.','error');return;
   }
-  _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),
+  _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),wm:hasModuleAccess('livestreamwm'),
     uid:(r.stream&&r.stream.liveUid)||'',gid:gid,layout:(r.layout&&r.layout.length?r.layout:lsDefaultLayout()),t0:Date.now(),cam:cam,dims:dims,mic:mic,muted:false,limitSec:r.limitSec||0,remainSec:r.remainSec||0,warned:false};
   bcWatchPc(pub.pc);
   cM();bcMount();bcWake();
@@ -8867,7 +8950,8 @@ async function bcStart(gid){
   _BC.stT=setInterval(bcStats,3000);
   toast('¡Estás transmitiendo en vivo!','success');
   if(ytSel)bcYtGo(ytSel,ytOpt);
-  if(burnSel)setTimeout(function(){try{bcBurnStart();}catch(e){}},800);
+  if(burnSel||_BC.wm)setTimeout(function(){try{bcBurnStart();}catch(e){}},800);   // con marca de agua el video con graficos es obligatorio: la marca va DENTRO del video
+  if(_BC.wm&&!bcBurnSupported())toast('Este dispositivo no puede incrustar la marca de agua "VBS POWER" en el video. Usa otro navegador o dispositivo.','error');
   try{goNav('gamecontrol');}catch(e){}
 }
 function bcWatchPc(pc){
@@ -9641,7 +9725,7 @@ function bcOpenStage(){
     +'<div class="bcs-main'+(withScore?' bcs-sc':'')+'">'
     +(withScore?'<div class="bcs-side bcs-left" id="bcs-left"></div>':'')
     +'<div class="bcs-center">'+(withScore?'<div class="bxs" id="bcs-bx"></div>':'')
-    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="bcs-items"></div></div></div><div id="bcs-cams" class="bcf-cams"></div></div>'
+    +'<div class="bcs-box"><div class="bcs-stage" id="bcs-stage"><video id="bcs-v" muted autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><div class="bcs-items" id="bcs-items"></div>'+(_BC.wm?'<div class="bcs-wm" id="bcs-wm">VBS <b>POWER</b></div>':'')+'</div></div><div id="bcs-cams" class="bcf-cams"></div></div>'
     +(withScore?'<div class="bcs-side bcs-right" id="bcs-right"></div>':'')
     +'</div>'
     +'<div class="bcs-tray" id="bcs-tray"'+(_BC.stageGfxBtn?' style="display:none"':'')+'></div>';
@@ -9660,6 +9744,7 @@ function bcOpenStage(){
     },1000);
   }catch(e){}
   bcsStatsRefresh();
+  try{bcWmFit();if(window.ResizeObserver)new ResizeObserver(bcWmFit).observe(document.getElementById('bcs-stage'));}catch(e){}
   try{camStyles();if(_BC.prog&&_BC.prog!=='local')camPreview(_BC.prog);camRender();}catch(e){}
   var host=document.getElementById('bcs-items');
   function has(id){return _BC.layout.some(function(x){return x.id===id;});}
@@ -12240,6 +12325,7 @@ async function rPlay(type,opts){
       toast('Con las bases ocupadas, esta jugada fuerza minimo '+minFBB+' carrera(s). Se ajusto automaticamente.','info');
     }
   } else if(type==='E'){
+    gm._errorRunnerDest=null;   // destinos de corredores del error en jugada del bateador (se llena mas abajo)
     // Helper: seleccionar el jugador defensivo que cometió el error, y luego pedir cuántos
     // puntos (1-5) descontarle en Guante de Oro + la justificación del descuento.
     var pickFielder=async function(){
@@ -12360,24 +12446,64 @@ async function rPlay(type,opts){
         var ok1=await pickFielder(); if(!ok1){_rPlayBusy=false;return;}
       } else {
         // ── Error en jugada del bateador (con corredores) ──
+        // Flujo: ¿hubo anotacion? → ¿cuantas carreras? → si no anotaron todos (corredores + bateador): ¿hasta que base llego cada corredor
+        // que NO anoto? (del mas adelantado al mas atrasado) → ¿hasta que base llego el bateador? → quien cometio el error y puntos a restar.
+        // Las carreras las anotan primero los corredores mas cerca de home; el bateador solo anota si anotaron todos los demas.
         gm._errorType='batter_play';
-        var whoAnno=await numPromptAsync('ERROR EN JUGADA DEL BATEADOR\nCorredores en base: '+enBase
-          +'\n\n¿Quién anotó?\n1. Solo el corredor en base\n2. El corredor Y el bateador\n3. Nadie\n\nIngresa (1, 2 o 3):','3');
-        if(whoAnno===null){_rPlayBusy=false;return;}
-        var wa=parseInt(whoAnno)||3;
-        if(wa===1){
-          runs=1; rbi=0; gm._errorIsEarned=false;
-          var bBase1=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base'+(nbForce>=3?'\n3. 3ra Base':'')+'\n\nIngresa (1'+(nbForce>=3?', 2 o 3':' o 2')+'):','1');
-          if(bBase1===null){_rPlayBusy=false;return;}
-          gm._errorBatterBase=(nbForce>=3&&parseInt(bBase1)===3)?3:(parseInt(bBase1)===2?2:1);
-        } else if(wa===2){
-          runs=2; rbi=0; gm._errorIsEarned=false; gm._errorBatterBase=0;
-        } else {
-          runs=0; rbi=0;
-          var bBase3=await numPromptAsync('¿A qué base llegó el bateador?\n1. 1ra Base\n2. 2da Base'+(nbForce>=3?'\n3. 3ra Base':'')+'\n\nIngresa (1'+(nbForce>=3?', 2 o 3':' o 2')+'):','1');
-          if(bBase3===null){_rPlayBusy=false;return;}
-          gm._errorBatterBase=(nbForce>=3&&parseInt(bBase3)===3)?3:(parseInt(bBase3)===2?2:1);
+        var _ebSeq=nbForce>=3?['first','second','third']:['first','second'];
+        var _ebLbl={first:'1ra Base',second:'2da Base',third:'3ra Base'};
+        var _ebRun=_ebSeq.slice().reverse().filter(function(k){return bases[k];});   // corredores, del mas adelantado al mas atrasado
+        var _ebMax=_ebRun.length+1;                                                   // todos los corredores + el bateador
+        var _ebAn=await numPromptAsync('ERROR EN JUGADA DEL BATEADOR\nCorredores en base: '+enBase
+          +'\n\n¿Hubo anotación?\n1. Sí\n2. No\n\nIngresa (1 o 2):','2');
+        if(_ebAn===null){_rPlayBusy=false;return;}
+        var _ebRuns=0;
+        if(parseInt(_ebAn)===1){
+          var _ebQ=await numPromptAsync('ERROR EN JUGADA DEL BATEADOR\n¿Cuántas carreras anotaron?\n(máximo '+_ebMax+': '+_ebRun.length+' corredor'+(_ebRun.length===1?'':'es')+' + el bateador)','1');
+          if(_ebQ===null){_rPlayBusy=false;return;}
+          _ebRuns=Math.max(0,Math.min(_ebMax,parseInt(_ebQ)||0));
         }
+        var _ebMin=minForcedRunsBB();   // con todas las bases ocupadas el bateador fuerza al menos una carrera
+        if(_ebRuns<_ebMin){_ebRuns=_ebMin;toast('Con las bases ocupadas el error fuerza mínimo '+_ebMin+' carrera(s). Se ajustó automáticamente.','info');}
+        var _ebBatterScored=_ebRuns>_ebRun.length;
+        var _ebStay=_ebRun.slice(Math.min(_ebRuns,_ebRun.length));   // corredores que NO anotaron
+        var _ebScoredTxt=_ebRuns>0?('Anotaron: '+_ebRun.slice(0,Math.min(_ebRuns,_ebRun.length)).map(function(k){return'el de '+_ebLbl[k];}).concat(_ebBatterScored?['el bateador']:[]).join(', ')+'.\n'):'';
+        var _ebDest={},_ebCeil=_ebSeq.length-1;
+        for(var _ei=0;_ei<_ebStay.length;_ei++){
+          var _ebFrom=_ebStay[_ei],_ebFi=_ebSeq.indexOf(_ebFrom),_ebForced=true,_ebk;
+          for(_ebk=0;_ebk<_ebFi;_ebk++){if(!bases[_ebSeq[_ebk]]){_ebForced=false;break;}}   // forzado: todas las bases de atras (hasta el bateador) ocupadas
+          var _ebOpts=[];
+          for(_ebk=_ebForced?_ebFi+1:_ebFi;_ebk<=_ebCeil;_ebk++)_ebOpts.push(_ebSeq[_ebk]);
+          if(!_ebOpts.length)_ebOpts=[_ebSeq[Math.max(0,Math.min(_ebFi,_ebCeil))]];
+          var _ebTo=_ebOpts[0];
+          if(_ebOpts.length>1){
+            var _ebList=_ebOpts.map(function(o,i){return(i+1)+'. '+(o===_ebFrom?'Se quedó en ':'Llegó a ')+_ebLbl[o];}).join('\n');
+            var _ebSel=await numPromptAsync('ERROR EN JUGADA DEL BATEADOR\n'+_ebScoredTxt+'El corredor de '+_ebLbl[_ebFrom]+' no anotó. ¿Hasta qué base llegó?\n'+_ebList+'\n\nIngresa el numero (1-'+_ebOpts.length+'):','1');
+            if(_ebSel===null){_rPlayBusy=false;return;}
+            var _ebIx=parseInt(_ebSel)-1;
+            _ebTo=_ebOpts[_ebIx>=0&&_ebIx<_ebOpts.length?_ebIx:0];
+          }
+          _ebDest[_ebFrom]=_ebTo;
+          _ebCeil=_ebSeq.indexOf(_ebTo)-1;   // el que viene detras debe quedar antes de esta base
+        }
+        var _ebBat=0;
+        if(!_ebBatterScored){
+          var _ebBo=[];for(var _ebj=0;_ebj<=_ebCeil;_ebj++)_ebBo.push(_ebSeq[_ebj]);
+          if(!_ebBo.length)_ebBo=['first'];
+          var _ebBt=_ebBo[0];
+          if(_ebBo.length>1){
+            var _ebBl=_ebBo.map(function(o,i){return(i+1)+'. '+_ebLbl[o];}).join('\n');
+            var _ebBs=await numPromptAsync('ERROR EN JUGADA DEL BATEADOR\n'+_ebScoredTxt+'¿Hasta qué base llegó el bateador?\n'+_ebBl+'\n\nIngresa el numero (1-'+_ebBo.length+'):','1');
+            if(_ebBs===null){_rPlayBusy=false;return;}
+            var _ebBi=parseInt(_ebBs)-1;
+            _ebBt=_ebBo[_ebBi>=0&&_ebBi<_ebBo.length?_ebBi:0];
+          }
+          _ebBat=_ebSeq.indexOf(_ebBt)+1;
+        }
+        runs=_ebRuns; rbi=0;
+        if(runs>0)gm._errorIsEarned=false;   // carrera por error: no es limpia
+        gm._errorBatterBase=_ebBat;          // 0 = el bateador anoto
+        gm._errorRunnerDest=_ebDest;
         var ok2=await pickFielder(); if(!ok2){_rPlayBusy=false;return;}
       }
     } else if(enBase===0){
@@ -12524,6 +12650,14 @@ async function rPlay(type,opts){
           gm.bases=_nbs;
         }
         delete gm._errorThrowRunnerAdv;
+      } else if(type==='E'&&gm._errorBatterBase!==undefined&&gm._errorRunnerDest){
+        // Error en jugada del bateador con corredores: cada corredor que no anoto va a la base indicada y el bateador a la suya (0 = anoto)
+        var _erd=gm._errorRunnerDest,_nb2={first:null,second:null,third:null},_eSeq=['first','second','third'];
+        _eSeq.forEach(function(f){if(b[f]&&!scored(b[f])){_nb2[_erd[f]||f]=b[f];}});
+        if(gm._errorBatterBase>=1)_nb2[_eSeq[gm._errorBatterBase-1]]=batter;
+        if(nb<3)_nb2.third=null;
+        gm.bases=_nb2;
+        delete gm._errorRunnerDest;
       } else if(type==='E'&&gm._errorBatterBase!==undefined){
         var ebb=gm._errorBatterBase;
         if(ebb===0){
@@ -12826,6 +12960,7 @@ async function rPlay(type,opts){
     // DESPUES de usarlo para construir biPlayerId/errorSubtype/throwCorrId)
     if(gm._errorType)delete gm._errorType;
     if(gm._errorBatterBase!==undefined)delete gm._errorBatterBase;
+    if(gm._errorRunnerDest!==undefined)delete gm._errorRunnerDest;
     if(gm._errorIsEarned!==undefined)delete gm._errorIsEarned;
     // bi was captured before prompts; re-verify it matches the idx we started with
     // Error en tiro: NO es turno al bate del bateador en curso — batterId queda null para este evento
@@ -23475,7 +23610,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id==='livestreamwm'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -24559,7 +24694,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
