@@ -19,7 +19,7 @@
 <body>
 <div class="wrap">
   <h1>Política de Privacidad</h1>
-  <div class="updated">VBS Power (Vitilla Power / Baseball Power / Softball Power) — Última actualización: 27-Oct-2026</div>
+  <div class="updated">VBS Power (Vitilla Power / Baseball Power / Softball Power) — Última actualización: 18-Nov-2026</div>
 
   <div class="box">
     <p>Esta Política de Privacidad describe cómo la aplicación <b>VBS Power</b> (disponible como
@@ -36,6 +36,11 @@
     <li><b>Acceso con Google (opcional):</b> si eliges "Continuar con Google", recibimos de
     Google los datos básicos de tu cuenta (como tu nombre y correo electrónico) para crear y
     reconocer tu cuenta. No recibimos tu contraseña de Google.</li>
+    <li><b>Conexión con canal de YouTube (opcional para administradores/transmisores):</b> si
+    decides vincular tu canal de YouTube mediante Google OAuth para gestionar transmisiones en
+    vivo de partidos o torneos, accedemos únicamente a la información necesaria de tu canal
+    (identificador y nombre del canal, configuración de transmisiones en vivo / <i>liveBroadcasts</i>
+    y <i>liveStreams</i>, y mensajes del chat en directo asociados a la transmisión activa).</li>
     <li><b>Visitantes:</b> pueden usar la app sin crear una cuenta ("Acceder como Visitante").
     En ese caso no se recopila ningún dato personal identificable por parte de VBS Power
     (ver la sección 3 sobre publicidad en la versión web).</li>
@@ -58,18 +63,51 @@
     dispositivo.</li>
   </ul>
 
-  <h2>2. Qué NO recopilamos</h2>
+  <h2>2. Uso de los Servicios de API de YouTube</h2>
+  <p><b>VBS Power</b> utiliza los <b>Servicios de API de YouTube</b> (<i>YouTube Data API v3</i>)
+  únicamente cuando un usuario autoriza expresamente la conexión de su canal de YouTube. Al
+  utilizar esta integración:</p>
   <ul>
-    <li>No accedemos a tu ubicación (GPS).</li>
-    <li>No accedemos a tu cámara ni micrófono.</li>
-    <li>No usamos herramientas de analítica o rastreo propias de terceros (Google Analytics,
-    Meta Pixel, etc.). Los servicios de publicidad de Google (AdMob en la app y AdSense en la
-    web) se describen en la sección 3.</li>
-    <li>No vendemos tu información personal ni la compartimos con terceros con fines
-    comerciales.</li>
+    <li><b>Finalidad exclusiva:</b> los permisos de YouTube (<code>youtube.force-ssl</code>) se
+    utilizan exclusivamente para permitir al usuario programar eventos en vivo, iniciar y
+    finalizar transmisiones en directo de partidos desde VBS Power, vincular la señal de video
+    con su transmisión y leer o gestionar los mensajes del chat en directo durante el evento.</li>
+    <li><b>Almacenamiento y retención:</b> almacenamos de forma segura los tokens de
+    autorización (<i>OAuth tokens</i>) y los identificadores del canal y transmisión necesarios
+    para mantener activa la integración mientras el usuario la utilice. No almacenamos copias
+    permanentes de videos ni descargamos contenido privado del canal.</li>
+    <li><b>Términos y políticas aplicables:</b> al conectar tu canal de YouTube a través de VBS
+    Power, aceptas quedar sujeto a los
+    <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">Términos de Servicio de YouTube</a>
+    y a la
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Google</a>.</li>
+    <li><b>Cumplimiento de Uso Limitado:</b> el uso y la transferencia por parte de VBS Power de
+    la información recibida de las API de Google se ajustarán estrictamente a la
+    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Política de Datos de Usuario de los Servicios de API de Google</a>,
+    incluidos los requisitos de Uso Limitado (<i>Limited Use</i>). No vendemos, alquilamos ni
+    compartimos datos obtenidos de YouTube con terceros ni los utilizamos para fines
+    publicitarios.</li>
+    <li><b>Revocación de acceso:</b> puedes desconectar tu canal de YouTube en cualquier
+    momento desde la configuración de transmisión en VBS Power o revocar el acceso directamente
+    desde la página de permisos de seguridad de tu cuenta de Google en
+    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.
+    Al revocar el acceso, los tokens asociados quedan invalidados y se eliminan de nuestros
+    servidores.</li>
   </ul>
 
-  <h2>3. Publicidad</h2>
+  <h2>3. Qué NO recopilamos</h2>
+  <ul>
+    <li>No accedemos a tu ubicación (GPS).</li>
+    <li>No accedemos a tu cámara ni micrófono desde la app web/móvil de resultados sin tu
+    acción explícita de transmisión.</li>
+    <li>No usamos herramientas de analítica o rastreo propias de terceros (Google Analytics,
+    Meta Pixel, etc.). Los servicios de publicidad de Google (AdMob en la app y AdSense en la
+    web) se describen en la sección 4.</li>
+    <li>No vendemos tu información personal ni los datos obtenidos mediante las API de Google
+    con fines comerciales.</li>
+  </ul>
+
+  <h2>4. Publicidad</h2>
   <p>La plataforma muestra anuncios de Google a visitantes y a usuarios que acceden con su
   cuenta de Google: mediante <b>Google AdMob</b> en la app móvil (Android) y mediante
   <b>Google AdSense</b> en la versión web (<a href="https://powerrdapp.com">powerrdapp.com</a>).
@@ -98,27 +136,29 @@
     personalizados.</li>
   </ul>
 
-  <h2>4. Cómo usamos la información</h2>
+  <h2>5. Cómo usamos la información</h2>
   <p>La información se usa exclusivamente para operar la aplicación: autenticar cuentas,
   mostrar resultados y estadísticas, permitir a los anotadores registrar jugadas durante los
-  juegos en vivo, operar la Liga de Fantasía, enviar las notificaciones que hayas activado y
-  mostrar la información de equipos y jugadores dentro de los torneos gestionados en la
-  plataforma.</p>
+  juegos en vivo, gestionar las transmisiones en directo autorizadas en YouTube, operar la
+  Liga de Fantasía, enviar las notificaciones que hayas activado y mostrar la información de
+  equipos y jugadores dentro de los torneos gestionados en la plataforma.</p>
 
-  <h2>5. Dónde se almacena la información y servicios de terceros</h2>
+  <h2>6. Dónde se almacena la información y servicios de terceros</h2>
   <p>Los datos de la aplicación (torneos, equipos, jugadores, juegos, cuentas de usuario,
-  Liga de Fantasía) se almacenan en la base de datos del servidor de la plataforma. La sesión
-  y una copia de respaldo para uso sin conexión se guardan localmente en tu dispositivo.
-  Para funcionar usamos servicios de terceros: Google (inicio de sesión, notificaciones y publicidad) y proveedores de alojamiento e infraestructura.</p>
+  Liga de Fantasía y tokens de vinculación autorizados) se almacenan en la base de datos del
+  servidor de la plataforma. La sesión y una copia de respaldo para uso sin conexión se
+  guardan localmente en tu dispositivo. Para funcionar usamos servicios de terceros: Google
+  (inicio de sesión, Servicios de API de YouTube, notificaciones y publicidad) y proveedores
+  de alojamiento e infraestructura.</p>
 
-  <h2>6. Fotos de jugadores</h2>
+  <h2>7. Fotos de jugadores</h2>
   <p>Las fotos de jugadores que aparecen en la app son configuradas voluntariamente por los
   administradores de cada equipo/torneo, generalmente con el propósito de identificación
   deportiva (similar a una tarjeta de jugador). Si eres jugador o representante de un jugador
   y deseas que se elimine una foto, puedes solicitarlo al administrador del equipo
-  correspondiente o contactarnos directamente (ver sección 10).</p>
+  correspondiente o contactarnos directamente (ver sección 11).</p>
 
-  <h2>7. Menores de edad</h2>
+  <h2>8. Menores de edad</h2>
   <p>La aplicación puede mostrar nombres y, opcionalmente, fotos de jugadores menores de edad
   que participan en torneos deportivos, en el contexto de la gestión y transmisión de esos
   torneos (similar a un programa deportivo impreso). Esta información es proporcionada y
@@ -127,24 +167,29 @@
   de su torneo o liga. El servicio de cuentas y Fantasía no está dirigido a menores de 13
   años, y no mostramos publicidad personalizada de forma intencional a menores.</p>
 
-  <h2>8. Seguridad</h2>
-  <p>Las contraseñas se almacenan cifradas. Las comunicaciones entre la app y el servidor se
-  realizan mediante conexiones cifradas (HTTPS).</p>
+  <h2>9. Seguridad</h2>
+  <p>Las contraseñas se almacenan cifradas y los tokens de autorización de Google/YouTube se
+  resguardan con controles de acceso restringidos en el servidor. Las comunicaciones entre la
+  app y el servidor se realizan mediante conexiones cifradas (HTTPS).</p>
 
-  <h2>9. Tus derechos</h2>
-  <p>Puedes solicitar acceso, corrección o eliminación de los datos de tu cuenta escribiéndonos
-  por los medios de la sección 10. También puedes dejar de recibir notificaciones desde la
-  configuración de tu dispositivo y gestionar las cookies desde tu navegador.</p>
+  <h2>10. Tus derechos</h2>
+  <p>Puedes solicitar acceso, corrección o eliminación de los datos de tu cuenta, así como
+  la desconexión y eliminación de tus credenciales de YouTube, escribiéndonos por los medios
+  de la sección 11. También puedes revocar los permisos de Google en
+  <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>,
+  dejar de recibir notificaciones desde la configuración de tu dispositivo y gestionar las
+  cookies desde tu navegador.</p>
 
-  <h2>10. Contacto</h2>
+  <h2>11. Contacto</h2>
   <p>Para preguntas sobre esta Política de Privacidad, solicitudes de eliminación de datos, o
   cualquier otro tema relacionado, puedes contactarnos:</p>
   <ul>
+    <li>Correo electrónico: <a href="mailto:carlosjose132727@gmail.com">carlosjose132727@gmail.com</a></li>
     <li>Teléfono/WhatsApp: <a href="tel:8496393540">849-639-3540</a></li>
     <li>Sitio web: <a href="https://powerrdapp.com">powerrdapp.com</a></li>
   </ul>
 
-  <h2>11. Cambios a esta política</h2>
+  <h2>12. Cambios a esta política</h2>
   <p>Podemos actualizar esta Política de Privacidad ocasionalmente. Los cambios se publicarán
   en esta misma página con la fecha de actualización correspondiente.</p>
 </div>
