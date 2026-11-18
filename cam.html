@@ -94,7 +94,7 @@ async function connect(){
   try{
     dc=p.createDataChannel('ctl');   // canal de control: activar / silenciar el microfono desde ambos lados
     dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack});};
-    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(m&&m.t==='mic')setMic(!!m.on,'remote');}catch(e){}};
+    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='flip')flipCam();}catch(e){}};   // 'flip': quien transmite te cambia la camara
   }catch(e){dc=null;}
   stream.getVideoTracks().forEach(function(t){
     var tr=p.addTransceiver(t,{direction:'sendonly',streams:[stream]});
@@ -150,15 +150,36 @@ $('go').onclick=async function(){
     await connect();
   }catch(e){st('Error: '+(e&&e.message||e)+'. Revisa tu conexión.','err');$('go').disabled=false;$('c-join').style.display='block';$('c-run').style.display='none';}
 };
-$('flip').onclick=async function(){
-  var nxt=$('facing').value==='environment'?'user':'environment';$('facing').value=nxt;
+var flipBusy=false;
+// Cambiar entre camara delantera y trasera. Se libera la camara actual ANTES de abrir la otra: la mayoria de celulares no puede tener las dos abiertas a la vez
+// (por eso antes no cambiaba). Si la otra no abre, se vuelve a la anterior. En PC con varias camaras se va rotando entre ellas.
+async function flipCam(){
+  if(flipBusy||!stream)return;flipBusy=true;
+  var md=navigator.mediaDevices,d=dims(),old=stream.getVideoTracks()[0],cs={};
+  try{cs=(old&&old.getSettings&&old.getSettings())||{};}catch(e){}
+  var cur=$('facing').value,nxt=cur==='environment'?'user':'environment';
+  function vc(extra){return Object.assign({width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},extra);}
+  async function get(extra){try{return await md.getUserMedia({video:vc(extra),audio:false});}catch(e){return null;}}
+  var ns=null,newMode=nxt;
   try{
-    var d=dims(),ns=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:nxt},width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},audio:false});
-    var nt=ns.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
+    if(old){try{old.stop();}catch(e){}}
+    if(!cs.facingMode){   // PC: sin delantera/trasera, se rota entre las camaras disponibles
+      var ds=(await md.enumerateDevices()).filter(function(x){return x.kind==='videoinput';});
+      if(ds.length>1){var i=ds.map(function(x){return x.deviceId;}).indexOf(cs.deviceId),nd=ds[(i+1)%ds.length];ns=await get({deviceId:{exact:nd.deviceId}});}
+    }
+    if(!ns)ns=await get({facingMode:{exact:nxt}});
+    if(!ns)ns=await get({facingMode:{ideal:nxt}});
+    if(!ns){ns=await get({facingMode:{ideal:cur}});newMode=cur;st('Este dispositivo no pudo cambiar de cámara.','err');}
+    if(!ns)throw new Error('sin camara');
+    var nt=ns.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track?s.track.kind==='video':false;})[0];
     if(snd)await snd.replaceTrack(nt);
-    var old=stream.getVideoTracks()[0];try{old.stop();}catch(e){}try{stream.removeTrack(old);}catch(e){}stream.addTrack(nt);$('pv').srcObject=stream;   // el microfono sigue como estaba
-  }catch(e){st('No se pudo cambiar de cámara.','err');}
-};
+    try{stream.removeTrack(old);}catch(e){}stream.addTrack(nt);$('pv').srcObject=stream;
+    $('facing').value=newMode;
+    if(newMode===nxt)st('Cámara '+(nxt==='user'?'delantera':'trasera')+' activa.','ok');
+  }catch(e){st('No se pudo cambiar de cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');}
+  flipBusy=false;
+}
+$('flip').onclick=flipCam;
 $('mic').onclick=function(){if(atrack)setMic(!micOn,'local');};
 $('stop').onclick=function(){ended('Cámara desconectada.');st('Cámara desconectada.','');};
 window.addEventListener('beforeunload',function(e){if(running){e.preventDefault();e.returnValue='';}});

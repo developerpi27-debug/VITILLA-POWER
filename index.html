@@ -183,6 +183,13 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .bcs-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;flex:none}
 .bcs-wm{position:absolute;z-index:60;pointer-events:none;background:rgba(0,0,0,.45);color:#fff;font-family:Barlow Condensed,Arial Narrow,Impact,sans-serif;font-weight:800;letter-spacing:.08em;border-radius:6px;line-height:1.1;user-select:none}.bcs-wm b{color:#f59e0b}
 .cmos-mic{position:absolute;top:6px;right:6px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.5);background:rgba(0,0,0,.6);color:#fff;font-size:16px;cursor:pointer;padding:0}
+.plc{background:rgba(10,14,24,.88);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:6px 8px;font-size:12px;margin-bottom:8px;user-select:none}
+.plc .plc-h{display:flex;align-items:center;gap:6px;margin-bottom:4px}.plc .plc-h b{flex:1}
+.plc button{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:14px;margin:0;width:auto;display:inline-block}
+.plc .plc-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:2px 0 4px}
+.plc .plc-b{display:flex;gap:5px;margin-bottom:6px}.plc input[type=range]{width:100%;margin:0 0 4px}
+.plc-fl{position:absolute;left:8px;top:8px;z-index:65;width:min(230px,46%)}
+.bcs.bcs-live .plc-fl{left:100px}
 .bcc{position:absolute;z-index:70;display:flex;flex-direction:column;background:rgba(10,14,24,.84);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;overflow:hidden}
 .bcc-h{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 8px;background:rgba(255,255,255,.14);font-size:11px;font-weight:700;cursor:grab;touch-action:none;user-select:none;flex:none}
 .bcc-x{background:none;border:0;color:#fff;font-size:14px;cursor:pointer;padding:0 4px}
@@ -8486,10 +8493,10 @@ function bcWgEntry(u){
   }
   return e;
 }
-function wgLoad(){try{return JSON.parse(bcLsGet('vp_bc_wgs')||'[]');}catch(e){return[];}}
+function wgLoad(){var a=[];try{a=JSON.parse(bcLsGet('vp_bc_wgs')||'[]');}catch(e){}return a.map(function(x){return typeof x==='string'?{u:x,n:''}:{u:String((x&&x.u)||''),n:String((x&&x.n)||'')};}).filter(function(x){return x.u;});}
 function wgOpenM(){
   showM('<div class="mhd"><div class="mtl">&#128279; Widget con URL</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'+BCX_MODAL_CSS
-    +'<div class="fg"><label class="fl">Pega la URL (https)</label><input class="fi" id="wg-u" maxlength="480" placeholder="https://www.youtube.com/watch?v=…" oninput="wgInfo()"></div>'
+    +'<div class="fg"><label class="fl">Nombre (para identificarlo rápido)</label><input class="fi" id="wg-n" maxlength="30" placeholder="Ej.: Resumen de ayer"></div><div class="fg"><label class="fl">Pega la URL (https)</label><input class="fi" id="wg-u" maxlength="480" placeholder="https://www.youtube.com/watch?v=…" oninput="wgInfo()"></div>'
     +'<div id="wg-info" style="font-size:12px;color:var(--t2);line-height:1.5;margin:4px 0 10px"></div>'
     +'<button class="btn bp" style="width:100%" onclick="wgPut()">Poner en el video</button>'
     +'<div class="xsec">Mis widgets guardados</div><div id="wg-list"></div>'
@@ -8508,16 +8515,16 @@ function wgInfo(){
 }
 function wgList(){
   var l=document.getElementById('wg-list');if(!l)return;var a=wgLoad();
-  l.innerHTML=a.length?a.map(function(u,i){return'<div class="xrow"><span class="xnm" onclick="wgUse('+i+')">'+nfEsc(u)+'</span><button onclick="wgUse('+i+')">Usar</button><button onclick="wgDel('+i+')">&#10005;</button></div>';}).join(''):'<div style="font-size:12px;color:var(--t3)">Aún no guardas ninguno.</div>';
+  l.innerHTML=a.length?a.map(function(w,i){return'<div class="xrow"><span class="xnm" onclick="wgUse('+i+')" title="'+nfEsc(w.u)+'"><b>'+nfEsc(w.n||'Sin nombre')+'</b> · '+nfEsc(w.u.replace(/^https:\/\/(www\.)?/,''))+'</span><button onclick="wgUse('+i+')">Usar</button><button onclick="wgDel('+i+')">&#10005;</button></div>';}).join(''):'<div style="font-size:12px;color:var(--t3)">Aún no guardas ninguno.</div>';
 }
-function wgUse(i){var u=wgLoad()[i];if(!u)return;document.getElementById('wg-u').value=u;wgInfo();}
+function wgUse(i){var w=wgLoad()[i];if(!w)return;document.getElementById('wg-u').value=w.u;document.getElementById('wg-n').value=w.n||'';wgInfo();}
 function wgDel(i){var a=wgLoad();a.splice(i,1);bcLsSet('vp_bc_wgs',JSON.stringify(a));wgList();}
 function wgPut(){
-  var u=((document.getElementById('wg-u')||{}).value||'').trim();
+  var u=((document.getElementById('wg-u')||{}).value||'').trim(),nm=((document.getElementById('wg-n')||{}).value||'').trim().slice(0,30);
   if(!wgParse(u,false)){toast('Pega una URL que empiece con https://','error');return;}
-  var a=wgLoad().filter(function(x){return x!==u;});a.unshift(u);bcLsSet('vp_bc_wgs',JSON.stringify(a.slice(0,12)));
+  var a=wgLoad().filter(function(x){return x.u!==u;});a.unshift({u:u,n:nm});bcLsSet('vp_bc_wgs',JSON.stringify(a.slice(0,12)));
   var n=(_BC.layout||[]).filter(function(x){return x.page==='wg';}).length;
-  if(bcXAdd('wg',{u:u},{x:30+Math.min(n,4)*3,y:10+Math.min(n,4)*3,w:40,h:40})){cM();
+  if(bcXAdd('wg',{u:u,n:nm},{x:30+Math.min(n,4)*3,y:10+Math.min(n,4)*3,w:40,h:40})){cM();
     var w=wgParse(u,false);if(w&&w.kind!=='vid'&&(_BC.burn&&_BC.burn.on))toast('Este widget lo ven los espectadores de la app; no sale dentro del video a YouTube.','info');}
 }
 // ═══════════════ APAGAR / ENCENDER LA CAMARA (solo se ven los graficos) ═══════════════
@@ -8667,18 +8674,18 @@ function scPut(){
   if(bcXAdd('sc',d,{x:2,y:Math.max(4,66-n*18),w:36,h:15})){cM();bcXHint();}
 }
 // ═══ PLAYLIST (musica, imagenes y videos de tu dispositivo) ═══
-var _PLY={files:{},ready:false,url:{},vis:{ids:[],idx:0,playing:false,secs:8,cur:null,timer:null,vel:null},aud:{ids:[],idx:0,playing:false,vol:70,loop:true,el:null}};
+var _PLY={name:'',open:false,files:{},ready:false,url:{},vis:{ids:[],idx:0,playing:false,secs:8,cur:null,timer:null,vel:null},aud:{ids:[],idx:0,playing:false,vol:70,loop:true,el:null}};
 var _PLDB=null;
 function plDb(){return new Promise(function(res,rej){if(_PLDB)return res(_PLDB);var r=indexedDB.open('vp_media',1);r.onupgradeneeded=function(){r.result.createObjectStore('files',{keyPath:'id'});};r.onsuccess=function(){_PLDB=r.result;res(_PLDB);};r.onerror=function(){rej(r.error);};});}
 function plAll(){return plDb().then(function(db){return new Promise(function(res,rej){var q=db.transaction('files','readonly').objectStore('files').getAll();q.onsuccess=function(){res(q.result||[]);};q.onerror=function(){rej(q.error);};});});}
 function plPut(rec){return plDb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('files','readwrite');tx.objectStore('files').put(rec);tx.oncomplete=function(){res();};tx.onerror=function(){rej(tx.error);};});});}
 function plDel(id){return plDb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=function(){res();};tx.onerror=function(){rej(tx.error);};});});}
 function plUrl(id){if(!_PLY.url[id]&&_PLY.files[id])_PLY.url[id]=URL.createObjectURL(_PLY.files[id].blob);return _PLY.url[id]||'';}
-function plCfgSave(){try{bcLsSet('vp_pl_cfg',JSON.stringify({a:_PLY.aud.ids,v:_PLY.vis.ids,secs:_PLY.vis.secs,vol:_PLY.aud.vol,loop:_PLY.aud.loop}));}catch(e){}}
+function plCfgSave(){try{bcLsSet('vp_pl_cfg',JSON.stringify({a:_PLY.aud.ids,v:_PLY.vis.ids,secs:_PLY.vis.secs,vol:_PLY.aud.vol,loop:_PLY.aud.loop,pn:_PLY.name}));}catch(e){}}
 async function plLoad(){
   var owner=bcUk('');
   if(_PLY.owner!==owner){   // otro usuario en el mismo dispositivo: se parte de cero, sin ver nada del anterior
-    plStopAll();_PLY.files={};_PLY.aud.ids=[];_PLY.aud.idx=0;_PLY.vis.ids=[];_PLY.vis.idx=0;_PLY.ready=false;_PLY.owner=owner;
+    plStopAll();_PLY.files={};_PLY.name='';_PLY.aud.ids=[];_PLY.aud.idx=0;_PLY.vis.ids=[];_PLY.vis.idx=0;_PLY.ready=false;_PLY.owner=owner;
   }
   if(_PLY.ready)return;
   try{
@@ -8691,6 +8698,7 @@ async function plLoad(){
     all.forEach(function(f){_PLY.files[f.id]=f;});
     var ordered=function(kind,saved){var ids=(saved||[]).filter(function(i){return _PLY.files[i]&&_PLY.files[i].kind===kind;});all.forEach(function(f){if(f.kind===kind&&ids.indexOf(f.id)<0)ids.push(f.id);});return ids;};
     _PLY.aud.ids=ordered('a',cfg.a);_PLY.vis.ids=ordered('m',cfg.v);
+    _PLY.name=String(cfg.pn||'');
     if(cfg.secs)_PLY.vis.secs=cfg.secs;if(cfg.vol!=null)_PLY.aud.vol=cfg.vol;if(cfg.loop!=null)_PLY.aud.loop=!!cfg.loop;
   }catch(e){toast('No se pudo abrir el almacenamiento de archivos de este navegador.','error');}
   _PLY.ready=true;
@@ -8745,7 +8753,7 @@ function plVisSet(idx){
 }
 function plVisPlay(){
   var v=_PLY.vis;if(!v.ids.length){toast('Agrega imágenes o videos primero.','info');return;}
-  v.playing=true;
+  v.playing=true;_PLY.open=true;
   if(!(_BC.layout||[]).some(function(x){return x.page==='pl';}))plPutItem(true);
   bcXNeedBurn();plVisSet(v.cur?v.idx:0);
 }
@@ -8754,7 +8762,7 @@ function plVisToggle(){if(_PLY.vis.playing)plVisPause();else plVisPlay();}
 function plPutItem(quiet){
   var ex=(_BC.layout||[]).filter(function(x){return x.page==='pl';})[0];
   if(ex&&!quiet){bcXRemove(ex.id);plRenderM();return;}
-  if(!ex){if(bcXAdd('pl',{n:'Playlist'},{x:20,y:10,w:60,h:72}))bcXNeedBurn();}
+  if(!ex){if(bcXAdd('pl',{n:_PLY.name||'Playlist'},{x:20,y:10,w:60,h:72}))bcXNeedBurn();}
   plRenderM();
 }
 // musica
@@ -8766,6 +8774,7 @@ function plAudSet(idx,play){
   el.onended=function(){if(a.idx<a.ids.length-1||a.loop)plAudSet(a.idx+1,true);else{a.playing=false;plRenderM();}};
   el.src=plUrl(f.id);
   if(play){
+    _PLY.open=true;
     if(!bcAmxHook(el,'mus')){toast('No se pudo preparar el audio de la transmisión.','error');return;}
     a.playing=true;var pr=el.play();if(pr&&pr.catch)pr.catch(function(){a.playing=false;toast('No se pudo reproducir esa canción.','error');plRenderM();});
   }
@@ -8792,15 +8801,41 @@ async function plOpenM(){
   showM('<div class="mhd"><div class="mtl">&#127902;&#65039; Playlist</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="pl-m"></div>');
   plRenderM();
 }
+// ── Controles de la playlist en la Pantalla (lado izquierdo): cambiar la musica, detenerla o cerrar (desactivar) la playlist ──
+function plAudStop(){var a=_PLY.aud;a.playing=false;try{if(a.el){a.el.pause();a.el.currentTime=0;}}catch(e){}plRenderM();}
+function plCloseAll(){
+  plStopAll();
+  (_BC.layout||[]).filter(function(x){return x.page==='pl';}).forEach(function(x){bcXRemove(x.id);});
+  _PLY.open=false;plcRefresh();plRenderM();
+  toast('Playlist cerrada.','info');
+}
+function plcHtml(){
+  var a=_PLY.aud,v=_PLY.vis,af=_PLY.files[a.ids[a.idx]],vf=v.cur&&v.cur.f,h='<div class="plc-h"><b>&#127902;&#65039; '+nfEsc(_PLY.name||'Playlist')+'</b><button onclick="plOpenM()" title="Abrir la playlist">&#9776;</button><button onclick="plCloseAll()" title="Cerrar (desactivar la playlist)">&#10005;</button></div>';
+  if(a.ids.length)h+='<div class="plc-n">&#127925; '+(af&&(a.playing||(a.el&&a.el.src))?nfEsc(af.name):'—')+'</div><div class="plc-b"><button onclick="plAudSet(_PLY.aud.idx-1,true)" title="Anterior">&#9198;</button><button onclick="plAudToggle()" title="'+(a.playing?'Pausar':'Reproducir')+'">'+(a.playing?'&#9208;':'&#9654;')+'</button><button onclick="plAudSet(_PLY.aud.idx+1,true)" title="Siguiente">&#9197;</button><button onclick="plAudStop()" title="Detener la música">&#9209;</button></div><input type="range" min="0" max="100" value="'+a.vol+'" oninput="plAudVol(this.value)" title="Volumen de la música">';
+  if(v.ids.length)h+='<div class="plc-n">'+(vf&&(vf.type||'').indexOf('video')===0?'&#127916; ':'&#128444;&#65039; ')+(vf?nfEsc(vf.name):'—')+'</div><div class="plc-b"><button onclick="plVisSet(_PLY.vis.idx-1)" title="Anterior">&#9198;</button><button onclick="plVisToggle()" title="'+(v.playing?'Pausar':'Reproducir')+'">'+(v.playing?'&#9208;':'&#9654;')+'</button><button onclick="plVisSet(_PLY.vis.idx+1)" title="Siguiente">&#9197;</button></div>';
+  return h;
+}
+function plcRefresh(){
+  var st=document.getElementById('bc-stage'),fl=document.getElementById('bcs-plc');
+  if(!st){if(fl)fl.remove();return;}
+  var live=st.classList.contains('bcs-live'),lf=document.getElementById('bcs-left'),inLeft=!!lf&&!live;
+  if(!_PLY.open){if(fl)fl.remove();if(lf)try{bcStageSync();}catch(e){}return;}
+  if(inLeft){if(fl)fl.remove();try{bcStageSync();}catch(e){}return;}   // columna izquierda: la tarjeta va arriba de las acciones
+  var box=document.getElementById('bcs-stage')||st;
+  if(!fl){fl=document.createElement('div');fl.id='bcs-plc';fl.className='plc plc-fl';box.appendChild(fl);}
+  fl.innerHTML=plcHtml();
+}
 function plRow(id,kind,cur){
   var f=_PLY.files[id];if(!f)return'';var ic=(f.type||'').indexOf('video')===0?'&#127916; ':((f.type||'').indexOf('image')===0?'&#128444;&#65039; ':'&#127925; ');
-  return'<div class="xrow'+(cur?' cur':'')+'"><span class="xnm" onclick="plJump(\''+kind+'\',\''+id+'\')">'+ic+nfEsc(f.name)+'</span><button onclick="plMove(\''+kind+'\',\''+id+'\',-1)">&#8593;</button><button onclick="plMove(\''+kind+'\',\''+id+'\',1)">&#8595;</button><button onclick="plRemove(\''+id+'\')">&#10005;</button></div>';
+  return'<div class="xrow'+(cur?' cur':'')+'"><span class="xnm" onclick="plJump(\''+kind+'\',\''+id+'\')">'+ic+nfEsc(f.name)+'</span><button onclick="plRenameFile(\''+id+'\')" title="Cambiar nombre">&#9999;&#65039;</button><button onclick="plMove(\''+kind+'\',\''+id+'\',-1)">&#8593;</button><button onclick="plMove(\''+kind+'\',\''+id+'\',1)">&#8595;</button><button onclick="plRemove(\''+id+'\')">&#10005;</button></div>';
 }
 function plRenderM(){
+  try{plcRefresh();}catch(e){}
   var m=document.getElementById('pl-m');if(!m)return;
   var a=_PLY.aud,v=_PLY.vis,onScr=(_BC.layout||[]).some(function(x){return x.page==='pl';});
   var mb=0;Object.keys(_PLY.files).forEach(function(k){mb+=(_PLY.files[k].size||0);});
   m.innerHTML=BCX_MODAL_CSS
+    +'<div class="fg"><label class="fl">Nombre de la playlist</label><input class="fi" maxlength="40" placeholder="Playlist" value="'+nfEsc(_PLY.name||'')+'" onchange="plSetName(this.value)"></div>'
     +'<div class="xsec" style="margin-top:0">&#127925; Música (suena en la transmisión)</div>'
     +(a.ids.length?a.ids.map(function(id,i){return plRow(id,'a',i===a.idx&&(a.playing||(a.el&&a.el.src)));}).join(''):'<div style="font-size:12px;color:var(--t3);margin-bottom:6px">Sin canciones.</div>')
     +'<div class="xctl"><button onclick="plPick(\'a\')">+ Agregar música</button><button onclick="plAudSet(_PLY.aud.idx-1,_PLY.aud.playing)">&#9198;</button><button onclick="plAudToggle()">'+(a.playing?'&#9208;':'&#9654;')+'</button><button onclick="plAudSet(_PLY.aud.idx+1,true)">&#9197;</button><button onclick="plAudLoop()" style="'+(a.loop?'border-color:var(--acc)':'opacity:.6')+'">&#128257;</button></div>'
@@ -8828,6 +8863,17 @@ function plPick(kind){
   };
   inp.click();
 }
+function plSetName(v){
+  _PLY.name=String(v||'').trim().slice(0,40);plCfgSave();
+  (_BC.layout||[]).forEach(function(x){if(x.page==='pl')x.d={n:_PLY.name||'Playlist'};});
+  try{if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();plcRefresh();}catch(e){}
+}
+async function plRenameFile(id){
+  var f=_PLY.files[id];if(!f)return;
+  var nv=prompt('Nombre del archivo (máximo 60 letras):',f.name||'');if(nv==null)return;nv=nv.trim().slice(0,60);if(!nv)return;
+  f.name=nv;try{await plPut(f);}catch(e){}
+  plRenderM();toast('Nombre guardado.','success');
+}
 function plMove(kind,id,dir){var ids=kind==='a'?_PLY.aud.ids:_PLY.vis.ids,i=ids.indexOf(id),j=i+dir;if(i<0||j<0||j>=ids.length)return;ids.splice(j,0,ids.splice(i,1)[0]);var st=kind==='a'?_PLY.aud:_PLY.vis;if(st.idx===i)st.idx=j;else if(st.idx===j)st.idx=i;plCfgSave();plRenderM();}
 async function plRemove(id){
   var f=_PLY.files[id];if(!f)return;
@@ -8839,7 +8885,7 @@ async function plRemove(id){
   delete _PLY.files[id];try{await plDel(id);}catch(e){}
   plCfgSave();plRenderM();
 }
-function plJump(kind,id){if(kind==='a'){var i=_PLY.aud.ids.indexOf(id);if(i>=0)plAudSet(i,true);}else{var j=_PLY.vis.ids.indexOf(id);if(j>=0){_PLY.vis.playing=true;if(!(_BC.layout||[]).some(function(x){return x.page==='pl';}))plPutItem(true);bcXNeedBurn();plVisSet(j);}}}
+function plJump(kind,id){if(kind==='a'){var i=_PLY.aud.ids.indexOf(id);if(i>=0)plAudSet(i,true);}else{var j=_PLY.vis.ids.indexOf(id);if(j>=0){_PLY.vis.playing=true;_PLY.open=true;if(!(_BC.layout||[]).some(function(x){return x.page==='pl';}))plPutItem(true);bcXNeedBurn();plVisSet(j);}}}
 
 async function lsWhipPublish(url,stream,hPx){
   var pc=new RTCPeerConnection({iceServers:LS_ICE,bundlePolicy:'max-bundle'});
@@ -9314,7 +9360,7 @@ function bcCmpStatus(){
   var b=_BC.burn;if(!b||!b.on||b.mode!=='canvas')return[];
   var cat=lsCatalog(),now=Date.now();
   return(_BC.layout||[]).map(function(it){
-    if(it.page==='wg'){var we=b.items[it.id],ww=wgParse((it.d||{}).u,false);return{label:'Widget web',st:'ok',tx:(ww&&ww.kind==='vid')?(we&&we.ok?'dentro del video':(we&&we.err?'sin permiso: solo en la app':'cargando')):'solo en la app'};}
+    if(it.page==='wg'){var we=b.items[it.id],ww=wgParse((it.d||{}).u,false);return{label:'Widget: '+((it.d||{}).n||'web'),st:'ok',tx:(ww&&ww.kind==='vid')?(we&&we.ok?'dentro del video':(we&&we.err?'sin permiso: solo en la app':'cargando')):'solo en la app'};}
     if(it.page==='mq'||it.page==='sc'||it.page==='pl')return{label:it.page==='mq'?'Marquee':(it.page==='sc'?'Plantilla de red social':'Playlist'),st:'ok',tx:'lista'};
     var e=b.items[it.id],lb=it.page==='img'?'Imagen':lsPlain((cat.filter(function(c){return c.id===it.id;})[0]||{}).label||it.id),st='load',tx='cargando…';
     if(e){
@@ -9818,16 +9864,50 @@ function camCtlMsg(c,raw){
     else camCtlSend(c,{t:'mic',on:!!c.mic});   // al reconectarse manda el estado de quien transmite
   }else if(m.t==='mic')camMicSet(c,!!m.on,true);
 }
+function camRemoteFlip(id){
+  var c=(_BC.cams||{})[id];if(!c)return;
+  if(!c.dc||c.dc.readyState!=='open'){toast('Esa cámara todavía no acepta órdenes (pídele que actualice la página de la cámara).','info');return;}
+  camCtlSend(c,{t:'flip'});toast('Cambiando la cámara de '+camNameOf(id)+'…','info');
+}
 function camMicBtn(c){
   if(c.local)return'';
   if(!c.atrack)return'<span style="font-size:11px;opacity:.7">sin micrófono</span> ';
   return'<button class="btn '+(c.mic?'bp':'bs')+'" style="padding:3px 8px;font-size:12px" onclick="camMicToggle(\''+c.id+'\')">'+(c.mic?'&#127908; Activo':'&#128263; Silenciado')+'</button> ';
 }
 // ── Mosaico al aire: los espectadores ven TODAS las camaras a la vez (se compone en el dispositivo que transmite; hace falta "gráficos dentro del video") ──
+function camNameOf(id){
+  if(id==='local')return(_BC.mosLocalName||'').trim()||'Principal';
+  var L=camList(),c=null,i=-1;L.forEach(function(x,k){if(x.id===id){c=x;i=k;}});
+  return(c&&c.name&&c.name.trim())?c.name.trim():('Cámara '+(i+1));
+}
+function camRename(id,val){
+  val=String(val||'').trim().slice(0,20);
+  if(id==='local')_BC.mosLocalName=val;else{var c=(_BC.cams||{})[id];if(c)c.name=val;}
+}
+function bcMosCfg(){
+  if(!_BC.mosCfg){
+    var c={};try{c=JSON.parse(bcLsGet('vp_bc_mosc')||'{}');}catch(e){}
+    _BC.mosCfg={f:['normal','round','circle','hex'].indexOf(c.f)>=0?c.f:'normal',bw:[0,3,6].indexOf(c.bw)>=0?c.bw:0,bc:bcXHex(c.bc,'#ffffff'),nm:c.nm!==false};
+  }
+  return _BC.mosCfg;
+}
+function bcMosCfgSet(){
+  var g=function(i){var e=document.getElementById(i);return e?e.value:'';},c=bcMosCfg(),nm=document.getElementById('mc-nm');
+  c.f=g('mc-f')||c.f;var bw=parseInt(g('mc-bw'));c.bw=isNaN(bw)?c.bw:bw;c.bc=bcXHex(g('mc-bc'),'#ffffff');if(nm)c.nm=!!nm.checked;
+  bcLsSet('vp_bc_mosc',JSON.stringify(c));
+}
+function bcMosCfgHtml(){
+  var c=bcMosCfg(),o=function(v,t,cur){return'<option value="'+v+'"'+(String(cur)===String(v)?' selected':'')+'>'+t+'</option>';};
+  return'<div style="border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:8px"><div style="font-size:12px;font-weight:700;margin-bottom:6px">Cómo se ve el mosaico</div>'
+    +'<div class="fr c3"><div class="fg"><label class="fl">Marco</label><select class="fi" id="mc-f" onchange="bcMosCfgSet()">'+o('normal','Normal',c.f)+o('round','Redondeado',c.f)+o('circle','Círculo',c.f)+o('hex','Hexágono',c.f)+'</select></div>'
+    +'<div class="fg"><label class="fl">Borde</label><select class="fi" id="mc-bw" onchange="bcMosCfgSet()">'+o(0,'Sin borde',c.bw)+o(3,'Fino',c.bw)+o(6,'Grueso',c.bw)+'</select></div>'
+    +'<div class="fg"><label class="fl">Color</label><input type="color" id="mc-bc" value="'+c.bc+'" onchange="bcMosCfgSet()" style="width:100%;height:36px"></div></div>'
+    +'<label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="mc-nm" '+(c.nm?'checked':'')+' onchange="bcMosCfgSet()"> Mostrar el nombre de cada cámara (Principal, Cámara 1, Cámara 2…)</label></div>';
+}
 function bcMosTiles(){
   var t=[],lt=_BC.stream&&_BC.stream.getVideoTracks()[0];
-  if(!_BC.camOff&&lt&&!(_BC.dummy&&_BC.dummy.track===lt))t.push({id:'local',s:_BC.stream});
-  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream});});
+  if(!_BC.camOff&&lt&&!(_BC.dummy&&_BC.dummy.track===lt))t.push({id:'local',s:_BC.stream,name:camNameOf('local')});
+  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream,name:camNameOf(c.id)});});
   return t;
 }
 function bcMosVid(reg,t){
@@ -9841,17 +9921,38 @@ function bcMosVid(reg,t){
   return m.v;
 }
 function bcMosPrune(reg,keep){Object.keys(reg).forEach(function(k){if(!keep[k]){try{reg[k].v.pause();reg[k].v.srcObject=null;reg[k].v.remove();}catch(e){}delete reg[k];}});}
+function bcMosShape(ctx,shape,x,y,w,h){
+  ctx.beginPath();
+  if(shape==='circle'){ctx.arc(x+w/2,y+h/2,Math.min(w,h)/2,0,Math.PI*2);}
+  else if(shape==='hex'){var R=Math.min(w,h)/2,cx=x+w/2,cy=y+h/2;for(var k=0;k<6;k++){var an=Math.PI/3*k,px=cx+R*Math.cos(an),py=cy+R*Math.sin(an);if(k===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.closePath();}
+  else if(shape==='round')bcRR(ctx,x,y,w,h,Math.min(w,h)*0.08);
+  else ctx.rect(x,y,w,h);
+}
 function bcMosDraw(ctx,cw,ch,holder){
-  var reg=holder.mv||(holder.mv={}),tl=bcMosTiles(),keep={};
+  var reg=holder.mv||(holder.mv={}),tl=bcMosTiles(),keep={},cfg=bcMosCfg(),shape=cfg.f;
   tl.forEach(function(t){keep[t.id]=1;});bcMosPrune(reg,keep);
   var n=tl.length;if(!n)return;
+  if(shape!=='normal'){var bg=ctx.createLinearGradient(0,0,cw,ch);bg.addColorStop(0,'#0b1220');bg.addColorStop(1,'#1e2f4d');ctx.fillStyle=bg;ctx.fillRect(0,0,cw,ch);}   // con marcos curvos, fondo oscuro detras
   var cols=n<=1?1:(n<=4?2:(n<=9?3:4)),rows=Math.ceil(n/cols),gap=Math.max(2,Math.round(cw*0.004));
-  var cwid=(cw-gap*(cols+1))/cols,chei=(ch-gap*(rows+1))/rows;
+  var cwid=(cw-gap*(cols+1))/cols,chei=(ch-gap*(rows+1))/rows,sc=cw/1280;
   tl.forEach(function(t,i){
     var r=Math.floor(i/cols),c=i%cols,inRow=(r===rows-1)?(n-r*cols):cols,off=(cols-inRow)*(cwid+gap)/2;   // la ultima fila queda centrada
-    var x=gap+off+c*(cwid+gap),y=gap+r*(chei+gap),v=bcMosVid(reg,t);
-    ctx.fillStyle='#0b1220';ctx.fillRect(x,y,cwid,chei);
-    if(v.videoWidth>0&&v.readyState>=2){var k=Math.min(cwid/v.videoWidth,chei/v.videoHeight),w=v.videoWidth*k,h=v.videoHeight*k;ctx.drawImage(v,x+(cwid-w)/2,y+(chei-h)/2,w,h);}
+    var x=gap+off+c*(cwid+gap),y=gap+r*(chei+gap),v=bcMosVid(reg,t),ready=v.videoWidth>0&&v.readyState>=2;
+    var bx=x,by=y,bw=cwid,bh=chei;   // zona que ocupa el marco
+    if(shape==='circle'||shape==='hex'){var d=Math.min(cwid,chei)*0.96;bx=x+(cwid-d)/2;by=y+(chei-d)/2;bw=d;bh=d;}
+    else if(shape==='normal'&&ready){var k0=Math.min(cwid/v.videoWidth,chei/v.videoHeight);bw=v.videoWidth*k0;bh=v.videoHeight*k0;bx=x+(cwid-bw)/2;by=y+(chei-bh)/2;}   // normal: video completo, sin recortar
+    ctx.save();bcMosShape(ctx,shape,bx,by,bw,bh);ctx.clip();
+    ctx.fillStyle='#0b1220';ctx.fillRect(bx,by,bw,bh);
+    if(ready){var k=Math.max(bw/v.videoWidth,bh/v.videoHeight),w=v.videoWidth*k,h=v.videoHeight*k;ctx.drawImage(v,bx+(bw-w)/2,by+(bh-h)/2,w,h);}   // llena el marco (se recorta lo que sobra)
+    ctx.restore();
+    if(cfg.bw>0){ctx.save();bcMosShape(ctx,shape,bx,by,bw,bh);ctx.lineWidth=cfg.bw*sc;ctx.strokeStyle=cfg.bc;ctx.stroke();ctx.restore();}
+    if(cfg.nm&&t.name){
+      var fs=Math.max(11,Math.min(chei*0.085,cw*0.026)),pad=fs*0.5;
+      ctx.save();ctx.font='700 '+fs+'px '+BCX_FONT;ctx.textBaseline='middle';ctx.textAlign='left';
+      var tw=ctx.measureText(t.name).width,pw=tw+pad*2,ph=fs+pad*0.9,px2=x+(cwid-pw)/2,py2=by+bh-ph-Math.max(5,gap*1.5);
+      bcRR(ctx,px2,py2,pw,ph,ph/2);ctx.fillStyle='rgba(0,0,0,.62)';ctx.fill();
+      ctx.fillStyle='#fff';ctx.fillText(t.name,px2+pad,py2+ph/2+1);ctx.restore();
+    }
   });
 }
 function bcMosToggle(){
@@ -9906,18 +10007,18 @@ function camRender(){
 function camRenderM(){
   var box=document.getElementById('cam-m');if(!box)return;
   var L=camList(),prog=_BC.prog||'local',max=_BC.camMax||camMaxLocal();
-  var sig=JSON.stringify([prog,max,!!_BC.mosaic,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic];})]);
+  var sig=JSON.stringify([prog,max,!!_BC.mosaic,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic,c.name||''];}),_BC.mosLocalName||'']);
   if(box.getAttribute('data-sig')===sig){return;}
   box.setAttribute('data-sig',sig);
-  var used=L.length+1,hh=(L.length?'<button class="btn '+(_BC.mosaic?'bp':'bs')+'" style="width:100%;margin-bottom:8px" onclick="bcMosToggle()">&#9638; '+(_BC.mosaic?'Quitar el mosaico del aire (volver a una sola cámara)':'Poner el mosaico al aire (todas las cámaras a la vez)')+'</button>':'')+'<div style="font-size:12px;color:var(--t2);margin-bottom:6px">Cámaras: <b>'+used+' de '+max+'</b> ('+(camDevice()==='pc'?'PC':'celular')+'). Toca una miniatura numerada para ponerla <b>al aire</b>: eso es lo que ven los espectadores.</div><div class="cam-grid">';
-  hh+='<div class="cam-card'+(prog==='local'&&!_BC.mosaic?' on':'')+'">'+(prog==='local'&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="local" muted autoplay playsinline></video><div class="cap"><b>1 · Esta cámara</b>'+(prog==='local'?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\'local\')">Al aire</button>')+'</div></div>';
+  var used=L.length+1,hh=(L.length?'<button class="btn '+(_BC.mosaic?'bp':'bs')+'" style="width:100%;margin-bottom:8px" onclick="bcMosToggle()">&#9638; '+(_BC.mosaic?'Quitar el mosaico del aire (volver a una sola cámara)':'Poner el mosaico al aire (todas las cámaras a la vez)')+'</button>'+bcMosCfgHtml():'')+'<div style="font-size:12px;color:var(--t2);margin-bottom:6px">Cámaras: <b>'+used+' de '+max+'</b> ('+(camDevice()==='pc'?'PC':'celular')+'). Toca una miniatura numerada para ponerla <b>al aire</b>: eso es lo que ven los espectadores.</div><div class="cam-grid">';
+  hh+='<div class="cam-card'+(prog==='local'&&!_BC.mosaic?' on':'')+'">'+(prog==='local'&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="local" muted autoplay playsinline></video><div class="cap"><b>1 · Esta cámara</b><input class="fi" style="width:96px;padding:2px 6px;font-size:12px" maxlength="20" placeholder="Principal" value="'+nfEsc(_BC.mosLocalName||'')+'" title="Nombre que ven los espectadores en el mosaico" onchange="camRename(\'local\',this.value)">'+(prog==='local'?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\'local\')">Al aire</button>')+'</div></div>';
   L.forEach(function(c,i){
     var on=prog===c.id,n=i+2;
     if(c.status==='waiting'){
       hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div>Abre en el otro dispositivo:</div><div style="word-break:break-all;font-size:11px">'+nfEsc(camUrl(c.code))+'</div><div class="cam-qr">'+camQrSvg(camUrl(c.code))+'</div><div class="cam-code">'+nfEsc(c.code)+'</div>'
         +'<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="btn bs" style="padding:3px 10px;font-size:12px" onclick="camCopy(\''+c.id+'\')">Copiar enlace</button><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Cancelar</button></div><div style="opacity:.7;margin-top:4px">Esperando la cámara…</div></div></div>';
     }else if(c.conn==='connected'){
-      hh+='<div class="cam-card'+(on&&!_BC.mosaic?' on':'')+'">'+(on&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="'+c.id+'" muted autoplay playsinline></video><div class="cap"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><span>'+camMicBtn(c)+(on&&!_BC.mosaic?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\''+c.id+'\')">Al aire</button> ')+'<button class="btn bd" style="padding:3px 8px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></span></div></div>';
+      hh+='<div class="cam-card'+(on&&!_BC.mosaic?' on':'')+'">'+(on&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="'+c.id+'" muted autoplay playsinline></video><div class="cap"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><input class="fi" style="width:96px;padding:2px 6px;font-size:12px" maxlength="20" placeholder="Cámara '+(i+1)+'" value="'+nfEsc(c.name||'')+'" title="Nombre que ven los espectadores en el mosaico" onchange="camRename(\''+c.id+'\',this.value)"><span>'+(c.local?'':'<button class="btn bs" style="padding:3px 8px;font-size:12px" title="Cambiar a cámara delantera / trasera de ese dispositivo" onclick="camRemoteFlip(\''+c.id+'\')">&#128260;</button> ')+camMicBtn(c)+(on&&!_BC.mosaic?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\''+c.id+'\')">Al aire</button> ')+'<button class="btn bd" style="padding:3px 8px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></span></div></div>';
     }else{
       hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div style="margin:6px 0">'+(c.local?'Esta cámara se desconectó. Quítala y vuelve a agregarla.':(c.status==='lost'?'Sin señal. Si la cámara sigue abierta, se reconecta sola.':'Conectando…'))+'</div><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></div></div>';
     }
@@ -10305,6 +10406,7 @@ function bcImgBodyHtml(){
         +'<button type="button" data-k="'+im.k+'" onclick="bcImgToggle(this.getAttribute(\'data-k\'))" title="'+(on?'Quitar de la pantalla':'Poner en pantalla')+'" style="display:block;width:100%;aspect-ratio:1;border:0;padding:4px;background:none;cursor:pointer"><img src="'+nfEsc(im.url)+'" alt="" style="width:100%;height:100%;object-fit:contain"></button>'
         +(on?'<div style="position:absolute;left:4px;top:4px;background:var(--acc);color:#000;font-weight:800;font-size:11px;border-radius:8px;padding:0 6px">&#10003; En pantalla</div>':'')
         +'<button type="button" data-k="'+im.k+'" onclick="bcImgDelete(this.getAttribute(\'data-k\'))" title="Eliminar de mi biblioteca" style="position:absolute;right:3px;top:3px;border:0;background:rgba(0,0,0,.65);color:#fff;border-radius:6px;width:24px;height:24px;cursor:pointer">&#128465;</button>'
+        +'<button type="button" data-k="'+im.k+'" onclick="bcImgRename(this.getAttribute(\'data-k\'))" title="Cambiar nombre" style="position:absolute;right:30px;top:3px;border:0;background:rgba(0,0,0,.65);color:#fff;border-radius:6px;width:24px;height:24px;cursor:pointer">&#9999;&#65039;</button>'
         +'<div style="font-size:10px;padding:2px 5px;background:rgba(0,0,0,.65);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nfEsc(im.name)+'</div></div>';
     }).join('')+'</div>'
     :'<div class="empty" style="padding:18px 8px"><div style="font-size:30px">&#128444;&#65039;</div><div>Aún no has subido imágenes.</div></div>';
@@ -10313,7 +10415,7 @@ function bcImgBodyHtml(){
 async function bcImgOpenM(){
   if(!_BC.id){toast('Primero inicia la transmisión','info');return;}
   showM('<div class="mhd"><div class="mtl">&#128444;&#65039; Mis imágenes</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="bci-body"><div class="empty">Cargando...</div></div>'
-    +'<div class="mft"><label class="btn bs" style="cursor:pointer;margin:0">&#128193; Subir imagen<input type="file" accept="image/png,image/jpeg,image/webp,image/*" style="display:none" onchange="bcImgChosen(this)"></label><button class="btn bp" onclick="cM()">Listo</button></div>');
+    +'<div class="mft"><input id="bci-name" class="fi" maxlength="40" placeholder="Nombre de la imagen (opcional)" style="flex:1;min-width:0"><label class="btn bs" style="cursor:pointer;margin:0">&#128193; Subir imagen<input type="file" accept="image/png,image/jpeg,image/webp,image/*" style="display:none" onchange="bcImgChosen(this)"></label><button class="btn bp" onclick="cM()">Listo</button></div>');
   if(await bcImgLoad(true))bcImgRefresh();
 }
 function bcImgRefresh(){var b=document.getElementById('bci-body');if(b){var sc=b.scrollTop;b.innerHTML=bcImgBodyHtml();b.scrollTop=sc;}}
@@ -10343,10 +10445,11 @@ function bcImgChosen(inp){
     }
     if(bytesOf(data)>LIM){toast('La imagen es demasiado pesada aun reducida. Prueba con otra.','error');return;}
     _BCI.busy=true;toast('Subiendo imagen...','info');
-    api('addBroadcastImage',{dataUrl:data,ar:ar,name:String(f.name||'').replace(/\.[^.]+$/,'')}).then(function(r){
+    api('addBroadcastImage',{dataUrl:data,ar:ar,name:((document.getElementById('bci-name')||{}).value||'').trim()||String(f.name||'').replace(/\.[^.]+$/,'')}).then(function(r){
       _BCI.busy=false;
       if(r&&r.ok&&r.image){
         _BCI.list=(_BCI.list||[]).filter(function(x){return x.k!==r.image.k;});_BCI.list.unshift(r.image);
+        var bn=document.getElementById('bci-name');if(bn)bn.value='';
         bcImgRefresh();toast('Imagen guardada en tu biblioteca','success');
       }else toast((r&&r.error)||'No se pudo subir la imagen','error');
     }).catch(function(){_BCI.busy=false;toast('No se pudo subir la imagen','error');});
@@ -10371,6 +10474,14 @@ function bcImgToggle(k){
   try{bcStageSync();}catch(e){}
   bcImgRefresh();
 }
+async function bcImgRename(k){
+  var im=(_BCI.list||[]).filter(function(x){return x.k===k;})[0];if(!im)return;
+  var nv=prompt('Nombre de la imagen (máximo 40 letras):',im.name||'');if(nv==null)return;nv=nv.trim();if(!nv)return;
+  var r=await api('renameBroadcastImage',{k:k,name:nv});
+  if(r&&r.ok){im.name=r.name;bcImgRefresh();try{if(_BC.stageRedraw)_BC.stageRedraw();}catch(e){}toast('Nombre guardado.','success');}
+  else toast((r&&r.error)||'No se pudo cambiar el nombre','error');
+}
+function bcImgName(x){var im=(_BCI.list||[]).filter(function(i){return i.k===x.k;})[0];return im?im.name:'Imagen';}
 async function bcImgDelete(k){
   if(!confirm('¿Eliminar esta imagen de tu biblioteca? Si está en la pantalla, también se quitará.'))return;
   var r=await api('deleteBroadcastImage',{k:k});
@@ -10400,7 +10511,7 @@ function bcStageSync(){
   var note='<div class="bxs-note">'+(gm.status!=='live'?'El juego no está en vivo.':'No puedes anotar este juego ahora (otro anotador lo tiene o falta permiso).')+'</div>';
   var can=gm.status==='live'&&canScoreNow(gm);
   if(bx)bx.innerHTML=bcBoxHtml(gm);
-  if(lf){var s1=lf.scrollTop;lf.innerHTML=can?bcLeftHtml(gm):note;lf.scrollTop=s1;}
+  if(lf){var s1=lf.scrollTop,live0=st.classList.contains('bcs-live');lf.innerHTML=((_PLY.open&&!live0)?'<div class="plc">'+plcHtml()+'</div>':'')+(can?bcLeftHtml(gm):note);lf.scrollTop=s1;}
   if(rt){
     var s2=rt.scrollTop,src=document.getElementById('gc-rplay-area'),live=st.classList.contains('bcs-live');
     rt.innerHTML=can?((src?src.innerHTML:'<div class="bxs-note">Cargando…</div>')+(live?'<div class="bcs-act">'+bcLeftHtml(gm)+'</div>':'')):note;rt.scrollTop=s2;
@@ -10518,6 +10629,7 @@ function bcsGestures(el){
 function bcsLiveSync(){
   var st=document.getElementById('bc-stage');if(!st)return;
   st.classList.toggle('bcs-live',bcLiveMode());
+  try{plcRefresh();}catch(e){}
   if(!st.classList.contains('bcs-live')){['bcs-right','bcs-tray'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.remove('open');});}
   try{lsRescale(document.getElementById('bcs-items'));}catch(e){}
   try{bcStageSync();}catch(e){}
@@ -10559,6 +10671,7 @@ function bcOpenStage(){
   bcsStatsRefresh();
   try{bcWmFit();if(window.ResizeObserver)new ResizeObserver(bcWmFit).observe(document.getElementById('bcs-stage'));}catch(e){}
   try{bcMosPrev();}catch(e){}
+  try{plcRefresh();}catch(e){}
   try{camStyles();if(_BC.prog&&_BC.prog!=='local')camPreview(_BC.prog);camRender();}catch(e){}
   var host=document.getElementById('bcs-items');
   function has(id){return _BC.layout.some(function(x){return x.id===id;});}
@@ -10567,7 +10680,7 @@ function bcOpenStage(){
       return'<button class="bcs-chip'+(has(c.id)?' on':'')+'" data-id="'+c.id+'">'+(has(c.id)?'&#10003; ':'+ ')+nfEsc(c.label)+'</button>';
     }).join('')+'<button class="bcs-chip" data-act="imgs" title="Tus imágenes: súbelas y colócalas en la pantalla">&#128444;&#65039; Mis imágenes'+((_BC.layout||[]).filter(function(x){return x.page==='img';}).length?' ('+(_BC.layout||[]).filter(function(x){return x.page==='img';}).length+')':'')+'</button>'
       +'<button class="bcs-chip" data-act="mq" title="Texto que pasa por la pantalla">&#128221; Marquee</button><button class="bcs-chip" data-act="sc" title="Sígueme en Instagram, TikTok, dale like, suscríbete…">&#128241; Redes sociales</button><button class="bcs-chip" data-act="pl" title="Música, imágenes y videos">&#127902;&#65039; Playlist</button><button class="bcs-chip" data-act="wg" title="Pega una URL (YouTube, video, página web)">&#128279; Widget URL</button>'
-      +(_BC.layout||[]).filter(function(x){return x.page==='mq'||x.page==='sc'||x.page==='pl'||x.page==='wg';}).map(function(x){var d=x.d||{};return'<button class="bcs-chip on" data-xid="'+x.id+'" title="Quitar">&#10003; '+(x.page==='wg'?'&#128279; '+nfEsc(String(d.u||'').replace(/^https:\/\/(www\.)?/,'').slice(0,22)):x.page==='mq'?'&#128221; '+nfEsc(String(d.t||'').slice(0,22)):(x.page==='sc'?nfEsc(String(d.ic||'')+' '+String(d.t2||d.t1||'').slice(0,20)):'&#127902;&#65039; Playlist'))+'</button>';}).join('');
+      +(_BC.layout||[]).filter(function(x){return x.page==='mq'||x.page==='sc'||x.page==='pl'||x.page==='wg'||x.page==='img';}).map(function(x){var d=x.d||{};return'<button class="bcs-chip on" data-xid="'+x.id+'" title="Quitar">&#10003; '+(x.page==='img'?'&#128444;&#65039; '+nfEsc(bcImgName(x).slice(0,22)):x.page==='wg'?'&#128279; '+nfEsc(String(d.n||String(d.u||'').replace(/^https:\/\/(www\.)?/,'')).slice(0,22)):x.page==='mq'?'&#128221; '+nfEsc(String(d.t||'').slice(0,22)):(x.page==='sc'?nfEsc(String(d.ic||'')+' '+String(d.t2||d.t1||'').slice(0,20)):'&#127902;&#65039; '+nfEsc(String(d.n||'Playlist').slice(0,22))))+'</button>';}).join('');
   }
   function redraw(){lsRenderItems(host,_BC.layout,_BC.gameId,true);drawTray();}
   document.getElementById('bcs-tray').addEventListener('click',function(e){
