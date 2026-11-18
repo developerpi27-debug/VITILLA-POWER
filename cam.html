@@ -12,7 +12,7 @@ label{font-size:12px;opacity:.75;display:block;margin:8px 0 4px}
 input,select,button{font:inherit;border-radius:8px;border:1px solid #33425f;background:#0e1626;color:#fff;padding:10px 12px;width:100%}
 input.code{font-size:26px;letter-spacing:6px;text-align:center;text-transform:uppercase;font-family:monospace}
 button{cursor:pointer;font-weight:700;background:#2f6fed;border-color:#2f6fed;margin-top:10px}
-button.sec{background:#1b2742;border-color:#33425f}button.red{background:#e53935;border-color:#e53935}
+button.sec{background:#1b2742;border-color:#33425f}button.red{background:#e53935;border-color:#e53935}button.micon{background:#1e8e3e;border-color:#1e8e3e}
 button:disabled{opacity:.5}
 video{width:100%;max-width:520px;aspect-ratio:16/9;background:#000;border-radius:10px;object-fit:cover}
 #st{font-size:14px;text-align:center;min-height:20px}
@@ -29,17 +29,19 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
     <div><label>Calidad</label><select id="res"><option value="480">480p (poca señal)</option><option value="720" selected>720p</option><option value="1080">1080p</option></select></div>
   </div>
   <button id="go">Conectar cámara</button>
-  <small>Se envía solo el video, directo al dispositivo que transmite (no pasa por ningún servidor). Mantén esta pantalla encendida y esta página abierta mientras dure el juego. Lo ideal es estar en la misma red Wi-Fi.</small>
+  <small>Se envía el video y, si lo activas, el micrófono, directo al dispositivo que transmite (no pasa por ningún servidor). El micrófono empieza silenciado: lo activas tú o quien transmite. Mantén esta pantalla encendida y esta página abierta mientras dure el juego. Lo ideal es estar en la misma red Wi-Fi.</small>
 </div>
 <video id="pv" muted autoplay playsinline style="display:none"></video>
 <div id="st"></div>
 <div class="card" id="c-run" style="display:none">
+  <div class="row"><button class="sec" id="mic">&#127908; Micrófono: silenciado</button></div>
+  <div id="mst" style="font-size:12px;text-align:center;opacity:.8;min-height:16px;margin-top:6px"></div>
   <div class="row"><button class="sec" id="flip">&#128260; Cambiar cámara</button><button class="red" id="stop">Desconectar</button></div>
 </div>
 <script>
 var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
 var $=function(i){return document.getElementById(i);};
-var code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
+var micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
 try{tok=sessionStorage.getItem('vp_cam_tok')||'';}catch(e){}
 if(!tok){tok=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()).replace(/-/g,'');try{sessionStorage.setItem('vp_cam_tok',tok);}catch(e){}}
 var q=new URLSearchParams(location.search).get('c');if(q)$('code').value=String(q).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
@@ -60,9 +62,25 @@ function waitIce(p,ms){return new Promise(function(res){
 function dims(){return{'480':[854,480],'720':[1280,720],'1080':[1920,1080]}[$('res').value]||[1280,720];}
 async function openCam(){
   if(stream){stream.getTracks().forEach(function(t){t.stop();});}
-  var d=dims();
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('facing').value},width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},audio:false});
+  var d=dims(),vc={facingMode:{ideal:$('facing').value},width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},md=navigator.mediaDevices;
+  stream=null;
+  try{stream=await md.getUserMedia({video:vc,audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}catch(e){stream=null;}
+  if(!stream)stream=await md.getUserMedia({video:vc,audio:false});   // sin permiso de microfono: se sigue solo con video
+  atrack=stream.getAudioTracks()[0]||null;if(atrack)atrack.enabled=micOn;
   var v=$('pv');v.srcObject=stream;v.style.display='block';try{v.play();}catch(e){}
+  micUi();
+}
+function micUi(){
+  var b=$('mic');if(!b)return;
+  if(!atrack){b.textContent='\uD83C\uDFA4 Sin micrófono (permiso no concedido)';b.disabled=true;b.className='sec';return;}
+  b.disabled=false;b.className=micOn?'micon':'sec';b.textContent=micOn?'\uD83C\uDFA4 Micrófono: ACTIVO':'\uD83D\uDD07 Micrófono: silenciado';
+}
+function sendCtl(o){try{if(dc&&dc.readyState==='open')dc.send(JSON.stringify(o));}catch(e){}}
+// by='local' (lo tocas tu) o 'remote' (lo cambia quien transmite). Ambos pueden activarlo o silenciarlo.
+function setMic(on,by){
+  micOn=!!on;if(atrack)atrack.enabled=micOn;micUi();
+  if(by==='remote'){var m=$('mst');if(m){m.textContent=micOn?'El transmisor activó tu micrófono.':'El transmisor silenció tu micrófono.';setTimeout(function(){if(m.textContent&&m.textContent.indexOf('transmisor')>=0)m.textContent='';},4000);}}
+  else sendCtl({t:'mic',on:micOn});
 }
 async function wake(){try{if(navigator.wakeLock&&running)wl=await navigator.wakeLock.request('screen');}catch(e){}}
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&running){wake();}});
@@ -72,6 +90,12 @@ async function connect(){
   try{if(pc){pc.onconnectionstatechange=null;pc.close();}}catch(e){}
   st('Conectando con el dispositivo que transmite…','warn');
   var p=new RTCPeerConnection({iceServers:ice});pc=p;
+  if(atrack)p.addTransceiver(atrack,{direction:'sendonly',streams:[stream]});
+  try{
+    dc=p.createDataChannel('ctl');   // canal de control: activar / silenciar el microfono desde ambos lados
+    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack});};
+    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(m&&m.t==='mic')setMic(!!m.on,'remote');}catch(e){}};
+  }catch(e){dc=null;}
   stream.getVideoTracks().forEach(function(t){
     var tr=p.addTransceiver(t,{direction:'sendonly',streams:[stream]});
     try{var caps=RTCRtpSender.getCapabilities('video');if(caps&&tr.setCodecPreferences){var hh=caps.codecs.filter(function(c){return/h264/i.test(c.mimeType);}),o=caps.codecs.filter(function(c){return!/h264/i.test(c.mimeType);});if(hh.length)tr.setCodecPreferences(hh.concat(o));}}catch(e){}
@@ -105,6 +129,7 @@ function ended(msg){
   stopped=true;running=false;gen++;
   try{if(pc)pc.close();}catch(e){}
   if(stream)stream.getTracks().forEach(function(t){t.stop();});
+  micOn=false;atrack=null;dc=null;
   $('pv').style.display='none';$('c-run').style.display='none';$('c-join').style.display='block';$('go').disabled=false;
   st(msg||'La transmisión terminó.','err');
 }
@@ -128,11 +153,13 @@ $('go').onclick=async function(){
 $('flip').onclick=async function(){
   var nxt=$('facing').value==='environment'?'user':'environment';$('facing').value=nxt;
   try{
-    var old=stream;await openCam();
-    var nt=stream.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
+    var d=dims(),ns=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:nxt},width:{ideal:d[0]},height:{ideal:d[1]},frameRate:{ideal:30,max:30}},audio:false});
+    var nt=ns.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
     if(snd)await snd.replaceTrack(nt);
+    var old=stream.getVideoTracks()[0];try{old.stop();}catch(e){}try{stream.removeTrack(old);}catch(e){}stream.addTrack(nt);$('pv').srcObject=stream;   // el microfono sigue como estaba
   }catch(e){st('No se pudo cambiar de cámara.','err');}
 };
+$('mic').onclick=function(){if(atrack)setMic(!micOn,'local');};
 $('stop').onclick=function(){ended('Cámara desconectada.');st('Cámara desconectada.','');};
 window.addEventListener('beforeunload',function(e){if(running){e.preventDefault();e.returnValue='';}});
 if($('code').value.length>=6){st('Código recibido. Toca "Conectar cámara".','');}
