@@ -71,11 +71,14 @@
     <li><b>Finalidad exclusiva:</b> los permisos de YouTube (<code>youtube.force-ssl</code>) se
     utilizan exclusivamente para permitir al usuario programar eventos en vivo, iniciar y
     finalizar transmisiones en directo de partidos desde VBS Power, vincular la señal de video
-    con su transmisión y leer o gestionar los mensajes del chat en directo durante el evento.</li>
+    con su transmisión, asignar la miniatura de la transmisión y leer o gestionar los mensajes del chat en directo durante el evento.</li>
     <li><b>Almacenamiento y retención:</b> almacenamos de forma segura los tokens de
     autorización (<i>OAuth tokens</i>) y los identificadores del canal y transmisión necesarios
     para mantener activa la integración mientras el usuario la utilice. No almacenamos copias
-    permanentes de videos ni descargamos contenido privado del canal.</li>
+    permanentes de videos ni descargamos contenido privado del canal. Los tokens y los datos del
+    canal se conservan solo mientras la conexión esté activa y se eliminan de nuestros servidores
+    de inmediato al desconectar el canal desde la app; si solicitas la eliminación de tu cuenta,
+    también se eliminan en un máximo de 30 días.</li>
     <li><b>Términos y políticas aplicables:</b> al conectar tu canal de YouTube a través de VBS
     Power, aceptas quedar sujeto a los
     <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">Términos de Servicio de YouTube</a>
@@ -86,7 +89,9 @@
     <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Política de Datos de Usuario de los Servicios de API de Google</a>,
     incluidos los requisitos de Uso Limitado (<i>Limited Use</i>). No vendemos, alquilamos ni
     compartimos datos obtenidos de YouTube con terceros ni los utilizamos para fines
-    publicitarios.</li>
+    publicitarios. Los datos de YouTube tampoco se usan para entrenar modelos de inteligencia
+    artificial ni se transfieren a terceros, salvo cuando sea necesario para operar la
+    función que el usuario solicitó, cumplir la ley o con su consentimiento.</li>
     <li><b>Revocación de acceso:</b> puedes desconectar tu canal de YouTube en cualquier
     momento desde la configuración de transmisión en VBS Power o revocar el acceso directamente
     desde la página de permisos de seguridad de tu cuenta de Google en

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VBS Power — Gestión de torneos de béisbol y vitilla</title>
+<meta name="description" content="VBS Power: anotación en vivo, estadísticas, posiciones y transmisiones para torneos de béisbol y vitilla.">
+<style>
+:root{--bg:#0a0e1a;--card:#162032;--acc:#f5a623;--txt:#f0f4f8;--t2:#94a3b8;--bdr:rgba(255,255,255,.1)}
+@media(prefers-color-scheme:light){:root{--bg:#f3f5f9;--card:#fff;--acc:#c66a00;--txt:#0f172a;--t2:#475569;--bdr:rgba(15,23,42,.12)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.6}
+main{max-width:820px;margin:0 auto;padding:40px 20px}
+h1{font-size:2.2rem;color:var(--acc);margin-bottom:6px}
+h2{font-size:1.2rem;margin:28px 0 8px}
+p,li{color:var(--t2)} ul{padding-left:20px}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;margin-top:14px}
+.btn{display:inline-block;margin-top:20px;background:var(--acc);color:#111;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:10px}
+a{color:var(--acc)} footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--bdr);font-size:.85rem;color:var(--t2)}
+</style>
+</head>
+<body>
+<main>
+  <h1>VBS Power</h1>
+  <p>Plataforma web para la gestión de torneos de béisbol y vitilla en República Dominicana.</p>
+  <a class="btn" href="index.html">Abrir la aplicación</a>
+
+  <h2>¿Qué hace?</h2>
+  <ul>
+    <li>Anotación de juegos en vivo, jugada por jugada.</li>
+    <li>Estadísticas de bateo y pitcheo, posiciones y calendarios.</li>
+    <li>Gestión de equipos, jugadores y torneos por parte de sus organizadores.</li>
+    <li>Transmisiones deportivas con gráficos en pantalla.</li>
+    <li>Cualquier persona puede consultar resultados y estadísticas como visitante, sin crear cuenta.</li>
+  </ul>
+
+  <h2>Uso de los datos de Google y YouTube</h2>
+  <div class="card">
+    <p>Los organizadores de torneos pueden <b>conectar opcionalmente su canal de YouTube</b> para crear, programar, iniciar y finalizar las transmisiones en vivo de sus juegos, asignar la miniatura, y leer el chat en vivo de esa transmisión desde la app.</p>
+    <p style="margin-top:8px">Para ello la app solicita un único permiso: <code>https://www.googleapis.com/auth/youtube.force-ssl</code>. Se solicita solo cuando el usuario toca «Conectar canal», y puede desconectarse en cualquier momento desde la app o en <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</p>
+    <p style="margin-top:8px">Los datos de YouTube no se venden, no se usan para publicidad y no se comparten con terceros. El uso y la transferencia de la información recibida de las APIs de Google cumple con la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Política de datos de usuario de los servicios API de Google</a>, incluidos los requisitos de Uso Limitado.</p>
+  </div>
+
+  <footer>
+    <a href="https://powerrdapp.com/privacidad.html">Política de privacidad</a> ·
+    <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">Términos de servicio de YouTube</a> ·
+    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de privacidad de Google</a>
+    <p style="margin-top:8px">© VBS Power</p>
+  </footer>
+</main>
+</body>
+</html>
