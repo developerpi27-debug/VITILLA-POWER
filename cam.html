@@ -12,6 +12,7 @@ label{font-size:12px;opacity:.75;display:block;margin:8px 0 4px}
 input,select,button{font:inherit;border-radius:8px;border:1px solid #33425f;background:#0e1626;color:#fff;padding:10px 12px;width:100%}
 input.code{font-size:26px;letter-spacing:6px;text-align:center;text-transform:uppercase;font-family:monospace}
 button{cursor:pointer;font-weight:700;background:#2f6fed;border-color:#2f6fed;margin-top:10px}
+video.fr-round{border-radius:22px}video.fr-circle{aspect-ratio:1/1;border-radius:50%;max-width:320px}video.fr-hex{aspect-ratio:1/1;max-width:320px;clip-path:polygon(100% 50%,75% 93%,25% 93%,0 50%,25% 7%,75% 7%)}
 button.sec{background:#1b2742;border-color:#33425f}button.red{background:#e53935;border-color:#e53935}button.micon{background:#1e8e3e;border-color:#1e8e3e}
 button:disabled{opacity:.5}
 video{width:100%;max-width:520px;aspect-ratio:16/9;background:#000;border-radius:10px;object-fit:cover}
@@ -36,12 +37,17 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
 <div class="card" id="c-run" style="display:none">
   <div class="row"><button class="sec" id="mic">&#127908; Micrófono: silenciado</button></div>
   <div id="mst" style="font-size:12px;text-align:center;opacity:.8;min-height:16px;margin-top:6px"></div>
+  <label>Marco de tu cámara en el mosaico</label>
+  <div class="row"><select id="fr-f"><option value="normal">Normal</option><option value="round">Redondeado</option><option value="circle">Círculo</option><option value="hex">Hexágono</option></select>
+  <select id="fr-b"><option value="0">Sin borde</option><option value="3">Borde fino</option><option value="6">Borde grueso</option></select>
+  <input type="color" id="fr-c" value="#ffffff" style="padding:2px;height:44px"></div>
+  <small style="margin-top:4px">Solo se ve así cuando quien transmite pone el mosaico con todas las cámaras al aire. Si tu cámara va sola al aire, se ve normal.</small>
   <div class="row"><button class="sec" id="flip">&#128260; Cambiar cámara</button><button class="red" id="stop">Desconectar</button></div>
 </div>
 <script>
 var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
 var $=function(i){return document.getElementById(i);};
-var micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
+var frame={f:'normal',bw:0,bc:'#ffffff'},micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
 try{tok=sessionStorage.getItem('vp_cam_tok')||'';}catch(e){}
 if(!tok){tok=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()).replace(/-/g,'');try{sessionStorage.setItem('vp_cam_tok',tok);}catch(e){}}
 var q=new URLSearchParams(location.search).get('c');if(q)$('code').value=String(q).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
@@ -75,6 +81,17 @@ function micUi(){
   if(!atrack){b.textContent='\uD83C\uDFA4 Sin micrófono (permiso no concedido)';b.disabled=true;b.className='sec';return;}
   b.disabled=false;b.className=micOn?'micon':'sec';b.textContent=micOn?'\uD83C\uDFA4 Micrófono: ACTIVO':'\uD83D\uDD07 Micrófono: silenciado';
 }
+try{var sf=JSON.parse(localStorage.getItem('vp_cam_frame')||'null');if(sf&&sf.f)frame=sf;}catch(e){}
+function sendFrame(){sendCtl({t:'frame',f:frame.f,bw:frame.bw,bc:frame.bc});}
+function frameUi(){
+  $('fr-f').value=frame.f;$('fr-b').value=String(frame.bw);$('fr-c').value=frame.bc;
+  var pv=$('pv');pv.className='fr-'+frame.f;pv.style.border=(frame.bw&&frame.f!=='hex')?(frame.bw+'px solid '+frame.bc):'0';
+}
+function setFrame(){
+  frame={f:$('fr-f').value,bw:parseInt($('fr-b').value)||0,bc:$('fr-c').value||'#ffffff'};
+  try{localStorage.setItem('vp_cam_frame',JSON.stringify(frame));}catch(e){}
+  frameUi();sendFrame();
+}
 function sendCtl(o){try{if(dc&&dc.readyState==='open')dc.send(JSON.stringify(o));}catch(e){}}
 // by='local' (lo tocas tu) o 'remote' (lo cambia quien transmite). Ambos pueden activarlo o silenciarlo.
 function setMic(on,by){
@@ -93,7 +110,7 @@ async function connect(){
   if(atrack)p.addTransceiver(atrack,{direction:'sendonly',streams:[stream]});
   try{
     dc=p.createDataChannel('ctl');   // canal de control: activar / silenciar el microfono desde ambos lados
-    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack});};
+    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack});sendFrame();};
     dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='flip')flipCam();}catch(e){}};   // 'flip': quien transmite te cambia la camara
   }catch(e){dc=null;}
   stream.getVideoTracks().forEach(function(t){
@@ -144,7 +161,7 @@ $('go').onclick=async function(){
     if(j.ice&&j.ice.length)ice=j.ice;
     st('Abriendo la cámara…','warn');
     try{await openCam();}catch(e){st(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara para continuar.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');$('go').disabled=false;return;}
-    running=true;wake();
+    running=true;wake();frameUi();
     $('c-join').style.display='none';$('c-run').style.display='block';
     document.title=(j.label||'Cámara')+' · transmisión';
     await connect();
@@ -180,6 +197,7 @@ async function flipCam(){
   flipBusy=false;
 }
 $('flip').onclick=flipCam;
+['fr-f','fr-b','fr-c'].forEach(function(id){$(id).onchange=setFrame;});
 $('mic').onclick=function(){if(atrack)setMic(!micOn,'local');};
 $('stop').onclick=function(){ended('Cámara desconectada.');st('Cámara desconectada.','');};
 window.addEventListener('beforeunload',function(e){if(running){e.preventDefault();e.returnValue='';}});
