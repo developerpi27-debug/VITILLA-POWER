@@ -5448,6 +5448,8 @@ function openTM(id){
     +tStorageSection(id,t)
     +'<div class="fr c2"><div class="fg"><label class="fl">Categoria</label><input class="fi" id="tc" value="'+(t.category||'')+'"></div>'
     +'<div class="fg"><label class="fl">Estado</label><select class="fs" id="ts">'+stOpts+'</select></div></div>'
+    +'<div class="fg"><label class="fl">Detalle de los outs (cómo fue la jugada)</label><select class="fs" id="tpd"><option value="0"'+(t.playDetail?'':' selected')+'>Apagado (no pregunta nada, como siempre)</option><option value="1"'+(t.playDetail?' selected':'')+'>Encendido (pregunta cómo fue cada out)</option></select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Al anotar un <b>OUT</b> pregunta si fue <b>fly</b> (y quién lo atrapó), <b>rolling</b> (y la jugada, ej. 4-3) o <b>línea</b> (y qué posición la tomó). En un <b>doble play</b> o <b>triple play</b> se indica la cadena (ej. 6-4-3). El detalle aparece en el registro de jugadas y en el informe PDF. Con esto apagado, anotar no cambia.</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Fecha Inicio</label><input class="fi" id="tsd" type="date" value="'+(t.startDate||'')+'"></div>'
     +'<div class="fg"><label class="fl">Fecha Fin</label><input class="fi" id="ted" type="date" value="'+(t.endDate||'')+'"></div></div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">FASES DEL TORNEO</div>'
@@ -5526,6 +5528,10 @@ function tfmSection(t){
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128274; BLOQUEO DE PLANTILLAS EN FANTASY (solo administrador)</div>'
     +'<div class="fg"><label class="fl">Restricción de bloqueo de la plantilla</label><select class="fs" id="tfm-lock"><option value="all"'+(t.fantasyLockMode==='team'?'':' selected')+'>Al iniciar el primer juego del día (la de siempre)</option><option value="team"'+(t.fantasyLockMode==='team'?' selected':'')+'>Solo cuando hayan iniciado todos los juegos del día</option></select>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Con la <b>segunda opción</b> los usuarios pueden gestionar su plantilla hasta que quede al menos un juego del día por iniciar, pero <b>no pueden mover (cuadro, banca o relevistas), liberar ni fichar</b> a jugadores de equipos cuyo juego ya inició. Cuando inician todos los juegos, la plantilla queda totalmente bloqueada hasta que terminen. Los cambios entre plantillas y las ofertas siguen bloqueados desde que inicia el primer juego. Los minutos de gracia definidos en Configuración también aplican.</div></div>'
+    +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#9201;&#65039; WAIVER DE JUGADORES NUEVOS EN FANTASY (solo administrador)</div>'
+    +'<div class="fg"><label class="fl">Waiver para jugadores con la etiqueta NUEVO</label><select class="fs" id="tfm-wv"><option value="0"'+(t.fantasyWaiver?'':' selected')+'>Apagado (cualquiera puede fichar a un NUEVO en cualquier momento)</option><option value="1"'+(t.fantasyWaiver?' selected':'')+'>Encendido (los NUEVO se eligen por turnos)</option></select></div>'
+    +'<div class="fg"><label class="fl">Minutos que dura el turno de cada participante</label><input class="fi" id="tfm-wvmin" type="number" min="1" max="10080" value="'+(t.fantasyWaiverMin||30)+'">'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Cuando entra un jugador <b>NUEVO</b>, el participante de <b>&uacute;ltimo lugar</b> (menos puntos) tiene prioridad para elegirlo; si no lo hace en este tiempo pasa el turno al pen&uacute;ltimo, y as&iacute; sucesivamente. <b>Cada turno permite elegir solo 1 jugador NUEVO</b>: al elegir (o vencer el tiempo) pasa al siguiente. Si entra otro NUEVO con turnos en curso, el turno se mantiene. Al terminar todos los turnos, cualquiera puede fichar a los NUEVO libremente hasta que entre otro NUEVO (ah&iacute; se reinicia con el orden de puntos de ese momento). Los jugadores sin la etiqueta NUEVO siempre se pueden fichar. La etiqueta dura los d&iacute;as que definas en Configuraci&oacute;n de Fantasy.</div></div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es fichar un jugador de la agencia libre (liberar 1 y fichar 1 cuenta como 1; liberar sin fichar no cuenta). <b>No cuentan</b> los jugadores inactivos que se liberan y se reemplazan en el mismo guardado, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
@@ -5667,7 +5673,7 @@ async function saveT(id){
     t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';t.mlbRosterSyncMin=parseInt(fv('tmlb-rsync'))||0;
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
-  if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';}   // solo existe para el admin
+  if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';t.fantasyWaiver=(fv('tfm-wv')==='1');t.fantasyWaiverMin=Math.max(1,Math.min(10080,parseInt(fv('tfm-wvmin'))||30));}   // solo existe para el admin
   var advCfg=null;
   if(document.getElementById('tfa-winner')){var an=function(i){return Math.max(0,Math.round((parseFloat(fv(i))||0)*100)/100);};advCfg={winner:an('tfa-winner'),score:an('tfa-score'),ks:an('tfa-ks'),diff:an('tfa-diff'),costs:{winner:an('tfa-cwinner'),score:an('tfa-cscore'),ks:an('tfa-cks'),diff:an('tfa-cdiff')}};}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
@@ -5676,6 +5682,7 @@ async function saveT(id){
     if(!id)t.storageMode=(fv('tstg')==='local')?'local':'cloud';   // al editar el tipo no cambia (el id local o de nube lo define)
     if(!id&&t.storageMode==='local'&&!confirm('Vas a crear este subtorneo en modo LOCAL: los datos quedarán solo en este dispositivo.\n\nSi luego deseas cambiarlo a la nube, deberás comunicarte con el administrador.\n\n¿Continuar?'))return;
   }
+  var _pdEl=document.getElementById('tpd');if(_pdEl)t.playDetail=(_pdEl.value==='1');
   var r=await api('saveTournament',{tournament:t});
   if(r&&r.ok&&advCfg){   // puntos de Adivina del subtorneo (config fantasyAdv_<id>)
     var advK='fantasyAdv_'+r.item.id,advV=JSON.stringify(advCfg),rc=await api('saveConfig',{key:advK,value:advV});
@@ -9986,15 +9993,88 @@ function camStyles(){
    +'.bcs .bcf-cams{justify-content:flex-start;padding:8px 0 2px}.bcs .bcf-cams button{min-width:44px;height:40px;font-size:15px;background:#455a64;border-color:#455a64}.bcs .bcf-cams button.on{background:#e53935;border-color:#e53935}.bcs .bcf-cams button:disabled{opacity:.4}'
    +'.cam-qr svg{width:150px;height:150px;background:#fff;border-radius:6px;display:block;margin:6px auto}'
    +'#cam-mos{position:fixed;inset:0;z-index:9500;background:#000;display:flex;flex-direction:column;padding:8px;gap:6px;color:#fff}.cmos-top{display:flex;align-items:center;gap:8px}.cmos-grid{flex:1;display:grid;gap:6px;min-height:0}.cmos-t{position:relative;border:2px solid #333;border-radius:8px;overflow:hidden;background:#111;min-height:0;cursor:pointer}.cmos-t.on{border-color:#e53935}.cmos-t video{width:100%;height:100%;object-fit:cover;display:block}.cmos-cap{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:2px 6px;border-radius:4px}.cmos-off{display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:13px}.cmos-hint{font-size:11px;color:#aaa;text-align:center}'
-   +'.cam-badge{position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px}.cam-code{font-size:24px;font-weight:800;letter-spacing:4px;margin:4px 0;font-family:monospace}';
+   +'.cam-badge{position:absolute;top:6px;left:6px;background:#e53935;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:4px}.cam-code{font-size:24px;font-weight:800;letter-spacing:4px;margin:4px 0;font-family:monospace}'
+   +'.cam-offv{position:absolute;left:0;right:0;top:0;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#13203a,#243a63);color:#cbd5e1;font-size:12px;z-index:1}.cam-offv img{width:44%;max-width:96px;aspect-ratio:1/1;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.85)}'
+   +'.cmos-t.spk{border-color:#22c55e;box-shadow:0 0 0 3px #22c55e}.cmos-t .cmos-cap{display:flex;align-items:center;gap:4px;z-index:2}.cmos-nm{background:transparent;border:0;border-bottom:1px dashed rgba(255,255,255,.55);color:#fff;font-size:12px;width:120px;padding:0 2px;outline:none}.cmos-t .cam-badge,.cmos-t .cmos-mic{z-index:2}';
   document.head.appendChild(s);
 }
 // ═══════════════ CAMARAS ENLAZADAS: MICROFONOS Y MOSAICO AL AIRE ═══════════════
 // Cada camara enlazada (cam.html) envia video + su microfono (empieza SILENCIADO) y abre un canal de control. Tanto quien transmite como el dueño de ese dispositivo
 // pueden activar o silenciar ese microfono. El audio de las camaras con microfono activo se mezcla con el tuyo (mezclador _AMX) y sale en la transmision.
+// ── NOMBRES, IMAGEN CON LA CAMARA APAGADA, AUDIO DE RETORNO Y "QUIEN HABLA" ──────────────────────────────────────────────────────────────────
+function camClean(v){return String(v==null?'':v).replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,20);}
+// Imagen de representacion que manda el dispositivo de la camara (JPG/PNG/WEBP pequeno en data URL); se valida antes de usarla.
+function camAvSet(c,url){
+  c.avUrl='';c.avImg=null;
+  if(typeof url==='string'&&url.length<=60000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(url)){
+    var im=new Image();c.avUrl=url;
+    im.onload=function(){if(c.avUrl===url){c.avImg=im;c.sigOld='';camRender();}};
+    im.src=url;
+  }
+  c.sigOld='';camRender();
+}
+function camAvChunk(c,m){
+  if(m.x){c._av=null;camAvSet(c,'');return;}
+  var n=parseInt(m.i),t=parseInt(m.n);
+  if(!(t>0&&t<=12&&n>=0&&n<t)||typeof m.d!=='string'||m.d.length>8000)return;
+  if(!c._av||c._av.n!==t||n===0)c._av={n:t,p:[]};
+  c._av.p[n]=m.d;
+  if(c._av.p.length===t&&c._av.p.every(function(x){return typeof x==='string';})){var url=c._av.p.join('');c._av=null;camAvSet(c,url);}
+}
+function camOffHtml(c){return c.camOff?'<div class="cam-offv">'+(c.avUrl?'<img alt="" src="'+c.avUrl+'">':'<span>&#128247; c&aacute;mara apagada</span>')+'</div>':'';}
+// Audio de retorno: cada camara enlazada recibe un audio PROPIO con tu microfono + las demas camaras (nunca su propio microfono, para que no se escuche a si misma).
+function camMixEnsure(c){
+  if(!_AMX.ctx){
+    var hasA=false;try{hasA=!!(_BC.pc&&_BC.pc.getSenders().some(function(x){return x.track&&x.track.kind==='audio';}));}catch(e){}
+    if(!hasA||!bcAmxEnsure())return null;
+  }
+  if(!c.mixDest){try{c.mixDest=_AMX.ctx.createMediaStreamDestination();}catch(e){return null;}}
+  return c.mixDest;
+}
+function camMixDrop(c){
+  try{(c._mixSrc||[]).forEach(function(q){try{q[0].disconnect(q[1]);}catch(e){}});}catch(e){}
+  c._mixSrc=[];
+}
+function camMixWire(){
+  if(!_AMX.ctx)return;
+  var L=camList().filter(function(c){return!c.local&&c.mixDest;});
+  L.forEach(camMixDrop);
+  var all=camList().filter(function(c){return!c.local;});
+  L.forEach(function(d){
+    try{_AMX.gmic.connect(d.mixDest);d._mixSrc.push([_AMX.gmic,d.mixDest]);}catch(e){}
+    all.forEach(function(o){if(o===d||!o.agn)return;try{o.agn.connect(d.mixDest);d._mixSrc.push([o.agn,d.mixDest]);}catch(e){}});
+  });
+}
+// Quien habla: se mide el nivel del microfono de cada camara con el microfono ACTIVO (y el tuyo). Se mantiene marcado ~0.6 s para que no parpadee.
+function camSpkCtx(){
+  if(!_BC.spkCtx){try{var AC=window.AudioContext||window.webkitAudioContext;if(AC)_BC.spkCtx=new AC();}catch(e){}}
+  try{if(_BC.spkCtx&&_BC.spkCtx.state==='suspended')_BC.spkCtx.resume();}catch(e){}
+  return _BC.spkCtx||null;
+}
+function camAnFor(track){
+  var ctx=camSpkCtx();if(!ctx||!track)return null;
+  try{var an=ctx.createAnalyser();an.fftSize=512;ctx.createMediaStreamSource(new MediaStream([track])).connect(an);return an;}catch(e){return null;}
+}
+function camLevelOf(an){
+  try{var d=an._d||(an._d=new Uint8Array(an.fftSize)),m=0,i,v;an.getByteTimeDomainData(d);for(i=0;i<d.length;i++){v=(d[i]-128)/128;m+=v*v;}return Math.sqrt(m/d.length);}catch(e){return 0;}
+}
+function camSpeaking(id){
+  var o;
+  if(id==='local'){
+    var t=_BC.stream&&_BC.stream.getAudioTracks()[0];if(!t||!t.enabled)return false;
+    if(!_BC.spkL||_BC.spkL.t!==t)_BC.spkL={t:t,an:camAnFor(t),at:0};
+    o=_BC.spkL;
+  }else{
+    o=(_BC.cams||{})[id];if(!o||!o.atrack||!o.mic||o.conn!=='connected')return false;
+    if(!o.an)o.an=camAnFor(o.atrack);
+  }
+  if(!o.an)return false;
+  var now=Date.now();if(camLevelOf(o.an)>0.02)o.spkAt=now;
+  return now-(o.spkAt||0)<650;
+}
 function camCtlSend(c,o){try{if(c.dc&&c.dc.readyState==='open')c.dc.send(JSON.stringify(o));}catch(e){}}
 function camAudioDetach(c){
-  try{if(c.asrc)c.asrc.disconnect();if(c.agn)c.agn.disconnect();}catch(e){}c.asrc=c.agn=null;
+  try{if(c.asrc)c.asrc.disconnect();if(c.agn)c.agn.disconnect();}catch(e){}c.asrc=c.agn=null;c.an=null;
   try{if(c.au){c.au.pause();c.au.srcObject=null;}}catch(e){}c.au=null;
 }
 function camAudioAttach(c){
@@ -10005,6 +10085,7 @@ function camAudioAttach(c){
     c.au=new Audio();c.au.muted=true;c.au.srcObject=ms;var pr=c.au.play();if(pr&&pr.catch)pr.catch(function(){});   // Chrome: sin esto el audio remoto no llega al mezclador
     c.asrc=_AMX.ctx.createMediaStreamSource(ms);c.agn=_AMX.ctx.createGain();c.agn.gain.value=c.mic?1:0;
     c.asrc.connect(c.agn);c.agn.connect(_AMX.dest);
+    try{camMixWire();}catch(e){}   // las demas camaras tambien la escuchan
     try{if(_AMX.ctx.state==='suspended')_AMX.ctx.resume();}catch(e){}
   }catch(e){}
 }
@@ -10022,9 +10103,16 @@ function camMicToggle(id){
 function camCtlMsg(c,raw){
   var m;try{m=JSON.parse(raw);}catch(e){return;}if(!m)return;
   if(m.t==='hello'){
-    if(!c.micInit){c.micInit=true;c.mic=!!m.mic;if(c.agn)c.agn.gain.value=c.mic?1:0;c.sigOld='';camRender();}
+    if(typeof m.n==='string'&&(!c.name||c.nameBy==='remote')){var nn=camClean(m.n);if(nn){c.name=nn;c.nameBy='remote';}}   // el nombre que puso quien conecta (si quien transmite no lo cambio)
+    c.camOff=(m.cam===false);
+    if(!c.micInit){c.micInit=true;c.mic=!!m.mic;if(c.agn)c.agn.gain.value=c.mic?1:0;}
     else camCtlSend(c,{t:'mic',on:!!c.mic});   // al reconectarse manda el estado de quien transmite
+    camCtlSend(c,{t:'name',n:camNameOf(c.id)});
+    c.sigOld='';camRender();
   }else if(m.t==='mic')camMicSet(c,!!m.on,true);
+  else if(m.t==='name'){var n2=camClean(m.n);c.name=n2;c.nameBy=n2?'remote':'';c.sigOld='';camRender();camCtlSend(c,{t:'name',n:camNameOf(c.id)});}
+  else if(m.t==='cam'){c.camOff=(m.on===false);c.sigOld='';camRender();}
+  else if(m.t==='av')camAvChunk(c,m);
   else if(m.t==='frame'){c.frame={f:['normal','round','circle','hex'].indexOf(m.f)>=0?m.f:'normal',bw:[0,3,6].indexOf(m.bw)>=0?m.bw:0,bc:bcXHex(m.bc,'#ffffff')};}
 }
 function camRemoteFlip(id){
@@ -10039,13 +10127,15 @@ function camMicBtn(c){
 }
 // ── Mosaico al aire: los espectadores ven TODAS las camaras a la vez (se compone en el dispositivo que transmite; hace falta "gráficos dentro del video") ──
 function camNameOf(id){
-  if(id==='local')return(_BC.mosLocalName||'').trim()||'Principal';
+  if(id==='local'){if(_BC.mosLocalName==null)_BC.mosLocalName=bcLsGet('vp_bc_mosname')||'';return(_BC.mosLocalName||'').trim()||'Principal';}
   var L=camList(),c=null,i=-1;L.forEach(function(x,k){if(x.id===id){c=x;i=k;}});
-  return(c&&c.name&&c.name.trim())?c.name.trim():('Cámara '+(i+1));
+  return(c&&c.name&&c.name.trim())?c.name.trim():('C\u00e1mara '+(i+1));
 }
 function camRename(id,val){
-  val=String(val||'').trim().slice(0,20);
-  if(id==='local')_BC.mosLocalName=val;else{var c=(_BC.cams||{})[id];if(c)c.name=val;}
+  val=camClean(val);
+  if(id==='local'){_BC.mosLocalName=val;bcLsSet('vp_bc_mosname',val);}
+  else{var c=(_BC.cams||{})[id];if(c){c.name=val;c.nameBy=val?'host':'';if(!c.local)camCtlSend(c,{t:'name',n:camNameOf(id)});}}   // el dispositivo ve como lo identifican
+  var g=document.getElementById('cmos-grid');if(g)g.removeAttribute('data-sig');
 }
 function bcMosCfg(){
   if(!_BC.mosCfg){
@@ -10070,8 +10160,8 @@ function bcMosCfgHtml(){
 }
 function bcMosTiles(){
   var t=[],lt=_BC.stream&&_BC.stream.getVideoTracks()[0];
-  if(!_BC.camOff&&lt&&!(_BC.dummy&&_BC.dummy.track===lt))t.push({id:'local',s:_BC.stream,name:camNameOf('local')});
-  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream,name:camNameOf(c.id),frame:c.frame||null});});
+  if(!_BC.camOff&&lt&&!(_BC.dummy&&_BC.dummy.track===lt))t.push({id:'local',s:_BC.stream,name:camNameOf('local'),spk:camSpeaking('local')});
+  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream,name:camNameOf(c.id),frame:c.frame||null,off:!!c.camOff,av:c.avImg||null,spk:camSpeaking(c.id)});});
   return t;
 }
 function bcMosVid(reg,t){
@@ -10100,24 +10190,41 @@ function bcMosDraw(ctx,cw,ch,holder){
   function frOf(t){return(cfg.dv&&t.frame)?t.frame:cfg;}
   if(tl.some(function(t){return frOf(t).f!=='normal';})){var bg=ctx.createLinearGradient(0,0,cw,ch);bg.addColorStop(0,'#0b1220');bg.addColorStop(1,'#1e2f4d');ctx.fillStyle=bg;ctx.fillRect(0,0,cw,ch);}   // con marcos curvos, fondo oscuro detras
   var cols=n<=1?1:(n<=4?2:(n<=9?3:4)),rows=Math.ceil(n/cols),gap=Math.max(2,Math.round(cw*0.004));
-  var cwid=(cw-gap*(cols+1))/cols,chei=(ch-gap*(rows+1))/rows,sc=cw/1280;
+  var cwid=(cw-gap*(cols+1))/cols,chei=(ch-gap*(rows+1))/rows,sc=cw/1280,tnow=Date.now();
   tl.forEach(function(t,i){
     var fr=frOf(t),shape=fr.f;
     var r=Math.floor(i/cols),c=i%cols,inRow=(r===rows-1)?(n-r*cols):cols,off=(cols-inRow)*(cwid+gap)/2;   // la ultima fila queda centrada
-    var x=gap+off+c*(cwid+gap),y=gap+r*(chei+gap),v=bcMosVid(reg,t),ready=v.videoWidth>0&&v.readyState>=2;
+    var x=gap+off+c*(cwid+gap),y=gap+r*(chei+gap),v=bcMosVid(reg,t),ready=!t.off&&v.videoWidth>0&&v.readyState>=2;
     var bx=x,by=y,bw=cwid,bh=chei;   // zona que ocupa el marco
     if(shape==='circle'||shape==='hex'){var d=Math.min(cwid,chei)*0.96;bx=x+(cwid-d)/2;by=y+(chei-d)/2;bw=d;bh=d;}
     else if(shape==='normal'&&ready){var k0=Math.min(cwid/v.videoWidth,chei/v.videoHeight);bw=v.videoWidth*k0;bh=v.videoHeight*k0;bx=x+(cwid-bw)/2;by=y+(chei-bh)/2;}   // normal: video completo, sin recortar
     ctx.save();bcMosShape(ctx,shape,bx,by,bw,bh);ctx.clip();
     ctx.fillStyle='#0b1220';ctx.fillRect(bx,by,bw,bh);
     if(ready){var k=Math.max(bw/v.videoWidth,bh/v.videoHeight),w=v.videoWidth*k,h=v.videoHeight*k;ctx.drawImage(v,bx+(bw-w)/2,by+(bh-h)/2,w,h);}   // llena el marco (se recorta lo que sobra)
+    else if(t.off){   // camara apagada: su imagen (o iniciales) en el centro del recuadro
+      var bg2=ctx.createLinearGradient(bx,by,bx+bw,by+bh);bg2.addColorStop(0,'#13203a');bg2.addColorStop(1,'#243a63');ctx.fillStyle=bg2;ctx.fillRect(bx,by,bw,bh);
+      var D=Math.min(bw,bh)*0.58,ax=bx+(bw-D)/2,ay=by+(bh-D)/2-Math.min(bw,bh)*0.04;
+      ctx.save();ctx.beginPath();ctx.arc(ax+D/2,ay+D/2,D/2,0,Math.PI*2);ctx.clip();
+      if(t.av&&t.av.complete&&t.av.naturalWidth>0){var ka=Math.max(D/t.av.naturalWidth,D/t.av.naturalHeight),aw=t.av.naturalWidth*ka,ah=t.av.naturalHeight*ka;ctx.drawImage(t.av,ax+(D-aw)/2,ay+(D-ah)/2,aw,ah);}
+      else{ctx.fillStyle='#3b5b99';ctx.fillRect(ax,ay,D,D);var ini=(String(t.name||'?').trim().split(/\s+/).slice(0,2).map(function(q){return q.charAt(0);}).join('')||'?').toUpperCase();ctx.fillStyle='#fff';ctx.font='700 '+(D*0.42)+'px '+BCX_FONT;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ini,ax+D/2,ay+D/2+D*0.03);}
+      ctx.restore();
+      ctx.beginPath();ctx.arc(ax+D/2,ay+D/2,D/2,0,Math.PI*2);ctx.lineWidth=Math.max(2,3*sc);ctx.strokeStyle='rgba(255,255,255,.85)';ctx.stroke();
+    }
     ctx.restore();
     if(fr.bw>0){ctx.save();bcMosShape(ctx,shape,bx,by,bw,bh);ctx.lineWidth=fr.bw*sc;ctx.strokeStyle=fr.bc;ctx.stroke();ctx.restore();}
+    if(t.spk){   // quien esta hablando: borde verde + indicador de voz
+      ctx.save();bcMosShape(ctx,shape,bx,by,bw,bh);ctx.lineWidth=Math.max(4,6*sc);ctx.strokeStyle='#22c55e';ctx.stroke();ctx.restore();
+      var bs=Math.max(18,Math.min(chei*0.13,cw*0.04)),ix=bx+bs*0.35,iy=by+bs*0.35;
+      if(shape==='circle'||shape==='hex'){ix=bx+bw/2-bs/2;iy=by+bs*0.2;}
+      ctx.save();bcRR(ctx,ix,iy,bs,bs,bs*0.3);ctx.fillStyle='#22c55e';ctx.fill();ctx.fillStyle='#fff';
+      for(var q=0;q<3;q++){var hq=bs*(0.28+0.4*Math.abs(Math.sin(tnow/140+q*1.7))),wq=bs*0.14;ctx.fillRect(ix+bs*0.22+q*bs*0.26,iy+(bs-hq)/2,wq,hq);}
+      ctx.restore();
+    }
     if(cfg.nm&&t.name){
       var fs=Math.max(11,Math.min(chei*0.085,cw*0.026)),pad=fs*0.5;
       ctx.save();ctx.font='700 '+fs+'px '+BCX_FONT;ctx.textBaseline='middle';ctx.textAlign='left';
       var tw=ctx.measureText(t.name).width,pw=tw+pad*2,ph=fs+pad*0.9,px2=x+(cwid-pw)/2,py2=by+bh-ph-Math.max(5,gap*1.5);
-      bcRR(ctx,px2,py2,pw,ph,ph/2);ctx.fillStyle='rgba(0,0,0,.62)';ctx.fill();
+      bcRR(ctx,px2,py2,pw,ph,ph/2);ctx.fillStyle=t.spk?'rgba(34,197,94,.92)':'rgba(0,0,0,.62)';ctx.fill();
       ctx.fillStyle='#fff';ctx.fillText(t.name,px2+pad,py2+ph/2+1);ctx.restore();
     }
   });
@@ -10174,7 +10281,7 @@ function camRender(){
 function camRenderM(){
   var box=document.getElementById('cam-m');if(!box)return;
   var L=camList(),prog=_BC.prog||'local',max=_BC.camMax||camMaxLocal();
-  var sig=JSON.stringify([prog,max,!!_BC.mosaic,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic,c.name||''];}),_BC.mosLocalName||'']);
+  var sig=JSON.stringify([prog,max,!!_BC.mosaic,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,c.avUrl?c.avUrl.length:0];}),_BC.mosLocalName||'']);
   if(box.getAttribute('data-sig')===sig){return;}
   box.setAttribute('data-sig',sig);
   var used=L.length+1,hh=(L.length?'<button class="btn '+(_BC.mosaic?'bp':'bs')+'" style="width:100%;margin-bottom:8px" onclick="bcMosToggle()">&#9638; '+(_BC.mosaic?'Quitar el mosaico del aire (volver a una sola cámara)':'Poner el mosaico al aire (todas las cámaras a la vez)')+'</button>'+bcMosCfgHtml():'')+'<div style="font-size:12px;color:var(--t2);margin-bottom:6px">Cámaras: <b>'+used+' de '+max+'</b> ('+(camDevice()==='pc'?'PC':'celular')+'). Toca una miniatura numerada para ponerla <b>al aire</b>: eso es lo que ven los espectadores.</div><div class="cam-grid">';
@@ -10185,7 +10292,7 @@ function camRenderM(){
       hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div>Abre en el otro dispositivo:</div><div style="word-break:break-all;font-size:11px">'+nfEsc(camUrl(c.code))+'</div><div class="cam-qr">'+camQrSvg(camUrl(c.code))+'</div><div class="cam-code">'+nfEsc(c.code)+'</div>'
         +'<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap"><button class="btn bs" style="padding:3px 10px;font-size:12px" onclick="camCopy(\''+c.id+'\')">Copiar enlace</button><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Cancelar</button></div><div style="opacity:.7;margin-top:4px">Esperando la cámara…</div></div></div>';
     }else if(c.conn==='connected'){
-      hh+='<div class="cam-card'+(on&&!_BC.mosaic?' on':'')+'">'+(on&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="'+c.id+'" muted autoplay playsinline></video><div class="cap"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><input class="fi" style="width:96px;padding:2px 6px;font-size:12px" maxlength="20" placeholder="Cámara '+(i+1)+'" value="'+nfEsc(c.name||'')+'" title="Nombre que ven los espectadores en el mosaico" onchange="camRename(\''+c.id+'\',this.value)"><span>'+(c.local?'':'<button class="btn bs" style="padding:3px 8px;font-size:12px" title="Cambiar a cámara delantera / trasera de ese dispositivo" onclick="camRemoteFlip(\''+c.id+'\')">&#128260;</button> ')+camMicBtn(c)+(on&&!_BC.mosaic?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\''+c.id+'\')">Al aire</button> ')+'<button class="btn bd" style="padding:3px 8px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></span></div></div>';
+      hh+='<div class="cam-card'+(on&&!_BC.mosaic?' on':'')+'">'+(on&&!_BC.mosaic?'<span class="cam-badge">AL AIRE</span>':'')+'<video data-cv="'+c.id+'" muted autoplay playsinline></video>'+camOffHtml(c)+'<div class="cap"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><input class="fi" style="width:96px;padding:2px 6px;font-size:12px" maxlength="20" placeholder="Cámara '+(i+1)+'" value="'+nfEsc(c.name||'')+'" title="Nombre que ven los espectadores en el mosaico" onchange="camRename(\''+c.id+'\',this.value)"><span>'+(c.local?'':'<button class="btn bs" style="padding:3px 8px;font-size:12px" title="Cambiar a cámara delantera / trasera de ese dispositivo" onclick="camRemoteFlip(\''+c.id+'\')">&#128260;</button> ')+camMicBtn(c)+(on&&!_BC.mosaic?'':'<button class="btn bp" style="padding:3px 10px;font-size:12px" onclick="camSwitch(\''+c.id+'\')">Al aire</button> ')+'<button class="btn bd" style="padding:3px 8px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></span></div></div>';
     }else{
       hh+='<div class="cam-card"><div class="cbody"><b>'+n+' · '+nfEsc(c.label||'Cámara')+'</b><div style="margin:6px 0">'+(c.local?'Esta cámara se desconectó. Quítala y vuelve a agregarla.':(c.status==='lost'?'Sin señal. Si la cámara sigue abierta, se reconecta sola.':'Conectando…'))+'</div><button class="btn bd" style="padding:3px 10px;font-size:12px" onclick="camRemove(\''+c.id+'\')">Quitar</button></div></div>';
     }
@@ -10203,33 +10310,50 @@ function camOpenMosaic(){
   if(!_BC.id||document.getElementById('cam-mos'))return;
   camStyles();
   var el=document.createElement('div');el.id='cam-mos';
-  el.innerHTML='<div class="cmos-top"><b>&#9638; Mosaico de cámaras</b><span style="flex:1"></span><button class="btn bs" id="cmos-x">Cerrar</button></div><div class="cmos-grid" id="cmos-grid"></div><div class="cmos-hint">Toca una cámara para ponerla al aire.</div>';
+  el.innerHTML='<div class="cmos-top"><b>&#9638; Mosaico de c&aacute;maras</b><span style="flex:1"></span><button class="btn bs" id="cmos-x">Cerrar</button></div><div class="cmos-grid" id="cmos-grid"></div><div class="cmos-hint">Toca una c&aacute;mara para ponerla al aire. Escribe en el nombre de cada recuadro para cambiarlo (as&iacute; lo ven los espectadores). El recuadro verde indica qui&eacute;n est&aacute; hablando.</div>';
   document.body.appendChild(el);
   document.getElementById('cmos-x').onclick=camCloseMosaic;
   if(!_BC.mosRs){_BC.mosRs=function(){camRenderMosaic(true);};window.addEventListener('resize',_BC.mosRs);}
+  clearInterval(_BC.spkT);_BC.spkT=setInterval(camSpkTick,200);
   camRenderMosaic(true);
+}
+function camSpkTick(){
+  var g=document.getElementById('cmos-grid');if(!g){clearInterval(_BC.spkT);_BC.spkT=null;return;}
+  Array.prototype.forEach.call(g.querySelectorAll('.cmos-t'),function(d){d.classList.toggle('spk',camSpeaking(d.getAttribute('data-c')));});
 }
 function camCloseMosaic(){
   var el=document.getElementById('cam-mos');if(el)el.remove();
+  clearInterval(_BC.spkT);_BC.spkT=null;
   try{if(_BC.mosRs){window.removeEventListener('resize',_BC.mosRs);_BC.mosRs=null;}}catch(e){}
 }
 function camRenderMosaic(force){
   var g=document.getElementById('cmos-grid');if(!g)return;
+  var ae=document.activeElement;if(!force&&ae&&ae.classList&&ae.classList.contains('cmos-nm'))return;   // no se interrumpe mientras escribes un nombre
   var L=camList(),prog=_BC.prog||'local';
-  var sig=JSON.stringify([prog,L.map(function(c){return[c.id,c.conn,c.label,!!c.atrack,!!c.mic];})]);
+  var sig=JSON.stringify([prog,_BC.mosLocalName||'',L.map(function(c){return[c.id,c.conn,c.label,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,c.avUrl?c.avUrl.length:0];})]);
   if(!force&&g.getAttribute('data-sig')===sig)return;
   g.setAttribute('data-sig',sig);
-  var tiles=[{id:'local',label:'1 · Esta cámara',ok:true}].concat(L.map(function(c,i){return{id:c.id,label:(i+2)+' · '+(c.label||'Cámara'),ok:c.conn==='connected',hasMic:!!c.atrack,micOn:!!c.mic};}));
+  var tiles=[{id:'local',n:1,ok:true}].concat(L.map(function(c,i){return{id:c.id,n:i+2,ok:c.conn==='connected',hasMic:!!c.atrack,micOn:!!c.mic,off:!!c.camOff,av:c.avUrl||''};}));
   var n=tiles.length,portrait=window.innerHeight>window.innerWidth;
   var cols=portrait?(n<=2?1:2):Math.min(4,Math.ceil(Math.sqrt(n))),rows=Math.ceil(n/cols);
   g.style.gridTemplateColumns='repeat('+cols+',1fr)';g.style.gridTemplateRows='repeat('+rows+',1fr)';
-  g.innerHTML=tiles.map(function(t){return'<div class="cmos-t'+(prog===t.id?' on':'')+'" data-c="'+t.id+'">'+(t.ok?'<video data-cv="'+t.id+'" muted autoplay playsinline></video>':'<div class="cmos-off">Sin señal</div>')+(prog===t.id?'<span class="cam-badge">AL AIRE</span>':'')+(t.hasMic?'<button class="cmos-mic" data-mic="'+t.id+'">'+(t.micOn?'&#127908;':'&#128263;')+'</button>':'')+'<div class="cmos-cap">'+nfEsc(t.label)+'</div></div>';}).join('');
+  g.innerHTML=tiles.map(function(t){
+    return'<div class="cmos-t'+(prog===t.id?' on':'')+'" data-c="'+t.id+'">'+(t.ok?'<video data-cv="'+t.id+'" muted autoplay playsinline></video>':'<div class="cmos-off">Sin se\u00f1al</div>')
+      +(t.off?'<div class="cam-offv" style="position:absolute;inset:0;aspect-ratio:auto">'+(t.av?'<img alt="" src="'+t.av+'">':'<span>&#128247; c&aacute;mara apagada</span>')+'</div>':'')
+      +(prog===t.id?'<span class="cam-badge">AL AIRE</span>':'')+(t.hasMic?'<button class="cmos-mic" data-mic="'+t.id+'">'+(t.micOn?'&#127908;':'&#128263;')+'</button>':'')
+      +'<div class="cmos-cap"><span>'+t.n+' &middot;</span><input class="cmos-nm" data-nm="'+t.id+'" maxlength="20" value="'+nfEsc(camNameOf(t.id))+'" title="Nombre que ven los espectadores"></div></div>';}).join('');
   Array.prototype.forEach.call(g.querySelectorAll('.cmos-mic'),function(b){b.onclick=function(ev){ev.stopPropagation();camMicToggle(b.getAttribute('data-mic'));};});
+  Array.prototype.forEach.call(g.querySelectorAll('.cmos-nm'),function(b){
+    b.onclick=function(ev){ev.stopPropagation();};
+    b.onkeydown=function(ev){ev.stopPropagation();if(ev.key==='Enter')b.blur();};
+    b.onchange=function(){camRename(b.getAttribute('data-nm'),b.value);b.value=camNameOf(b.getAttribute('data-nm'));};
+  });
   Array.prototype.forEach.call(g.querySelectorAll('.cmos-t'),function(d){d.onclick=function(){camSwitch(d.getAttribute('data-c'));};});
   Array.prototype.forEach.call(g.querySelectorAll('video[data-cv]'),function(v){
     var id=v.getAttribute('data-cv'),s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream;
     if(s){v.srcObject=s;try{v.play();}catch(e){}}
   });
+  camSpkTick();
 }
 function camOpenM(){
   if(!_BC.id)return;
@@ -10286,10 +10410,11 @@ function camRemove(id){
   var c=(_BC.cams||{})[id];if(!c)return;
   if(_BC.prog===id)camSwitch('local');
   try{if(c.pc){c.pc.onconnectionstatechange=null;c.pc.close();}}catch(e){}
-  camAudioDetach(c);
+  camAudioDetach(c);camMixDrop(c);
   if(c.local){try{c.track.onended=null;}catch(e){}try{if(c.stream)c.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}}
   else apiRaw('camLinkClose',{id:id}).catch(function(){});
   delete _BC.cams[id];_BC.camOrder=(_BC.camOrder||[]).filter(function(x){return x!==id;});
+  try{camMixWire();}catch(e){}
   camRender();
 }
 function camPreview(id){
@@ -10341,6 +10466,11 @@ async function camAccept(c,offer){
       else if(s==='disconnected')c._lt=setTimeout(function(){if(c.pc===pc&&pc.connectionState!=='connected')camLost(c);},4000);
     };
     await pc.setRemoteDescription({type:'offer',sdp:offer});
+    // Audio de retorno: la camara oye al anfitrion y a las demas camaras (no a si misma). Si el dispositivo es antiguo y no lo pide, no pasa nada.
+    try{
+      var atr=pc.getTransceivers().filter(function(x){return x.receiver&&x.receiver.track&&x.receiver.track.kind==='audio';})[0],md=atr&&camMixEnsure(c);
+      if(atr&&md){atr.direction='sendrecv';await atr.sender.replaceTrack(md.stream.getAudioTracks()[0]);camMixWire();}
+    }catch(e){}
     var ans=await pc.createAnswer();await pc.setLocalDescription(ans);await lsWaitIce(pc,2500);
     var r=await apiRaw('camLinkAnswer',{id:c.id,sdp:pc.localDescription.sdp});
     if(!r||!r.ok)throw new Error((r&&r.error)||'sin respuesta');
@@ -10375,7 +10505,7 @@ async function camPoll(){
   camSchedule(false);
 }
 function camCleanup(b){
-  try{clearTimeout(b.camT);}catch(e){}
+  try{clearTimeout(b.camT);clearInterval(b.spkT);if(b.spkCtx)b.spkCtx.close();}catch(e){}
   try{var mo=document.getElementById('cam-mos');if(mo)mo.remove();if(b.mosRs)window.removeEventListener('resize',b.mosRs);}catch(e){}
   Object.keys(b.cams||{}).forEach(function(id){var c=b.cams[id];try{if(c.pc){c.pc.onconnectionstatechange=null;c.pc.close();}}catch(e){}if(c.local){try{c.track.onended=null;}catch(e){}try{if(c.stream)c.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}}else apiRaw('camLinkClose',{id:id}).catch(function(){});});
 }
@@ -11667,7 +11797,7 @@ function playLog(gid){
     return'<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);flex-wrap:wrap">'
       +'<span class="chip">'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+'</span>'
       +'<span class="badge '+(isH?'bg':isO?'br':'bgr')+'">'+e.type+'</span>'
-      +'<span style="font-size:13px;font-weight:500">'+_dispName+'</span>'
+      +'<span style="font-size:13px;font-weight:500">'+_dispName+'</span>'+pdSpan(e)
       +(parseInt(e.rbi)>0?'<span class="badge bo">'+e.rbi+' RBI</span>':'')
       +(!_isThrow&&parseInt(e.runs)>0?'<span style="font-size:12px;color:var(--grn)">+'+e.runs+' carrera(s)'+(scorerNames.length?' ('+scorerNames.join(', ')+')':'')+'</span>':'')
       +'<span style="font-size:11px;color:var(--t3);margin-left:auto">'+(tm?tm.name:'')+'</span>'
@@ -12888,6 +13018,82 @@ function numPrompt(msg, defaultVal){
   return val;
 }
 // Modal numérico async con input type=number (abre teclado numérico en móvil)
+// ── DETALLE DE LOS OUTS (opcional, se activa por subtorneo) ──
+// Al anotar OUT / DP / TP se pregunta como fue: fly (+ posicion que lo atrapo), rolling (+ cadena 4-3), linea (+ posicion) o la cadena del DP/TP (6-4-3).
+// Se guarda dentro del evento en subData.pd = {k:'F'|'L'|'G'|'DP'|'TP', p:'8' (posicion), seq:'6-4-3'}; se muestra en el registro de jugadas y en el informe.
+var PD_POS=[['1','P','Lanzador'],['2','C','Receptor'],['3','1B','1ra base'],['4','2B','2da base'],['5','3B','3ra base'],['6','SS','Campocorto'],['7','LF','Jardinero izq.'],['8','CF','Jardinero central'],['9','RF','Jardinero der.']];
+var PD_ORDER=['7','8','9','5','6','4','3','1','2'];
+var PD_SHORT={'1':'lanzador','2':'receptor','3':'1ra base','4':'2da base','5':'3ra base','6':'campocorto','7':'jardinero izquierdo','8':'jardinero central','9':'jardinero derecho'};
+var PD_AT={'1':'al lanzador','2':'al receptor','3':'a 1ra base','4':'a 2da base','5':'a 3ra base','6':'al campocorto','7':'al jardinero izquierdo','8':'al jardinero central','9':'al jardinero derecho'};
+function pdOn(gm){var tr=gm&&S.tournaments.filter(function(x){return x.id===gm.tournamentId;})[0];return!!(tr&&tr.playDetail);}
+function pdText(pd){
+  if(!pd||typeof pd!=='object')return'';
+  if(pd.k==='F'&&PD_AT[pd.p])return'Fly '+PD_AT[pd.p]+' (F'+pd.p+')';
+  if(pd.k==='L'&&PD_AT[pd.p])return'L\u00ednea '+PD_AT[pd.p]+' (L'+pd.p+')';
+  if(typeof pd.seq==='string'&&/^[1-9](-[1-9]){0,4}$/.test(pd.seq)){
+    var a=pd.seq.split('-'),lbl=pd.k==='DP'?'Doble play':(pd.k==='TP'?'Triple play':'Rolling');
+    return lbl+' '+pd.seq+(a.length>1?' ('+a.map(function(x){return PD_SHORT[x];}).join(' \u2192 ')+')':' (sin asistencia, '+PD_SHORT[a[0]]+')');
+  }
+  return'';
+}
+function pdSpan(e){var t=e&&e.subData&&e.subData.pd?pdText(e.subData.pd):'';return t?'<span style="font-size:11px;color:var(--t2)">&middot; '+nfEsc(t)+'</span>':'';}
+// Devuelve una promesa: null = cancelar la jugada; {skip:true} = sin detalle; o el detalle {k,p|seq}.
+function pdAsk(type,who){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
+    var st={step:type==='OUT'?'kind':'seq',k:type==='OUT'?'':type,seq:[]};
+    var title={OUT:'OUT DE CAMPO',DP:'DOBLE PLAY',TP:'TRIPLE PLAY'}[type]||'OUT';
+    var BTN='padding:10px 4px;border-radius:8px;border:1px solid var(--bdr,#2d3a50);background:var(--bg3,#0d1420);color:var(--txt,#fff);cursor:pointer;line-height:1.25';
+    function done(v){try{ov.remove();}catch(e){}resolve(v);}
+    function posBtns(){return'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">'+PD_ORDER.map(function(n){var r=PD_POS[parseInt(n)-1];
+      return'<button type="button" data-a="pos" data-p="'+n+'" style="'+BTN+'"><div style="font-size:16px;font-weight:800">'+r[1]+'</div><div style="font-size:10px;color:var(--t3,#8b95a8)">'+r[2]+'</div><div style="font-size:10px;color:var(--acc,#f5a623)">'+n+'</div></button>';}).join('')+'</div>';}
+    function foot(back,ok,okOn){
+      return'<div style="display:flex;gap:8px;margin-top:14px">'+(back?'<button type="button" data-a="back" style="'+BTN+';flex:1;font-size:13px">&larr; Atr\u00e1s</button>':'')
+        +'<button type="button" data-a="cancel" style="'+BTN+';flex:1;font-size:13px;color:var(--t2,#b0b8c8)">Cancelar</button>'
+        +(ok?'<button type="button" data-a="ok" '+(okOn?'':'disabled ')+'style="flex:2;padding:10px;border-radius:8px;border:none;background:var(--acc,#f5a623);color:#000;font-size:15px;font-weight:700;cursor:pointer;'+(okOn?'':'opacity:.4;cursor:not-allowed')+'">Aceptar</button>':'')+'</div>'
+        +'<div style="text-align:center;margin-top:10px"><a data-a="skip" style="font-size:12px;color:var(--t3,#8b95a8);text-decoration:underline;cursor:pointer">Omitir detalle</a></div>';}
+    function render(){
+      var h='<div style="background:var(--bg2,#1a2233);border:1px solid var(--bdr,#2d3a50);border-radius:14px;padding:18px 16px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
+        +'<div style="font-size:12px;color:var(--t3,#8b95a8);margin-bottom:2px">'+title+(who?' &mdash; '+nfEsc(who):'')+'</div>';
+      if(st.step==='kind'){
+        h+='<div style="font-size:16px;font-weight:700;margin-bottom:12px">\u00bfC\u00f3mo fue el out?</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'
+          +[['F','Fly','&#9729;&#65039;'],['G','Rolling','&#129358;'],['L','L\u00ednea','&#9889;']].map(function(x){return'<button type="button" data-a="kind" data-p="'+x[0]+'" style="'+BTN+';padding:16px 4px;font-size:15px;font-weight:800"><div style="font-size:22px">'+x[2]+'</div>'+x[1]+'</button>';}).join('')+'</div>'
+          +foot(false,false,false);
+      }else if(st.step==='pos'){
+        h+='<div style="font-size:16px;font-weight:700;margin-bottom:12px">'+(st.k==='F'?'\u00bfQui\u00e9n atrap\u00f3 el fly?':'\u00bfQu\u00e9 posici\u00f3n tom\u00f3 la l\u00ednea?')+'</div>'+posBtns()+foot(true,false,false);
+      }else{
+        var q=st.seq.join('-'),need=(st.k==='DP'||st.k==='TP')?2:1,okOn=st.seq.length>=need;
+        var ex=st.k==='DP'?'Ej: 6-4-3':(st.k==='TP'?'Ej: 5-4-3':'Ej: 4-3 (2da a 1ra). Un solo n\u00famero = sin asistencia');
+        h+='<div style="font-size:16px;font-weight:700;margin-bottom:4px">'+(st.k==='DP'?'\u00bfC\u00f3mo fue el doble play?':(st.k==='TP'?'\u00bfC\u00f3mo fue el triple play?':'\u00bfC\u00f3mo fue la jugada?'))+'</div>'
+          +'<div style="font-size:11px;color:var(--t3,#8b95a8);margin-bottom:8px">Toca las posiciones en orden. '+ex+'</div>'
+          +'<div style="text-align:center;font-size:30px;font-weight:800;letter-spacing:2px;color:var(--acc,#f5a623);min-height:40px;border:1px dashed var(--bdr,#2d3a50);border-radius:8px;padding:4px;margin-bottom:6px">'+(q||'&mdash;')+'</div>'
+          +'<div style="font-size:11px;color:var(--t2,#b0b8c8);min-height:28px;text-align:center;margin-bottom:8px">'+(q?nfEsc(pdText({k:st.k,seq:q})):'')+'</div>'
+          +posBtns()
+          +'<div style="display:flex;gap:8px;margin-top:8px"><button type="button" data-a="del" style="'+BTN+';flex:1;font-size:13px">&#9003; Borrar \u00faltimo</button><button type="button" data-a="clr" style="'+BTN+';flex:1;font-size:13px">Limpiar</button></div>'
+          +foot(type==='OUT',true,okOn);
+      }
+      ov.innerHTML=h+'</div>';
+    }
+    ov.onclick=function(ev){
+      var b=ev.target.closest?ev.target.closest('[data-a]'):null;if(!b||b.disabled)return;
+      var a=b.getAttribute('data-a'),p=b.getAttribute('data-p');
+      if(a==='cancel')return done(null);
+      if(a==='skip')return done({skip:true});
+      if(a==='kind'){st.k=p;st.step=(p==='G')?'seq':'pos';st.seq=[];return render();}
+      if(a==='back'){st.step='kind';st.k='';st.seq=[];return render();}
+      if(a==='pos'){
+        if(st.step==='pos')return done({k:st.k,p:p});          // fly / linea: una sola posicion
+        if(st.seq.length<5)st.seq.push(p);return render();      // rolling / DP / TP: cadena
+      }
+      if(a==='del'){st.seq.pop();return render();}
+      if(a==='clr'){st.seq=[];return render();}
+      if(a==='ok'){var need=(st.k==='DP'||st.k==='TP')?2:1;if(st.seq.length<need)return;return done({k:st.k,seq:st.seq.join('-')});}
+    };
+    document.body.appendChild(ov);render();
+  });
+}
 function numPromptAsync(msg, defaultVal){
   return new Promise(function(resolve){
     var def=defaultVal!==undefined?String(defaultVal):'0';
@@ -13050,6 +13256,7 @@ async function rPlay(type,opts){
   var enBase=(bases.first?1:0)+(bases.second?1:0)+(bases.third?1:0);
   // Ask for RBI - always ask, anotador decides
   var rbi=0, runs=0;
+  var pdDetail=null;   // detalle del out (fly/rolling/linea/DP) si el subtorneo lo tiene activo
   var bName=bi&&playerOf(bi.playerId)?'#'+( playerOf(bi.playerId).number||'?')+' '+playerOf(bi.playerId).name:'Bateador';
   // FIX 5: Block concurrent calls BEFORE prompts to prevent double-registration
   if(_rPlayBusy||_pollBusy){toast('Procesando jugada anterior...','info');return;}
@@ -13151,6 +13358,7 @@ async function rPlay(type,opts){
       gm._h1SecondAdv=(parseInt(h1AdvSel3)===2)?'third':'second';
     }
   } else if(type==='OUT'){
+    if(pdOn(gm)){var pdr=await pdAsk('OUT',bName);if(pdr===null){_rPlayBusy=false;return;}if(pdr&&pdr.k)pdDetail=pdr;}
     var rb3=await numPromptAsync('OUT DE CAMPO - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas (sacrifice fly)? (0 si ninguna)','0');
@@ -13197,6 +13405,7 @@ async function rPlay(type,opts){
     }
   } else if(type==='DP'){
     if((parseInt(gm.outs)||0)>=2){_rPlayBusy=false;toast('No se puede marcar doble play con 2 outs','error');return;}
+    if(pdOn(gm)){var pdr4=await pdAsk('DP',bName);if(pdr4===null){_rPlayBusy=false;return;}if(pdr4&&pdr4.k)pdDetail=pdr4;}
     var rb4=await numPromptAsync('DOBLE PLAY - '+bName
       +'\nCorredores en base: '+enBase
       +'\n\nCarreras anotadas? (0 si ninguna)','0');
@@ -13209,6 +13418,7 @@ async function rPlay(type,opts){
     if(enBase<2){_rPlayBusy=false;toast('El triple play requiere al menos 2 corredores en base','error');return;}
     var tpOk=await numPromptAsync('TRIPLE PLAY - '+bName+'\nCorredores en base: '+enBase+'\n\nSe registran 3 outs y termina la entrada.\n1. Confirmar\n2. Cancelar\n\nIngresa (1 o 2):','1');
     if(tpOk===null||parseInt(tpOk)!==1){_rPlayBusy=false;return;}
+    if(pdOn(gm)){var pdrT=await pdAsk('TP',bName);if(pdrT===null){_rPlayBusy=false;return;}if(pdrT&&pdrT.k)pdDetail=pdrT;}
     runs=0; rbi=0;
   } else if(type==='SAC'){
     // Sacrificio: solo valido con menos de 2 outs y al menos un corredor en base.
@@ -14089,6 +14299,7 @@ async function rPlay(type,opts){
       scorerIds:scorerIds,outs:outsBeforePlay,batterIdxBefore:battingIdxBefore,
       errorSubtype:_errSubtype||undefined,throwCorrId:_throwCorrId||undefined,
       noOut:(type==='FC'&&fcNoOut)||undefined,
+      subData:pdDetail?{pd:pdDetail}:undefined,
       priorBases:{first:bases?bases.first:null,second:bases?bases.second:null,third:bases?bases.third:null},
       timestamp:new Date().toISOString()};
     // ── Todo lo de abajo (carreras limpias/sucias, estadisticas del pitcher, "quien embaso a
@@ -21023,6 +21234,11 @@ function fnChip(p,tag,opts){
     tag=(tag?tag+' &middot; ':'')+(p.hold.mine?'&#128275; solo tú, '+fnHoldTxt(hms):'<span style="color:#f59e0b">&#128274; bloqueado '+fnHoldTxt(hms)+'</span>');
     if(!p.hold.mine)opts=Object.assign({},opts,{noSel:true,tap:false,dim:true});
   }
+  var wvx=_FN.data&&_FN.data.waiver;
+  if(wvx&&wvx.active&&wvx.covered&&wvx.covered.indexOf(String(p.id))>=0){
+    if(wvx.mine)tag=(tag?tag+' &middot; ':'')+'<span style="color:#16a34a;font-weight:700">&#9201;&#65039; waiver: es tu turno</span>';
+    else{tag=(tag?tag+' &middot; ':'')+'<span style="color:#f59e0b">&#9201;&#65039; waiver: turno de '+fnEsc(wvx.turnName)+'</span>';opts=Object.assign({},opts,{noSel:true,tap:false,dim:true});}
+  }
   return'<div '+(opts.tap?'data-pid="'+p.id+'" onclick="fnDraftTap(this.dataset.pid)" ':(opts.noSel?'':'draggable="true" ondragstart="fnDrag(event,this.dataset.pid)" data-pid="'+p.id+'" onclick="fnTapPlayer(this.dataset.pid)" '))
     +'style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;'+(opts.tap?'cursor:pointer;':(opts.noSel?'':'cursor:grab;'))+'background:var(--card);border:1px solid '+((_FN.sel===p.id||(opts.tap&&_FN.dsel.indexOf(String(p.id))>=0))?'var(--acc)':'var(--bdr)')+';opacity:'+(opts.dim?'.4':'1')+'">'
     +playerAvatarHtml(p.photoUrl,p.name,30,'circle',p.number)
@@ -21031,6 +21247,37 @@ function fnChip(p,tag,opts){
     +'<div style="font-size:10px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+fnEsc(fnStat(p))+'</div></div>'
     +'<div data-pid="'+fnEsc(p.id)+'" onclick="event.stopPropagation();fnInfo(this.dataset.pid)" title="Ver tarjeta del jugador" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--bdr2);color:var(--t2);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-family:Georgia,serif;font-style:italic">i</div>'
     +'<div style="font-size:11px;font-weight:800;color:var(--acc)">'+fnPts(p.pts)+'</div></div>';
+}
+
+// ── WAIVER de jugadores NUEVO: turno actual, orden y cuenta regresiva ──
+function fnWvTxt(ms){var t=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=t%60;return(h?h+':'+(m<10?'0':''):'')+m+':'+(x<10?'0':'')+x;}
+function fnWaiverTick(){
+  var w=_FN.data&&_FN.data.waiver;
+  if(!w||!w.active||curP!=='fantasy'){clearInterval(_FN.wvT);_FN.wvT=0;return;}
+  var left=w.endsAt-(Date.now()+(_FN.skew||0)),e=document.getElementById('fn-wv-cd');
+  if(e)e.textContent=fnWvTxt(left);
+  // al vencer el turno se pide el estado nuevo (el servidor pasa al siguiente); no se interrumpe una edicion ni un modal abierto
+  if(left<=-1500&&!_FN.wvBusy&&!_FN.busy&&!_FN.editing&&!document.getElementById('modals').innerHTML){
+    _FN.wvBusy=true;Promise.resolve(fnLoad()).then(function(){_FN.wvBusy=false;},function(){_FN.wvBusy=false;});
+  }
+}
+function fnWaiverBanner(){
+  var D=_FN.data,w=D&&D.waiver;if(!w||!w.on)return'';
+  var box='<div class="card" style="margin-bottom:12px;border:1px solid '+(w.mine?'#16a34a':'var(--bdr2)')+'">',
+      head='<div style="font-weight:700;margin-bottom:6px">&#9201;&#65039; Waiver de jugadores NUEVO</div>',nt='font-size:11px;color:var(--t3);line-height:1.5;margin-top:6px';
+  if(w.missing)return box+head+'<div style="font-size:12px;color:var(--t2)">Este subtorneo tiene el waiver activo, pero falta crear su tabla en la base de datos. Avisa al administrador.</div></div>';
+  var logH=(w.log||[]).slice(0,3).map(function(x){return'<div style="font-size:11px;color:var(--t3)">&bull; '+fnEsc(x.who)+(x.t==='pick'?' eligi&oacute; a '+fnEsc(x.player||'un jugador'):' no eligi&oacute; a tiempo')+'</div>';}).join('');
+  if(!w.active)return box+head+'<div style="font-size:12px;color:var(--t2);line-height:1.5">Sin turnos en curso: todos los jugadores se pueden fichar libremente. Cuando entre un jugador <b>NUEVO</b> empieza un waiver (del &uacute;ltimo lugar al primero, '+w.minutes+' min por turno).</div>'+(logH?'<div style="margin-top:6px">'+logH+'</div>':'')+'</div>';
+  if(!_FN.wvT)_FN.wvT=setInterval(fnWaiverTick,1000);
+  var left=w.endsAt-(Date.now()+(_FN.skew||0));
+  var order=(w.order||[]).map(function(o){
+    var st=o.state==='turn'?'background:var(--acc);color:#111;font-weight:800':(o.state==='done'?'opacity:.45;text-decoration:line-through':'border:1px solid var(--bdr)');
+    return'<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin:0 4px 4px 0;'+st+'">'+fnEsc(o.name)+'</span>';}).join('');
+  return box+head
+    +'<div style="font-size:13px;margin-bottom:6px">'+(w.mine?'<b style="color:#16a34a">Es tu turno:</b> puedes elegir <b>1</b> jugador NUEVO.':'Turno de <b>'+fnEsc(w.turnName)+'</b>.')+' Tiempo: <span id="fn-wv-cd" style="font-weight:800;color:var(--acc)">'+fnWvTxt(left)+'</span></div>'
+    +'<div>'+order+'</div>'
+    +'<div style="'+nt+'">'+(w.covered||[]).length+' jugador(es) NUEVO bajo waiver. Se elige del &uacute;ltimo lugar al primero, 1 NUEVO por turno; si no eliges a tiempo pasa al siguiente. Los jugadores sin la etiqueta NUEVO se pueden fichar siempre.</div>'
+    +(logH?'<div style="margin-top:6px">'+logH+'</div>':'')+'</div>';
 }
 function fnTagOf(id){
   var k=null;Object.keys(_FN.slots).forEach(function(x){if(_FN.slots[x]===id)k=x;});
@@ -21077,6 +21324,12 @@ function fnLayoutErr(){
   var d=_FN.data,n=0,b=0;
   Object.keys(_FN.slots).forEach(function(k){if(!_FN.slots[k])return;n++;if(fnIsB(k)||fnIsR(k))b++;});
   if(n>d.caps.total)return'Máximo '+d.caps.total+' jugadores en la plantilla (cuadro + banca). Libera a uno primero.';
+  var wvl=d.waiver;
+  if(_FN.editing&&wvl&&wvl.active&&wvl.covered&&wvl.covered.length){
+    var wc=0;Object.keys(_FN.slots).forEach(function(k){var id=_FN.slots[k];if(id&&!(_FN.orig||{})[id]&&wvl.covered.indexOf(String(id))>=0)wc++;});
+    if(wc>0&&!wvl.mine)return'Waiver: ahora le toca a '+wvl.turnName+' elegir a los jugadores NUEVO. Quita al jugador NUEVO de tu plantilla o espera tu turno.';
+    if(wc>1)return'Waiver: en tu turno solo puedes elegir 1 jugador NUEVO.';
+  }
   if(b>d.caps.bench)return'La banca y los relevistas suman como máximo '+d.caps.bench+' jugadores. Pasa a alguien al cuadro (espacio libre) o libera a un jugador.';
   return'';
 }
@@ -21339,6 +21592,7 @@ function fnEditor(isEdit){
        +'<button class="btn bs" onclick="fnClear()">Limpiar</button><button class="btn bp" onclick="fnSave()">Guardar plantilla</button>')
     +'</div></div>'
     +(isEdit?'<div class="card" style="margin-bottom:12px"><div style="font-weight:700;margin-bottom:6px">Mi roster</div>'+fnMineHtml(fnMineIds(_FN.slots,_FN.parked),true)+'</div>':'')
+    +fnWaiverBanner()
     +'<div class="card"><div style="font-weight:700;margin-bottom:6px">'+(isEdit?'Agencia libre (roster general)':'Roster general')+'</div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input class="fi" style="flex:1;min-width:140px" placeholder="Buscar jugador o equipo..." value="'+fnEsc(_FN.q)+'" oninput="_FN.q=this.value;fnFilterList()">'
     +'<select class="fs" style="width:170px" onchange="_FN.pf=this.value;fnFilterList()">'+posOpts+'</select></div><div id="fn-list">'+fnListHtml()+'</div></div>';
@@ -22139,7 +22393,7 @@ function fnOpenInfo(){
   var wt1=cfg.fantasyWeeklyFirstTime===undefined?'09:00':String(cfg.fantasyWeeklyFirstTime),wt2=cfg.fantasyWeeklyLastTime===undefined?'12:00':String(cfg.fantasyWeeklyLastTime);
   var wref=wpl.length?Math.max.apply(null,wpl)+1:0,wrng=wmax>0?'entre <b>'+fnPts(wmin)+'</b> y <b>'+fnPts(wmax)+'</b> pts':'de al menos <b>'+fnPts(wmin)+'</b> pts';
   var mov=sec('Movimientos, cambios y ofertas')
-    +'<ul style="margin:0 0 0 18px;padding:0"><li '+li+'><b>Movimientos</b>: cada jugador que fichas de la agencia libre cuenta como un movimiento (liberar solo no cuenta, ni reemplazar a un inactivo). '+(hasLim?'En este subtorneo el máximo es <b>'+limTxt+'</b>.':'Este subtorneo no tiene límite de movimientos.')+'</li>'
+    +'<ul style="margin:0 0 0 18px;padding:0">'+((D.waiver&&D.waiver.on)?'<li '+li+'><b>Waiver</b>: los jugadores con la etiqueta <b>NUEVO</b> se eligen por turnos, del &uacute;ltimo lugar al primero, con <b>'+D.waiver.minutes+' min</b> por turno y <b>1 jugador NUEVO por turno</b>. Al elegir o vencer el tiempo pasa al siguiente; terminados los turnos, cualquiera puede ficharlos hasta que entre otro NUEVO. Los dem&aacute;s agentes libres se pueden fichar siempre.</li>':'')+'<li '+li+'><b>Movimientos</b>: cada jugador que fichas de la agencia libre cuenta como un movimiento (liberar solo no cuenta, ni reemplazar a un inactivo). '+(hasLim?'En este subtorneo el máximo es <b>'+limTxt+'</b>.':'Este subtorneo no tiene límite de movimientos.')+'</li>'
     +(hasLim&&mcost>0?'<li '+li+'><b>Movimientos adicionales</b>: cuando agotas tus movimientos puedes <b>comprar más por '+fnPts(mcost)+' pts cada uno</b> (botón Comprar en tu plantilla, o al guardar tus cambios). Los puntos se descuentan de tu total y no se devuelven, y los movimientos comprados no cuentan contra los límites. <b>Todos los usuarios pueden ver</b> en la clasificación y en cada plantilla cuántos movimientos extra compró cada quien y cuántos puntos gastó.</li>':'')
     +'<li '+li+'><b>Cambios</b> (pestaña Cambios): propones dar un jugador tuyo por uno de otro usuario, pudiendo ofrecer puntos. Se aplica cuando lo aprueban '+(minA>0?'al menos <b>'+minA+'</b> usuarios con plantilla (los dos del cambio siempre deben aprobar)':'<b>todos</b> los usuarios con plantilla')+'; si una de las dos partes lo rechaza, se cierra.</li>'
     +'<li '+li+'>&#127873; Los <b>puntos ofrecidos</b> en un cambio son privados: cada usuario solo ve los puntos que se le ofrecieron a <b>él</b> (no los ofrecidos a los demás aprobadores); quien propone ve el detalle completo. Se reservan mientras el cambio esté pendiente y pasan a los elegidos cuando se aprueba.</li>'
@@ -26155,7 +26409,7 @@ function exportReport(gid){
       return'<span style="color:'+(isH2?'#16a34a':['K','OUT','DP','TP'].indexOf(e.type)>=0?'#dc2626':'#333')+'">'
         +'Ent.'+(e.inning||'?')+(e.half==='top'?'&#9650;':'&#9660;')+' '
         +(tm2?'<b>'+tm2.name+'</b>':'?')+' | '
-        +(p2?'#'+(p2.number||'?')+' '+p2.name:'?')+' | <b>'+e.type+'</b>'
+        +(p2?'#'+(p2.number||'?')+' '+p2.name:'?')+' | <b>'+e.type+'</b>'+(function(){var _t=e.subData&&e.subData.pd?pdText(e.subData.pd):'';return _t?' | '+_t:'';})()
         +(parseInt(e.rbi)>0?' | '+e.rbi+' RBI':'')
         +(parseInt(e.runs)>0?' | +'+e.runs+' c':'')
         +'</span><br>';

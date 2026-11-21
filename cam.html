@@ -25,6 +25,8 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
 <div class="card" id="c-join">
   <label>Código que aparece en el dispositivo que transmite</label>
   <input class="code" id="code" maxlength="8" placeholder="ABC123" autocomplete="off" autocapitalize="characters">
+  <label>Tu nombre en el mosaico (opcional)</label>
+  <input id="nm" maxlength="20" placeholder="Ej: Carlos (si lo dejas vacío te ponen Cámara 1, 2…)" autocomplete="off">
   <div class="row">
     <div><label>Cámara</label><select id="facing"><option value="environment">Trasera</option><option value="user">Delantera</option></select></div>
     <div><label>Calidad</label><select id="res"><option value="480">480p (poca señal)</option><option value="720" selected>720p</option><option value="1080">1080p</option></select></div>
@@ -33,10 +35,20 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
   <small>Se envía el video y, si lo activas, el micrófono, directo al dispositivo que transmite (no pasa por ningún servidor). El micrófono empieza silenciado: lo activas tú o quien transmite. Mantén esta pantalla encendida y esta página abierta mientras dure el juego. Lo ideal es estar en la misma red Wi-Fi.</small>
 </div>
 <video id="pv" muted autoplay playsinline style="display:none"></video>
+<audio id="au" autoplay playsinline></audio>
 <div id="st"></div>
 <div class="card" id="c-run" style="display:none">
-  <div class="row"><button class="sec" id="mic">&#127908; Micrófono: silenciado</button></div>
+  <div class="row"><button class="sec" id="mic">&#127908; Micrófono: silenciado</button><button class="micon" id="camt">&#128249; Cámara: encendida</button></div>
+  <div class="row"><button class="sec" id="lis">&#128264; Escuchar: apagado</button></div>
+  <small id="lisn" style="margin-top:4px">Activa «Escuchar» para oír a quien transmite y a las demás cámaras (no oyes tu propio micrófono). Usa audífonos para evitar eco.</small>
   <div id="mst" style="font-size:12px;text-align:center;opacity:.8;min-height:16px;margin-top:6px"></div>
+  <label>Tu nombre en el mosaico (opcional)</label>
+  <input id="nm2" maxlength="20" placeholder="Ej: Carlos">
+  <div id="nmst" style="font-size:12px;opacity:.75;margin-top:4px;min-height:16px"></div>
+  <label>Imagen para cuando tu cámara esté apagada (opcional)</label>
+  <div class="row" style="align-items:center"><img id="av-img" alt="" style="display:none;width:56px;height:56px;flex:0 0 56px;border-radius:50%;object-fit:cover;margin-top:10px;border:2px solid #33425f"><button class="sec" id="av-pick">&#128444; Elegir imagen</button><button class="sec" id="av-del">Quitar</button></div>
+  <input type="file" id="av-file" accept="image/*" hidden>
+  <small style="margin-top:4px">Esa imagen (o tus iniciales) se ve en el mosaico solo cuando apagas tu cámara.</small>
   <label>Marco de tu cámara en el mosaico</label>
   <div class="row"><select id="fr-f"><option value="normal">Normal</option><option value="round">Redondeado</option><option value="circle">Círculo</option><option value="hex">Hexágono</option></select>
   <select id="fr-b"><option value="0">Sin borde</option><option value="3">Borde fino</option><option value="6">Borde grueso</option></select>
@@ -47,10 +59,63 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
 <script>
 var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
 var $=function(i){return document.getElementById(i);};
-var frame={f:'normal',bw:0,bc:'#ffffff'},micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
+var camOn=true,listenOn=false,avData='',frame={f:'normal',bw:0,bc:'#ffffff'},micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
 try{tok=sessionStorage.getItem('vp_cam_tok')||'';}catch(e){}
+try{$('nm').value=localStorage.getItem('vp_cam_name')||'';avData=localStorage.getItem('vp_cam_av')||'';}catch(e){}
 if(!tok){tok=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()).replace(/-/g,'');try{sessionStorage.setItem('vp_cam_tok',tok);}catch(e){}}
 var q=new URLSearchParams(location.search).get('c');if(q)$('code').value=String(q).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+
+// ── Nombre en el mosaico, cámara encendida/apagada, imagen de representación y audio de retorno ──
+function cleanName(v){return String(v==null?'':v).replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,20);}
+function myName(){var e=$('nm2'),a=e&&e.value!==''?e.value:'',b=$('nm')?$('nm').value:'';return cleanName(a||b);}
+function saveName(){var n=cleanName($('nm2').value);$('nm2').value=n;$('nm').value=n;try{localStorage.setItem('vp_cam_name',n);}catch(e){}}
+function sendName(){sendCtl({t:'name',n:myName()});}
+function camUi(){
+  var b=$('camt');if(!b)return;
+  b.className=camOn?'micon':'red';b.innerHTML=camOn?'&#128249; Cámara: encendida':'&#128247; Cámara: apagada';
+  var pv=$('pv');if(pv)pv.style.opacity=camOn?'1':'.25';
+}
+function setCam(on){
+  camOn=!!on;
+  try{if(stream)stream.getVideoTracks().forEach(function(t){t.enabled=camOn;});}catch(e){}   // apagada = se envía negro; quien transmite muestra tu imagen en el mosaico
+  camUi();sendCtl({t:'cam',on:camOn});
+}
+function avUi(){
+  var im=$('av-img'),d=$('av-del');
+  if(avData){im.src=avData;im.style.display='block';d.style.display='';}else{im.removeAttribute('src');im.style.display='none';d.style.display='none';}
+}
+function sendAvatar(){
+  if(!dc||dc.readyState!=='open')return;
+  if(!avData){sendCtl({t:'av',x:1});return;}
+  var n=Math.ceil(avData.length/7000);
+  for(var i=0;i<n;i++)sendCtl({t:'av',i:i,n:n,d:avData.slice(i*7000,(i+1)*7000)});
+}
+function pickAvatar(file){
+  if(!file)return;
+  var fr=new FileReader();
+  fr.onerror=function(){st('No se pudo leer esa imagen.','err');};
+  fr.onload=function(){
+    var im=new Image();
+    im.onerror=function(){st('Esa imagen no se pudo abrir. Prueba con otra (JPG o PNG).','err');};
+    im.onload=function(){
+      var S=160,cv=document.createElement('canvas');cv.width=cv.height=S;
+      var x=cv.getContext('2d'),k=Math.max(S/im.width,S/im.height),w=im.width*k,h=im.height*k;
+      x.fillStyle='#0b1220';x.fillRect(0,0,S,S);x.drawImage(im,(S-w)/2,(S-h)/2,w,h);   // cuadrada y liviana: viaja directo al transmisor
+      avData=cv.toDataURL('image/jpeg',0.78);
+      try{localStorage.setItem('vp_cam_av',avData);}catch(e){}
+      avUi();sendAvatar();st('Imagen lista: se verá en el mosaico cuando apagues tu cámara.','ok');
+    };
+    im.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+function lisUi(){var b=$('lis');if(!b)return;b.className=listenOn?'micon':'sec';b.innerHTML=listenOn?'&#128266; Escuchar: ACTIVO':'&#128264; Escuchar: apagado';}
+function setListen(on){
+  listenOn=!!on;var a=$('au');a.muted=!listenOn;
+  if(listenOn){try{var pr=a.play();if(pr&&pr.catch)pr.catch(function(){});}catch(e){}}
+  lisUi();
+  var n=$('lisn');if(n)n.textContent=listenOn?(a.srcObject?'Estás oyendo a quien transmite y a las demás cámaras. Usa audífonos para evitar eco.':'Aún no llega audio del transmisor; en cuanto lo envíe lo oirás.'):'Activa «Escuchar» para oír a quien transmite y a las demás cámaras (no oyes tu propio micrófono). Usa audífonos para evitar eco.';
+}
 function st(t,c){var e=$('st');e.textContent=t;e.className=c||'';}
 async function api(action,data){
   var r=await fetch(CFG.workerUrl,{method:'POST',headers:{'Content-Type':'application/json','X-App-Token':CFG.appToken},body:JSON.stringify(Object.assign({action:action},data||{}))});
@@ -73,6 +138,7 @@ async function openCam(){
   try{stream=await md.getUserMedia({video:vc,audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}catch(e){stream=null;}
   if(!stream)stream=await md.getUserMedia({video:vc,audio:false});   // sin permiso de microfono: se sigue solo con video
   atrack=stream.getAudioTracks()[0]||null;if(atrack)atrack.enabled=micOn;
+  stream.getVideoTracks().forEach(function(t){t.enabled=camOn;});
   var v=$('pv');v.srcObject=stream;v.style.display='block';try{v.play();}catch(e){}
   micUi();
 }
@@ -107,11 +173,12 @@ async function connect(){
   try{if(pc){pc.onconnectionstatechange=null;pc.close();}}catch(e){}
   st('Conectando con el dispositivo que transmite…','warn');
   var p=new RTCPeerConnection({iceServers:ice});pc=p;
-  if(atrack)p.addTransceiver(atrack,{direction:'sendonly',streams:[stream]});
+  if(atrack)p.addTransceiver(atrack,{direction:'sendrecv',streams:[stream]});else p.addTransceiver('audio',{direction:'recvonly'});   // también RECIBE el audio de quien transmite y de las demás cámaras
+  p.ontrack=function(e){if(e.track.kind==='audio'&&my===gen){var a=$('au');a.srcObject=new MediaStream([e.track]);a.muted=!listenOn;if(listenOn){try{a.play();}catch(x){}}var n=$('lisn');if(n&&listenOn)n.textContent='Estás oyendo a quien transmite y a las demás cámaras. Usa audífonos para evitar eco.';}};
   try{
     dc=p.createDataChannel('ctl');   // canal de control: activar / silenciar el microfono desde ambos lados
-    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack});sendFrame();};
-    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='flip')flipCam();}catch(e){}};   // 'flip': quien transmite te cambia la camara
+    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack,cam:camOn,n:myName()});sendFrame();sendAvatar();};
+    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='flip')flipCam();else if(m.t==='name'){var q=$('nmst');if(q)q.textContent=m.n?('En el mosaico apareces como: '+cleanName(m.n)):'';}}catch(e){}};   // 'flip': quien transmite te cambia la camara
   }catch(e){dc=null;}
   stream.getVideoTracks().forEach(function(t){
     var tr=p.addTransceiver(t,{direction:'sendonly',streams:[stream]});
@@ -146,7 +213,7 @@ function ended(msg){
   stopped=true;running=false;gen++;
   try{if(pc)pc.close();}catch(e){}
   if(stream)stream.getTracks().forEach(function(t){t.stop();});
-  micOn=false;atrack=null;dc=null;
+  micOn=false;atrack=null;dc=null;camOn=true;listenOn=false;try{var au=$('au');au.srcObject=null;}catch(e){}
   $('pv').style.display='none';$('c-run').style.display='none';$('c-join').style.display='block';$('go').disabled=false;
   st(msg||'La transmisión terminó.','err');
 }
@@ -162,6 +229,7 @@ $('go').onclick=async function(){
     st('Abriendo la cámara…','warn');
     try{await openCam();}catch(e){st(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara para continuar.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');$('go').disabled=false;return;}
     running=true;wake();frameUi();
+    $('nm2').value=cleanName($('nm').value);saveName();camUi();lisUi();avUi();
     $('c-join').style.display='none';$('c-run').style.display='block';
     document.title=(j.label||'Cámara')+' · transmisión';
     await connect();
@@ -190,7 +258,7 @@ async function flipCam(){
     if(!ns)throw new Error('sin camara');
     var nt=ns.getVideoTracks()[0],snd=pc&&pc.getSenders().filter(function(s){return s.track?s.track.kind==='video':false;})[0];
     if(snd)await snd.replaceTrack(nt);
-    try{stream.removeTrack(old);}catch(e){}stream.addTrack(nt);$('pv').srcObject=stream;
+    try{stream.removeTrack(old);}catch(e){}nt.enabled=camOn;stream.addTrack(nt);$('pv').srcObject=stream;
     $('facing').value=newMode;
     if(newMode===nxt)st('Cámara '+(nxt==='user'?'delantera':'trasera')+' activa.','ok');
   }catch(e){st('No se pudo cambiar de cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');}
@@ -199,6 +267,13 @@ async function flipCam(){
 $('flip').onclick=flipCam;
 ['fr-f','fr-b','fr-c'].forEach(function(id){$(id).onchange=setFrame;});
 $('mic').onclick=function(){if(atrack)setMic(!micOn,'local');};
+$('camt').onclick=function(){setCam(!camOn);};
+$('lis').onclick=function(){setListen(!listenOn);};
+$('nm2').onchange=function(){saveName();sendName();};
+$('nm').onchange=function(){try{localStorage.setItem('vp_cam_name',cleanName($('nm').value));}catch(e){}};
+$('av-pick').onclick=function(){$('av-file').click();};
+$('av-file').onchange=function(){pickAvatar(this.files&&this.files[0]);this.value='';};
+$('av-del').onclick=function(){avData='';try{localStorage.removeItem('vp_cam_av');}catch(e){}avUi();sendAvatar();};
 $('stop').onclick=function(){ended('Cámara desconectada.');st('Cámara desconectada.','');};
 window.addEventListener('beforeunload',function(e){if(running){e.preventDefault();e.returnValue='';}});
 if($('code').value.length>=6){st('Código recibido. Toca "Conectar cámara".','');}
