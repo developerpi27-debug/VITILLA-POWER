@@ -4010,6 +4010,7 @@ var ALL_MOD=[
   {id:'ovlim6',lbl:'Gráficos e imágenes en pantalla: máximo 6 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
   {id:'ovlim8',lbl:'Gráficos e imágenes en pantalla: máximo 8 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
   {id:'ovlim10',lbl:'Gráficos e imágenes en pantalla: máximo 10 a la vez (si marcas varios, rige el mayor; sin ninguno rige el máximo general de 14)',ico:'&#129513;',sec:'General'},
+  {id:'lineupfix',lbl:'Corregir jugador del lineup (bot\u00f3n en Control de Juego)',ico:'&#128101;',sec:'General'},
   {id:'addtolineup',lbl:'Agregar Jugador al Lineup',ico:'➕',sec:'General'},
   {id:'gameid',lbl:'Calendario: botón para copiar el ID del juego',ico:'🆔',sec:'General'},
   {id:'hideads',lbl:'Ocultar anuncios (versión web)',ico:'🚫',sec:'General'},
@@ -4646,7 +4647,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -5449,7 +5450,7 @@ function openTM(id){
     +'<div class="fr c2"><div class="fg"><label class="fl">Categoria</label><input class="fi" id="tc" value="'+(t.category||'')+'"></div>'
     +'<div class="fg"><label class="fl">Estado</label><select class="fs" id="ts">'+stOpts+'</select></div></div>'
     +'<div class="fg"><label class="fl">Detalle de los outs (cómo fue la jugada)</label><select class="fs" id="tpd"><option value="0"'+(t.playDetail?'':' selected')+'>Apagado (no pregunta nada, como siempre)</option><option value="1"'+(t.playDetail?' selected':'')+'>Encendido (pregunta cómo fue cada out)</option></select>'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Al anotar un <b>OUT</b> pregunta si fue <b>fly</b> (y quién lo atrapó), <b>rolling</b> (y la jugada, ej. 4-3) o <b>línea</b> (y qué posición la tomó). En un <b>doble play</b> o <b>triple play</b> se indica la cadena (ej. 6-4-3). El detalle aparece en el registro de jugadas y en el informe PDF. Con esto apagado, anotar no cambia.</div></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Al anotar un <b>OUT</b> pregunta si fue <b>fly</b> (y quién lo atrapó), <b>rolling</b> (y la jugada, ej. 4-3) o <b>línea</b> (y qué posición la tomó). En un <b>doble play</b>, <b>triple play</b>, <b>out forzado</b> o <b>out en jugada</b> se indica la cadena (ej. 6-4-3 o 2-6). El detalle aparece en el registro de jugadas y en el informe PDF. Con esto apagado, anotar no cambia.</div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Fecha Inicio</label><input class="fi" id="tsd" type="date" value="'+(t.startDate||'')+'"></div>'
     +'<div class="fg"><label class="fl">Fecha Fin</label><input class="fi" id="ted" type="date" value="'+(t.endDate||'')+'"></div></div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">FASES DEL TORNEO</div>'
@@ -6550,21 +6551,9 @@ function previewPlayerPhoto(url){
 }
 var _pmBusy=false,_pmDraftId='';
 function pmLock(on){document.querySelectorAll('.mft .btn, #pm-exist .btn').forEach(function(b){b.disabled=on;});}
-function openPM(id,tid){
-  _pmDraftId=id?'':('id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8));   // mismo formato que el servidor; un doble toque reescribe la MISMA fila
-  var p=id?S.players.filter(function(x){return x.id===id;})[0]:{teamId:tid||null};if(!p)p={teamId:tid||null};
-  // Solo mostrar equipos del subtorneo especifico filtrado actualmente en Equipos (S.tourFilter).
-  // Si el filtro esta en "Todos los torneos", se cae a toursByYear() (todo el torneo padre
-  // seleccionado + año, respetando el acceso del usuario) como alcance mas amplio razonable.
-  var filteredTeams=(function(){
-    if(S.tourFilter) return S.teams.filter(function(t){return t.tournamentId===S.tourFilter;}).slice().sort(function(a,b){return a.name<b.name?-1:1;});
-    var tids=toursByYear().map(function(t){return t.id;});
-    var base=tids.length?S.teams.filter(function(t){return tids.indexOf(t.tournamentId)>=0;}):S.teams;
-    return base.slice().sort(function(a,b){return a.name<b.name?-1:1;});
-  })();
-  var tOpts=filteredTeams.map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
-  var _posLbl={SP:'SP · Abridor',RP:'RP · Relevista',CL:'CL · Cerrador',P:'P (heredado: cuenta como abridor)'};
-  var pOpts=POS_ROSTER.concat(p.position==='P'?['P']:[]).map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+(_posLbl[ps]||ps)+'</option>';}).join('');
+// Lista de jugadores que se pueden IMPORTAR a un equipo (misma logica que "Importar Existente" de Equipos; tambien la usa la configuracion del lineup).
+// Devuelve {opts: <option>s agrupados por jugador, pool: id -> jugador, map: grupos}.
+function pmImportBuild(id,tid){
   // Build deduplicated import list: one entry per career-root player, listing all teams
   // Solo se muestran jugadores de equipos cuyo torneo padre sea del MISMO deporte
   var importSportPM=effectiveLifeSport();
@@ -6688,6 +6677,24 @@ function openPM(id,tid){
     var entry=exMap[root];var pl=entry.pl;var teamStr=entry.teams.length?'('+entry.teams.join(', ')+')':'';
     return'<option value="'+pl.id+'">#'+(pl.number||'?')+' '+pl.name+(teamStr?' '+teamStr:'')+'</option>';
   }).join('');
+  return{opts:exOpts,pool:poolByIdPM,map:exMap};
+}
+function openPM(id,tid){
+  _pmDraftId=id?'':('id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8));   // mismo formato que el servidor; un doble toque reescribe la MISMA fila
+  var p=id?S.players.filter(function(x){return x.id===id;})[0]:{teamId:tid||null};if(!p)p={teamId:tid||null};
+  // Solo mostrar equipos del subtorneo especifico filtrado actualmente en Equipos (S.tourFilter).
+  // Si el filtro esta en "Todos los torneos", se cae a toursByYear() (todo el torneo padre
+  // seleccionado + año, respetando el acceso del usuario) como alcance mas amplio razonable.
+  var filteredTeams=(function(){
+    if(S.tourFilter) return S.teams.filter(function(t){return t.tournamentId===S.tourFilter;}).slice().sort(function(a,b){return a.name<b.name?-1:1;});
+    var tids=toursByYear().map(function(t){return t.id;});
+    var base=tids.length?S.teams.filter(function(t){return tids.indexOf(t.tournamentId)>=0;}):S.teams;
+    return base.slice().sort(function(a,b){return a.name<b.name?-1:1;});
+  })();
+  var tOpts=filteredTeams.map(function(t){return'<option value="'+t.id+'" '+(p.teamId===t.id?'selected':'')+'>'+t.name+'</option>';}).join('');
+  var _posLbl={SP:'SP · Abridor',RP:'RP · Relevista',CL:'CL · Cerrador',P:'P (heredado: cuenta como abridor)'};
+  var pOpts=POS_ROSTER.concat(p.position==='P'?['P']:[]).map(function(ps){return'<option value="'+ps+'" '+(p.position===ps?'selected':'')+'>'+(_posLbl[ps]||ps)+'</option>';}).join('');
+  var exOpts=pmImportBuild(id,tid).opts;
   showM('<div class="mhd"><div class="mtl">'+(id?'Editar':'Agregar')+' Jugador</div><button class="bx" onclick="cM()">&#10005;</button></div>'
     +'<div class="mbd">'
     +(!id?'<div class="tabs"><div class="tab on" onclick="pmTab(this,0)">&#10000; Nuevo</div><div class="tab" onclick="pmTab(this,1)">&#128203; Importar Existente</div></div>':'')
@@ -7932,7 +7939,18 @@ function luQuickHtml(side,teamId){
   if(!canDo('create','teams'))return'<div style="margin-bottom:4px">'+lbl+'</div>';
   var pOpts=POS.map(function(ps){return'<option value="'+ps+'">'+ps+'</option>';}).join('');
   return'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">'+lbl
-    +'<button type="button" class="btn bs bsm" data-s="'+side+'" onclick="luQuickOpen(this.dataset.s)">+ Nuevo jugador</button></div>'
+    +'<div style="display:flex;gap:6px"><button type="button" class="btn bs bsm" data-s="'+side+'" data-t="'+teamId+'" onclick="luImpOpen(this.dataset.s,this.dataset.t)">&#8615; Importar</button>'
+    +'<button type="button" class="btn bs bsm" data-s="'+side+'" onclick="luQuickOpen(this.dataset.s)">+ Nuevo jugador</button></div></div>'
+    +'<div id="lui-'+px+'" style="display:none;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--card2)">'
+    +'<div style="font-size:11px;color:var(--t2);line-height:1.45;margin-bottom:6px">Si el jugador ya existe (de otro equipo o torneo) no hace falta crearlo: b\u00fascalo y se agrega a este equipo conservando su historial. Aparece al instante en DISPONIBLES.</div>'
+    +'<input class="fi" id="luis-'+px+'" type="search" autocomplete="off" placeholder="&#128269; Buscar jugador por nombre..." data-s="'+side+'" oninput="luImpFilter(this.dataset.s)" style="margin-bottom:4px">'
+    +'<div id="luic-'+px+'" style="font-size:11px;color:var(--t3);margin:0 0 4px"></div>'
+    +'<select class="fs" id="luisel-'+px+'" size="6" multiple style="height:140px" data-s="'+side+'" onchange="luImpSel(this.dataset.s)"></select>'
+    +'<div class="fr c2" style="margin-top:6px"><div class="fg"><label class="fl">Nuevo # Dorsal</label><input class="fi" id="luin-'+px+'" type="number" placeholder="Igual al actual"></div>'
+    +'<div class="fg"><label class="fl">Posici\u00f3n</label><select class="fs" id="luip-'+px+'"><option value="">Mantener la que tiene</option>'+POS.map(function(ps){return'<option value="'+ps+'">'+ps+'</option>';}).join('')+'</select></div></div>'
+    +'<div id="luinote-'+px+'" style="font-size:11px;color:var(--t3);margin:-2px 0 6px;display:none">Con varios jugadores seleccionados, cada uno conserva su # y posici\u00f3n.</div>'
+    +'<div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="btn bs bsm" data-s="'+side+'" data-t="'+teamId+'" onclick="luImpOpen(this.dataset.s,this.dataset.t)">Cancelar</button>'
+    +'<button type="button" class="btn bp bsm" id="luid-'+px+'" data-s="'+side+'" data-t="'+teamId+'" onclick="luImpDo(this.dataset.s,this.dataset.t)">Importar al equipo</button></div></div>'
     +'<div id="luq-'+px+'" style="display:none;border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:8px;background:var(--card2)">'
     +'<div class="fr c2"><div class="fg"><label class="fl">Nombre *</label><input class="fi" id="luqn-'+px+'" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>'
     +'<div class="fg"><label class="fl"># Dorsal</label><input class="fi" id="luqm-'+px+'" type="number"></div></div>'
@@ -7949,6 +7967,78 @@ function luQuickOpen(side){
   if(open){var n=document.getElementById('luqn-'+px);if(n)n.focus();}
 }
 var _luqBusy=false;
+// ── IMPORTAR un jugador que ya existe, sin salir de la configuracion del lineup ──
+// Misma lista y mismo mecanismo que Equipos > Jugador > "Importar Existente" (se crea una copia ligada con importedFrom para conservar el historial de carrera),
+// pero al terminar el jugador aparece AL INSTANTE en DISPONIBLES y el lineup que ya se armo no se toca.
+var _LUI={aw:null,hm:null};
+function luImpOpen(side,teamId,q){
+  var px=side==='aw'?'a':'h',f=document.getElementById('lui-'+px);if(!f)return;
+  var open=(f.style.display==='none')||!!q;
+  f.style.display=open?'block':'none';
+  if(!open)return;
+  var b=pmImportBuild(null,teamId);_LUI[side]={pool:b.pool,teamId:teamId};
+  var sel=document.getElementById('luisel-'+px);
+  // se ocultan los que ya estan en este equipo (por nombre o por haber sido importados de esa misma carrera)
+  var haveN={},haveSrc={};S.players.forEach(function(x){if(x.teamId!==teamId)return;haveN[pmNorm((x.name||'').trim())]=1;if(x.importedFrom)haveSrc[String(x.importedFrom)]=1;});
+  var keys=Object.keys(b.map).filter(function(r){var e=b.map[r];return!(haveN[pmNorm((e.pl.name||'').trim())]||e.cands.some(function(c){return haveSrc[String(c.id)];}));})
+    .sort(function(x,y){return b.map[x].pl.name<b.map[y].pl.name?-1:1;});
+  sel.innerHTML='<option value="">-- Seleccionar --</option>'+keys.map(function(r){var e=b.map[r],pl=e.pl,ts=e.teams.length?' ('+e.teams.join(', ')+')':'';return'<option value="'+pl.id+'">#'+(pl.number||'?')+' '+nfEsc(pl.name)+nfEsc(ts)+'</option>';}).join('');sel._all=null;
+  var qi=document.getElementById('luis-'+px);if(qi)qi.value=q||'';
+  luImpFilter(side);
+  if(qi)qi.focus();
+}
+function luImpFilter(side){
+  var px=side==='aw'?'a':'h',sel=document.getElementById('luisel-'+px),qi=document.getElementById('luis-'+px);if(!sel)return;
+  if(!sel._all)sel._all=Array.from(sel.options).filter(function(o){return o.value;}).map(function(o){return o.cloneNode(true);});
+  var picked={};Array.from(sel.selectedOptions).forEach(function(o){if(o.value)picked[o.value]=true;});
+  var toks=pmNorm(qi?qi.value:'').split(/\s+/).filter(Boolean),shown=0,total=sel._all.length;
+  var frag=document.createDocumentFragment(),ph=document.createElement('option');ph.value='';ph.textContent=toks.length?'-- Resultados --':'-- Seleccionar --';frag.appendChild(ph);
+  sel._all.forEach(function(o){
+    var ok=toks.every(function(t){return pmNorm(o.textContent).indexOf(t)>=0;});
+    if(!ok&&!picked[o.value])return;
+    var c=o.cloneNode(true);c.selected=!!picked[o.value];if(ok)shown++;frag.appendChild(c);   // lo ya marcado se conserva aunque no coincida con la busqueda
+  });
+  sel.innerHTML='';sel.appendChild(frag);
+  var cnt=document.getElementById('luic-'+px);
+  if(cnt)cnt.textContent=toks.length?(shown?(shown+' de '+total+' jugadores'):'Sin resultados para esa b\u00fasqueda. Si no existe, cr\u00e9alo con \u00ab+ Nuevo jugador\u00bb.'):(total+' jugadores disponibles para importar');
+  luImpSel(side);
+}
+function luImpSel(side){
+  var px=side==='aw'?'a':'h',sel=document.getElementById('luisel-'+px);if(!sel)return;
+  var n=Array.from(sel.selectedOptions).filter(function(o){return o.value;}).length,lock=n>1;
+  ['luin-','luip-'].forEach(function(k){var e=document.getElementById(k+px);if(e){e.disabled=lock;e.style.opacity=lock?'.4':'1';}});
+  var note=document.getElementById('luinote-'+px);if(note)note.style.display=lock?'block':'none';
+}
+async function luImpDo(side,teamId){
+  if(_luqBusy||_pmBusy)return;
+  var px=side==='aw'?'a':'h',sel=document.getElementById('luisel-'+px),g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  if(!sel)return;
+  var ids=Array.from(sel.selectedOptions).map(function(o){return o.value;}).filter(Boolean);
+  if(!ids.length){toast('Selecciona al menos un jugador','error');return;}
+  if(!ltLoc(teamId)&&(!S_isOnline||navigator.onLine===false)){toast('Sin conexi\u00f3n: para importar un jugador al equipo se necesita internet.','error');return;}
+  var pool=(_LUI[side]&&_LUI[side].pool)||{},single=ids.length===1,customNum=single?g('luin-'+px):'',customPos=single?g('luip-'+px):'';
+  var btn=document.getElementById('luid-'+px),errors=[],done=0,lastName='';
+  _luqBusy=true;var prevSaving=_saving;_saving=true;if(btn){btn.disabled=true;btn.textContent='Importando...';}
+  try{
+    for(var i=0;i<ids.length;i++){
+      var src=pool[String(ids[i])]||S.players.filter(function(p){return String(p.id)===String(ids[i]);})[0];
+      if(!src){errors.push('ID '+ids[i]);continue;}
+      var nm=(src.name||'').trim().toLowerCase();
+      var already=S.players.some(function(p){return p.teamId===teamId&&(String(p.importedFrom)===String(src.id)||(p.name||'').trim().toLowerCase()===nm);});
+      if(already){errors.push(src.name+' ya est\u00e1 en este equipo');continue;}
+      var clone={id:null,name:src.name,number:(customNum!==''?customNum:src.number),position:customPos||src.position,bats:src.bats,throws:src.throws,teamId:teamId,dob:src.dob||null,photoUrl:src.photoUrl||'',importedFrom:src.id};
+      var r=await api('savePlayer',{player:clone});
+      if(r&&r.ok){var it=r.item||clone;if(!S.players.some(function(x){return x.id===it.id;}))S.players.push(it);done++;lastName=src.name;}
+      else errors.push(src.name+': '+(r&&r.error||'Error'));
+    }
+  }finally{_luqBusy=false;_saving=prevSaving;if(btn){btn.disabled=false;btn.textContent='Importar al equipo';}}
+  if(done){
+    var f=document.getElementById('lui-'+px);if(f)f.style.display='none';
+    renderLU(side,teamId);   // ya aparece en DISPONIBLES; el lineup armado queda igual
+    var tm=teamOf(teamId);toast((done===1?lastName+' importado':done+' jugadores importados')+(tm?' a '+tm.name:'')+'. Ya est\u00e1'+(done===1?'':'n')+' en DISPONIBLES.','success');
+  }
+  if(errors.length)toast('No se import\u00f3: '+errors.join(', '),'error');
+}
 async function luQuickSave(side,teamId){
   if(_luqBusy||_pmBusy)return;
   var px=side==='aw'?'a':'h',g=function(id){var e=document.getElementById(id);return e?e.value:'';};
@@ -7962,7 +8052,7 @@ async function luQuickSave(side,teamId){
     if(dupSport){var xTm=teamOf(x.teamId),xSport=xTm?teamSportType(xTm):'';if(xSport&&xSport!==dupSport)return false;}
     return true;
   });
-  if(dup.length){toast('Ya existe un jugador con ese nombre. Si es el mismo, impórtalo desde Equipos > Jugador > "Importar Existente"; si no, agrégale un segundo nombre o apellido.','error');return;}
+  if(dup.length){toast('Ya existe un jugador con ese nombre. Si es el mismo, selecciónalo en «Importar» (ya te lo busqué); si no, agrégale un segundo nombre o apellido.','error');var fq=document.getElementById('luq-'+px);if(fq)fq.style.display='none';luImpOpen(side,teamId,name);return;}
   var p={id:nid(),name:name,number:g('luqm-'+px),position:g('luqp-'+px)||'OF',bats:g('luqb-'+px)||'R',throws:g('luqt-'+px)||'R',teamId:teamId,dob:null,photoUrl:'',rookie:'false'};
   var btn=document.getElementById('luqs-'+px);
   _luqBusy=true;var prevSaving=_saving;_saving=true;if(btn)btn.disabled=true;
@@ -10796,6 +10886,7 @@ function bcLeftHtml(gm){
     +'<button class="btn bs bsm" onclick="openDefenseChangeM()">&#128737; Cambio Defensa</button>'
     +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
     +ddBtnHtml(gm)
+    +(hasModuleAccess('lineupfix')?'<button class="btn bs bsm" onclick="openLineupFixM()" title="Corrige a un jugador puesto por error en el lineup, sin sacarlo por cambio">&#128101; Corregir jugador</button>':'')
     +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" '+(_undoBusy?'disabled style="opacity:.55;cursor:not-allowed" ':'')+'onclick="undoLastPlay()">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>';
 }
@@ -11598,6 +11689,7 @@ function pgGC(){
       +(hasModuleAccess('addtolineup')?'<button class="btn bs bsm" onclick="openAddToLineupM()" title="Agrega un jugador del roster que todavia no este en el lineup, al final del orden al bate">&#10133; Agregar al Lineup</button>':'')
       +'<button class="btn bs bsm" onclick="openDefensivePointsM()">&#11088; Puntos por Jugada</button>'
       +ddBtnHtml(gm)
+      +(hasModuleAccess('lineupfix')?'<button class="btn bs bsm" onclick="openLineupFixM()" title="Corrige a un jugador puesto por error en el lineup, sin sacarlo por cambio">&#128101; Corregir jugador</button>':'')
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
     +(hasModuleAccess('livestream')&&gm.status!=='final'?(_BC.id&&String(_BC.gameId)===String(gm.id)?'<button class="btn bd bsm" onclick="bcShowPanel()" title="Muestra los controles de tu transmisión">&#128308; Transmitiendo · controles</button>':'<button class="btn bd bsm" data-gid="'+gm.id+'" onclick="openBroadcastM(this.dataset.gid)" title="Transmite este juego con la cámara de tu dispositivo">&#128308; Transmitir en vivo</button>'):'')
@@ -12041,6 +12133,16 @@ async function _doOutEnJugada(forcedBase){
   var gmRef=S.games.filter(function(x){return x.id===S.game;})[0];
   if(!gmRef||gmRef.status!=='live')return;
   if(!canScoreNow(gmRef)){toast('Este juego esta bloqueado por otro anotador.','error');return;}
+  // Detalle del out (si el subtorneo lo tiene activo): como fue la jugada, ej. 2-6. Cancelar deja todo como estaba.
+  var ojDetail=null;
+  if(pdOn(gmRef)){
+    var _pb0=gmRef.bases||{},_prid=(forcedBase&&_pb0[forcedBase])||_pb0.third||_pb0.second||_pb0.first||null,_prp=_prid?playerOf(_prid):null;
+    _rPlayBusy=true;
+    var _pdr=await pdAsk('OJ',_prp?('#'+(_prp.number||'?')+' '+_prp.name):'');
+    _rPlayBusy=false;
+    if(_pdr===null)return;
+    if(_pdr&&_pdr.k)ojDetail=_pdr;
+  }
   cM();
   _rPlayBusy=true;_saving=true;
   try{
@@ -12102,6 +12204,7 @@ async function _doOutEnJugada(forcedBase){
     var ojFacedPitcherId=ojPitRes?ojPitRes.pitcherId:null;
     var ojEv={id:ojId,gameId:gm.id,batterId:ojBatterId,battingTeamId:btId,
       type:'OJ',inning:evInning,half:evHalf,rbi:0,runs:0,pitcherId:ojFacedPitcherId||null,
+      subData:ojDetail?{pd:ojDetail}:undefined,
       outs:outsBeforePlay,
       priorBases:{first:b2.first||null,second:b2.second||null,third:b2.third||null},
       timestamp:new Date().toISOString()};
@@ -13031,7 +13134,7 @@ function pdText(pd){
   if(pd.k==='F'&&PD_AT[pd.p])return'Fly '+PD_AT[pd.p]+' (F'+pd.p+')';
   if(pd.k==='L'&&PD_AT[pd.p])return'L\u00ednea '+PD_AT[pd.p]+' (L'+pd.p+')';
   if(typeof pd.seq==='string'&&/^[1-9](-[1-9]){0,4}$/.test(pd.seq)){
-    var a=pd.seq.split('-'),lbl=pd.k==='DP'?'Doble play':(pd.k==='TP'?'Triple play':'Rolling');
+    var a=pd.seq.split('-'),lbl=pd.k==='DP'?'Doble play':(pd.k==='TP'?'Triple play':(pd.k==='FO'?'Out forzado':(pd.k==='OJ'?'Out en jugada':'Rolling')));
     return lbl+' '+pd.seq+(a.length>1?' ('+a.map(function(x){return PD_SHORT[x];}).join(' \u2192 ')+')':' (sin asistencia, '+PD_SHORT[a[0]]+')');
   }
   return'';
@@ -13043,7 +13146,7 @@ function pdAsk(type,who){
     var ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
     var st={step:type==='OUT'?'kind':'seq',k:type==='OUT'?'':type,seq:[]};
-    var title={OUT:'OUT DE CAMPO',DP:'DOBLE PLAY',TP:'TRIPLE PLAY'}[type]||'OUT';
+    var title={OUT:'OUT DE CAMPO',DP:'DOBLE PLAY',TP:'TRIPLE PLAY',FO:'OUT FORZADO',OJ:'OUT EN JUGADA'}[type]||'OUT';
     var BTN='padding:10px 4px;border-radius:8px;border:1px solid var(--bdr,#2d3a50);background:var(--bg3,#0d1420);color:var(--txt,#fff);cursor:pointer;line-height:1.25';
     function done(v){try{ov.remove();}catch(e){}resolve(v);}
     function posBtns(){return'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">'+PD_ORDER.map(function(n){var r=PD_POS[parseInt(n)-1];
@@ -13065,8 +13168,8 @@ function pdAsk(type,who){
         h+='<div style="font-size:16px;font-weight:700;margin-bottom:12px">'+(st.k==='F'?'\u00bfQui\u00e9n atrap\u00f3 el fly?':'\u00bfQu\u00e9 posici\u00f3n tom\u00f3 la l\u00ednea?')+'</div>'+posBtns()+foot(true,false,false);
       }else{
         var q=st.seq.join('-'),need=(st.k==='DP'||st.k==='TP')?2:1,okOn=st.seq.length>=need;
-        var ex=st.k==='DP'?'Ej: 6-4-3':(st.k==='TP'?'Ej: 5-4-3':'Ej: 4-3 (2da a 1ra). Un solo n\u00famero = sin asistencia');
-        h+='<div style="font-size:16px;font-weight:700;margin-bottom:4px">'+(st.k==='DP'?'\u00bfC\u00f3mo fue el doble play?':(st.k==='TP'?'\u00bfC\u00f3mo fue el triple play?':'\u00bfC\u00f3mo fue la jugada?'))+'</div>'
+        var ex=st.k==='DP'?'Ej: 6-4-3':(st.k==='TP'?'Ej: 5-4-3':(st.k==='FO'?'Ej: 6-4 (campocorto a 2da base). Un solo n\u00famero = sin asistencia':(st.k==='OJ'?'Ej: 2-6 (receptor a campocorto). Un solo n\u00famero = sin asistencia':'Ej: 4-3 (2da a 1ra). Un solo n\u00famero = sin asistencia')));
+        h+='<div style="font-size:16px;font-weight:700;margin-bottom:4px">'+(st.k==='DP'?'\u00bfC\u00f3mo fue el doble play?':(st.k==='TP'?'\u00bfC\u00f3mo fue el triple play?':(st.k==='FO'?'\u00bfC\u00f3mo fue el out forzado?':(st.k==='OJ'?'\u00bfC\u00f3mo fue el out en jugada?':'\u00bfC\u00f3mo fue la jugada?'))))+'</div>'
           +'<div style="font-size:11px;color:var(--t3,#8b95a8);margin-bottom:8px">Toca las posiciones en orden. '+ex+'</div>'
           +'<div style="text-align:center;font-size:30px;font-weight:800;letter-spacing:2px;color:var(--acc,#f5a623);min-height:40px;border:1px dashed var(--bdr,#2d3a50);border-radius:8px;padding:4px;margin-bottom:6px">'+(q||'&mdash;')+'</div>'
           +'<div style="font-size:11px;color:var(--t2,#b0b8c8);min-height:28px;text-align:center;margin-bottom:8px">'+(q?nfEsc(pdText({k:st.k,seq:q})):'')+'</div>'
@@ -13495,6 +13598,7 @@ async function rPlay(type,opts){
     // Guardar SIEMPRE (no solo cuando enBase>=2) para que el bloque de scorerIds y el de
     // avance de bases usen el mismo valor real, sin arrastrar un valor viejo de una FO anterior.
     gm._foOutBase=_foOutBase;
+    if(pdOn(gm)){var pdrF=await pdAsk('FO',bName);if(pdrF===null){_rPlayBusy=false;return;}if(pdrF&&pdrF.k)pdDetail=pdrF;}
     // Calcular mínimo forzado según quién fue eliminado
     // El out elimina a ese corredor; los que estaban "detrás" (más lejos de home) avanzan.
     // Anotan quienes estaban DELANTE del eliminado (más cerca de home) sin base que ocupar.
@@ -16473,6 +16577,154 @@ function atlTurnOptsHtml(gm,tid){
   }
   var note=ti.minK>1?'Ya batearon los turnos 1 al '+(ti.minK-1)+' en esta vuelta, por eso no están disponibles.'+(ti.inCount&&ti.minK===ti.pos+2?' El bateador en turno ya tiene conteo.':''):'Aún no ha bateado ningún turno en esta vuelta: puedes elegir cualquiera.';
   return{opts:o,note:note};
+}
+// ── CORREGIR JUGADOR DEL LINEUP (solo admin) ──────────────────────────────────────────────────────────────────────────────────────────────────
+// Para cuando se puso a un jugador equivocado (titular o emergente) y se descubre varias jugadas despues. El jugador correcto toma su lugar en TODO el juego
+// (lineup, turnos al bate, carreras, errores, pitcheo, bases). A diferencia de un cambio por emergente/defensa, NO saca a nadie del juego: es una correccion.
+// Si el jugador correcto ya esta en el lineup, los dos se intercambian. Si algo falla a la mitad se revierte todo lo ya guardado.
+var _LF={gid:'',tid:'',wrong:'',busy:false};
+function lfHas(m,k){return Object.prototype.hasOwnProperty.call(m,k);}
+function lfDeep(v,m){
+  if(v===null||v===undefined)return v;
+  if(typeof v==='string')return lfHas(m,v)?m[v]:v;
+  if(Array.isArray(v))return v.map(function(x){return lfDeep(x,m);});
+  if(typeof v==='object'){var o={};Object.keys(v).forEach(function(k){o[lfHas(m,k)?m[k]:k]=lfDeep(v[k],m);});return o;}
+  return v;
+}
+function lfEvent(e,m){
+  var n=Object.assign({},e),sc=false;
+  ['batterId','errorFielderId','pitcherId','throwCorrId'].forEach(function(k){if(typeof n[k]==='string'&&lfHas(m,n[k]))n[k]=m[n[k]];});
+  if(Array.isArray(n.scorerIds)){var ns=n.scorerIds.map(function(x){return lfHas(m,x)?m[x]:x;});sc=JSON.stringify(ns)!==JSON.stringify(n.scorerIds);n.scorerIds=ns;if(sc&&typeof n.scorerIdsJson==='string')n.scorerIdsJson=JSON.stringify(ns);}
+  if(n.priorBases&&typeof n.priorBases==='object')n.priorBases=lfDeep(n.priorBases,m);
+  if(n.type==='SUB'&&n.subData)n.subData=lfDeep(n.subData,m);   // los cambios anteriores guardan copias del lineup para poder deshacerlos: tambien se corrigen
+  return n;
+}
+function lfGame(g,m){
+  var n=Object.assign({},g),b0=JSON.stringify(g.bases||{});
+  if(n.bases)n.bases=lfDeep(n.bases,m);
+  if(JSON.stringify(n.bases||{})!==b0&&typeof n.basesJson==='string')n.basesJson=JSON.stringify(n.bases);
+  if(Array.isArray(n.errorBases))n.errorBases=lfDeep(n.errorBases,m);
+  if(n.runnerPitcher&&typeof n.runnerPitcher==='object')n.runnerPitcher=lfDeep(n.runnerPitcher,m);
+  return n;
+}
+function lfLineup(lu,m){
+  var n=Object.assign({},lu);
+  n.players=(lu.players||[]).map(function(lp){return lfDeep(lp,m);});
+  if(Array.isArray(lu.originalPlayers))n.originalPlayers=lu.originalPlayers.map(function(lp){return lfDeep(lp,m);});
+  if(typeof n.playersJson==='string')n.playersJson=JSON.stringify(n.players);
+  return n;
+}
+function lfPitching(r,m){var n=Object.assign({},r);if(typeof n.pitcherId==='string'&&lfHas(m,n.pitcherId))n.pitcherId=m[n.pitcherId];return n;}
+function lfPlan(gm,tid,wrong,right){
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===tid;})[0];if(!lu||!lu.players)return null;
+  var inLu=lu.players.some(function(lp){return lp.playerId===right;});
+  var map={};map[wrong]=right;if(inLu)map[right]=wrong;
+  var ch=function(a,b){return JSON.stringify(a)!==JSON.stringify(b);};
+  var evs=[],pit=[];
+  S.events.forEach(function(e){if(e.gameId!==gm.id)return;var n=lfEvent(e,map);if(ch(n,e))evs.push({o:e,n:n});});
+  S.pitching.forEach(function(r){if(r.gameId!==gm.id)return;var n=lfPitching(r,map);if(ch(n,r))pit.push({o:r,n:n});});
+  var g2=lfGame(gm,map),lu2=lfLineup(lu,map);
+  return{map:map,swap:inLu,lu:lu,lu2:lu2,gm2:ch(g2,gm)?g2:null,evs:evs,pit:pit};
+}
+function lfRoster(tid){return S.players.filter(function(p){return p.teamId===tid&&p.active!=='false'&&p.active!==false&&p.active!=='0';}).sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});}
+function lfPlays(pl){return pl.evs.filter(function(x){return x.n.type!=='SUB';}).length;}
+function lfLabel(p){return p?('#'+(p.number||'?')+' '+p.name):'?';}
+function openLineupFixM(tid){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  if(!hasModuleAccess('lineupfix')){toast('No tienes permiso para corregir el lineup (se activa en el perfil: M\u00f3dulos)','error');return;}
+  if(String(gm.id).indexOf('mlb')===0){toast('No disponible en juegos de MLB (el lineup viene de MLB)','error');return;}
+  if(_LF.gid!==gm.id){_LF.gid=gm.id;_LF.tid='';_LF.wrong='';}
+  if(tid&&tid!==_LF.tid){_LF.tid=tid;_LF.wrong='';}
+  if(_LF.tid!==gm.awayTeamId&&_LF.tid!==gm.homeTeamId){_LF.tid=(gm.currentHalf==='bottom')?gm.homeTeamId:gm.awayTeamId;_LF.wrong='';}   // por defecto el equipo que esta al bate
+  var aw=teamOf(gm.awayTeamId),hw=teamOf(gm.homeTeamId);
+  var lu=S.lineups.filter(function(l){return l.gameId===gm.id&&l.teamId===_LF.tid;})[0];
+  var ents=((lu&&lu.players)||[]).map(function(lp,i){return{lp:lp,i:i};}).sort(function(a,b){return((a.lp.order||0)-(b.lp.order||0))||(a.i-b.i);});
+  var rows=ents.map(function(x){
+    var lp=x.lp,p=playerOf(lp.playerId),on=(lp.playerId===_LF.wrong);
+    var tag=lp.replacedBy?'Ya sali\u00f3':(lp.isSubstitute?'Emergente/cambio':'Titular');
+    return'<button type="button" class="btn '+(on?'bp':'bs')+'" style="width:100%;text-align:left;padding:9px 12px;margin-bottom:6px;display:flex;gap:8px;align-items:center'+(lp.replacedBy&&!on?';opacity:.7':'')+'" data-pid="'+lp.playerId+'" onclick="lfSelect(this.dataset.pid)">'
+      +'<b style="min-width:26px">'+(lp.order||'?')+'\u00ba</b><span style="flex:1">'+nfEsc(lfLabel(p))+' <span style="font-size:11px;opacity:.75">&middot; '+nfEsc(lp.position||'')+'</span></span><span style="font-size:11px;opacity:.75">'+tag+'</span></button>';
+  }).join('');
+  var sel='';
+  if(_LF.wrong&&lu){
+    var inIds=lu.players.map(function(lp){return lp.playerId;}),ro=lfRoster(_LF.tid);
+    var outs=ro.filter(function(p){return inIds.indexOf(p.id)<0;}),ins=ro.filter(function(p){return inIds.indexOf(p.id)>=0&&p.id!==_LF.wrong;});
+    var op=function(p){return'<option value="'+p.id+'">'+nfEsc(lfLabel(p))+' ('+nfEsc(p.position||'OF')+')</option>';};
+    var cur=lu.players.filter(function(lp){return lp.playerId===_LF.wrong;})[0];
+    sel='<div style="margin-top:12px;padding:12px;border:1px solid var(--bdr);border-radius:10px">'
+      +'<div style="font-size:13px;margin-bottom:8px">Jugador que se puso por error: <b>'+nfEsc(lfLabel(playerOf(_LF.wrong)))+'</b></div>'
+      +'<label class="fl">\u00bfQui\u00e9n era realmente?</label><select class="fs" id="lf-right" onchange="lfUpd()"><option value="">\u2014 Elige al jugador correcto \u2014</option>'
+      +(outs.length?'<optgroup label="Fuera del lineup">'+outs.map(op).join('')+'</optgroup>':'')
+      +(ins.length?'<optgroup label="Ya est\u00e1 en el lineup (se intercambian)">'+ins.map(op).join('')+'</optgroup>':'')+'</select>'
+      +'<label class="fl" style="margin-top:10px">Posici\u00f3n defensiva</label><select class="fs" id="lf-pos"><option value="keep">Mantener ('+nfEsc(cur&&cur.position||'')+')</option>'+POS.map(function(ps){return'<option value="'+ps+'">'+ps+'</option>';}).join('')+'</select>'
+      +'<div id="lf-prev" style="font-size:12px;color:var(--t2);line-height:1.5;margin-top:10px"></div></div>';
+  }
+  showM('<div class="mhd"><div class="mtl">&#128101; Corregir jugador del lineup</div><button class="bx" onclick="cM()">&#10005;</button></div>'
+    +'<div class="mbd"><div class="alert ai" style="font-size:12px;line-height:1.5;margin-bottom:10px">Para cuando pusiste a un jugador por error (titular o emergente). El jugador correcto <b>toma su lugar en todo el juego</b>: turnos al bate, jugadas, carreras, errores y pitcheo. <b>No saca a nadie del juego</b> como lo hace un cambio por emergente o defensa.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px"><button class="btn '+(_LF.tid===gm.awayTeamId?'bp':'bs')+' bsm" style="flex:1" data-tid="'+gm.awayTeamId+'" onclick="openLineupFixM(this.dataset.tid)">'+nfEsc(aw?aw.name:'Visitante')+'</button><button class="btn '+(_LF.tid===gm.homeTeamId?'bp':'bs')+' bsm" style="flex:1" data-tid="'+gm.homeTeamId+'" onclick="openLineupFixM(this.dataset.tid)">'+nfEsc(hw?hw.name:'Local')+'</button></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:6px">Toca al jugador que est\u00e1 mal:</div>'+(rows||'<div style="font-size:12px;color:var(--t3)">Este equipo no tiene lineup.</div>')+sel+'</div>'
+    +'<div class="mft"><button class="btn bs" onclick="cM()">Cancelar</button>'+(_LF.wrong?'<button class="btn bp" id="lf-ok" onclick="lfApply()" disabled style="opacity:.5">Aplicar correcci\u00f3n</button>':'')+'</div>');
+  if(_LF.wrong)lfUpd();
+}
+function lfSelect(pid){_LF.wrong=(_LF.wrong===pid)?'':pid;openLineupFixM();}
+function lfUpd(){
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0],box=document.getElementById('lf-prev'),ok=document.getElementById('lf-ok');if(!gm||!box)return;
+  var right=fv('lf-right');
+  if(!right){box.innerHTML='';if(ok){ok.disabled=true;ok.style.opacity='.5';}return;}
+  var pl=lfPlan(gm,_LF.tid,_LF.wrong,right);if(!pl){box.textContent='Lineup no encontrado.';return;}
+  var nm=lfLabel(playerOf(_LF.wrong)),nr=lfLabel(playerOf(right));
+  box.innerHTML=(pl.swap?'Se <b>intercambian</b> '+nfEsc(nm)+' y '+nfEsc(nr)+' (ambos ya est\u00e1n en el lineup).':'<b>'+nfEsc(nr)+'</b> reemplaza a '+nfEsc(nm)+' en todo el juego; '+nfEsc(nm)+' queda fuera, como si nunca hubiera estado.')
+    +'<br>Se actualizar\u00e1n: el lineup'+(lfPlays(pl)?', <b>'+lfPlays(pl)+'</b> jugada'+(lfPlays(pl)===1?'':'s'):'')+(pl.pit.length?', '+pl.pit.length+' registro'+(pl.pit.length===1?'':'s')+' de pitcheo':'')+(pl.gm2?' y las bases del juego':'')+'.';
+  if(ok){ok.disabled=false;ok.style.opacity='1';}
+}
+async function lfApply(){
+  if(_LF.busy)return;
+  var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
+  if(!hasModuleAccess('lineupfix')){toast('No tienes permiso para corregir el lineup (se activa en el perfil: M\u00f3dulos)','error');return;}
+  if(typeof canScoreNow==='function'&&!canScoreNow(gm)){toast('Este juego est\u00e1 bloqueado por otro anotador.','error');return;}
+  var right=fv('lf-right'),posSel=fv('lf-pos')||'keep',wrong=_LF.wrong,tid=_LF.tid;
+  if(!right||!wrong||right===wrong){toast('Elige al jugador correcto','error');return;}
+  var pl=lfPlan(gm,tid,wrong,right);if(!pl){toast('Lineup no encontrado','error');return;}
+  if(!confirm('\u00bfCorregir el lineup?\n\n'+lfLabel(playerOf(right))+(pl.swap?' y '+lfLabel(playerOf(wrong))+' se intercambian':' toma el lugar de '+lfLabel(playerOf(wrong))+' en todo el juego')+'.\nSe actualizar\u00e1n '+lfPlays(pl)+' jugada(s).'))return;
+  var lu2=pl.lu2;
+  if(posSel!=='keep'){var iw=pl.lu.players.findIndex(function(lp){return lp.playerId===wrong;});if(iw>=0)lu2.players[iw]=Object.assign({},lu2.players[iw],{position:posSel});if(Array.isArray(lu2.originalPlayers)){var io=pl.lu.originalPlayers?pl.lu.originalPlayers.findIndex(function(lp){return lp.playerId===wrong;}):-1;if(io>=0)lu2.originalPlayers[io]=Object.assign({},lu2.originalPlayers[io],{position:posSel});}}
+  if(typeof lu2.playersJson==='string')lu2.playersJson=JSON.stringify(lu2.players);
+  _LF.busy=true;
+  var okBtn=document.getElementById('lf-ok');if(okBtn){okBtn.disabled=true;okBtn.textContent='Aplicando...';}
+  var done=[];   // lo ya guardado, para poder revertir
+  function good(r){return!!r&&r.ok!==false;}
+  async function save(kind,newObj,oldObj){
+    var r;
+    if(kind==='event')r=await api('saveEvent',{event:newObj});
+    else if(kind==='pit')r=await api('savePitching',{event:newObj});
+    else if(kind==='game')r=await api('saveGame',{game:newObj});
+    else r=await api('saveLineup',{lineup:Object.assign({},newObj,{replaceOriginal:true})});
+    if(!good(r))throw new Error((r&&r.error)||'No se pudo guardar');
+    done.push({kind:kind,o:oldObj});
+  }
+  try{
+    for(var i=0;i<pl.evs.length;i+=5){await Promise.all(pl.evs.slice(i,i+5).map(function(x){return save('event',x.n,x.o);}));}
+    for(var j=0;j<pl.pit.length;j++)await save('pit',pl.pit[j].n,pl.pit[j].o);
+    if(pl.gm2)await save('game',pl.gm2,gm);
+    await save('lineup',lu2,pl.lu);   // el lineup va al final: si algo fallo antes, no queda a medias
+  }catch(err){
+    for(var k=done.length-1;k>=0;k--){try{
+      var d=done[k];
+      if(d.kind==='event')await api('saveEvent',{event:d.o});else if(d.kind==='pit')await api('savePitching',{event:d.o});else if(d.kind==='game')await api('saveGame',{game:d.o});else await api('saveLineup',{lineup:Object.assign({},d.o,{replaceOriginal:true})});
+    }catch(e2){}}
+    _LF.busy=false;toast('No se pudo aplicar la correcci\u00f3n ('+(err&&err.message||'error')+'). Se revirti\u00f3 lo guardado; no hubo cambios.','error');
+    var b2=document.getElementById('lf-ok');if(b2){b2.disabled=false;b2.textContent='Aplicar correcci\u00f3n';}
+    return;
+  }
+  // todo guardado: se actualiza lo local
+  var evMap={};pl.evs.forEach(function(x){evMap[x.n.id]=x.n;});
+  S.events=S.events.map(function(e){return evMap[e.id]||e;});
+  var pitMap={};pl.pit.forEach(function(x){pitMap[x.n.id]=x.n;});
+  S.pitching=S.pitching.map(function(r){return pitMap[r.id]||r;});
+  S.lineups=S.lineups.map(function(l){return l.gameId===gm.id&&l.teamId===tid?lu2:l;});
+  if(pl.gm2)S.games=S.games.map(function(x){return x.id===gm.id?pl.gm2:x;});
+  _LF.busy=false;_LF.wrong='';
+  cM();pgGC();toast('Lineup corregido: '+lfLabel(playerOf(right))+(pl.swap?' \u21c4 '+lfLabel(playerOf(wrong)):' ya aparece en todo el juego')+'.','success');
 }
 function openAddToLineupM(){
   var gm=S.games.filter(function(x){return x.id===S.game;})[0];if(!gm)return;
@@ -24968,7 +25220,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id==='livestreamwm'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='lineupfix'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id==='livestreamwm'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -26052,7 +26304,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
