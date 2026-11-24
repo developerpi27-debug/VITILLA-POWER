@@ -252,7 +252,8 @@ tr:hover td{background:rgba(255,255,255,.02);}tr:last-child td{border-bottom:non
 .lsi-zm button{background:none;border:none;color:#fff;font-size:16px;line-height:1;width:22px;height:22px;cursor:pointer;padding:0}
 .lsi-zm .lsi-zv{color:#fff;font-size:10px;min-width:34px;text-align:center;cursor:pointer;user-select:none}
 .lsi-bg{position:absolute;top:-10px;left:-10px;width:22px;height:22px;border-radius:50%;border:none;background:var(--acc);color:#000;font-size:12px;cursor:pointer;z-index:2;line-height:1;padding:0}
-.bcs-locked .lsi-rs,.bcs-locked .lsi-zm,.bcs-locked .lsi-bg,.bcs-locked .lsi-x{display:none!important}
+.lsi-mx{position:absolute;top:-10px;left:calc(50% - 11px);width:22px;height:22px;border-radius:50%;border:none;background:#3b82f6;color:#fff;font-size:12px;cursor:pointer;z-index:2;line-height:1;padding:0}.lsi-mx.on{background:#f59e0b;color:#000}
+.bcs-locked .lsi-rs,.bcs-locked .lsi-zm,.bcs-locked .lsi-bg,.bcs-locked .lsi-mx,.bcs-locked .lsi-x{display:none!important}
 .bcs-locked .lsi-bd{cursor:default}
 .bcf-btns button.fps-low,.bcl-bar button.fps-low,.btn.fps-low{background:#d97706!important;border-color:#d97706!important;color:#fff!important}
 .lsi-rs{position:absolute;right:-9px;bottom:-9px;width:20px;height:20px;border-radius:5px;background:var(--acc);cursor:nwse-resize;touch-action:none;z-index:2}
@@ -8377,9 +8378,8 @@ function lsItemUrl(it,gid){
   return u.href;
 }
 function lsDefaultLayout(){
-  try{var sv=JSON.parse(bcLsGet('vp_bc_layout')||'null');if(sv&&sv.length)return sv;}catch(e){}
-  var c=lsCatalog().filter(function(x){return x.page==='transmision.html';})[0];
-  return c?[{id:c.id,page:c.page,team:'',q:lsQueryFor(c),x:0,y:0,w:100,h:100,z:1}]:[];
+  // Sin grafico por defecto: la transmision arranca limpia y el grafico solo sale cuando quien transmite lo coloca.
+  return [];
 }
 // Alto del grafico en % del escenario (las capas antiguas solo traian lw/lh)
 function lsItemH(it){
@@ -8404,13 +8404,13 @@ function lsRenderItems(host,items,gid,edit){
   var keep={};
   items.forEach(function(it,idx){
     keep[it.id]=1;
-    var isX=(it.page==='mq'||it.page==='sc'||it.page==='pl'||it.page==='wg');
+    var isX=(it.page==='mq'||it.page==='sc'||it.page==='pl'||it.page==='wg'||it.page==='vf'||it.page==='cm');
     var el=have[it.id];
     var src=(it.page==='img'||isX)?'':lsItemUrl(it,gid);
     if(!el){
       el=document.createElement('div');el.className='lsi'+(edit?' lse':'');el.setAttribute('data-id',it.id);
       el.innerHTML='<div class="lsi-fr">'+(isX?'<div class="lsx"></div>':'<iframe scrolling="no" loading="lazy" referrerpolicy="no-referrer" allowtransparency="true" tabindex="-1"></iframe>')+'</div>'
-        +(edit?'<div class="lsi-bd"></div><button class="lsi-x" title="Quitar">&#10005;</button><button class="lsi-bg" title="Fondo transparente / opaco">&#9680;</button><div class="lsi-zm"><button class="lsi-zo" title="Reducir el gráfico (mantén pulsado)">&#8722;</button><span class="lsi-zv" title="Doble clic: 100%">100%</span><button class="lsi-zi" title="Ampliar el gráfico (mantén pulsado)">+</button></div><div class="lsi-rs" title="Tamaño de la caja"></div>':'');
+        +(edit?'<div class="lsi-bd"></div><button class="lsi-x" title="Quitar">&#10005;</button><button class="lsi-mx" title="Maximizar: cubrir toda la pantalla / volver a su tamaño">&#9974;</button><button class="lsi-bg" title="Fondo transparente / opaco">&#9680;</button><div class="lsi-zm"><button class="lsi-zo" title="Reducir el gráfico (mantén pulsado)">&#8722;</button><span class="lsi-zv" title="Doble clic: 100%">100%</span><button class="lsi-zi" title="Ampliar el gráfico (mantén pulsado)">+</button></div><div class="lsi-rs" title="Tamaño de la caja"></div>':'');
       host.appendChild(el);
       if(edit)lsBindEdit(el,it);
     }
@@ -8470,6 +8470,8 @@ function bcMemKey(it){
   if(it.page==='sc')return'sc:'+String((it.d&&it.d.k)||'');
   if(it.page==='pl')return'pl';
   if(it.page==='wg')return'wg:'+String((it.d&&it.d.u)||'').toLowerCase().slice(0,120);
+  if(it.page==='vf')return'vf:'+String((it.d&&it.d.k)||'');
+  if(it.page==='cm')return'cm:'+String((it.d&&it.d.c)||'');
   return String(it.id||'');
 }
 function bcMemLoad(){try{var o=JSON.parse(bcLsGet('vp_bc_mem')||'{}');return(o&&typeof o==='object')?o:{};}catch(e){return{};}}
@@ -8477,7 +8479,7 @@ function bcMemSave(){
   try{
     var m=bcMemLoad();
     (_BC.layout||[]).forEach(function(it){
-      var k=bcMemKey(it);if(!k)return;
+      var k=bcMemKey(it);if(!k||it._pm)return;
       var r={x:it.x,y:it.y,w:it.w,h:lsItemH(it)};
       if(it.zm>0&&it.zm!==1)r.zm=it.zm;
       if(it.q&&it.q.transp!=null)r.tr=String(it.q.transp);
@@ -8494,7 +8496,7 @@ function bcMemApply(it){
     if(n(r.w)&&n(r.h)&&r.w>=6&&r.h>=5){it.w=Math.min(100,r.w);it.h=Math.min(100,r.h);if(it.lw!=null){it.lw=Math.round(it.w/100*LS_REF_W);it.lh=Math.round(it.h/100*LS_REF_H);}}
     if(n(r.x)&&n(r.y)){it.x=Math.max(0,Math.min(100-it.w,r.x));it.y=Math.max(0,Math.min(100-lsItemH(it),r.y));}
     if(n(r.zm)&&r.zm>0)it.zm=r.zm;
-    if(r.tr!=null&&(it.page!=='mq'&&it.page!=='sc'&&it.page!=='pl'&&it.page!=='wg'&&it.page!=='img')){it.q=it.q||{};it.q.transp=String(r.tr);}
+    if(r.tr!=null&&(it.page!=='mq'&&it.page!=='sc'&&it.page!=='pl'&&it.page!=='wg'&&it.page!=='vf'&&it.page!=='cm'&&it.page!=='img')){it.q=it.q||{};it.q.transp=String(r.tr);}
   }catch(e){}
   return it;
 }
@@ -8546,7 +8548,14 @@ function bcXDraw(ctx,e,it,x,y,w,h,now,cw){
       ctx.fillStyle='#fff';ctx.font='800 '+(fo*ko)+'px '+BCX_FONT;ctx.fillText(one,tx0,cy+1);
     }
     ctx.restore();
-  }else if(e.kind==='wg'){
+  }else if(e.kind==='cm'){   // cuadro de camara: la imagen en vivo de una camara, con la forma elegida
+    var cst=cmStream(d.c);if(!cst){bcMosPrune(e.reg,{});return;}
+    var cvv=bcMosVid(e.reg,{id:'v',s:cst});if(!(cvv.videoWidth>0&&cvv.readyState>=2))return;
+    var cshp=d.sh==='circle'?'circle':(d.sh==='round'?'round':'normal');
+    ctx.save();bcMosShape(ctx,cshp,x,y,w,h);ctx.clip();
+    var ck=Math.max(w/cvv.videoWidth,h/cvv.videoHeight),cw2=cvv.videoWidth*ck,ch2=cvv.videoHeight*ck;ctx.drawImage(cvv,x+(w-cw2)/2,y+(h-ch2)/2,cw2,ch2);ctx.restore();
+    ctx.save();bcMosShape(ctx,cshp,x,y,w,h);ctx.lineWidth=Math.max(2,cw/320);ctx.strokeStyle='rgba(255,255,255,.9)';ctx.stroke();ctx.restore();
+  }else if(e.kind==='wg'||e.kind==='vf'){
     var wv=e.wv;if(!e.ok||!wv||wv.readyState<2||!wv.videoWidth)return;
     var kw=Math.min(w/wv.videoWidth,h/wv.videoHeight),w2=wv.videoWidth*kw,h2=wv.videoHeight*kw;
     ctx.drawImage(wv,x+(w-w2)/2,y+(h-h2)/2,w2,h2);
@@ -8563,6 +8572,8 @@ function lsxUpdate(x,it){
   var d=it.d||{},sig=it.page+JSON.stringify(d);
   if(it.page==='pl'){plDomFill(x);return;}
   if(it.page==='wg'){wgDomFill(x,d);return;}
+  if(it.page==='vf'){vfDomFill(x,d);return;}
+  if(it.page==='cm'){cmDomFill(x,d);return;}
   if(x._sig===sig)return;x._sig=sig;
   if(it.page==='mq'){
     x.className='lsx mq';x.style.background=bcXRgba(d.bg,d.ba==null?0.7:d.ba);x.style.color=bcXHex(d.c,'#ffffff');
@@ -8611,6 +8622,159 @@ function bcXHint(){   // marquee y plantillas se ven en la app de inmediato; en 
 }
 function bcXNeedBurn(){
   if(!(_BC.burn&&_BC.burn.on)){if(bcBurnSupported())bcBurnStart();else toast('Este dispositivo no puede mostrar la playlist dentro del video.','error');}
+}
+// ═══════════════ MIS VIDEOS (biblioteca propia, se colocan en pantalla como las imagenes) ═══════════════
+// Cada usuario sube videos de SU dispositivo (se guardan en el navegador, IndexedDB, igual que la playlist) y los coloca en la pantalla como un grafico:
+// mover, tamano, zoom, quitar. Varios a la vez. Salen DENTRO del video (con su audio, que se mezcla con el microfono): se activa solo "Graficos dentro del video".
+// Cada video en pantalla se puede pausar, reiniciar, repetir en bucle y silenciar. Los archivos nunca se suben a ningun servidor.
+function vfList(){return Object.keys(_PLY.files).map(function(k){return _PLY.files[k];}).filter(function(f){return f&&f.kind==='vf';}).sort(function(a,b){return(b.ts||0)-(a.ts||0);});}
+function vfLayers(k){return(_BC.layout||[]).filter(function(x){return x.page==='vf'&&x.d&&x.d.k===k;});}
+function vfBodyHtml(){
+  var l=vfList(),mb=0;l.forEach(function(f){mb+=f.size||0;});
+  var rows=l.length?l.map(function(f){
+    var ly=vfLayers(f.id)[0],on=!!ly,d=(ly&&ly.d)||{};
+    var bt=function(act,ic,tt){return'<button type="button" class="btn bs" style="padding:4px 9px" title="'+tt+'" onclick="vfCtl(\''+f.id+'\',\''+act+'\')">'+ic+'</button>';};
+    return'<div style="border:2px solid '+(on?'var(--acc)':'var(--bdr)')+';border-radius:10px;padding:8px;margin-bottom:8px">'
+      +'<div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">&#127916; '+nfEsc(f.name)+'</div><div style="font-size:11px;color:var(--t3)">'+((f.size||0)/1048576).toFixed(1)+' MB'+(on?' · <b style="color:var(--acc)">en pantalla</b>':'')+'</div></div>'
+      +'<button type="button" class="btn '+(on?'bs':'bp')+'" style="padding:5px 10px" onclick="vfToggle(\''+f.id+'\')">'+(on?'Quitar':'Poner')+'</button>'
+      +'<button type="button" class="btn bs" style="padding:5px 8px" title="Cambiar nombre" onclick="vfRename(\''+f.id+'\')">&#9999;&#65039;</button>'
+      +'<button type="button" class="btn bs" style="padding:5px 8px" title="Eliminar de mi biblioteca" onclick="vfDelete(\''+f.id+'\')">&#128465;</button></div>'
+      +(on?'<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'+bt('pa',d.pa?'&#9654;&#65039; Seguir':'&#9208;&#65039; Pausar','Pausar o seguir')+bt('rs','&#128260; Reiniciar','Volver al inicio')+bt('mu',d.mu?'&#128263; Sin sonido':'&#128266; Con sonido','Silenciar o activar el sonido')+bt('lp',d.lp?'&#128257; Bucle: sí':'&#10145;&#65039; Bucle: no','Repetir al terminar')+'</div>':'')
+      +'</div>';}).join('')
+    :'<div class="empty" style="padding:18px 8px"><div style="font-size:30px">&#127916;</div><div>Aún no has subido videos.</div></div>';
+  return'<div style="font-size:12px;color:var(--t2);margin-bottom:10px">Sube videos de tu dispositivo (MP4 o WebM, hasta 200 MB cada uno), toca <b>Poner</b> y luego muévelos y ajusta su tamaño sobre el video. Salen dentro de la transmisión con su sonido. Se guardan solo en este dispositivo ('+(mb/1048576).toFixed(1)+' MB).</div>'+rows;
+}
+function vfRefresh(){var b=document.getElementById('vf-body');if(b){var sc=b.scrollTop;b.innerHTML=vfBodyHtml();b.scrollTop=sc;}}
+async function vfOpenM(){
+  if(!_BC.id){toast('Primero inicia la transmisión','info');return;}
+  showM('<div class="mhd"><div class="mtl">&#127916; Mis videos</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="vf-body"><div class="empty">Cargando...</div></div>'
+    +'<div class="mft"><label class="btn bs" style="cursor:pointer;margin:0">&#128193; Subir video<input type="file" accept="video/*" multiple style="display:none" onchange="vfChosen(this)"></label><button class="btn bp" onclick="cM()">Listo</button></div>');
+  await plLoad();vfRefresh();
+}
+async function vfChosen(inp){
+  var fs=Array.prototype.slice.call(inp.files||[]);inp.value='';var n=0;
+  for(var i=0;i<fs.length;i++){
+    var f=fs[i];
+    if((f.type||'').indexOf('video')!==0){toast(f.name+': no es un video.','error');continue;}
+    if(f.size>200*1048576){toast(f.name+': pesa más de 200 MB.','error');continue;}
+    var rec={id:'vf'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),owner:bcUk(''),kind:'vf',name:String(f.name||'Video').replace(/\.[^.]+$/,'').slice(0,40),type:f.type,size:f.size,blob:f,ts:Date.now()};
+    try{await plPut(rec);}catch(e){toast('No hay espacio para guardar '+f.name+'.','error');continue;}
+    _PLY.files[rec.id]=rec;n++;
+  }
+  if(n){vfRefresh();toast(n+' video(s) guardado(s) en tu biblioteca.','success');}
+}
+function vfToggle(k){
+  if(!_BC.id)return;var f=_PLY.files[k];if(!f)return;
+  var ex=vfLayers(k);
+  if(ex.length){ex.forEach(function(x){_BC.layout=_BC.layout.filter(function(y){return y.id!==x.id;});});try{if(_BC.stageRedraw)_BC.stageRedraw();else bcBurnRedraw();}catch(e){}bcCommitLayout();vfRefresh();return;}
+  var n=(_BC.layout||[]).filter(function(x){return x.page==='vf';}).length;
+  if(bcXAdd('vf',{n:f.name,k:k,lp:1,mu:0,pa:0,rs:0},{x:20+Math.min(n,4)*4,y:12+Math.min(n,4)*4,w:50,h:50})){bcXNeedBurn();vfRefresh();}
+}
+function vfCtl(k,act){
+  vfLayers(k).forEach(function(x){
+    var d=x.d=x.d||{};
+    if(act==='pa')d.pa=d.pa?0:1;else if(act==='mu')d.mu=d.mu?0:1;else if(act==='lp')d.lp=d.lp?0:1;else if(act==='rs'){d.rs=((parseInt(d.rs)||0)+1)%100000;d.pa=0;}
+  });
+  try{bcBurnRedraw();}catch(e){}try{if(_BC.stageRedraw)_BC.stageRedraw();}catch(e){}
+  bcCommitLayout();vfRefresh();
+}
+async function vfRename(k){
+  var f=_PLY.files[k];if(!f)return;var nv=prompt('Nombre del video (máximo 40 letras):',f.name||'');if(nv==null)return;nv=nv.trim().slice(0,40);if(!nv)return;
+  f.name=nv;try{await plPut(f);}catch(e){}
+  vfLayers(k).forEach(function(x){x.d.n=nv;});
+  bcCommitLayout();vfRefresh();
+}
+async function vfDelete(k){
+  if(!confirm('¿Eliminar este video de tu biblioteca? Si está en la pantalla, también se quitará.'))return;
+  vfLayers(k).forEach(function(x){_BC.layout=_BC.layout.filter(function(y){return y.id!==x.id;});});
+  try{await plDel(k);}catch(e){}
+  try{if(_PLY.url[k]){URL.revokeObjectURL(_PLY.url[k]);delete _PLY.url[k];}}catch(e){}
+  delete _PLY.files[k];
+  try{if(_BC.stageRedraw)_BC.stageRedraw();else bcBurnRedraw();}catch(e){}
+  bcCommitLayout();vfRefresh();
+}
+// Tu Pantalla (y la app de quien lo tenga): el video suena en silencio; el sonido va por el mezclador del compositor
+function vfDomFill(x,d){
+  var f=_PLY.files[d.k],stage=!!(x.closest&&x.closest('.lse')),key='vf'+(d.k||'')+(f?'1':'0')+(d.lp?1:0)+(d.pa?1:0)+(d.rs||0);
+  if(x._sig===key)return;x._sig=key;
+  x.className='lsx wg';x.innerHTML='';
+  if(!f){x.innerHTML=stage?'<div class="pl-ph">&#127916; Video<br><small>No está en este dispositivo</small></div>':'';return;}
+  var v=document.createElement('video');v.setAttribute('playsinline','');v.muted=true;v.loop=!!d.lp;v.src=plUrl(d.k);v.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
+  x.appendChild(v);if(!d.pa){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}
+}
+function bcVfEntry(d){
+  var e={kind:'vf',k:d.k,ok:false,err:false,wv:null,gn:null,rs:parseInt(d.rs)||0,t0:performance.now()},f=_PLY.files[d.k];
+  if(!f){e.err=true;return e;}
+  var v=document.createElement('video');v.setAttribute('playsinline','');v.loop=!!d.lp;v.preload='auto';
+  v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
+  v.onloadeddata=function(){e.ok=true;};v.onerror=function(){e.err=true;};
+  v.src=plUrl(d.k);document.body.appendChild(v);e.wv=v;
+  try{if(bcAmxEnsure()){if(_AMX.ctx.state==='suspended')_AMX.ctx.resume();var sc=_AMX.ctx.createMediaElementSource(v),g=_AMX.ctx.createGain();g.gain.value=d.mu?0:1;sc.connect(g);g.connect(_AMX.gv);e.gn=g;v._amx=1;}}catch(x){}
+  if(!d.pa){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}
+  return e;
+}
+function bcVfApply(e,d){
+  var v=e.wv;if(!v)return;
+  v.loop=!!d.lp;if(e.gn)e.gn.gain.value=d.mu?0:1;
+  var rs=parseInt(d.rs)||0;if(rs!==e.rs){e.rs=rs;try{v.currentTime=0;}catch(x){}}
+  if(d.pa){if(!v.paused)v.pause();}
+  else if(v.paused){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}
+}
+// ═══════════════ CAMARA EN CUADRO (la imagen de una camara como un grafico movible) ═══════════════
+// Pone la imagen de tu camara (o de una camara enlazada) como un cuadro sobre la transmision: se mueve, cambia de tamano, se maximiza y se quita como cualquier
+// grafico. Sale dentro del video (se activa solo "Graficos dentro del video"). Si esa camara esta apagada o sin senal, el cuadro no se dibuja.
+function cmSources(){
+  var a=[{id:'local',name:'Esta cámara'+(camNameOf('local')&&camNameOf('local')!=='Principal'?' ('+camNameOf('local')+')':''),ok:true}];
+  camList().forEach(function(c){a.push({id:c.id,name:camNameOf(c.id),ok:c.conn==='connected'&&!!c.stream});});
+  return a;
+}
+function cmStream(id){
+  if(id==='local'){var t=_BC.stream&&_BC.stream.getVideoTracks()[0];return(!_BC.camOff&&t&&t.readyState==='live'&&!(_BC.dummy&&_BC.dummy.track===t))?_BC.stream:null;}
+  var c=(_BC.cams||{})[id];
+  if(!c||c.conn!=='connected'||c.camOff||!c.stream||!c.track||c.track.readyState!=='live')return null;
+  return c.stream;
+}
+function cmLayer(id){return(_BC.layout||[]).filter(function(x){return x.page==='cm'&&x.d&&x.d.c===id;})[0];}
+function cmDomFill(x,d){
+  var stage=!!(x.closest&&x.closest('.lse')),st=cmStream(d.c);
+  var key='cm'+(d.c||'')+(d.sh||'')+(st?'1':'0');
+  var v=x.querySelector('video');
+  if(x._sig===key&&v&&v.srcObject&&v.srcObject._src===st)return;x._sig=key;
+  x.className='lsx wg';x.innerHTML='';
+  if(!st){x.innerHTML=stage?'<div class="pl-ph">&#128247; Cámara<br><small>Apagada o sin señal</small></div>':'';return;}
+  var vv=document.createElement('video');vv.muted=true;vv.setAttribute('playsinline','');vv.autoplay=true;vv.srcObject=bcPrevStream(st);
+  vv.style.cssText='width:100%;height:100%;object-fit:cover;background:#000;'+(d.sh==='circle'?'border-radius:50%;':(d.sh==='round'?'border-radius:14px;':''));
+  x.appendChild(vv);try{vv.play();}catch(e){}
+}
+function cmBodyHtml(){
+  var shn={normal:'Cuadro',round:'Redondeado',circle:'Círculo'};
+  return'<div style="font-size:12px;color:var(--t2);margin-bottom:10px">Toca <b>Poner</b> para colocar la imagen de una cámara como un cuadro sobre la transmisión; luego muévelo y cámbiale el tamaño en tu Pantalla. Puedes poner varias.</div>'
+    +cmSources().map(function(sr){
+      var ly=cmLayer(sr.id),on=!!ly,d=(ly&&ly.d)||{};
+      return'<div style="border:2px solid '+(on?'var(--acc)':'var(--bdr)')+';border-radius:10px;padding:8px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+        +'<div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">&#128247; '+nfEsc(sr.name)+'</div><div style="font-size:11px;color:var(--t3)">'+(sr.ok?(on?'<b style="color:var(--acc)">en pantalla</b>':'disponible'):'sin señal')+'</div></div>'
+        +(on?'<button type="button" class="btn bs" style="padding:5px 9px" onclick="cmShape(\''+sr.id+'\')" title="Forma del cuadro">'+shn[d.sh||'normal']+'</button>':'')
+        +'<button type="button" class="btn '+(on?'bs':'bp')+'" style="padding:5px 10px" onclick="cmToggle(\''+sr.id+'\')">'+(on?'Quitar':'Poner')+'</button></div>';
+    }).join('');
+}
+function cmRefresh(){var b=document.getElementById('cm-body');if(b)b.innerHTML=cmBodyHtml();}
+function cmOpenM(){
+  if(!_BC.id){toast('Primero inicia la transmisión','info');return;}
+  showM('<div class="mhd"><div class="mtl">&#128247; Cámara en cuadro</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd" id="cm-body"></div><div class="mft"><button class="btn bp" onclick="cM()">Listo</button></div>');
+  cmRefresh();
+}
+function cmToggle(id){
+  if(!_BC.id)return;var ex=cmLayer(id);
+  if(ex){bcXRemove(ex.id);cmRefresh();return;}
+  var sr=cmSources().filter(function(x){return x.id===id;})[0];if(!sr)return;
+  var n=(_BC.layout||[]).filter(function(x){return x.page==='cm';}).length;
+  if(bcXAdd('cm',{c:id,n:sr.name.slice(0,24),sh:'normal'},{x:68-Math.min(n,3)*3,y:6+Math.min(n,3)*3,w:28,h:28})){bcXNeedBurn();cmRefresh();}
+}
+function cmShape(id){
+  var ly=cmLayer(id);if(!ly)return;var o=['normal','round','circle'],d=ly.d;
+  d.sh=o[(o.indexOf(d.sh||'normal')+1)%3];
+  try{if(_BC.stageRedraw)_BC.stageRedraw();else bcBurnRedraw();}catch(e){}
+  bcCommitLayout();cmRefresh();
 }
 // ═══════════════ WIDGETS CON URL (YouTube, Vimeo, video directo, pagina web) ═══════════════
 // Son elementos del layout (page 'wg', it.d.u = URL https). Se ven en tu Pantalla y en la app de los espectadores (reproduce cada dispositivo).
@@ -8883,7 +9047,8 @@ function bcAmxEnsure(){
     gm.connect(dest);gv.connect(dest);gmic.connect(dest);
     var mt=_BC.stream&&_BC.stream.getAudioTracks()[0];if(mt)ctx.createMediaStreamSource(new MediaStream([mt])).connect(gmic);
     gm.gain.value=_PLY.aud.vol/100;
-    _AMX={ctx:ctx,dest:dest,gm:gm,gv:gv,gmic:gmic,track:dest.stream.getAudioTracks()[0],snd:snd};
+    var mon=ctx.createGain();mon.gain.value=camHearGet()?1:0;mon.connect(ctx.destination);   // monitor del anfitrion: se oyen los microfonos de las camaras en TU altavoz (no sale al aire)
+    _AMX={ctx:ctx,dest:dest,gm:gm,gv:gv,gmic:gmic,mon:mon,track:dest.stream.getAudioTracks()[0],snd:snd};
     snd.replaceTrack(_AMX.track).catch(function(){});
     return true;
   }catch(e){return false;}
@@ -9443,6 +9608,8 @@ function bcCmpTell(e,cmd){
 }
 function bcCmpDrop(e){
   if(!e)return;
+  try{if(e.gn)e.gn.disconnect();}catch(x){}
+  try{if(e.reg)bcMosPrune(e.reg,{});}catch(x){}
   if(e.wv){try{e.wv.pause();e.wv.removeAttribute('src');e.wv.remove();}catch(x){}}
   try{if(e.bmp&&e.bmp.close)e.bmp.close();}catch(x){}
   if(e.fr){try{bcCmpTell(e,'stop');}catch(x){}try{e.fr.onload=null;e.fr.src='about:blank';e.fr.remove();}catch(x){}}
@@ -9469,6 +9636,8 @@ function bcCmpSync(){
   list.forEach(function(it){
     keep[it.id]=1;var e=b.items[it.id];
     if(it.page==='wg'){var d0=it.d||{};if(!e||e.kind!=='wg'||e.u!==d0.u){if(e)bcCmpDrop(e);b.items[it.id]=bcWgEntry(d0.u);}return;}
+    if(it.page==='cm'){var dc=it.d||{};if(!e||e.kind!=='cm'||e.c!==dc.c){if(e)bcCmpDrop(e);b.items[it.id]={kind:'cm',c:dc.c,reg:{},t0:performance.now()};}return;}
+    if(it.page==='vf'){var dv=it.d||{};if(!e||e.kind!=='vf'||e.k!==dv.k){if(e)bcCmpDrop(e);b.items[it.id]=bcVfEntry(dv);}else bcVfApply(e,dv);return;}
     if(it.page==='mq'||it.page==='sc'||it.page==='pl'){if(!e||e.kind!==it.page)b.items[it.id]={kind:it.page,t0:performance.now()};return;}   // se dibujan directo en el canvas (bcXDraw)
     if(it.page==='img'){   // imagen propia: se dibuja directo, sin pagina intermedia
       var src=String(it.src||'');
@@ -9534,7 +9703,7 @@ function bcCmpDraw(){
     (_BC.layout||[]).forEach(function(it){
       var e=b.items[it.id];if(!e)return;
       var x=it.x/100*cw,y=it.y/100*ch,w=it.w/100*cw,h=lsItemH(it)/100*ch;
-      if(e.kind==='mq'||e.kind==='sc'||e.kind==='pl'||e.kind==='wg'){bcXDraw(ctx,e,it,x,y,w,h,_t,cw);return;}
+      if(e.kind==='mq'||e.kind==='sc'||e.kind==='pl'||e.kind==='wg'||e.kind==='vf'||e.kind==='cm'){bcXDraw(ctx,e,it,x,y,w,h,_t,cw);return;}
       if(e.kind==='img'){
         if(e.ok&&e.img.naturalWidth>0){var k=Math.min(w/e.img.naturalWidth,h/e.img.naturalHeight),iw=e.img.naturalWidth*k,ih=e.img.naturalHeight*k;ctx.drawImage(e.img,x+(w-iw)/2,y+(h-ih)/2,iw,ih);}   // completa, sin deformarse (como en la Pantalla)
       }else if(e.bmp){ctx.drawImage(e.bmp,x,y,w,h);}
@@ -9555,6 +9724,8 @@ function bcCmpStatus(){
   var cat=lsCatalog(),now=Date.now();
   return(_BC.layout||[]).map(function(it){
     if(it.page==='wg'){var we=b.items[it.id],ww=wgParse((it.d||{}).u,false);return{label:'Widget: '+((it.d||{}).n||'web'),st:'ok',tx:(ww&&ww.kind==='vid')?(we&&we.ok?'dentro del video':(we&&we.err?'sin permiso: solo en la app':'cargando')):'solo en la app'};}
+    if(it.page==='cm')return{label:'Cámara en cuadro: '+((it.d||{}).n||'cámara'),st:'ok',tx:'dentro del video'};
+    if(it.page==='vf'){var ve=b.items[it.id];return{label:'Video: '+((it.d||{}).n||'video'),st:(ve&&ve.err)?'err':'ok',tx:(ve&&ve.err)?'no se pudo abrir (¿se borró del dispositivo?)':'dentro del video'};}
     if(it.page==='mq'||it.page==='sc'||it.page==='pl')return{label:it.page==='mq'?'Marquee':(it.page==='sc'?'Plantilla de red social':'Playlist'),st:'ok',tx:'lista'};
     var e=b.items[it.id],lb=it.page==='img'?'Imagen':lsPlain((cat.filter(function(c){return c.id===it.id;})[0]||{}).label||it.id),st='load',tx='cargando…';
     if(e){
@@ -10077,7 +10248,7 @@ function camQrSvg(url){try{var q=qrcode(0,'M');q.addData(url);q.make();return q.
 function camStyles(){
   if(document.getElementById('cam-css'))return;
   var s=document.createElement('style');s.id='cam-css';
-  s.textContent='.bcf-cams{display:none;gap:4px;padding:4px;flex-wrap:wrap;justify-content:center}.bcf-cams button{min-width:32px;height:30px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-weight:800;font-size:13px;cursor:pointer}.bcf-cams button.on{background:#e53935;border-color:#e53935}.bcf-cams button:disabled{opacity:.35}'
+  s.textContent='.cmos-hand{position:absolute;top:6px;left:6px;z-index:4;height:38px;min-width:38px;border-radius:19px;border:2px solid #fbbf24;background:rgba(251,191,36,.95);color:#000;font-size:20px;cursor:pointer;padding:0 8px;animation:cmoshand 1s ease-in-out infinite}@keyframes cmoshand{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}.cam-card .hand-tag{color:#b45309;font-weight:800}.bcf-cams{display:none;gap:4px;padding:4px;flex-wrap:wrap;justify-content:center}.bcf-cams button{min-width:32px;height:30px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-weight:800;font-size:13px;cursor:pointer}.bcf-cams button.on{background:#e53935;border-color:#e53935}.bcf-cams button:disabled{opacity:.35}'
    +'.cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}.cam-card{border:1px solid rgba(128,128,128,.4);border-radius:10px;overflow:hidden;position:relative;background:rgba(128,128,128,.08)}.cam-card.on{border-color:#e53935;box-shadow:0 0 0 2px #e53935}'
    +'.cam-card video{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;display:block}.cam-card .cap{padding:6px 8px;font-size:12px;display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap}.cam-card .cbody{padding:10px;font-size:12px;line-height:1.5;text-align:center}'
    +'.bcs .bcf-cams{justify-content:flex-start;padding:8px 0 2px}.bcs .bcf-cams button{min-width:44px;height:40px;font-size:15px;background:#455a64;border-color:#455a64}.bcs .bcf-cams button.on{background:#e53935;border-color:#e53935}.bcs .bcf-cams button:disabled{opacity:.4}'
@@ -10164,7 +10335,7 @@ function camSpeaking(id){
 }
 function camCtlSend(c,o){try{if(c.dc&&c.dc.readyState==='open')c.dc.send(JSON.stringify(o));}catch(e){}}
 function camAudioDetach(c){
-  try{if(c.asrc)c.asrc.disconnect();if(c.agn)c.agn.disconnect();}catch(e){}c.asrc=c.agn=null;c.an=null;
+  try{if(c.asrc)c.asrc.disconnect();if(c.agn)c.agn.disconnect();if(c.amon)c.amon.disconnect();}catch(e){}c.asrc=c.agn=c.amon=null;c.an=null;
   try{if(c.au){c.au.pause();c.au.srcObject=null;}}catch(e){}c.au=null;
 }
 function camAudioAttach(c){
@@ -10175,12 +10346,42 @@ function camAudioAttach(c){
     c.au=new Audio();c.au.muted=true;c.au.srcObject=ms;var pr=c.au.play();if(pr&&pr.catch)pr.catch(function(){});   // Chrome: sin esto el audio remoto no llega al mezclador
     c.asrc=_AMX.ctx.createMediaStreamSource(ms);c.agn=_AMX.ctx.createGain();c.agn.gain.value=c.mic?1:0;
     c.asrc.connect(c.agn);c.agn.connect(_AMX.dest);
+    c.amon=_AMX.ctx.createGain();c.amon.gain.value=1;c.asrc.connect(c.amon);if(_AMX.mon)c.amon.connect(_AMX.mon);   // monitor local (antes del interruptor de aire)
     try{camMixWire();}catch(e){}   // las demas camaras tambien la escuchan
     try{if(_AMX.ctx.state==='suspended')_AMX.ctx.resume();}catch(e){}
   }catch(e){}
 }
+function camHearGet(){if(_BC.hear==null){var v=null;try{v=bcLsGet('vp_bc_hear');}catch(e){}_BC.hear=(v==='1');}return!!_BC.hear;}
+function camHearUi(){
+  var on=camHearGet(),t=on?'&#127911; Escuchar cámaras: ACTIVO':'&#127911; Escuchar cámaras: apagado';
+  var b=document.getElementById('cmos-hear');if(b){b.innerHTML=t;b.className='btn '+(on?'bp':'bs');}
+  Array.prototype.forEach.call(document.querySelectorAll('button[data-c="__h"]'),function(x){x.style.background=on?'#16a34a':'';x.title=on?'Oyes a las cámaras (usa audífonos). Toca para silenciar.':'Toca para escuchar los micrófonos de las cámaras (usa audífonos)';});
+}
+function camHearToggle(){
+  var on=!camHearGet();_BC.hear=on;try{bcLsSet('vp_bc_hear',on?'1':'0');}catch(e){}
+  if(on&&!_AMX.ctx){camList().forEach(function(c){if(!c.local&&c.atrack)camAudioAttach(c);});}
+  if(_AMX.mon)_AMX.mon.gain.value=on?1:0;
+  try{if(_AMX.ctx&&_AMX.ctx.state==='suspended')_AMX.ctx.resume();}catch(e){}
+  camHearUi();
+  toast(on?'🎧 Escuchas los micrófonos de las cámaras. Usa audífonos para que no haya eco.':'Dejaste de escuchar a las cámaras.','info');
+}
+// Mano levantada: la persona que comparte la camara pide la palabra; el anfitrion la ve y se baja sola al activarle el microfono.
+function camBeep(){
+  try{var ctx=camSpkCtx();if(!ctx)return;var o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=880;g.gain.value=0.0001;o.connect(g);g.connect(ctx.destination);
+    var t=ctx.currentTime;g.gain.exponentialRampToValueAtTime(0.25,t+0.03);g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);o.start(t);o.stop(t+0.4);}catch(e){}
+}
+function camHandSet(c,on,quiet){
+  on=!!on;if(!!c.hand===on)return;
+  c.hand=on;c.sigOld='';
+  if(on&&!quiet){toast('✋ '+camNameOf(c.id)+' pide la palabra','info');camBeep();}
+  camRender();
+}
+function camHandClear(id){
+  var c=(_BC.cams||{})[id];if(!c)return;
+  c.hand=false;camCtlSend(c,{t:'hand',on:false});c.sigOld='';camRender();
+}
 function camMicSet(c,on,remote){
-  c.mic=!!on;if(c.agn)c.agn.gain.value=c.mic?1:0;
+  c.mic=!!on;if(c.mic&&c.hand){c.hand=false;camCtlSend(c,{t:'hand',on:false});}if(c.agn)c.agn.gain.value=c.mic?1:0;
   if(!remote)camCtlSend(c,{t:'mic',on:c.mic});
   else toast((c.label||'Cámara')+(c.mic?': micrófono activado':': micrófono silenciado'),'info');
   c.sigOld='';camRender();
@@ -10195,11 +10396,13 @@ function camCtlMsg(c,raw){
   if(m.t==='hello'){
     if(typeof m.n==='string'&&(!c.name||c.nameBy==='remote')){var nn=camClean(m.n);if(nn){c.name=nn;c.nameBy='remote';}}   // el nombre que puso quien conecta (si quien transmite no lo cambio)
     c.camOff=(m.cam===false);
+    if(m.hand)camHandSet(c,true,true);else if(c.hand)camCtlSend(c,{t:'hand',on:true});
     if(!c.micInit){c.micInit=true;c.mic=!!m.mic;if(c.agn)c.agn.gain.value=c.mic?1:0;}
     else camCtlSend(c,{t:'mic',on:!!c.mic});   // al reconectarse manda el estado de quien transmite
     camCtlSend(c,{t:'name',n:camNameOf(c.id)});
     c.sigOld='';camRender();
-  }else if(m.t==='mic')camMicSet(c,!!m.on,true);
+  }else if(m.t==='hand')camHandSet(c,!!m.on,false);
+  else if(m.t==='mic')camMicSet(c,!!m.on,true);
   else if(m.t==='name'){var n2=camClean(m.n);c.name=n2;c.nameBy=n2?'remote':'';c.sigOld='';camRender();camCtlSend(c,{t:'name',n:camNameOf(c.id)});}
   else if(m.t==='cam'){c.camOff=(m.on===false);c.sigOld='';camRender();}
   else if(m.t==='av')camAvChunk(c,m);
@@ -10251,7 +10454,7 @@ function bcMosCfgHtml(){
 function bcMosTiles(){
   var t=[],lt=_BC.stream&&_BC.stream.getVideoTracks()[0];
   if(!_BC.camOff&&lt&&!(_BC.dummy&&_BC.dummy.track===lt))t.push({id:'local',s:_BC.stream,name:camNameOf('local'),spk:camSpeaking('local')});
-  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream,name:camNameOf(c.id),frame:c.frame||null,off:!!c.camOff,av:c.avImg||null,spk:camSpeaking(c.id)});});
+  camList().forEach(function(c){if(c.conn==='connected'&&c.stream&&c.track&&c.track.readyState==='live')t.push({id:c.id,s:c.stream,name:camNameOf(c.id),frame:c.frame||null,off:!!c.camOff,av:c.avImg||null,spk:camSpeaking(c.id),hand:!!c.hand});});
   return t;
 }
 function bcMosVid(reg,t){
@@ -10310,6 +10513,11 @@ function bcMosDraw(ctx,cw,ch,holder){
       for(var q=0;q<3;q++){var hq=bs*(0.28+0.4*Math.abs(Math.sin(tnow/140+q*1.7))),wq=bs*0.14;ctx.fillRect(ix+bs*0.22+q*bs*0.26,iy+(bs-hq)/2,wq,hq);}
       ctx.restore();
     }
+    if(t.hand&&holder!==_BC.burn){   // solo en TU vista previa del mosaico: los espectadores no ven la mano levantada
+      var hs=Math.max(22,Math.min(chei*0.16,cw*0.05));
+      ctx.save();ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(bx+hs*0.8,by+hs*0.8,hs*0.62,0,Math.PI*2);ctx.fill();
+      ctx.font=(hs*0.8)+'px '+BCX_EMO;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#000';ctx.fillText('\u270B',bx+hs*0.8,by+hs*0.82);ctx.restore();
+    }
     if(cfg.nm&&t.name){
       var fs=Math.max(11,Math.min(chei*0.085,cw*0.026)),pad=fs*0.5;
       ctx.save();ctx.font='700 '+fs+'px '+BCX_FONT;ctx.textBaseline='middle';ctx.textAlign='left';
@@ -10357,10 +10565,10 @@ function camRenderStrip(elId){
   if(!L.length){st.innerHTML='';st.style.display='none';return;}
   var hh=elId==='bcs-cams'?'<span style="font-size:11px;align-self:center;color:var(--t3)">Cámara al aire:</span>':'';
   hh+='<button data-c="local" class="'+(prog==='local'&&!_BC.mosaic?'on':'')+'" title="Esta cámara">1</button>';
-  L.forEach(function(c,i){hh+='<button data-c="'+c.id+'" class="'+(prog===c.id&&!_BC.mosaic?'on':'')+'" '+(c.conn==='connected'?'':'disabled')+' title="'+nfEsc(c.label||'')+'">'+(i+2)+'</button>';});
-  hh+='<button data-c="__m" title="Ver todas las cámaras a la vez (solo para ti)" style="background:rgba(47,111,237,.8)">&#9638;</button><button data-c="__ma" class="'+(_BC.mosaic?'on':'')+'" title="Mosaico AL AIRE: los espectadores ven todas las cámaras a la vez" style="min-width:auto;padding:0 8px">&#9638; AIRE</button>';
+  L.forEach(function(c,i){hh+='<button data-c="'+c.id+'" class="'+(prog===c.id&&!_BC.mosaic?'on':'')+'" '+(c.conn==='connected'?'':'disabled')+' title="'+nfEsc(c.label||'')+'">'+(i+2)+(c.hand?' &#9995;':'')+'</button>';});
+  hh+=(L.some(function(c){return!c.local;})?'<button data-c="__h" title="Toca para escuchar los micrófonos de las cámaras (usa audífonos)" style="min-width:auto;padding:0 8px;'+(camHearGet()?'background:#16a34a':'')+'">&#127911;</button>':'')+'<button data-c="__m" title="Ver todas las cámaras a la vez (solo para ti)" style="background:rgba(47,111,237,.8)">&#9638;</button><button data-c="__ma" class="'+(_BC.mosaic?'on':'')+'" title="Mosaico AL AIRE: los espectadores ven todas las cámaras a la vez" style="min-width:auto;padding:0 8px">&#9638; AIRE</button>';
   st.innerHTML=hh;st.style.display='flex';
-  Array.prototype.forEach.call(st.querySelectorAll('button'),function(b){b.onclick=function(){var k=b.getAttribute('data-c');if(k==='__m')camOpenMosaic();else if(k==='__ma')bcMosToggle();else camSwitch(k);};});
+  Array.prototype.forEach.call(st.querySelectorAll('button'),function(b){b.onclick=function(){var k=b.getAttribute('data-c');if(k==='__m')camOpenMosaic();else if(k==='__h')camHearToggle();else if(k==='__ma')bcMosToggle();else camSwitch(k);};});
 }
 function camRender(){
   camRenderStrip('bcf-cams');   // ventanita flotante
@@ -10371,7 +10579,7 @@ function camRender(){
 function camRenderM(){
   var box=document.getElementById('cam-m');if(!box)return;
   var L=camList(),prog=_BC.prog||'local',max=_BC.camMax||camMaxLocal();
-  var sig=JSON.stringify([prog,max,!!_BC.mosaic,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,c.avUrl?c.avUrl.length:0];}),_BC.mosLocalName||'']);
+  var sig=JSON.stringify([prog,max,!!_BC.mosaic,!!_BC.hear,L.map(function(c){return[c.id,c.status,c.conn,c.label,c.code,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,!!c.hand,c.avUrl?c.avUrl.length:0];}),_BC.mosLocalName||'']);
   if(box.getAttribute('data-sig')===sig){return;}
   box.setAttribute('data-sig',sig);
   var used=L.length+1,hh=(L.length?'<button class="btn '+(_BC.mosaic?'bp':'bs')+'" style="width:100%;margin-bottom:8px" onclick="bcMosToggle()">&#9638; '+(_BC.mosaic?'Quitar el mosaico del aire (volver a una sola cámara)':'Poner el mosaico al aire (todas las cámaras a la vez)')+'</button>'+bcMosCfgHtml():'')+'<div style="font-size:12px;color:var(--t2);margin-bottom:6px">Cámaras: <b>'+used+' de '+max+'</b> ('+(camDevice()==='pc'?'PC':'celular')+'). Toca una miniatura numerada para ponerla <b>al aire</b>: eso es lo que ven los espectadores.</div><div class="cam-grid">';
@@ -10392,7 +10600,7 @@ function camRenderM(){
   box.innerHTML=hh;
   Array.prototype.forEach.call(box.querySelectorAll('video[data-cv]'),function(v){
     var id=v.getAttribute('data-cv'),s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream;
-    if(s){v.srcObject=s;try{v.play();}catch(e){}}
+    if(s){v.srcObject=bcPrevStream(s);try{v.play();}catch(e){}}
   });
 }
 // MOSAICO: todas las camaras a la vez en pantalla completa (solo en este dispositivo, no cuesta nada). Tocar una la pone al aire.
@@ -10400,11 +10608,13 @@ function camOpenMosaic(){
   if(!_BC.id||document.getElementById('cam-mos'))return;
   camStyles();
   var el=document.createElement('div');el.id='cam-mos';
-  el.innerHTML='<div class="cmos-top"><b>&#9638; Mosaico de c&aacute;maras</b><span style="flex:1"></span><button class="btn bs" id="cmos-x">Cerrar</button></div><div class="cmos-grid" id="cmos-grid"></div><div class="cmos-hint">Toca una c&aacute;mara para ponerla al aire. Escribe en el nombre de cada recuadro para cambiarlo (as&iacute; lo ven los espectadores). El recuadro verde indica qui&eacute;n est&aacute; hablando.</div>';
+  el.innerHTML='<div class="cmos-top"><b>&#9638; Mosaico de c&aacute;maras</b><span style="flex:1"></span><button class="btn bs" id="cmos-hear" title="Oye los micrófonos de las cámaras en tu altavoz (usa audífonos)"></button><button class="btn bs" id="cmos-x">Cerrar</button></div><div class="cmos-grid" id="cmos-grid"></div><div class="cmos-hint">Toca una c&aacute;mara para ponerla al aire. Escribe en el nombre de cada recuadro para cambiarlo (as&iacute; lo ven los espectadores). El recuadro verde indica qui&eacute;n est&aacute; hablando.</div>';
   document.body.appendChild(el);
   document.getElementById('cmos-x').onclick=camCloseMosaic;
+  document.getElementById('cmos-hear').onclick=camHearToggle;camHearUi();
   if(!_BC.mosRs){_BC.mosRs=function(){camRenderMosaic(true);};window.addEventListener('resize',_BC.mosRs);}
   clearInterval(_BC.spkT);_BC.spkT=setInterval(camSpkTick,200);
+  if(!_BC.pwT)_BC.pwT=setInterval(bcPrevWatch,1500);
   camRenderMosaic(true);
 }
 function camSpkTick(){
@@ -10413,6 +10623,7 @@ function camSpkTick(){
 }
 function camCloseMosaic(){
   var el=document.getElementById('cam-mos');if(el)el.remove();
+  setTimeout(function(){try{bcPrevHeal();}catch(e){}},250);
   clearInterval(_BC.spkT);_BC.spkT=null;
   try{if(_BC.mosRs){window.removeEventListener('resize',_BC.mosRs);_BC.mosRs=null;}}catch(e){}
 }
@@ -10420,19 +10631,22 @@ function camRenderMosaic(force){
   var g=document.getElementById('cmos-grid');if(!g)return;
   var ae=document.activeElement;if(!force&&ae&&ae.classList&&ae.classList.contains('cmos-nm'))return;   // no se interrumpe mientras escribes un nombre
   var L=camList(),prog=_BC.prog||'local';
-  var sig=JSON.stringify([prog,_BC.mosLocalName||'',L.map(function(c){return[c.id,c.conn,c.label,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,c.avUrl?c.avUrl.length:0];})]);
+  var lat=_BC.stream&&_BC.stream.getAudioTracks()[0],lmic=!!(lat&&lat.enabled);
+  var sig=JSON.stringify([prog,_BC.mosLocalName||'',!!lat,lmic,L.map(function(c){return[c.id,c.conn,c.label,!!c.atrack,!!c.mic,c.name||'',!!c.camOff,!!c.hand,c.avUrl?c.avUrl.length:0];})]);
   if(!force&&g.getAttribute('data-sig')===sig)return;
   g.setAttribute('data-sig',sig);
-  var tiles=[{id:'local',n:1,ok:true}].concat(L.map(function(c,i){return{id:c.id,n:i+2,ok:c.conn==='connected',hasMic:!!c.atrack,micOn:!!c.mic,off:!!c.camOff,av:c.avUrl||''};}));
+  var tiles=[{id:'local',n:1,ok:true,hasMic:!!lat,micOn:lmic}].concat(L.map(function(c,i){return{id:c.id,n:i+2,ok:c.conn==='connected',hasMic:!!c.atrack,micOn:!!c.mic,off:!!c.camOff,av:c.avUrl||'',hand:!!c.hand};}));
   var n=tiles.length,portrait=window.innerHeight>window.innerWidth;
   var cols=portrait?(n<=2?1:2):Math.min(4,Math.ceil(Math.sqrt(n))),rows=Math.ceil(n/cols);
   g.style.gridTemplateColumns='repeat('+cols+',1fr)';g.style.gridTemplateRows='repeat('+rows+',1fr)';
+  var keepV={};Array.prototype.forEach.call(g.querySelectorAll('video[data-cv]'),function(v){keepV[v.getAttribute('data-cv')]=v;});   // se reutilizan: crear/destruir videos sobre la misma camara la congelaba
   g.innerHTML=tiles.map(function(t){
     return'<div class="cmos-t'+(prog===t.id?' on':'')+'" data-c="'+t.id+'">'+(t.ok?'<video data-cv="'+t.id+'" muted autoplay playsinline></video>':'<div class="cmos-off">Sin se\u00f1al</div>')
       +(t.off?'<div class="cam-offv" style="position:absolute;inset:0;aspect-ratio:auto">'+(t.av?'<img alt="" src="'+t.av+'">':'<span>&#128247; c&aacute;mara apagada</span>')+'</div>':'')
-      +(prog===t.id?'<span class="cam-badge">AL AIRE</span>':'')+(t.hasMic?'<button class="cmos-mic" data-mic="'+t.id+'">'+(t.micOn?'&#127908;':'&#128263;')+'</button>':'')
+      +(prog===t.id?'<span class="cam-badge">AL AIRE</span>':'')+(t.hand?'<button class="cmos-hand" data-hand="'+t.id+'" title="Pide la palabra: toca para bajar la mano">&#9995;</button>':'')+(t.hasMic?'<button class="cmos-mic" data-mic="'+t.id+'">'+(t.micOn?'&#127908;':'&#128263;')+'</button>':'')
       +'<div class="cmos-cap"><span>'+t.n+' &middot;</span><input class="cmos-nm" data-nm="'+t.id+'" maxlength="20" value="'+nfEsc(camNameOf(t.id))+'" title="Nombre que ven los espectadores"></div></div>';}).join('');
-  Array.prototype.forEach.call(g.querySelectorAll('.cmos-mic'),function(b){b.onclick=function(ev){ev.stopPropagation();camMicToggle(b.getAttribute('data-mic'));};});
+  Array.prototype.forEach.call(g.querySelectorAll('.cmos-mic'),function(b){b.onclick=function(ev){ev.stopPropagation();var mid=b.getAttribute('data-mic');if(mid==='local'){bcToggleMic();camRenderMosaic(true);}else camMicToggle(mid);};});
+  Array.prototype.forEach.call(g.querySelectorAll('.cmos-hand'),function(b){b.onclick=function(ev){ev.stopPropagation();camHandClear(b.getAttribute('data-hand'));};});
   Array.prototype.forEach.call(g.querySelectorAll('.cmos-nm'),function(b){
     b.onclick=function(ev){ev.stopPropagation();};
     b.onkeydown=function(ev){ev.stopPropagation();if(ev.key==='Enter')b.blur();};
@@ -10440,8 +10654,9 @@ function camRenderMosaic(force){
   });
   Array.prototype.forEach.call(g.querySelectorAll('.cmos-t'),function(d){d.onclick=function(){camSwitch(d.getAttribute('data-c'));};});
   Array.prototype.forEach.call(g.querySelectorAll('video[data-cv]'),function(v){
-    var id=v.getAttribute('data-cv'),s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream;
-    if(s){v.srcObject=s;try{v.play();}catch(e){}}
+    var id=v.getAttribute('data-cv'),s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream,old=keepV[id];
+    if(old&&s&&old.srcObject&&old.srcObject._src===s){v.parentNode.replaceChild(old,v);try{old.play();}catch(e){}return;}
+    if(s){v.srcObject=bcPrevStream(s);try{v.play();}catch(e){}}
   });
   camSpkTick();
 }
@@ -10507,9 +10722,40 @@ function camRemove(id){
   try{camMixWire();}catch(e){}
   camRender();
 }
+// Cada <video> de vista previa recibe su propio MediaStream con las pistas de video (marcado con _src): varios videos compartiendo el mismo objeto
+// de la camara local se congelaban al abrir el mosaico y cambiar la camara al aire; ademas asi no se reasigna si ya esta bien conectado.
+function bcPrevStream(s){var m=new MediaStream(s.getVideoTracks());m._src=s;return m;}
+function bcPrevAttach(v,s,force){
+  if(!v||!s)return;
+  if(!force&&v.srcObject&&v.srcObject._src===s&&!v.paused){return;}
+  v.srcObject=null;v.srcObject=bcPrevStream(s);try{var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}catch(e){}
+}
 function camPreview(id){
   var s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream;if(!s)return;
-  ['bcf-v','bcs-v'].forEach(function(i){var v=document.getElementById(i);if(v){v.srcObject=s;try{v.play();}catch(e){}}});
+  ['bcf-v','bcs-v'].forEach(function(i){bcPrevAttach(document.getElementById(i),s,true);});
+}
+// Vigilante: si una vista previa en pantalla deja de avanzar (la pista sigue viva y con senal), se vuelve a conectar sola.
+function bcPrevWatch(){
+  if(!_BC||!_BC.id){clearInterval(_BC&&_BC.pwT);if(_BC)_BC.pwT=null;return;}
+  if(document.hidden)return;
+  var vs=[document.getElementById('bcf-v'),document.getElementById('bcs-v')];
+  Array.prototype.forEach.call(document.querySelectorAll('#cam-mos video[data-cv]'),function(v){vs.push(v);});
+  vs.forEach(function(v){
+    if(!v||!v.srcObject||v.style.visibility==='hidden'||v.offsetWidth===0)return;
+    var t=v.srcObject.getVideoTracks()[0];
+    if(!t||t.readyState!=='live'||t.muted||(_BC.camOff&&(v.id==='bcf-v'||v.id==='bcs-v'))){v._st=0;return;}
+    if(v.paused){try{v.play();}catch(e){}}
+    if(v.currentTime===v._lt){v._st=(v._st||0)+1;}else{v._st=0;v._lt=v.currentTime;}
+    if(v._st>=3){   // ~4.5 s sin avanzar
+      v._st=0;var src=v.srcObject._src||v.srcObject;
+      v.srcObject=null;v.srcObject=bcPrevStream(src);try{v.play();}catch(e){}
+    }
+  });
+}
+function bcPrevHeal(){
+  var id=_BC.prog||'local',s=id==='local'?_BC.stream:((_BC.cams||{})[id]||{}).stream;if(!s)return;
+  ['bcf-v','bcs-v'].forEach(function(i){bcPrevAttach(document.getElementById(i),s,true);});
+  if(!_BC.pwT)_BC.pwT=setInterval(bcPrevWatch,1500);
 }
 // Poner una camara al aire: se cambia la fuente de video del envio a Cloudflare (sin cortar la transmision)
 async function camSwitch(id){
@@ -10520,7 +10766,7 @@ async function camSwitch(id){
   if(!track)return;
   var snd=_BC.pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
   if(!snd){toast('No se pudo cambiar de cámara.','error');return;}
-  try{await bcSendVideo(track);_BC.prog=id;if(_BC.mosaic){_BC.mosaic=false;bcMosPrev();}camPreview(id);camRender();}
+  try{await bcSendVideo(track);_BC.prog=id;if(_BC.mosaic){_BC.mosaic=false;bcMosPrev();}camPreview(id);camRender();setTimeout(function(){try{bcPrevHeal();}catch(e){}},400);}
   catch(e){toast('No se pudo cambiar a esa cámara.','error');}
 }
 // Tras reconectar con Cloudflare (nuevo envio) se vuelve a poner al aire la camara elegida
@@ -10645,7 +10891,7 @@ function bcMicRefresh(){
 function bcToggleMic(){
   if(!_BC.stream)return;
   var a=_BC.stream.getAudioTracks()[0];if(!a){toast('Esta transmisión no tiene micrófono.','info');return;}
-  a.enabled=!a.enabled;bcMicRefresh();
+  a.enabled=!a.enabled;bcMicRefresh();try{camRenderMosaic(false);}catch(e){}
   toast(a.enabled?'Micrófono activado':'Micrófono silenciado','info');
 }
 async function bcFlip(){
@@ -11069,13 +11315,15 @@ function bcOpenStage(){
     document.getElementById('bcs-tray').innerHTML=cat.map(function(c){
       return'<button class="bcs-chip'+(has(c.id)?' on':'')+'" data-id="'+c.id+'">'+(has(c.id)?'&#10003; ':'+ ')+nfEsc(c.label)+'</button>';
     }).join('')+'<button class="bcs-chip" data-act="imgs" title="Tus imágenes: súbelas y colócalas en la pantalla">&#128444;&#65039; Mis imágenes'+((_BC.layout||[]).filter(function(x){return x.page==='img';}).length?' ('+(_BC.layout||[]).filter(function(x){return x.page==='img';}).length+')':'')+'</button>'
-      +'<button class="bcs-chip" data-act="mq" title="Texto que pasa por la pantalla">&#128221; Marquee</button><button class="bcs-chip" data-act="sc" title="Sígueme en Instagram, TikTok, dale like, suscríbete…">&#128241; Redes sociales</button><button class="bcs-chip" data-act="pl" title="Música, imágenes y videos">&#127902;&#65039; Playlist</button><button class="bcs-chip" data-act="wg" title="Pega una URL (YouTube, video, página web)">&#128279; Widget URL</button>'
-      +(_BC.layout||[]).filter(function(x){return x.page==='mq'||x.page==='sc'||x.page==='pl'||x.page==='wg'||x.page==='img';}).map(function(x){var d=x.d||{};return'<button class="bcs-chip on" data-xid="'+x.id+'" title="Quitar">&#10003; '+(x.page==='img'?'&#128444;&#65039; '+nfEsc(bcImgName(x).slice(0,22)):x.page==='wg'?'&#128279; '+nfEsc(String(d.n||String(d.u||'').replace(/^https:\/\/(www\.)?/,'')).slice(0,22)):x.page==='mq'?'&#128221; '+nfEsc(String(d.t||'').slice(0,22)):(x.page==='sc'?nfEsc(String(d.ic||'')+' '+String(d.t2||d.t1||'').slice(0,20)):'&#127902;&#65039; '+nfEsc(String(d.n||'Playlist').slice(0,22))))+'</button>';}).join('');
+      +'<button class="bcs-chip" data-act="mq" title="Texto que pasa por la pantalla">&#128221; Marquee</button><button class="bcs-chip" data-act="sc" title="Sígueme en Instagram, TikTok, dale like, suscríbete…">&#128241; Redes sociales</button><button class="bcs-chip" data-act="pl" title="Música, imágenes y videos">&#127902;&#65039; Playlist</button><button class="bcs-chip" data-act="wg" title="Pega una URL (YouTube, video, página web)">&#128279; Widget URL</button><button class="bcs-chip" data-act="vf" title="Tus videos: súbelos desde tu dispositivo y colócalos en la pantalla">&#127916; Mis videos'+((_BC.layout||[]).filter(function(x){return x.page==='vf';}).length?' ('+(_BC.layout||[]).filter(function(x){return x.page==='vf';}).length+')':'')+'</button><button class="bcs-chip" data-act="cm" title="Pon la imagen de una cámara como un cuadro que puedes mover y cambiar de tamaño">&#128247; Cámara en cuadro'+((_BC.layout||[]).filter(function(x){return x.page==='cm';}).length?' ('+(_BC.layout||[]).filter(function(x){return x.page==='cm';}).length+')':'')+'</button>'
+      +(_BC.layout||[]).filter(function(x){return x.page==='mq'||x.page==='sc'||x.page==='pl'||x.page==='wg'||x.page==='vf'||x.page==='cm'||x.page==='img';}).map(function(x){var d=x.d||{};return'<button class="bcs-chip on" data-xid="'+x.id+'" title="Quitar">&#10003; '+(x.page==='img'?'&#128444;&#65039; '+nfEsc(bcImgName(x).slice(0,22)):x.page==='vf'?'&#127916; '+nfEsc(String(d.n||'Video').slice(0,22)):x.page==='cm'?'&#128247; '+nfEsc(String(d.n||'Cámara').slice(0,22)):x.page==='wg'?'&#128279; '+nfEsc(String(d.n||String(d.u||'').replace(/^https:\/\/(www\.)?/,'')).slice(0,22)):x.page==='mq'?'&#128221; '+nfEsc(String(d.t||'').slice(0,22)):(x.page==='sc'?nfEsc(String(d.ic||'')+' '+String(d.t2||d.t1||'').slice(0,20)):'&#127902;&#65039; '+nfEsc(String(d.n||'Playlist').slice(0,22))))+'</button>';}).join('');
   }
   function redraw(){lsRenderItems(host,_BC.layout,_BC.gameId,true);drawTray();}
   document.getElementById('bcs-tray').addEventListener('click',function(e){
     var b=e.target.closest('.bcs-chip');if(!b)return;
     if(b.getAttribute('data-act')==='imgs'){bcsPanel('gfx',false);bcImgOpenM();return;}
+    if(b.getAttribute('data-act')==='vf'){bcsPanel('gfx',false);vfOpenM();return;}
+    if(b.getAttribute('data-act')==='cm'){bcsPanel('gfx',false);cmOpenM();return;}
     if(b.getAttribute('data-xid')){bcXRemove(b.getAttribute('data-xid'));return;}
     var xa=b.getAttribute('data-act');if(xa==='mq'||xa==='sc'||xa==='pl'||xa==='wg'){bcsPanel('gfx',false);if(xa==='mq')mqOpenM();else if(xa==='sc')scOpenM();else if(xa==='wg')wgOpenM();else plOpenM();return;}
     var id=b.getAttribute('data-id'),c=cat.filter(function(x){return x.id===id;})[0];if(!c)return;
@@ -11148,6 +11396,21 @@ function lsBindEdit(el,it0){
   holdZoom(el.querySelector('.lsi-zo'),-1);holdZoom(el.querySelector('.lsi-zi'),1);
   el.querySelector('.lsi-zv').addEventListener('dblclick',function(e){e.stopPropagation();setZoom(1);bcCommitLayout();});
   el.querySelector('.lsi-zm').addEventListener('pointerdown',function(e){e.stopPropagation();});
+  // Maximizar: cada grafico, imagen o video tiene el suyo. Cubre toda la pantalla (queda al frente); al volver a tocarlo recupera tamano y lugar.
+  var mxb=el.querySelector('.lsi-mx');
+  function mxUi(){var i=item();mxb.classList.toggle('on',!!(i&&i._pm));}
+  mxb.addEventListener('pointerdown',function(e){e.stopPropagation();});
+  mxb.addEventListener('click',function(e){
+    e.stopPropagation();if(_BC.lock)return;var it=item();if(!it)return;
+    if(it._pm){var p=it._pm;it.x=p.x;it.y=p.y;it.w=p.w;it.h=p.h;it.z=p.z;if(p.lw!=null){it.lw=p.lw;it.lh=p.lh;}delete it._pm;}
+    else{
+      it._pm={x:it.x,y:it.y,w:it.w,h:lsItemH(it),z:it.z,lw:it.lw,lh:it.lh};
+      var top=0;(_BC.layout||[]).forEach(function(o){if(o.z>top)top=o.z;});
+      it.x=0;it.y=0;it.w=100;it.h=100;it.lw=LS_REF_W;it.lh=LS_REF_H;it.z=Math.min(30,top+1);
+    }
+    if(_BC.stageRedraw)_BC.stageRedraw();bcCommitLayout();mxUi();
+  });
+  mxUi();
   el.querySelector('.lsi-bg').addEventListener('click',function(e){
     e.stopPropagation();if(_BC.lock)return;var it=item();if(!it)return;
     it.q=it.q||{};it.q.transp=(it.q.transp==='1')?'0':'1';
@@ -11312,8 +11575,38 @@ function openSavedStream(id){
   apiRaw('getStreams',{}).then(function(r){go(((r&&r.streams)||[]).filter(function(x){return x.id===id;})[0]);}).catch(function(){});
 }
 // ═════════════ MODULO "TRANSMISIONES" ═════════════
+// Administrador: panel de transmisiones activas con la marca de si tambien salen a YouTube (se refresca solo mientras el modulo esta abierto)
+var _LSA={list:null,err:'',timer:null};
+function lsAdmPoll(){
+  clearTimeout(_LSA.timer);_LSA.timer=null;
+  if(curP!=='streams'||!bcIsAdmin())return;
+  apiRaw('adminLiveStreams',{}).then(function(r){
+    if(r&&r.ok){_LSA.list=r.streams||[];_LSA.err='';}else{_LSA.err=(r&&r.error)||'No se pudo consultar las transmisiones activas.';}
+    if(curP==='streams')renderStreams();
+  }).catch(function(){_LSA.err='No se pudo consultar las transmisiones activas.';if(curP==='streams')renderStreams();}).then(function(){
+    if(curP==='streams'&&bcIsAdmin())_LSA.timer=setTimeout(lsAdmPoll,10000);
+  });
+}
+function lsAdmHtml(){
+  if(!bcIsAdmin())return'';
+  var l=_LSA.list;
+  var h='<div class="card" style="margin-bottom:14px;border:1px solid var(--bdr2)"><div style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--acc);margin-bottom:8px">&#128737;&#65039; ACTIVAS AHORA (ADMINISTRADOR)</div>';
+  if(l===null)return h+(_LSA.err?'<div style="font-size:12px;color:var(--t2)">'+nfEsc(_LSA.err)+'</div>':'<div style="font-size:12px;color:var(--t3)">Consultando…</div>')+'</div>';
+  if(!l.length)return h+'<div style="font-size:12px;color:var(--t3)">No hay transmisiones activas en este momento.</div></div>';
+  h+=l.map(function(s){
+    var y=s.youtube;
+    var tag=y?'<span style="background:#dc2626;color:#fff;font-weight:800;font-size:11px;border-radius:10px;padding:2px 9px">&#9654; APP + YOUTUBE</span>':'<span style="background:var(--bg3,#334155);color:var(--t1);font-weight:800;font-size:11px;border-radius:10px;padding:2px 9px;border:1px solid var(--bdr)">&#128241; SOLO EN LA APP</span>';
+    return'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--bdr)">'
+      +'<div style="flex:1;min-width:150px"><div style="font-weight:700;font-size:13px">'+nfEsc(s.title||'Juego en vivo')+'</div><div style="font-size:11px;color:var(--t3)">'+nfEsc(s.by||'')+' &middot; '+vidAgo(s.startedAt)+(s.burned?' &middot; gr&aacute;ficos dentro del video':'')+(s.record?' &middot; grabando':'')+'</div></div>'
+      +tag
+      +(y&&y.watchUrl?'<a class="btn bs bsm" href="'+nfEsc(y.watchUrl)+'" target="_blank" rel="noopener">Ver en YouTube</a>':'')
+      +'<button class="btn bs bsm" data-sid="'+nfEsc(s.id)+'" onclick="openStreamPlayer(this.dataset.sid)">&#9654; Ver</button></div>';
+  }).join('');
+  return h+'</div>';
+}
 function pgStreams(){
   var tid=sharedTourId();
+  lsAdmPoll();
   renderStreams();
   lsRefresh(true).then(function(){if(curP==='streams')renderStreams();});
   if(!_LS.savedLoaded||_LS.savedTid!==String(tid||'')||Date.now()-_LS.savedAt>30000){
@@ -11350,7 +11643,7 @@ function renderStreams(){
       +'<div class="vinfo"><div class="vtitle">'+nfEsc(s.title||'Transmisión')+'</div><div class="vmeta"><span>'+(vidDate(s.startedAt)||'')+'</span><span>&middot; '+lsDur(s.durationSec)+'</span></div>'
       +(canDel?'<div style="margin-top:6px"><button class="btn bd bsm" data-sid="'+nfEsc(s.id)+'" onclick="event.stopPropagation();delStream(this.dataset.sid)">&#128465; Eliminar</button></div>':'')+'</div></div>';
   }).join('')+'</div>':(live.length?'':'<div class="card"><div class="empty"><div style="font-size:30px">&#128225;</div><div>Aún no hay transmisiones'+(tid?' en este subtorneo':'')+'.</div></div></div>');
-  ct(head+sponsorPinnedBanner('pinVideos','&#128225; Transmisiones presentadas gracias a')+liveHtml+savedHtml);
+  ct(head+lsAdmHtml()+sponsorPinnedBanner('pinVideos','&#128225; Transmisiones presentadas gracias a')+liveHtml+savedHtml);
 }
 function delStream(id){
   showM('<div class="mhd"><div class="mtl">Eliminar transmisión</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd"><div style="font-size:14px">Se eliminará la grabación de Cloudflare y no se podrá recuperar.</div></div>'
@@ -21506,8 +21799,13 @@ function fnWvTxt(ms){var t=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(t/3600),m
 function fnWaiverTick(){
   var w=_FN.data&&_FN.data.waiver;
   if(!w||!w.active||curP!=='fantasy'){clearInterval(_FN.wvT);_FN.wvT=0;return;}
-  var left=w.endsAt-(Date.now()+(_FN.skew||0)),e=document.getElementById('fn-wv-cd');
-  if(e)e.textContent=fnWvTxt(left);
+  var nowS=Date.now()+(_FN.skew||0),left=w.paused?w.remainMs:w.endsAt-nowS,e=document.getElementById('fn-wv-cd');
+  if(e)e.textContent=fnWvTxt(left)+(w.paused?' (en pausa)':'');
+  // reloj en pausa (fuera del horario habil): al reabrirse el horario se pide el estado nuevo para que siga corriendo
+  if(w.paused&&w.resumeAt&&nowS>=w.resumeAt&&!_FN.wvBusy&&!_FN.busy&&!_FN.editing&&!document.getElementById('modals').innerHTML){
+    _FN.wvBusy=true;Promise.resolve(fnLoad()).then(function(){_FN.wvBusy=false;},function(){_FN.wvBusy=false;});return;
+  }
+  if(w.paused)return;
   // al vencer el turno se pide el estado nuevo (el servidor pasa al siguiente); no se interrumpe una edicion ni un modal abierto
   if(left<=-1500&&!_FN.wvBusy&&!_FN.busy&&!_FN.editing&&!document.getElementById('modals').innerHTML){
     _FN.wvBusy=true;Promise.resolve(fnLoad()).then(function(){_FN.wvBusy=false;},function(){_FN.wvBusy=false;});
@@ -21521,12 +21819,12 @@ function fnWaiverBanner(){
   var logH=(w.log||[]).slice(0,3).map(function(x){return'<div style="font-size:11px;color:var(--t3)">&bull; '+fnEsc(x.who)+(x.t==='pick'?' eligi&oacute; a '+fnEsc(x.player||'un jugador'):' no eligi&oacute; a tiempo')+'</div>';}).join('');
   if(!w.active)return box+head+'<div style="font-size:12px;color:var(--t2);line-height:1.5">Sin turnos en curso: todos los jugadores se pueden fichar libremente. Cuando entre un jugador <b>NUEVO</b> empieza un waiver (del &uacute;ltimo lugar al primero, '+w.minutes+' min por turno).</div>'+(logH?'<div style="margin-top:6px">'+logH+'</div>':'')+'</div>';
   if(!_FN.wvT)_FN.wvT=setInterval(fnWaiverTick,1000);
-  var left=w.endsAt-(Date.now()+(_FN.skew||0));
+  var left=w.paused?w.remainMs:w.endsAt-(Date.now()+(_FN.skew||0));
   var order=(w.order||[]).map(function(o){
     var st=o.state==='turn'?'background:var(--acc);color:#111;font-weight:800':(o.state==='done'?'opacity:.45;text-decoration:line-through':'border:1px solid var(--bdr)');
     return'<span style="display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin:0 4px 4px 0;'+st+'">'+fnEsc(o.name)+'</span>';}).join('');
   return box+head
-    +'<div style="font-size:13px;margin-bottom:6px">'+(w.mine?'<b style="color:#16a34a">Es tu turno:</b> puedes elegir <b>1</b> jugador NUEVO.':'Turno de <b>'+fnEsc(w.turnName)+'</b>.')+' Tiempo: <span id="fn-wv-cd" style="font-weight:800;color:var(--acc)">'+fnWvTxt(left)+'</span></div>'
+    +'<div style="font-size:13px;margin-bottom:6px">'+(w.mine?'<b style="color:#16a34a">Es tu turno:</b> puedes elegir <b>1</b> jugador NUEVO.':'Turno de <b>'+fnEsc(w.turnName)+'</b>.')+' Tiempo: <span id="fn-wv-cd" style="font-weight:800;color:var(--acc)">'+fnWvTxt(left)+(w.paused?' (en pausa)':'')+'</span>'+(w.paused?' <span style="font-size:11px;color:var(--t3)">&#127769; El reloj corre solo dentro del horario h&aacute;bil de las actualizaciones autom&aacute;ticas.</span>':'')+'</div>'
     +'<div>'+order+'</div>'
     +'<div style="'+nt+'">'+(w.covered||[]).length+' jugador(es) NUEVO bajo waiver. Se elige del &uacute;ltimo lugar al primero, 1 NUEVO por turno; si no eliges a tiempo pasa al siguiente. Los jugadores sin la etiqueta NUEVO se pueden fichar siempre.</div>'
     +(logH?'<div style="margin-top:6px">'+logH+'</div>':'')+'</div>';

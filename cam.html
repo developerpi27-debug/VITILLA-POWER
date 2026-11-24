@@ -39,6 +39,7 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
 <div id="st"></div>
 <div class="card" id="c-run" style="display:none">
   <div class="row"><button class="sec" id="mic">&#127908; Micrófono: silenciado</button><button class="micon" id="camt">&#128249; Cámara: encendida</button></div>
+  <div class="row"><button class="sec" id="hand">&#9995; Levantar la mano</button></div>
   <div class="row"><button class="sec" id="lis">&#128264; Escuchar: apagado</button></div>
   <small id="lisn" style="margin-top:4px">Activa «Escuchar» para oír a quien transmite y a las demás cámaras (no oyes tu propio micrófono). Usa audífonos para evitar eco.</small>
   <div id="mst" style="font-size:12px;text-align:center;opacity:.8;min-height:16px;margin-top:6px"></div>
@@ -59,7 +60,7 @@ small{opacity:.65;line-height:1.5;display:block;margin-top:8px}
 <script>
 var CFG={workerUrl:'https://api.powerrdapp.com',appToken:'68e9869114df0e1a87ee5685127c699e8019c4198645b2356995f69836ce4548'};
 var $=function(i){return document.getElementById(i);};
-var camOn=true,listenOn=false,avData='',frame={f:'normal',bw:0,bc:'#ffffff'},micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
+var camOn=true,handOn=false,listenOn=false,avData='',frame={f:'normal',bw:0,bc:'#ffffff'},micOn=false,atrack=null,dc=null,code='',tok='',stream=null,pc=null,ice=[{urls:['stun:stun.cloudflare.com:3478']}],stopped=false,running=false,wl=null,retryT=null,gen=0;
 try{tok=sessionStorage.getItem('vp_cam_tok')||'';}catch(e){}
 try{$('nm').value=localStorage.getItem('vp_cam_name')||'';avData=localStorage.getItem('vp_cam_av')||'';}catch(e){}
 if(!tok){tok=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()).replace(/-/g,'');try{sessionStorage.setItem('vp_cam_tok',tok);}catch(e){}}
@@ -109,6 +110,8 @@ function pickAvatar(file){
   };
   fr.readAsDataURL(file);
 }
+function handUi(){var b=$('hand');if(!b)return;b.className=handOn?'micon':'sec';b.style.background=handOn?'#f59e0b':'';b.style.borderColor=handOn?'#f59e0b':'';b.style.color=handOn?'#000':'';b.innerHTML=handOn?'&#9995; Mano levantada (toca para bajarla)':'&#9995; Levantar la mano';}
+function setHand(on){handOn=!!on;handUi();sendCtl({t:'hand',on:handOn});}
 function lisUi(){var b=$('lis');if(!b)return;b.className=listenOn?'micon':'sec';b.innerHTML=listenOn?'&#128266; Escuchar: ACTIVO':'&#128264; Escuchar: apagado';}
 function setListen(on){
   listenOn=!!on;var a=$('au');a.muted=!listenOn;
@@ -177,8 +180,8 @@ async function connect(){
   p.ontrack=function(e){if(e.track.kind==='audio'&&my===gen){var a=$('au');a.srcObject=new MediaStream([e.track]);a.muted=!listenOn;if(listenOn){try{a.play();}catch(x){}}var n=$('lisn');if(n&&listenOn)n.textContent='Estás oyendo a quien transmite y a las demás cámaras. Usa audífonos para evitar eco.';}};
   try{
     dc=p.createDataChannel('ctl');   // canal de control: activar / silenciar el microfono desde ambos lados
-    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack,cam:camOn,n:myName()});sendFrame();sendAvatar();};
-    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='flip')flipCam();else if(m.t==='name'){var q=$('nmst');if(q)q.textContent=m.n?('En el mosaico apareces como: '+cleanName(m.n)):'';}}catch(e){}};   // 'flip': quien transmite te cambia la camara
+    dc.onopen=function(){sendCtl({t:'hello',mic:micOn,audio:!!atrack,cam:camOn,hand:handOn,n:myName()});sendFrame();sendAvatar();};
+    dc.onmessage=function(ev){try{var m=JSON.parse(ev.data);if(!m)return;if(m.t==='mic')setMic(!!m.on,'remote');else if(m.t==='hand'){handOn=!!m.on;handUi();}else if(m.t==='flip')flipCam();else if(m.t==='name'){var q=$('nmst');if(q)q.textContent=m.n?('En el mosaico apareces como: '+cleanName(m.n)):'';}}catch(e){}};   // 'flip': quien transmite te cambia la camara
   }catch(e){dc=null;}
   stream.getVideoTracks().forEach(function(t){
     var tr=p.addTransceiver(t,{direction:'sendonly',streams:[stream]});
@@ -213,7 +216,7 @@ function ended(msg){
   stopped=true;running=false;gen++;
   try{if(pc)pc.close();}catch(e){}
   if(stream)stream.getTracks().forEach(function(t){t.stop();});
-  micOn=false;atrack=null;dc=null;camOn=true;listenOn=false;try{var au=$('au');au.srcObject=null;}catch(e){}
+  micOn=false;handOn=false;atrack=null;dc=null;camOn=true;listenOn=false;try{var au=$('au');au.srcObject=null;}catch(e){}
   $('pv').style.display='none';$('c-run').style.display='none';$('c-join').style.display='block';$('go').disabled=false;
   st(msg||'La transmisión terminó.','err');
 }
@@ -229,7 +232,7 @@ $('go').onclick=async function(){
     st('Abriendo la cámara…','warn');
     try{await openCam();}catch(e){st(e&&e.name==='NotAllowedError'?'Permite el acceso a la cámara para continuar.':'No se pudo abrir la cámara'+(e&&e.name?' ('+e.name+')':'')+'.','err');$('go').disabled=false;return;}
     running=true;wake();frameUi();
-    $('nm2').value=cleanName($('nm').value);saveName();camUi();lisUi();avUi();
+    $('nm2').value=cleanName($('nm').value);saveName();camUi();lisUi();handUi();avUi();
     $('c-join').style.display='none';$('c-run').style.display='block';
     document.title=(j.label||'Cámara')+' · transmisión';
     await connect();
@@ -269,6 +272,7 @@ $('flip').onclick=flipCam;
 $('mic').onclick=function(){if(atrack)setMic(!micOn,'local');};
 $('camt').onclick=function(){setCam(!camOn);};
 $('lis').onclick=function(){setListen(!listenOn);};
+$('hand').onclick=function(){setHand(!handOn);};
 $('nm2').onchange=function(){saveName();sendName();};
 $('nm').onchange=function(){try{localStorage.setItem('vp_cam_name',cleanName($('nm').value));}catch(e){}};
 $('av-pick').onclick=function(){$('av-file').click();};
