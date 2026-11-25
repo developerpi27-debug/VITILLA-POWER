@@ -203,5 +203,66 @@ async function poll(){
 poll();
 document.addEventListener('visibilitychange',function(){ if(!document.hidden){clearTimeout(_pollTimer);poll();} });
 </script>
+<script>
+/* VP color picker: selector de color propio para el WebView de Android (Capacitor), donde <input type="color"> no abre su paleta. */
+(function(){
+  if(window.__vpCP)return;window.__vpCP=1;
+  var ua=navigator.userAgent||'',qs=location.search||'';
+  var hasCap=false;try{hasCap=!!(window.Capacitor||(window.parent&&window.parent.Capacitor)||(window.top&&window.top.Capacitor));}catch(e){}
+  var inFrame=false;try{inFrame=window.self!==window.top;}catch(e){inFrame=true;}
+  var force=/[?&]cp=1\b/.test(qs),off=/[?&]cp=0\b/.test(qs);
+  var need=force||(!off&&/Android/i.test(ua)&&(/;\s*wv\)|\bwv\b/.test(ua)||hasCap||inFrame));
+  if(!need)return;
+  var PAL=['#000000','#1f2937','#4b5563','#9ca3af','#d1d5db','#ffffff','#7f1d1d','#dc2626','#f97316','#f5a623','#facc15','#a3e635',
+    '#16a34a','#065f46','#14b8a6','#06b6d4','#38bdf8','#2563eb','#1e3a8a','#0d1b2e','#6366f1','#7c3aed','#c026d3','#ec4899',
+    '#8a1f2b','#a8283a','#2a2f38','#111a28','#0b1220','#f2f2f2','#f4f7fb','#a9b7c9','#5aa9ff','#fbbf24','#fb7185','#34d399'];
+  function h2rgb(h){h=(h||'#000000').replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c;}).join('');var n=parseInt(h,16)||0;return[(n>>16)&255,(n>>8)&255,n&255];}
+  function rgb2h(r,g,b){return'#'+[r,g,b].map(function(x){x=Math.max(0,Math.min(255,Math.round(x)));return(x<16?'0':'')+x.toString(16);}).join('');}
+  function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,s=0,l=(mx+mn)/2,d=mx-mn;
+    if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):(mx===g?(b-r)/d+2:(r-g)/d+4);h*=60;}return[h,s*100,l*100];}
+  function hsl2rgb(h,s,l){s/=100;l/=100;var c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;
+    if(h<60){r=c;g=x;}else if(h<120){r=x;g=c;}else if(h<180){g=c;b=x;}else if(h<240){g=x;b=c;}else if(h<300){r=x;b=c;}else{r=c;b=x;}
+    return[(r+m)*255,(g+m)*255,(b+m)*255];}
+  var box=null,cur=null,orig='';
+  function setVal(v,fire){
+    if(!cur)return;v=String(v).toLowerCase();if(!/^#[0-9a-f]{6}$/.test(v))return;
+    cur.value=v;
+    if(fire){try{cur.dispatchEvent(new Event('input',{bubbles:true}));cur.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}}
+    if(box){box.querySelector('.vpcp-sw').style.background=v;box.querySelector('.vpcp-hex').value=v;
+      var hs=rgb2hsl.apply(null,h2rgb(v));box.querySelector('.vpcp-h').value=hs[0];box.querySelector('.vpcp-s').value=hs[1];box.querySelector('.vpcp-l').value=hs[2];}
+  }
+  function close(keep){if(!keep&&cur&&orig)setVal(orig,true);if(box){box.remove();box=null;}cur=null;}
+  function open(inp){
+    close(true);cur=inp;orig=inp.value||'#000000';
+    box=document.createElement('div');
+    box.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif';
+    box.innerHTML='<div style="width:min(320px,92vw);max-height:92vh;overflow:auto;background:#111a28;color:#e6edf5;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,.6)">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="vpcp-sw" style="width:46px;height:46px;border-radius:9px;border:2px solid #fff;background:'+orig+'"></div>'
+      +'<input class="vpcp-hex" maxlength="7" value="'+orig+'" style="flex:1;min-width:0;font-size:16px;padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#fff;text-transform:lowercase">'
+      +'</div><div class="vpcp-pal" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px"></div>'
+      +'<div style="font-size:11px;color:#a9b7c9;margin:6px 0 2px">Tono</div><input class="vpcp-h" type="range" min="0" max="359" step="1" style="width:100%">'
+      +'<div style="font-size:11px;color:#a9b7c9;margin:6px 0 2px">Intensidad</div><input class="vpcp-s" type="range" min="0" max="100" step="1" style="width:100%">'
+      +'<div style="font-size:11px;color:#a9b7c9;margin:6px 0 2px">Claridad</div><input class="vpcp-l" type="range" min="0" max="100" step="1" style="width:100%">'
+      +'<div style="display:flex;gap:8px;margin-top:12px"><button class="vpcp-no" style="flex:1;padding:10px;border-radius:8px;border:1px solid #334155;background:#1a2536;color:#e6edf5;font-weight:700;font-size:14px">Cancelar</button>'
+      +'<button class="vpcp-ok" style="flex:1;padding:10px;border-radius:8px;border:none;background:#f5a623;color:#1a1200;font-weight:800;font-size:14px">Aceptar</button></div></div>';
+    document.body.appendChild(box);
+    var pal=box.querySelector('.vpcp-pal');
+    PAL.forEach(function(c){var b=document.createElement('button');b.type='button';b.style.cssText='height:34px;border-radius:7px;border:2px solid rgba(255,255,255,.35);background:'+c;b.onclick=function(){setVal(c,true);};pal.appendChild(b);});
+    function fromSliders(){var h=+box.querySelector('.vpcp-h').value,s=+box.querySelector('.vpcp-s').value,l=+box.querySelector('.vpcp-l').value;var r=hsl2rgb(h,s,l);setVal(rgb2h(r[0],r[1],r[2]),true);}
+    ['h','s','l'].forEach(function(k){box.querySelector('.vpcp-'+k).addEventListener('input',fromSliders);});
+    box.querySelector('.vpcp-hex').addEventListener('input',function(){var v=this.value.trim();if(v[0]!=='#')v='#'+v;if(/^#[0-9a-fA-F]{6}$/.test(v)){var h=this;setVal(v,true);h.value=v.toLowerCase();}});
+    box.querySelector('.vpcp-ok').onclick=function(){close(true);};
+    box.querySelector('.vpcp-no').onclick=function(){close(false);};
+    box.addEventListener('click',function(e){if(e.target===box)close(true);});
+    setVal(orig,false);
+  }
+  function hit(e){
+    var t=e.target;if(!t||!t.matches||!t.matches('input[type="color"]'))return;
+    e.preventDefault();e.stopPropagation();if(e.type==='click')open(t);
+  }
+  document.addEventListener('click',hit,true);
+  document.addEventListener('mousedown',function(e){var t=e.target;if(t&&t.matches&&t.matches('input[type="color"]'))e.preventDefault();},true);
+})();
+</script>
 </body>
 </html>
