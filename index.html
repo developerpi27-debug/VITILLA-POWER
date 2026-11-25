@@ -5464,22 +5464,22 @@ function openTM(id){
     +'<div class="fr c2"><div class="fg"><label class="fl">Fase actual</label><select class="fs" id="tph">'+phOpts+'</select></div></div>'
     +'<div class="alert ai" style="font-size:12px">Desempate: 1&#176; Serie particular &middot; 2&#176; Diferencial de carreras</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#127942; CANDIDATOS A PREMIACIONES (umbrales mínimos)</div>'
-    +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Veces al Bate (VB)</label><input class="fi" id="tamvb" type="number" min="1" value="'+(t.awardMinVb!==undefined&&t.awardMinVb!==null?t.awardMinVb:8)+'"></div>'
+    +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Turnos al Bate (TA)</label><input class="fi" id="tamvb" type="number" min="1" value="'+(t.awardMinVb!==undefined&&t.awardMinVb!==null?t.awardMinVb:8)+'"></div>'
     +'<div class="fg"><label class="fl">Mínimo de Entradas Lanzadas (IP)</label><input class="fi" id="tamip" type="number" min="1" step="0.1" value="'+(t.awardMinIp!==undefined&&t.awardMinIp!==null?t.awardMinIp:5)+'"></div></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Mínimo de Juegos en Posición (Guante de Oro)</label><input class="fi" id="tamgg" type="number" min="1" value="'+(t.awardMinGg!==undefined&&t.awardMinGg!==null?t.awardMinGg:2)+'"></div></div>'
-    +'<div class="fr c2" style="margin-top:8px">'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvpbat" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludeBat===false?'':'checked')+'>'+'<span>Incluir puntos de <b>bateo</b> en el MVP</span></label></div>'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvppit" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludePit===false?'':'checked')+'>'+'<span>Incluir puntos de <b>pitcheo</b> en el MVP</span></label></div>'+'</div>'+'<div class="alert ai" style="font-size:12px">Estos umbrales determinan quién califica como candidato en el análisis automático del módulo de Premiaciones para este subtorneo.</div>'
+    +'<div class="fr c2" style="margin-top:8px">'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvpbat" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludeBat===false?'':'checked')+'>'+'<span>Incluir puntos de <b>bateo</b> en el MVP</span></label></div>'+'<div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'+'<input type="checkbox" id="tamvppit" style="width:16px;height:16px;accent-color:var(--acc)" '+(t.mvpIncludePit===false?'':'checked')+'>'+'<span>Incluir puntos de <b>pitcheo</b> en el MVP</span></label></div>'+'</div>'+'<div class="alert ai" style="font-size:12px"><b>TA</b> = total de apariciones al bate (VB + bases por bolas + golpeados + sacrificios). El mínimo de TA aplica a Bate de Oro, Bate de Plata y MVP. Estos umbrales determinan quién califica como candidato en el análisis automático del módulo de Premiaciones para este subtorneo.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#129351; LIDERES (umbrales mínimos)</div>'
-    +'<div class="alert ai" style="font-size:12px">Estos umbrales determinan qué jugadores aparecen en las tarjetas de <b>SLG y AVG</b> (bateo) y <b>ERA, WHIP y AVG contra</b> (pitcheo, por rol: abridores, relevistas y cerradores, cada uno con su propio mínimo de IP) de los módulos de Lideres y Lideres de Por Vida — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) nunca aplican mínimo. Se configuran por separado para Serie Regular, Playoffs y Serie Final (0 = sin mínimo).</div>'
+    +'<div class="alert ai" style="font-size:12px"><b>TA</b> = total de apariciones al bate (VB + bases por bolas + golpeados + sacrificios). Estos umbrales determinan qué jugadores aparecen en las tarjetas de <b>SLG y AVG</b> (bateo) y <b>ERA, WHIP y AVG contra</b> (pitcheo, por rol: abridores, relevistas y cerradores, cada uno con su propio mínimo de IP) de los módulos de Lideres y Lideres de Por Vida — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) nunca aplican mínimo. Se configuran por separado para Serie Regular, Playoffs y Serie Final (0 = sin mínimo).</div>'
     +'<div class="fg" style="margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">'
       +'<input type="checkbox" id="tlvbauto" style="width:16px;height:16px;accent-color:var(--acc)" onchange="document.getElementById(\'tlvbmanual\').style.opacity=this.checked?\'.4\':\'1\';document.getElementById(\'tlvbmanual\').style.pointerEvents=this.checked?\'none\':\'auto\'" '+(t.leadersVbAuto===true?'checked':'')+'>'
-      +'<span>Usar <b>media automática</b> de VB (en vez de las cantidades manuales) para el mínimo de bateo</span></label></div>'
+      +'<span>Usar <b>media automática</b> de TA (en vez de las cantidades manuales) para el mínimo de bateo</span></label></div>'
     +'<div id="tlvbmanual" style="'+(t.leadersVbAuto===true?'opacity:.4;pointer-events:none':'')+'">'
     +'<div class="fr c3" style="margin-top:6px">'
-    +'<div class="fg"><label class="fl">VB mín. — Serie Regular</label><input class="fi" id="tlmvbreg" type="number" min="0" value="'+(t.leadersMinVbRegular!==undefined&&t.leadersMinVbRegular!==null?t.leadersMinVbRegular:(t.leadersMinVb!==undefined&&t.leadersMinVb!==null?t.leadersMinVb:0))+'"></div>'
-    +'<div class="fg"><label class="fl">VB mín. — Playoffs</label><input class="fi" id="tlmvbpo" type="number" min="0" value="'+(t.leadersMinVbPlayoff!==undefined&&t.leadersMinVbPlayoff!==null?t.leadersMinVbPlayoff:0)+'"></div>'
-    +'<div class="fg"><label class="fl">VB mín. — Serie Final</label><input class="fi" id="tlmvbfin" type="number" min="0" value="'+(t.leadersMinVbFinal!==undefined&&t.leadersMinVbFinal!==null?t.leadersMinVbFinal:0)+'"></div>'
+    +'<div class="fg"><label class="fl">TA mín. — Serie Regular</label><input class="fi" id="tlmvbreg" type="number" min="0" value="'+(t.leadersMinVbRegular!==undefined&&t.leadersMinVbRegular!==null?t.leadersMinVbRegular:(t.leadersMinVb!==undefined&&t.leadersMinVb!==null?t.leadersMinVb:0))+'"></div>'
+    +'<div class="fg"><label class="fl">TA mín. — Playoffs</label><input class="fi" id="tlmvbpo" type="number" min="0" value="'+(t.leadersMinVbPlayoff!==undefined&&t.leadersMinVbPlayoff!==null?t.leadersMinVbPlayoff:0)+'"></div>'
+    +'<div class="fg"><label class="fl">TA mín. — Serie Final</label><input class="fi" id="tlmvbfin" type="number" min="0" value="'+(t.leadersMinVbFinal!==undefined&&t.leadersMinVbFinal!==null?t.leadersMinVbFinal:0)+'"></div>'
     +'</div></div>'
-    +'<div class="fg" style="margin-top:14px"><label class="fl">Turnos promedio por día (mínimo de bateo para AVG y SLG)</label><input class="fi" id="tltpd" type="number" min="0" step="0.1" value="'+(t.leadersTurnosDia||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">Se multiplica por los juegos jugados de la fase actual (el del equipo con más juegos en la tabla de posiciones) y el resultado es el mínimo de turnos al bate. Si es distinto de 0, se usa este valor en lugar del VB mín. y de la media automática de VB (0 = usar el VB mín. de arriba).</div></div>'
+    +'<div class="fg" style="margin-top:14px"><label class="fl">Turnos promedio por día (mínimo de bateo para AVG y SLG)</label><input class="fi" id="tltpd" type="number" min="0" step="0.1" value="'+(t.leadersTurnosDia||0)+'"><div style="font-size:11px;color:var(--t3);margin-top:4px">Se multiplica por los juegos jugados de la fase actual (el del equipo con más juegos en la tabla de posiciones) y el resultado es el mínimo de turnos al bate. Si es distinto de 0, se usa este valor en lugar del TA mín. y de la media automática de TA (0 = usar el TA mín. de arriba).</div></div>'
     +ldIpBlocksHtml(t)
     +'<div class="alert ai" style="font-size:12px;margin-top:8px">Cuando la vista de Lideres esté en "Todas las Fases", se usa el valor de <b>Serie Regular</b> (manual o media, según el modo elegido) como referencia.</div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#11088; SISTEMA DE PUNTOS (Premiaciones y Juego de Estrellas)</div>'
@@ -5533,7 +5533,9 @@ function tfmSection(t){
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#9201;&#65039; WAIVER DE JUGADORES NUEVOS EN FANTASY (solo administrador)</div>'
     +'<div class="fg"><label class="fl">Waiver para jugadores con la etiqueta NUEVO</label><select class="fs" id="tfm-wv"><option value="0"'+(t.fantasyWaiver?'':' selected')+'>Apagado (cualquiera puede fichar a un NUEVO en cualquier momento)</option><option value="1"'+(t.fantasyWaiver?' selected':'')+'>Encendido (los NUEVO se eligen por turnos)</option></select></div>'
     +'<div class="fg"><label class="fl">Minutos que dura el turno de cada participante</label><input class="fi" id="tfm-wvmin" type="number" min="1" max="10080" value="'+(t.fantasyWaiverMin||30)+'">'
-    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Cuando entra un jugador <b>NUEVO</b>, el participante de <b>&uacute;ltimo lugar</b> (menos puntos) tiene prioridad para elegirlo; si no lo hace en este tiempo pasa el turno al pen&uacute;ltimo, y as&iacute; sucesivamente. <b>Cada turno permite elegir solo 1 jugador NUEVO</b>: al elegir (o vencer el tiempo) pasa al siguiente. Si entra otro NUEVO con turnos en curso, el turno se mantiene. Al terminar todos los turnos, cualquiera puede fichar a los NUEVO libremente hasta que entre otro NUEVO (ah&iacute; se reinicia con el orden de puntos de ese momento). Los jugadores sin la etiqueta NUEVO siempre se pueden fichar. La etiqueta dura los d&iacute;as que definas en Configuraci&oacute;n de Fantasy.</div></div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Cuando entra un jugador <b>NUEVO</b>, el participante de <b>&uacute;ltimo lugar</b> (menos puntos) tiene prioridad para elegirlo; si no lo hace en este tiempo pasa el turno al pen&uacute;ltimo, y as&iacute; sucesivamente. <b>Cada turno permite elegir solo 1 jugador NUEVO</b>: al elegir (o vencer el tiempo) pasa al siguiente. Si entra otro NUEVO con turnos pendientes, se aplica la opci&oacute;n de abajo. Todo jugador con la etiqueta NUEVO est&aacute; bajo waiver: si pasan todos los turnos y quedan NUEVO sin elegir, empieza otra ronda desde el &uacute;ltimo lugar (hasta que se elijan o venza la etiqueta). Cuando ya no queda ning&uacute;n NUEVO por elegir, el ciclo termina. Los jugadores sin la etiqueta NUEVO siempre se pueden fichar. La etiqueta dura los d&iacute;as que definas en Configuraci&oacute;n de Fantasy.</div></div>'
+    +'<div class="fg"><label class="fl">Si entra un NUEVO y a&uacute;n hay participantes sin turno</label><select class="fs" id="tfm-wvmode"><option value="continue"'+(t.fantasyWaiverMode==='restart'?'':' selected')+'>Continuar por el turno donde se qued&oacute;</option><option value="restart"'+(t.fantasyWaiverMode==='restart'?' selected':'')+'>Reiniciar siempre desde el &uacute;ltimo lugar</option></select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5">Ejemplo: entran 2 NUEVO y los 2 primeros turnos los eligen; los dem&aacute;s no alcanzaron turno. Si luego entra otro NUEVO: con <b>Continuar</b> le toca al siguiente participante que no tuvo turno; con <b>Reiniciar</b> vuelve a empezar desde el &uacute;ltimo lugar. Si ya pasaron todos los turnos y entra otro NUEVO, siempre empieza desde el &uacute;ltimo lugar.</div></div>'
     +'<hr class="sep"><div style="font-size:11px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">&#128260; LÍMITE DE MOVIMIENTOS EN FANTASY (solo administrador)</div>'
     +'<div class="alert ai" style="font-size:12px">Máximo de movimientos que un usuario puede hacer en su plantilla de <b>este subtorneo</b>. Un movimiento es fichar un jugador de la agencia libre (liberar 1 y fichar 1 cuenta como 1; liberar sin fichar no cuenta). <b>No cuentan</b> los jugadores inactivos que se liberan y se reemplazan en el mismo guardado, ni los cambios y desafíos entre plantillas. La semana va de lunes a domingo y los días se cuentan en hora de República Dominicana. <b>0 = sin límite.</b></div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Por día</label>'+inp('tfm-day',t.fantasyMaxDay)+'</div><div class="fg"><label class="fl">Por semana</label>'+inp('tfm-week',t.fantasyMaxWeek)+'</div></div>'
@@ -5675,7 +5677,7 @@ async function saveT(id){
     t.mlbMinAb=Math.max(0,parseInt(fv('tmlb-minab'))||0);t.mlbMinIp=Math.max(0,parseFloat(fv('tmlb-minip'))||0);t.mlbRosterType=fv('tmlb-rt')||'';t.mlbRosterSyncMin=parseInt(fv('tmlb-rsync'))||0;
     if((t.mlbStatsSource==='mlb'||t.mlbLockSource==='mlb'||t.mlbFaSource==='mlb'||t.mlbStandSource==='mlb')&&(!t.mlbLeagueId||!t.mlbSeason)){toast('Para usar la API de MLB indica la liga y el año','error');return;}
   }
-  if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';t.fantasyWaiver=(fv('tfm-wv')==='1');t.fantasyWaiverMin=Math.max(1,Math.min(10080,parseInt(fv('tfm-wvmin'))||30));}   // solo existe para el admin
+  if(document.getElementById('tfm-day')){t.fantasyPosRule=(fv('tfm-pos')==='strict')?'strict':'free';t.fantasyMaxDay=parseInt(fv('tfm-day'))||0;t.fantasyMaxWeek=parseInt(fv('tfm-week'))||0;t.fantasyMaxMonth=parseInt(fv('tfm-month'))||0;t.fantasyMinApprovals=parseInt(fv('tfm-appr'))||0;t.fantasyTradeDeadline=fv('tfm-dead')||'';t.fantasyLockMode=(fv('tfm-lock')==='team')?'team':'all';t.fantasyWaiver=(fv('tfm-wv')==='1');t.fantasyWaiverMin=Math.max(1,Math.min(10080,parseInt(fv('tfm-wvmin'))||30));t.fantasyWaiverMode=(fv('tfm-wvmode')==='restart')?'restart':'continue';}   // solo existe para el admin
   var advCfg=null;
   if(document.getElementById('tfa-winner')){var an=function(i){return Math.max(0,Math.round((parseFloat(fv(i))||0)*100)/100);};advCfg={winner:an('tfa-winner'),score:an('tfa-score'),ks:an('tfa-ks'),diff:an('tfa-diff'),costs:{winner:an('tfa-cwinner'),score:an('tfa-cscore'),ks:an('tfa-cks'),diff:an('tfa-cdiff')}};}   // solo existe para el admin
   if(document.getElementById('tfr-time')){t.fantasyReminderTime=(fv('tfr-time')||'').trim();t.fantasyReminderMsg=(fv('tfr-msg')||'').trim();}   // solo existe para el admin
@@ -8985,10 +8987,12 @@ function wgParse(u,mute){
   }catch(e){return null;}
 }
 function wgDomFill(x,d){
-  var stage=!!(x.closest&&x.closest('.lse')),key='wg'+(d.u||'')+(stage?'s':'v');
+  var stage=!!(x.closest&&x.closest('.lse')),snd=!!(window._SP&&_SP.wgSnd),key='wg'+(d.u||'')+(stage?'s':'v')+(snd?'1':'0');
   if(x._sig===key)return;x._sig=key;
   x.className='lsx wg';x.innerHTML='';
-  var w=wgParse(d.u,stage);   // en tu Pantalla suena en silencio (el microfono lo captaria); los espectadores lo oyen
+  // en tu Pantalla suena en silencio (el microfono lo captaria). El espectador lo ve siempre y lo oye en cuanto activa el sonido del en vivo
+  // (el navegador / WebView no deja arrancar con sonido sin un toque: antes el reproductor quedaba negro)
+  var w=wgParse(d.u,stage||!snd);
   if(!w){x.innerHTML='<div class="pl-ph">&#128279; Widget<br><small>URL no válida</small></div>';return;}
   if(w.kind==='vid'){
     var v=document.createElement('video');v.setAttribute('playsinline','');v.autoplay=true;v.loop=true;v.muted=stage;v.src=w.src;v.style.cssText='width:100%;height:100%;object-fit:contain;background:#000';
@@ -8996,7 +9000,10 @@ function wgDomFill(x,d){
   }else{
     var f=document.createElement('iframe');f.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; fullscreen');f.setAttribute('allowfullscreen','');
     f.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation');f.setAttribute('referrerpolicy','strict-origin-when-cross-origin');f.setAttribute('tabindex','-1');
-    f.style.cssText='border:0;width:100%;height:100%;background:#000';f.src=w.src;x.appendChild(f);
+    f.style.cssText='border:0;width:100%;height:100%;background:#000';
+    // En la app (Capacitor) el origen no es https real y YouTube/Vimeo rechazan el video: se abre desde la pagina /wg del Worker (origen https valido)
+    var wb='';try{if(IS_NATIVE_APP&&CFG.workerUrl&&w.kind!=='vid'){var wu=new URL('/wg',CFG.workerUrl);wu.searchParams.set('u',d.u);wu.searchParams.set('m',(stage||!snd)?'1':'0');wb=wu.href;}}catch(e){wb='';}
+    f.src=wb||w.src;x.appendChild(f);
   }
 }
 function bcWgEntry(u){
@@ -11679,6 +11686,9 @@ function spUnmute(){
   v.muted=!v.muted;
   if(!v.muted){try{var p=v.play();if(p&&p.catch)p.catch(function(){});}catch(e){}}
   spSndRefresh();
+  // los widgets con video (YouTube, Vimeo, archivos) siguen el sonido del en vivo
+  _SP.wgSnd=!v.muted;
+  try{var hh=document.getElementById('lsp-items');if(hh){Array.prototype.forEach.call(hh.querySelectorAll('.lsx.wg'),function(q){q._sig='';});lsRenderItems(hh,_SP.items||[],_SP.gameId,false);}}catch(e){}
 }
 function spMsg(t){var m=document.getElementById('lsp-msg');if(!m)return;if(t){m.textContent=t;m.style.display='flex';}else m.style.display='none';}
 function spPoll(first){
@@ -19744,7 +19754,7 @@ function pgLead(tid){
   function getVB(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB','AT'].indexOf(e.type)<0;}).length;}
   function getIP(ids){return sumIP(pevs.filter(function(e){return ids.indexOf(e.pitcherId)>=0;}));}
   var _poolSP=players.filter(function(p){return p.role==='SP';}),_poolRP=players.filter(function(p){return p.role==='RP';}),_poolCL=players.filter(function(p){return p.role==='CL';});
-  var minLeadVB=resolveMinVB(_ldTh,players,getVB);
+  var minLeadVB=resolveMinVB(_ldTh,players,getPA);   // mínimo en TA (apariciones al bate): manual o media automática de TA
   var minIPSP=resolveMinIP(_ldTh,_poolSP,getIP);
   var minIPRP=resolveMinIP({ipAuto:_ldTh.ipAutoRp,ip:_ldTh.ipRp},_poolRP,getIP);
   var minIPCL=resolveMinIP({ipAuto:_ldTh.ipAutoCl,ip:_ldTh.ipCl},_poolCL,getIP);
@@ -19756,13 +19766,13 @@ function pgLead(tid){
   var _maxGP=_usePA?leadersMaxGamesPlayed(_LD.tourId,_LD.dateFrom,_LD.dateTo,tids):0;
   var minLeadPA=_usePA?Math.ceil(_tpd*_maxGP-1e-9):0;
   function getPA(ids){var pe=evs.filter(function(e){return ids.indexOf(e.batterId)>=0;});return pe.filter(function(e){return['OJ','SB','WP','BK','PB','AT'].indexOf(e.type)<0;}).length;}
-  function passBatMin(x){return _usePA?x.pa>=minLeadPA:(!minLeadVB||x.vb>=minLeadVB);}
-  function vbLbl(x){return x.vb+' VB'+(_usePA?' &middot; '+x.pa+' TA':'');}
+  function passBatMin(x){return _usePA?x.pa>=minLeadPA:(!minLeadVB||x.pa>=minLeadVB);}
+  function vbLbl(x){return x.vb+' VB'+(x.pa?' &middot; '+x.pa+' TA':'');}
   // applyMin: SOLO las tarjetas de SLG/AVG (bateo) y ERA/WHIP (pitcheo) aplican el minimo de
   // VB/IP configurado — el resto de las tarjetas (HR, RBI, Hits, K, Victorias, etc.) muestran
   // a todos los jugadores con actividad, sin mínimo.
-  function topN(fn,n,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:(_usePA&&applyMin)?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
-  function fullN(fn,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:(_usePA&&applyMin)?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;});}
+  function topN(fn,n,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:applyMin?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;}).slice(0,n||10);}
+  function fullN(fn,applyMin){return players.map(function(p){var vb=getVB(p.ids);return{p:p,val:fn(p.ids),tm:teamOf(p.teamId),vb:vb,pa:applyMin?getPA(p.ids):0};}).filter(function(x){return x.val>0&&(!applyMin||passBatMin(x));}).sort(function(a,b){return b.val-a.val;});}
   var _leadCardSeq=0;
   function lCard(ttl,items,fmt,fullFn){
     fmt=fmt||function(v){return v;};
@@ -19807,7 +19817,7 @@ function pgLead(tid){
     var anyIp=minIPSP||minIPRP||minIPCL||_ldTh.ipAuto||_ldTh.ipAutoRp||_ldTh.ipAutoCl;
     if(!(_usePA||minLeadVB||_ldTh.vbAuto||anyIp))return'';
     var phTxt=S.phaseFilter?({regular:'Serie Regular',playoff:'Playoffs',divchamp:'Serie Campeonato Divisional',final:'Serie Final'}[S.phaseFilter]||S.phaseFilter):'Serie Regular (referencia de "Todas")';
-    var bat=_usePA?('<b>'+minLeadPA+' turnos al bate</b> ('+_tpd+' por juego &times; '+_maxGP+' juegos del equipo con más partidos)'):(_ldTh.vbAuto?'<b>'+minLeadVB+' VB</b> (media automática)':(minLeadVB?minLeadVB+' VB (manual)':'sin mínimo de VB'));
+    var bat=_usePA?('<b>'+minLeadPA+' turnos al bate</b> ('+_tpd+' por juego &times; '+_maxGP+' juegos del equipo con más partidos)'):(_ldTh.vbAuto?'<b>'+minLeadVB+' TA</b> (media automática)':(minLeadVB?minLeadVB+' TA (manual)':'sin mínimo de TA'));
     function ipTxt(lbl,auto,v){return lbl+': '+(auto?'<b>'+v.toFixed(1)+' IP</b> (media)':(v?v+' IP (manual)':'sin mínimo'));}
     return'<div class="alert ai" style="font-size:12px;margin-bottom:12px">&#129351; Mínimo aplicado SOLO en OPS/SLG/AVG (bateo) y ERA/WHIP/AVG contra (pitcheo) &mdash; fase '+phTxt+'. Bateo: '+bat+'. Pitcheo &mdash; '+ipTxt('Abridores',_ldTh.ipAuto,minIPSP)+' &middot; '+ipTxt('Relevistas',_ldTh.ipAutoRp,minIPRP)+' &middot; '+ipTxt('Cerradores',_ldTh.ipAutoCl,minIPCL)+'.</div>';
   }
@@ -22020,7 +22030,7 @@ function fnWaiverBanner(){
   return box+head
     +'<div style="font-size:13px;margin-bottom:6px">'+(w.mine?'<b style="color:#16a34a">Es tu turno:</b> puedes elegir <b>1</b> jugador NUEVO.':'Turno de <b>'+fnEsc(w.turnName)+'</b>.')+' Tiempo: <span id="fn-wv-cd" style="font-weight:800;color:var(--acc)">'+fnWvTxt(left)+(w.paused?' (en pausa)':'')+'</span>'+(w.paused?(w.gamePause?' <span style="font-size:11px;color:var(--t3)">&#127967;&#65039; Hay juegos en curso: el reloj est&aacute; detenido y contin&uacute;a cuando terminen (dentro del horario h&aacute;bil).</span>':' <span style="font-size:11px;color:var(--t3)">&#127769; El reloj corre solo dentro del horario h&aacute;bil de las actualizaciones autom&aacute;ticas.</span>'):'')+'</div>'
     +'<div>'+order+'</div>'
-    +'<div style="'+nt+'">'+(w.covered||[]).length+' jugador(es) NUEVO bajo waiver. Se elige del &uacute;ltimo lugar al primero, 1 NUEVO por turno; si no eliges a tiempo pasa al siguiente. Los jugadores sin la etiqueta NUEVO se pueden fichar siempre.</div>'
+    +'<div style="'+nt+'">'+(w.covered||[]).length+' jugador(es) NUEVO bajo waiver. Se elige del &uacute;ltimo lugar al primero, 1 NUEVO por turno; si no eliges a tiempo pasa al siguiente. Si quedan NUEVO al terminar la ronda, empieza otra desde el &uacute;ltimo. Los jugadores sin la etiqueta NUEVO se pueden fichar siempre.</div>'
     +(logH?'<div style="margin-top:6px">'+logH+'</div>':'')+'</div>';
 }
 function fnTagOf(id){
@@ -23137,7 +23147,7 @@ function fnOpenInfo(){
   var wt1=cfg.fantasyWeeklyFirstTime===undefined?'09:00':String(cfg.fantasyWeeklyFirstTime),wt2=cfg.fantasyWeeklyLastTime===undefined?'12:00':String(cfg.fantasyWeeklyLastTime);
   var wref=wpl.length?Math.max.apply(null,wpl)+1:0,wrng=wmax>0?'entre <b>'+fnPts(wmin)+'</b> y <b>'+fnPts(wmax)+'</b> pts':'de al menos <b>'+fnPts(wmin)+'</b> pts';
   var mov=sec('Movimientos, cambios y ofertas')
-    +'<ul style="margin:0 0 0 18px;padding:0">'+((D.waiver&&D.waiver.on)?'<li '+li+'><b>Waiver</b>: los jugadores con la etiqueta <b>NUEVO</b> se eligen por turnos, del &uacute;ltimo lugar al primero, con <b>'+D.waiver.minutes+' min</b> por turno y <b>1 jugador NUEVO por turno</b>. Al elegir o vencer el tiempo pasa al siguiente; terminados los turnos, cualquiera puede ficharlos hasta que entre otro NUEVO. Los dem&aacute;s agentes libres se pueden fichar siempre.</li>':'')+'<li '+li+'><b>Movimientos</b>: cada jugador que fichas de la agencia libre cuenta como un movimiento (liberar solo no cuenta, ni reemplazar a un inactivo). '+(hasLim?'En este subtorneo el máximo es <b>'+limTxt+'</b>.':'Este subtorneo no tiene límite de movimientos.')+'</li>'
+    +'<ul style="margin:0 0 0 18px;padding:0">'+((D.waiver&&D.waiver.on)?'<li '+li+'><b>Waiver</b>: los jugadores con la etiqueta <b>NUEVO</b> se eligen por turnos, del &uacute;ltimo lugar al primero, con <b>'+D.waiver.minutes+' min</b> por turno y <b>1 jugador NUEVO por turno</b>. Al elegir o vencer el tiempo pasa al siguiente'+(D.waiver.mode==='restart'?' (si entra otro NUEVO antes de que todos tengan turno, se reinicia desde el &uacute;ltimo lugar)':' (si entra otro NUEVO antes de que todos tengan turno, contin&uacute;a por el turno donde iba)')+'; si al terminar la ronda quedan NUEVO sin elegir, empieza otra desde el &uacute;ltimo lugar. Los dem&aacute;s agentes libres se pueden fichar siempre.</li>':'')+'<li '+li+'><b>Movimientos</b>: cada jugador que fichas de la agencia libre cuenta como un movimiento (liberar solo no cuenta, ni reemplazar a un inactivo). '+(hasLim?'En este subtorneo el máximo es <b>'+limTxt+'</b>.':'Este subtorneo no tiene límite de movimientos.')+'</li>'
     +(hasLim&&mcost>0?'<li '+li+'><b>Movimientos adicionales</b>: cuando agotas tus movimientos puedes <b>comprar más por '+fnPts(mcost)+' pts cada uno</b> (botón Comprar en tu plantilla, o al guardar tus cambios). Los puntos se descuentan de tu total y no se devuelven, y los movimientos comprados no cuentan contra los límites. <b>Todos los usuarios pueden ver</b> en la clasificación y en cada plantilla cuántos movimientos extra compró cada quien y cuántos puntos gastó.</li>':'')
     +'<li '+li+'><b>Cambios</b> (pestaña Cambios): propones dar un jugador tuyo por uno de otro usuario, pudiendo ofrecer puntos. Se aplica cuando lo aprueban '+(minA>0?'al menos <b>'+minA+'</b> usuarios con plantilla (los dos del cambio siempre deben aprobar)':'<b>todos</b> los usuarios con plantilla')+'; si una de las dos partes lo rechaza, se cierra.</li>'
     +'<li '+li+'>&#127873; Los <b>puntos ofrecidos</b> en un cambio son privados: cada usuario solo ve los puntos que se le ofrecieron a <b>él</b> (no los ofrecidos a los demás aprobadores); quien propone ve el detalle completo. Se reservan mientras el cambio esté pendiente y pasan a los elegidos cuando se aprueba.</li>'
@@ -23636,6 +23646,8 @@ function awardCandidates(tourId,divFilter){
       var ids=idsForName(p);
       var pe=pool.pe(ids);
       var vb=pe.filter(function(e){return['BB','HBP','SAC','OJ','SB','WP','BK','PB','AT'].indexOf(e.type)<0;}).length;
+      // TA = total de apariciones al bate (VB + BB + HBP + SAC): es lo que se compara contra el mínimo configurado
+      var ta=pe.filter(function(e){return['OJ','SB','WP','BK','PB','AT'].indexOf(e.type)<0;}).length;
       var h=pe.filter(function(e){return['H1','H2','H3','HR'].indexOf(e.type)>=0;}).length;
       var h1=pe.filter(function(e){return e.type==='H1';}).length;
       var h2=pe.filter(function(e){return e.type==='H2';}).length;
@@ -23687,7 +23699,7 @@ function awardCandidates(tourId,divFilter){
       var defGames=mainPos?(posCount[mainPos]||0):0;
       var gpBat=[...new Set(pe.map(function(e){return e.gameId;}))].length;
       var teamNamesCand=[];ids.map(playerOf).filter(function(x){return x;}).forEach(function(r){var tm=teamOf(r.teamId);if(tm&&teamNamesCand.indexOf(tm.name)<0)teamNamesCand.push(tm.name);});
-      return{p:p,tm:teamOf(p.teamId),teamNames:teamNamesCand,vb:vb,h:h,h1:h1,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:kb,outBat:outBat,gpBat:gpBat,
+      return{p:p,tm:teamOf(p.teamId),teamNames:teamNamesCand,vb:vb,ta:ta,h:h,h1:h1,h2:h2,h3:h3,hr:hr,rbi:rbi,bb:bb,k:kb,outBat:outBat,gpBat:gpBat,
         avg:avg,obp:obp,slg:slg,ops:ops,
         ip:ip,pOuts:pOuts,ph:ph,er:er,pbb:pbb,pk:pk,w:w,l:l,sv:sv,era:era,whip:whip,
         battingPts:battingPts,pitchingPts:pitchingPts,
@@ -23712,11 +23724,13 @@ function awardCandidates(tourId,divFilter){
   // ── Cy Young: puntos de pitcheo, minimo IP configurado ──
   function cyScore(x){return x.pitchingPts;}
   // ── Bate de Oro y Bate de Plata: top AVG con minimo VB, posiciones 1-5 y 6-10 ──
-  var avgPool=regular.filter(function(x){return x.vb>=minVB;}).slice().sort(function(a,b){return b.avg-a.avg;});
+  var avgPool=regular.filter(function(x){return x.ta>=minVB;}).slice().sort(function(a,b){return b.avg-a.avg;});
   var oro=avgPool.slice(0,5);
   var plata=avgPool.slice(5,10);
   // ── MVP General ──
-  var mvp=regular.slice().sort(function(a,b){return mvpScore(b)-mvpScore(a);}).slice(0,5);
+  // El MVP solo considera a quienes cumplen el mínimo de TA configurado (Serie Regular)
+  var mvpElig=regular.filter(function(x){return x.ta>=minVB;});
+  var mvp=mvpElig.slice().sort(function(a,b){return mvpScore(b)-mvpScore(a);}).slice(0,5);
   // ── Cy Young ──
   var cyYoung=regular.filter(function(x){return x.ip>=minIP;}).slice().sort(function(a,b){return cyScore(b)-cyScore(a);}).slice(0,5);
   // ── Novato del Año: puntos totales combinados entre novatos ──
@@ -23739,7 +23753,8 @@ function awardCandidates(tourId,divFilter){
     }).slice(0,3);
   });
   // ── MVP Serie Final: puntos combinados de juegos de la fase final únicamente ──
-  var mvpFinal=final_.slice().sort(function(a,b){return mvpScore(b)-mvpScore(a);}).slice(0,5);
+  var _mvpOk={};mvpElig.forEach(function(x){_mvpOk[x.p.id]=1;});   // en la Serie Final se exige haber cumplido el mínimo de TA en la Serie Regular
+  var mvpFinal=final_.filter(function(x){return _mvpOk[x.p.id];}).sort(function(a,b){return mvpScore(b)-mvpScore(a);}).slice(0,5);
   return{mvp:mvp,cyYoung:cyYoung,plata:plata,oro:oro,novato:novato,guante:guante,mvpFinal:mvpFinal,
     hasRegular:regular.length>0,hasFinal:final_.length>0,minGG:minGG,minVB:minVB,minIP:minIP};
 }
@@ -23947,22 +23962,22 @@ function pgAwardCandidates(tourId,divFilter){
     if(_rPit&&x.ip>0)detail.push('<span style="font-size:10px;color:var(--t3)">Pit: '+pit.toFixed(2)+'</span>');
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+total.toFixed(2)+'</span><div style="font-size:9px;color:var(--t3)">pts</div>'+(detail.length?'<div style="font-size:9px;color:var(--t3)">'+detail.join(' ')+'</div>':'');
   }
-  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en el sistema de puntos configurado (Serie Regular). Bate de Oro y Bate de Plata requieren mín. '+minVB+' VB; Cy Young requiere mín. '+minIP+' IP; MVP y Novato del Año no tienen mínimo de VB/IP. Guante de Oro requiere mín. '+minGG+' juego(s) en la posición (la más jugada en Serie Regular) y se ordena por puntos netos de "Puntos por Jugada" (otorgados menos descontados por Error). Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
+  var html='<div class="alert ai" style="font-size:11px;margin-bottom:12px">Análisis automático basado en el sistema de puntos configurado (Serie Regular). Bate de Oro, Bate de Plata y MVP requieren mín. '+minVB+' TA (turnos al bate, incluye bases por bolas); Cy Young requiere mín. '+minIP+' IP; Novato del Año no tiene mínimo. Guante de Oro requiere mín. '+minGG+' juego(s) en la posición (la más jugada en Serie Regular) y se ordena por puntos netos de "Puntos por Jugada" (otorgados menos descontados por Error). Estos son candidatos sugeridos — el premio oficial se asigna manualmente arriba con &quot;+ Registrar Premio&quot;.</div>';
   html+='<div class="g2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
   // ── MVP: puntos combinados bateo+pitcheo ──
-  html+=candList('Candidatos a MVP (bateo y/o pitcheo)','&#127942;',cand.mvp,function(x){return ptsHtml(x);});
+  html+=candList('Candidatos a MVP (bateo y/o pitcheo, mín. '+minVB+' TA)','&#127942;',cand.mvp,function(x){return ptsHtml(x);});
   // ── Cy Young: puntos de pitcheo con min IP ──
   html+=candList('Candidatos a Cy Young (pitcher)','&#9918;',cand.cyYoung,function(x){
     return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.pitchingPts.toFixed(2)+'</span><div style="font-size:9px;color:var(--t3)">pts pit · '+x.ip.toFixed(1)+' IP</div>';
   });
   // ── Bate de Oro: top 5 AVG (min VB) ──
   html+=candList('Candidatos a Bate de Oro (Top 5 AVG)','&#127942;',cand.oro,function(x){
-    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.vb+' VB · '+x.h+'H</div>';
-  },'Sin candidatos suficientes (mín. '+minVB+' VB).');
+    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.ta+' TA · '+x.vb+' VB · '+x.h+'H</div>';
+  },'Sin candidatos suficientes (mín. '+minVB+' TA).');
   // ── Bate de Plata: posiciones 6-10 por AVG (min VB) ──
   html+=candList('Candidatos a Bate de Plata (Top AVG, pos. 6-10)','&#129351;',cand.plata,function(x){
-    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.vb+' VB · '+x.h+'H</div>';
-  },'Sin candidatos suficientes (mín. '+minVB+' VB). Estas son las posiciones 6-10 del ranking de AVG.');
+    return '<span style="font-weight:800;color:var(--acc);font-size:13px">'+x.avg.toFixed(3)+'</span><div style="font-size:9px;color:var(--t3)">AVG · '+x.ta+' TA · '+x.vb+' VB · '+x.h+'H</div>';
+  },'Sin candidatos suficientes (mín. '+minVB+' TA). Estas son las posiciones 6-10 del ranking de AVG.');
   // ── Novato del Año: puntos combinados entre novatos ──
   html+=candList('Candidatos a Novato del Año','&#127881;',cand.novato,function(x){return ptsHtml(x);},'Sin jugadores marcados como Novato con números suficientes. Marca el checkbox "Novato" al editar el jugador.');
   html+='</div>';
