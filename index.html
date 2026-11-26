@@ -8567,6 +8567,11 @@ function bcXDraw(ctx,e,it,x,y,w,h,now,cw){
     ctx.save();bcMosShape(ctx,cshp,x,y,w,h);ctx.clip();
     var ck=Math.max(w/csw,h/csh),cw2=csw*ck,ch2=csh*ck;ctx.drawImage(csrc,x+(w-cw2)/2,y+(h-ch2)/2,cw2,ch2);ctx.restore();
     ctx.save();bcMosShape(ctx,cshp,x,y,w,h);ctx.lineWidth=Math.max(2,cw/320);ctx.strokeStyle='rgba(255,255,255,.9)';ctx.stroke();ctx.restore();
+  }else if(e.kind==='wg'&&e.nat){
+    // widget copiado de la pantalla (YouTube / Vimeo / web): se pinta completo, sin deformarse
+    if(!e.ok||!e.im||!e.im.naturalWidth)return;
+    var nk=Math.min(w/e.im.naturalWidth,h/e.im.naturalHeight),nw=e.im.naturalWidth*nk,nh=e.im.naturalHeight*nk;
+    ctx.drawImage(e.im,x+(w-nw)/2,y+(h-nh)/2,nw,nh);
   }else if(e.kind==='wg'||e.kind==='vf'){
     var wv=e.wv;if(!e.ok||!wv||wv.readyState<2||!wv.videoWidth)return;
     var kw=Math.min(w/wv.videoWidth,h/wv.videoHeight),w2=wv.videoWidth*kw,h2=wv.videoHeight*kw;
@@ -9006,8 +9011,36 @@ function wgDomFill(x,d){
     f.src=wb||w.src;x.appendChild(f);
   }
 }
-function bcWgEntry(u){
+// En la app de Android, los widgets de YouTube / Vimeo / web se copian de la pantalla (AndroidWidget, ver WidgetCaptureBridge.java) y se pintan
+// dentro del video: asi tambien los ven los espectadores de YouTube. Cada ~140 ms se pide un cuadro del recuadro donde esta el widget en la Pantalla.
+function wgNat(){try{return !!(window.AndroidWidget&&AndroidWidget.isSupported&&AndroidWidget.isSupported());}catch(e){return false;}}
+// Calidad de la copia (Normal ~8 cuadros/s, Alta ~15, Maxima ~24): mas calidad = mas bateria y calor
+var WG_Q={n:{ms:120,w:640},a:{ms:66,w:854},m:{ms:42,w:1280}};
+function wgQ(){var k='a';try{k=bcLsGet('vp_wgq')||'a';}catch(x){}return WG_Q[k]||WG_Q.a;}
+function wgNatPull(e){
+  try{
+    var q=wgQ(),now=Date.now();
+    if(now-(e.last||0)>=q.ms){
+      e.last=now;
+      var el=document.querySelector('.lsi.lse[data-id="'+e.key+'"] .lsi-fr');
+      if(el){
+        var r=el.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+        if(r.width>8&&r.height>8&&r.bottom>0&&r.right>0&&r.left<window.innerWidth&&r.top<window.innerHeight){
+          AndroidWidget.grab(e.key,r.left*dpr,r.top*dpr,r.width*dpr,r.height*dpr,q.w);
+        }
+      }
+    }
+    var s=AndroidWidget.take(e.key);
+    if(s)e.im.src='data:image/jpeg;base64,'+s;
+  }catch(x){}
+}
+function bcWgEntry(u,id){
   var e={kind:'wg',u:u,t0:performance.now(),ok:false,err:false,wv:null},w=wgParse(u,false);
+  if(w&&w.kind!=='vid'&&id&&wgNat()){
+    e.nat=true;e.key=String(id);e.im=new Image();e.im.onload=function(){e.ok=true;};
+    e.tm=setInterval(function(){wgNatPull(e);},33);
+    return e;
+  }
   if(w&&w.kind==='vid'){
     var v=document.createElement('video');v.crossOrigin='anonymous';v.setAttribute('playsinline','');v.loop=true;v.preload='auto';
     v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
@@ -9023,6 +9056,7 @@ function wgOpenM(){
   showM('<div class="mhd"><div class="mtl">&#128279; Widget con URL</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'+BCX_MODAL_CSS
     +'<div class="fg"><label class="fl">Nombre (para identificarlo rápido)</label><input class="fi" id="wg-n" maxlength="30" placeholder="Ej.: Resumen de ayer"></div><div class="fg"><label class="fl">Pega la URL (https)</label><input class="fi" id="wg-u" maxlength="480" placeholder="https://www.youtube.com/watch?v=…" oninput="wgInfo()"></div>'
     +'<div id="wg-info" style="font-size:12px;color:var(--t2);line-height:1.5;margin:4px 0 10px"></div>'
+    +(wgNat()?'<div class="fg"><label class="fl">Calidad del widget en YouTube (app Android)</label><select class="fs" id="wg-q" onchange="bcLsSet(\'vp_wgq\',this.value)"><option value="n"'+((bcLsGet('vp_wgq')||'a')==='n'?' selected':'')+'>Normal (~8 cuadros/s, ahorra batería)</option><option value="a"'+((bcLsGet('vp_wgq')||'a')==='a'?' selected':'')+'>Alta (~15 cuadros/s)</option><option value="m"'+((bcLsGet('vp_wgq')||'a')==='m'?' selected':'')+'>Máxima (~24 cuadros/s, gasta más y calienta)</option></select></div>':'')
     +'<button class="btn bp" style="width:100%" onclick="wgPut()">Poner en el video</button>'
     +'<div class="xsec">Mis widgets guardados</div><div id="wg-list"></div>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">Acepta YouTube (videos, shorts, listas y en vivo), Vimeo, archivos de video directos (.mp4, .webm) y páginas web que permitan mostrarse dentro de otras. Se reproduce solo. En tu Pantalla suena en silencio; los espectadores de la app lo oyen.</div></div>');
@@ -9033,10 +9067,10 @@ function wgInfo(){
   if(!u.trim()){i.textContent='';return;}
   var w=wgParse(u.trim(),false);
   if(!w){i.innerHTML='<span style="color:var(--dng-txt,#f87171)">La URL debe empezar con https://</span>';return;}
-  i.innerHTML=w.kind==='yt'?'&#9654;&#65039; Video de YouTube. Lo ven los espectadores de la <b>app</b>. En YouTube no se puede mezclar dentro del video.'
-    :w.kind==='vimeo'?'&#9654;&#65039; Video de Vimeo. Lo ven los espectadores de la <b>app</b>.'
+  i.innerHTML=w.kind==='yt'?'&#9654;&#65039; Video de YouTube. Lo ven los espectadores de la <b>app</b>. Con la app de Android también sale <b>dentro del video a YouTube</b> (sin su audio): mantenlo visible en tu Pantalla y bloquea (&#128274;) para que no salgan los controles de edición.'
+    :w.kind==='vimeo'?'&#9654;&#65039; Video de Vimeo. Lo ven los espectadores de la <b>app</b>. Con la app de Android también sale dentro del video a YouTube (sin su audio), mientras esté visible en tu Pantalla.'
     :w.kind==='vid'?'&#127916; Archivo de video. Lo ven los de la app y, si el servidor lo permite, <b>también sale dentro del video a YouTube</b> (con su audio).'
-    :'&#127760; Página web. Lo ven los espectadores de la app (si la página permite mostrarse dentro de otras).';
+    :'&#127760; Página web. Lo ven los espectadores de la app (si la página permite mostrarse dentro de otras). Con la app de Android también sale dentro del video a YouTube mientras esté visible en tu Pantalla.';
 }
 function wgList(){
   var l=document.getElementById('wg-list');if(!l)return;var a=wgLoad();
@@ -9810,6 +9844,7 @@ function bcCmpDrop(e){
   try{if(e.gn)e.gn.disconnect();}catch(x){}
   try{if(e.reg)bcMosPrune(e.reg,{});}catch(x){}
   if(e.wv){try{e.wv.pause();e.wv.removeAttribute('src');e.wv.remove();}catch(x){}}
+  if(e.tm){try{clearInterval(e.tm);e.tm=0;if(window.AndroidWidget)AndroidWidget.release(e.key);}catch(x){}}
   try{if(e.bmp&&e.bmp.close)e.bmp.close();}catch(x){}
   if(e.fr){try{bcCmpTell(e,'stop');}catch(x){}try{e.fr.onload=null;e.fr.src='about:blank';e.fr.remove();}catch(x){}}
 }
@@ -9834,7 +9869,7 @@ function bcCmpSync(){
   b.fps=_BC.eco?(ng<=2?2:1):(ng<=2?3:2);   // mas graficos = menos cuadros por segundo de cada uno (cuida bateria y CPU)
   list.forEach(function(it){
     keep[it.id]=1;var e=b.items[it.id];
-    if(it.page==='wg'){var d0=it.d||{};if(!e||e.kind!=='wg'||e.u!==d0.u){if(e)bcCmpDrop(e);b.items[it.id]=bcWgEntry(d0.u);}return;}
+    if(it.page==='wg'){var d0=it.d||{};if(!e||e.kind!=='wg'||e.u!==d0.u){if(e)bcCmpDrop(e);b.items[it.id]=bcWgEntry(d0.u,it.id);}return;}
     if(it.page==='cm'){var dc=it.d||{};if(!e||e.kind!=='cm'||e.c!==dc.c){if(e)bcCmpDrop(e);b.items[it.id]={kind:'cm',c:dc.c,reg:{},t0:performance.now()};}return;}
     if(it.page==='vf'){var dv=it.d||{};if(!e||e.kind!=='vf'||e.k!==dv.k){if(e)bcCmpDrop(e);b.items[it.id]=bcVfEntry(dv);}else bcVfApply(e,dv);return;}
     if(it.page==='mq'||it.page==='sc'||it.page==='pl'){if(!e||e.kind!==it.page)b.items[it.id]={kind:it.page,t0:performance.now()};return;}   // se dibujan directo en el canvas (bcXDraw)
