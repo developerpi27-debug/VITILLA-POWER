@@ -4000,6 +4000,7 @@ var ALL_MOD=[
   {id:'livestream',lbl:'Transmitir en vivo desde la app (cámara + gráficos)',ico:'🔴',sec:'General'},
   {id:'livestreamsave',lbl:'Transmisiones: guardar la grabación (si no, se elimina al terminar)',ico:'💾',sec:'General'},
   {id:'livestreamscore',lbl:'Transmisión: anotar jugadas desde la Pantalla de transmisión',ico:'⚾',sec:'General'},
+  {id:'livestreamswitch',lbl:'Transmisión: cambiar los gráficos a otro de sus juegos en vivo (sin cortar el en vivo)',ico:'🎯',sec:'General'},
   {id:'livestreamwm',lbl:'Transmisión: marca de agua "VBS POWER" dentro del video (app y YouTube)',ico:'🏷️',sec:'General'},
   {id:'camlim1',lbl:'Cámaras en transmisión: máximo 1 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
   {id:'camlim2',lbl:'Cámaras en transmisión: máximo 2 por transmisión (si marcas varios, rige el mayor; sin ninguno solo rige el límite del dispositivo)',ico:'&#128247;',sec:'General'},
@@ -4451,7 +4452,7 @@ function canSeeMyProfile(){return !!S.user&&S.user.role!=='google'&&S.user.role!
 function hasModuleAccess(moduleId){
   // Panel de Transmision y transmision en vivo: los usuarios de Google los ven SOLO si el perfil que usan (Configuracion > Acceso con Google)
   // tiene marcados esos permisos, igual que cualquier otro perfil. Los visitantes nunca.
-  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore'||moduleId==='livestreamwm')&&S.user&&S.user.role==='public')return false;
+  if((moduleId==='livestream'||moduleId==='livestreamsave'||moduleId==='livestreamscore'||moduleId==='livestreamwm'||moduleId==='livestreamswitch')&&S.user&&S.user.role==='public')return false;
   return getUserMods(S.user).some(function(m){return m.id===moduleId;});
 }
 function visibleTournaments(){
@@ -4648,7 +4649,7 @@ function renderApp(){
   // en el menu lateral (solo controlan si sus respectivos botones se muestran dentro de
   // Control de Juego). Se excluyen aqui pero SI se mantienen en ALL_MOD para que aparezcan en
   // el checklist de Modulos del editor de Perfiles y en los chips de "Mi Perfil".
-  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
+  var mods=getUserMods(u).filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id!=='livestreamswitch'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});var nm='';var last='';
   var subParent={statslife:'stats',leaderslife:'leaders'},prevId='';
   mods.forEach(function(p){
     if(p.sec!==last){nm+='<div class="nsec">'+p.sec+'</div>';last=p.sec;}
@@ -8460,6 +8461,8 @@ var LS_ICE=[{urls:'stun:stun.cloudflare.com:3478'}];
 // ── Todo lo propio de la transmision (ultimo layout, marquees, plantillas editadas, playlist) se guarda POR USUARIO, nunca compartido en el mismo dispositivo ──
 function bcUk(base){var u=S.user&&(S.user.id||S.user.username);return base+':'+String(u||'anon').replace(/[^\w\-]/g,'').slice(0,64);}
 function bcIsAdmin(){return !!(S.user&&S.user.role==='admin');}
+// Cambiar el juego de los graficos: el administrador, o un perfil con el permiso "livestreamswitch" (solo entre sus juegos en vivo)
+function bcCanRetarget(){return bcIsAdmin()||(!!S.user&&S.user.role!=='public'&&hasModuleAccess('livestreamswitch'));}
 function bcLsGet(base){
   var k=bcUk(base),v=null;
   try{
@@ -8648,9 +8651,9 @@ function bcRetGameLine(g){
   return{txt:a+' vs '+h,sub:((par?par.name+' › ':'')+(t?t.name:''))+(g.date?' · '+g.date:''),key:(a+' '+h+' '+(t?t.name:'')+' '+(par?par.name:'')).toLowerCase()};
 }
 function bcRetargetOpenM(){
-  if(!bcIsAdmin()||!_BC.id)return;
-  var cur=String(_BC.gameId);
-  var gs=(S.games||[]).filter(function(g){return g.status!=='final'||String(g.id)===cur;}).sort(function(a,b){
+  if(!bcCanRetarget()||!_BC.id)return;
+  var cur=String(_BC.gameId),adm=bcIsAdmin();
+  var gs=(S.games||[]).filter(function(g){return adm?(g.status!=='final'||String(g.id)===cur):(g.status==='live'||String(g.id)===cur);}).sort(function(a,b){
     if(String(a.id)===cur)return-1;if(String(b.id)===cur)return 1;
     if((a.status==='live')!==(b.status==='live'))return a.status==='live'?-1:1;
     return String(a.date||'9999').localeCompare(String(b.date||'9999'));
@@ -8663,13 +8666,13 @@ function bcRetargetOpenM(){
       +(isCur?'<span style="font-size:11px;font-weight:800;color:var(--acc)">ACTUAL</span>':'<button class="btn bp bsm" data-gid="'+nfEsc(g.id)+'" onclick="bcRetarget(this.dataset.gid)">Elegir</button>')+'</div>';
   }).join('');
   showM('<div class="mhd"><div class="mtl">&#127919; Juego de los gráficos</div><button class="bx" onclick="cM()">&#10005;</button></div><div class="mbd">'
-    +'<div style="font-size:12px;color:var(--t2);margin-bottom:8px">Elige el juego al que apuntarán los gráficos (marcador, lineup, pizarra...) de esta transmisión. El en vivo <b>no se corta</b>; los espectadores y YouTube verán los gráficos del nuevo juego.</div>'
+    +'<div style="font-size:12px;color:var(--t2);margin-bottom:8px">Elige el juego al que apuntarán los gráficos (marcador, lineup, pizarra...) de esta transmisión'+(bcIsAdmin()?'':' (solo tus juegos en vivo)')+'. El en vivo <b>no se corta</b>, ni siquiera cuando un juego termina; la finalizas tú; los espectadores y YouTube verán los gráficos del nuevo juego.</div>'
     +'<input class="fi" placeholder="Buscar equipo o torneo..." oninput="bcRetFilter(this.value)" style="margin-bottom:8px">'
-    +(rows||'<div class="empty">No hay juegos disponibles.</div>')+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
+    +(rows||'<div class="empty">No hay juegos en vivo disponibles.</div>')+'</div><div class="mft"><button class="btn bs" onclick="cM()">Cerrar</button></div>');
 }
 function bcRetFilter(q){q=String(q||'').toLowerCase().trim();Array.prototype.forEach.call(document.querySelectorAll('.bcret-r'),function(r){r.style.display=(!q||(r.getAttribute('data-k')||'').indexOf(q)>=0)?'':'none';});}
 async function bcRetarget(gid){
-  if(!bcIsAdmin()||!_BC.id)return;
+  if(!bcCanRetarget()||!_BC.id)return;
   var g=(S.games||[]).filter(function(x){return String(x.id)===String(gid);})[0];if(!g)return;
   var l=bcRetGameLine(g);
   if(!confirm('¿Apuntar los gráficos de la transmisión a "'+l.txt+'"?'))return;
@@ -11513,7 +11516,7 @@ function bcOpenStage(){
   // los botones de jugadas se copian de la pagina de Control de Juego: debe estar renderizada para este juego
   if(withScore&&(curP!=='gamecontrol'||String(S.game)!==String(_BC.gameId))){S.game=_BC.gameId;try{goNav('gamecontrol');}catch(e){}}
   var el=document.createElement('div');el.id='bc-stage';el.className='bcs';
-  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño de la caja y <b>− / +</b> (arriba del gráfico) para hacer el gráfico más grande o más pequeño dentro de ella. &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start"><button class="btn bs bsm" id="bcs-mic" onclick="bcToggleMic()">&#127908; Micrófono</button><button class="btn bs bsm" onclick="camOpenM()">&#128247; Cámaras</button><button class="btn bs bsm" onclick="bcFlip()">&#128260; Cámara</button><button class="btn bs bsm" id="bcs-camt" onclick="bcCamToggle()">&#128249; Cámara encendida</button><button class="btn bs bsm" onclick="bcsChatToggle()">&#128172; Chat</button><button class="btn bs bsm" id="bcs-lock" title="Bloquea los movimientos para que nada se mueva sin querer" onclick="bcLockToggle()">&#128275; Bloquear</button><button class="btn bs bsm" id="bcs-fps" onclick="bcFpsOpenM()">FPS</button><button class="btn bs bsm" onclick="bcHeatTips()">&#128161; Consejos</button>'+(bcIsAdmin()?'<button class="btn bs bsm" onclick="bcRetargetOpenM()" title="Apunta los gráficos de esta transmisión a otro juego o torneo sin cortar el en vivo">&#127919; Juego</button>':'')+'<button class="btn bp bsm" id="bcs-ok">Listo</button></div></div>'
+  el.innerHTML='<div class="bcs-top"><div><div style="font-weight:800;font-size:15px">&#129513; Pantalla de la transmisión</div><div style="font-size:11px;color:var(--t3)">Toca un gráfico para agregarlo o quitarlo. Arrástralo para moverlo y usa la esquina &#9698; para el tamaño de la caja y <b>− / +</b> (arriba del gráfico) para hacer el gráfico más grande o más pequeño dentro de ella. &#9680; cambia entre fondo transparente y opaco. Los espectadores lo ven al instante.</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start"><button class="btn bs bsm" id="bcs-mic" onclick="bcToggleMic()">&#127908; Micrófono</button><button class="btn bs bsm" onclick="camOpenM()">&#128247; Cámaras</button><button class="btn bs bsm" onclick="bcFlip()">&#128260; Cámara</button><button class="btn bs bsm" id="bcs-camt" onclick="bcCamToggle()">&#128249; Cámara encendida</button><button class="btn bs bsm" onclick="bcsChatToggle()">&#128172; Chat</button><button class="btn bs bsm" id="bcs-lock" title="Bloquea los movimientos para que nada se mueva sin querer" onclick="bcLockToggle()">&#128275; Bloquear</button><button class="btn bs bsm" id="bcs-fps" onclick="bcFpsOpenM()">FPS</button><button class="btn bs bsm" onclick="bcHeatTips()">&#128161; Consejos</button>'+(bcCanRetarget()?'<button class="btn bs bsm" onclick="bcRetargetOpenM()" title="Apunta los gráficos de esta transmisión a otro juego o torneo sin cortar el en vivo">&#127919; Juego</button>':'')+'<button class="btn bp bsm" id="bcs-ok">Listo</button></div></div>'
     +'<div class="bcs-stats" id="bcs-stats"></div>'
     +'<div class="bcl-top"><span class="bcl-dot"></span><b id="bcl-st">EN VIVO</b><span id="bcl-tm"></span><span class="bcl-stats" id="bcl-stats"></span></div>'
     +'<div class="bcl-bar"><button id="bcl-mic" title="Micrófono" onclick="bcToggleMic()">&#127908;</button><button title="Cambiar cámara delantera / trasera" onclick="bcFlip()">&#128260;</button><button id="bcl-cam" title="Apagar / encender la cámara" onclick="bcCamToggle()">&#128249;</button><button title="Cámaras: enlazar y elegir la toma al aire" onclick="camOpenM()">&#128247;</button><button title="YouTube" onclick="bcYtPanel()">&#128250;</button><button title="Chat (solo tú lo ves)" onclick="bcsChatToggle()">&#128172;</button><button title="Gráficos e imágenes (desliza hacia arriba)" onclick="bcsPanel(\'gfx\')">&#129513;</button>'+(withScore?'<button title="Jugadas (desliza de derecha a izquierda)" onclick="bcsPanel(\'plays\')">&#9918;</button>':'')+'<button id="bcl-fps" title="Cuadros por segundo" style="font-size:11px;font-weight:800" onclick="bcFpsOpenM()">FPS</button><button title="Consejos: que el celular no se caliente" onclick="bcHeatTips()">&#128161;</button><button id="bcl-lock" title="Bloquear / desbloquear movimientos de los gráficos" onclick="bcLockToggle()">&#128275;</button><button id="bcl-heat" style="display:none" title="El celular va al límite: consejos" onclick="bcHeatTips()">&#128293;</button><button class="stop" title="Finalizar transmisión" onclick="bcEnd()">&#9209;</button><button title="Cerrar esta pantalla (la transmisión sigue)" onclick="bcsClose()">&#10005;</button></div>'
@@ -12224,7 +12227,7 @@ function pgGC(){
       +(hasModuleAccess('lineupfix')?'<button class="btn bs bsm" onclick="openLineupFixM()" title="Corrige a un jugador puesto por error en el lineup, sin sacarlo por cambio">&#128101; Corregir jugador</button>':'')
       +'<button class="btn bs bsm" onclick="openAdjM()">&#9998; Corregir</button>'
     +'<button class="btn bd bsm" id="btnUndo" '+(_undoBusy?'disabled ':'')+'onclick="undoLastPlay()" title="'+(_undoBusy?'Procesando, espera a que termine...':'Elimina la ultima jugada y devuelve el turno al bateador anterior')+'" style="'+(_undoBusy?'opacity:.55;cursor:not-allowed':'')+'">'+(_undoBusy?'&#8987; Deshaciendo...':'&#8630; Deshacer')+'</button>'
-    +(hasModuleAccess('livestream')&&gm.status!=='final'?(_BC.id&&String(_BC.gameId)===String(gm.id)?'<button class="btn bd bsm" onclick="bcShowPanel()" title="Muestra los controles de tu transmisión">&#128308; Transmitiendo · controles</button>':'<button class="btn bd bsm" data-gid="'+gm.id+'" onclick="openBroadcastM(this.dataset.gid)" title="Transmite este juego con la cámara de tu dispositivo">&#128308; Transmitir en vivo</button>'):'')
+    +(hasModuleAccess('livestream')&&(gm.status!=='final'||(_BC.id&&String(_BC.gameId)===String(gm.id)))?(_BC.id&&String(_BC.gameId)===String(gm.id)?'<button class="btn bd bsm" onclick="bcShowPanel()" title="Muestra los controles de tu transmisión">&#128308; Transmitiendo · controles</button>':'<button class="btn bd bsm" data-gid="'+gm.id+'" onclick="openBroadcastM(this.dataset.gid)" title="Transmite este juego con la cámara de tu dispositivo">&#128308; Transmitir en vivo</button>'):'')
     +(hasModuleAccess('transmissionpanel')?'<button class="btn bp bsm" data-gid="'+gm.id+'" onclick="openTransmissionPanel(this.dataset.gid)" title="Abre una ventana aparte con los accesos a Pizarra, Lineup, Defensiva y Marcador para transmision">&#127916; Panel Transmisión</button>':'')
       +'</div>':'')
     +'</div>'
@@ -25762,7 +25765,7 @@ function openProfM(id){
   // Build permissions tab: per-module create/edit/delete checkboxes
   var profPerms=p.permissions||{};
   var permChks=ALL_MOD.map(function(m){
-    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='lineupfix'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id==='livestreamwm'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
+    if(m.id==='synctocloud'||m.id==='fantasychallenges'||m.id==='fantasydivi'||m.id==='fantasytrades'||m.id==='gameid'||m.id==='lineupfix'||m.id==='hideads'||m.id==='livestream'||m.id==='livestreamsave'||m.id==='livestreamscore'||m.id==='livestreamwm'||m.id==='livestreamswitch'||m.id.indexOf('camlim')===0)return'';   // interruptores del perfil (pestaña Modulos): no tienen Crear/Editar/Eliminar
     var mp=profPerms[m.id]||{};
     var chkC=mp.create!==false?'checked':'';
     var chkE=mp.edit!==false?'checked':'';
@@ -26847,7 +26850,7 @@ async function saveContactInfo(){
 // Modulos que se pueden marcar en Configuracion > Anuncios (banner / intersticial / continuo): todos los de ALL_MOD (menos los
 // internos) mas Notificaciones, que vive aparte (NOTIF_MOD) y por eso no aparecia en las listas.
 function adModOptions(){
-  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
+  var l=ALL_MOD.filter(function(m){return m.id!=='transmissionpanel'&&m.id!=='livestream'&&m.id!=='livestreamsave'&&m.id!=='livestreamscore'&&m.id!=='livestreamwm'&&m.id!=='livestreamswitch'&&m.id.indexOf('camlim')!==0&&m.id.indexOf('ovlim')!==0&&m.id!=='addtolineup'&&m.id!=='lineupfix'&&m.id!=='gameid'&&m.id!=='hideads'&&m.id!=='fantasytrades'&&m.id!=='fantasychallenges'&&m.id!=='fantasydivi'&&m.id!=='synctocloud';});
   if(!l.some(function(m){return m.id==='notifications';}))l.push(NOTIF_MOD);
   return l;
 }
