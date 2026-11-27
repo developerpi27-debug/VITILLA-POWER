@@ -9504,7 +9504,7 @@ async function lsWhipPublish(url,stream,hPx){
   try{ // tope de bitrate del video: cuida la subida del celular
     var snd=pc.getSenders().filter(function(s){return s.track&&s.track.kind==='video';})[0];
     var p=snd.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];
-    p.encodings[0].maxBitrate=hPx>=1080?4500000:(hPx>=720?2500000:1200000);
+    p.encodings[0].maxBitrate=hPx>=1080?3500000:(hPx>=720?2500000:1200000);
     await snd.setParameters(p);
   }catch(e){}
   var res='';try{res=loc?new URL(loc,url).href:'';}catch(e){}
@@ -10200,7 +10200,7 @@ async function bcStart(gid){
   bcWatchPc(pub.pc);
   bcHeatInit();if(_BC.eco){bcEncApply();bcFpsApplyTrack();setTimeout(function(){toast('Modo ahorro activo: el video sale a 20 cuadros por segundo. Toca FPS para subirlo a 30.','info');},1500);}
   cM();bcMount();bcWake();
-  _BC.pingT=setInterval(bcPing,45000);
+  _BC.pingT=setInterval(bcPing,30000);
   _BC.stT=setInterval(bcStats,3000);
   toast('¡Estás transmitiendo en vivo!','success');
   if(ytSel)bcYtGo(ytSel,ytOpt);
@@ -10239,9 +10239,11 @@ function bcEncApply(){
   try{
     var snd=bcVideoSender();if(!snd)return;
     var p=snd.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];
-    var f=bcFps(),h=(_BC.dims&&_BC.dims[1])||720,base=h>=1080?4500000:(h>=720?2500000:1200000);
+    var f=bcFps(),h=(_BC.dims&&_BC.dims[1])||720,base=h>=1080?3500000:(h>=720?2500000:1200000);
     if(f>30)base=Math.round(base*1.5);
-    p.encodings[0].maxBitrate=_BC.eco?Math.min(base,1500000):base;
+    var ad=_BC.adapt||0;   // 0 normal · 1 y 2 = la subida / el celular no daban abasto: menos resolucion y bitrate (ver bcAdapt)
+    p.encodings[0].maxBitrate=Math.round((_BC.eco?Math.min(base,1500000):base)/[1,1.6,3][ad]);
+    p.encodings[0].scaleResolutionDownBy=[1,1.5,2][ad];
     p.encodings[0].maxFramerate=f;
     snd.setParameters(p).catch(function(){});
   }catch(e){}
@@ -10397,28 +10399,54 @@ async function bcStats(){
     if(_BC.lastB!=null&&now>_BC.lastT)kbps=Math.round((bytes-_BC.lastB)*8/((now-_BC.lastT)/1000)/1000);
     _BC.lastB=bytes;_BC.lastT=now;_BC.kbps=kbps;
     try{bcHeatCheck(rep);}catch(x){}
+    var lim='',fps=0,fh=0;
+    rep.forEach(function(r){if(r.type==='outbound-rtp'&&(r.kind==='video'||r.mediaType==='video')){lim=r.qualityLimitationReason||'';fps=Math.round(r.framesPerSecond||0);fh=r.frameHeight||0;}});
+    try{bcAdapt(lim,kbps,cs);}catch(x){}
+    _BC.diag={lim:lim,fps:fps,h:fh,kbps:kbps};
     var e=document.getElementById('bcf-st');if(!e)return;
     if(cs==='connected'){
       if(kbps!=null&&kbps<30){_BC.lowN=(_BC.lowN||0)+1;e.textContent='SIN ENVÍO';e.className='bcf-warn';
-        if(_BC.lowN===3)toast('La cámara no está enviando video a Cloudflare. Revisa tu conexión o cambia de cámara.','error');}
-      else{_BC.lowN=0;e.textContent='EN VIVO'+(kbps!=null?' · '+(kbps>=1000?(kbps/1000).toFixed(1)+' Mbps':kbps+' kbps'):'');e.className='';}
+        if(_BC.lowN===3)toast('La cámara no está enviando video a Cloudflare. Revisa tu conexión o cambia de cámara.','error');
+        // Envio detenido ~18 s: se reinicia la conexion una vez cada 2 minutos (si fue la red o el codificador, se recupera solo)
+        if(_BC.lowN>=6&&(!_BC.lastRe||Date.now()-_BC.lastRe>120000)){_BC.lastRe=Date.now();_BC.lowN=0;try{bcReconnect();}catch(x){}}}
+      else{_BC.lowN=0;e.textContent='EN VIVO'+(kbps!=null?' · '+(kbps>=1000?(kbps/1000).toFixed(1)+' Mbps':kbps+' kbps'):'')+(lim==='bandwidth'?' · red':(lim==='cpu'?' · celular':''));e.className=(lim==='bandwidth'||lim==='cpu')?'bcf-warn':'';}
     }else if(cs!=='new'){e.textContent=cs==='connecting'?'Conectando…':'Reconectando…';e.className='bcf-warn';}
     e.title='Input en Cloudflare (Live inputs): vp-'+_BC.gid+(_BC.uid?' · '+_BC.uid:'')+' · conexión: '+cs;
   }catch(x){}
 }
+// Adaptacion automatica: si la subida (o el celular) no da abasto, el envio se va apagando solo. En vez de dejarlo morir se baja la resolucion y el
+// bitrate por escalones (cada ~15 s de problema): 1080 -> ~720 -> ~540. Se queda en el escalon hasta que reconectes / empieces otra transmision.
+function bcAdapt(lim,kbps,cs){
+  if(cs!=='connected')return;
+  var h=_BC.heat||(_BC.heat={n:0,ok:0,hot:false,last:0}),target=((_BC.dims&&_BC.dims[1])>=1080?3500:((_BC.dims&&_BC.dims[1])>=720?2500:1200))/[1,1.6,3][_BC.adapt||0];
+  var bad=(lim==='bandwidth'||lim==='cpu')||(kbps!=null&&kbps<target*0.35);
+  h.adN=bad?(h.adN||0)+1:Math.max(0,(h.adN||0)-1);
+  if(h.adN>=5&&(_BC.adapt||0)<2){
+    _BC.adapt=(_BC.adapt||0)+1;h.adN=0;bcEncApply();
+    toast((lim==='cpu'?'El celular no daba abasto':'La subida de internet no daba abasto')+': se bajó la calidad del envío automáticamente para que no se corte.','info');
+  }
+}
 function bcStatus(t){var e=document.getElementById('bcf-st');if(e){e.textContent=t;e.className=t==='EN VIVO'?'':'bcf-warn';}}
-async function bcWake(){try{if(navigator.wakeLock&&_BC.id){_BC.wl=await navigator.wakeLock.request('screen');}}catch(e){}}
+async function bcWake(){
+  try{if(window.AndroidWidget&&AndroidWidget.keepAwake)AndroidWidget.keepAwake(!!_BC.id);}catch(e){}   // app Android: pantalla siempre encendida mientras se transmite
+  try{
+    if(navigator.wakeLock&&_BC.id){
+      _BC.wl=await navigator.wakeLock.request('screen');
+      _BC.wl.addEventListener('release',function(){if(_BC.id&&document.visibilityState==='visible')setTimeout(bcWake,500);});   // si el sistema lo suelta (ahorro de bateria), se vuelve a pedir
+    }
+  }catch(e){}
+}
 document.addEventListener('visibilitychange',function(){if(_BC.id&&document.visibilityState==='visible'){bcWake();bcPing();}});
 window.addEventListener('beforeunload',function(e){if(_BC&&_BC.id){e.preventDefault();e.returnValue='';}});
-// Latido (cada 45 s): mantiene viva la transmision en el servidor y avisa si el juego termino / se cerro
+// Latido (cada 30 s): mantiene viva la transmision en el servidor y avisa si el juego termino / se cerro
 function bcPing(){
   if(!_BC.id)return;
   var gm=(S.games||[]).filter(function(g){return String(g.id)===String(_BC.gameId);})[0];
   apiRaw('streamPing',{id:_BC.id}).then(function(r){
     if(!_BC.id||!r)return;
-    if(r.ended||(gm&&gm.status==='final')){
+    if(r.ended){   // el juego terminado ya NO finaliza la transmision: la finaliza quien transmite
       var rec=_BC.record;
-      var base=r.limit?'Se alcanzó el límite de duración: la transmisión finalizó':((r.gameFinal||(gm&&gm.status==='final'))?'El juego terminó: la transmisión finalizó':'La transmisión terminó');
+      var base=r.limit?'Se alcanzó el límite de duración: la transmisión finalizó':'La transmisión terminó';
       // Solo se afirma "guardada" si el servidor lo confirmó; si no, se indica dónde verificarlo (antes se asumía por la casilla marcada)
       var tail=!rec?'.':(r.status==='saved'?' y se guardó.':'. Revisa el módulo Transmisiones para confirmar si se guardó; si no aparece, la grabación no se pudo guardar (¿almacenamiento de Stream sin contratar?).');
       bcStopLocal(base+tail);
@@ -10429,6 +10457,7 @@ function bcPing(){
 }
 function bcStopLocal(msg){
   var b=_BC;_BC={};
+  try{if(window.AndroidWidget&&AndroidWidget.keepAwake)AndroidWidget.keepAwake(false);}catch(e){}
   try{bcBurnCleanup(b.burn);}catch(e){}
   try{camCleanup(b);}catch(e){}
   try{clearInterval(b.pingT);clearInterval(b.tmT);clearInterval(b.stT);clearInterval(b.ytT);clearTimeout(b.rt);clearTimeout(b.saveT);}catch(e){}
