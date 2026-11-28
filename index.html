@@ -8461,6 +8461,21 @@ var LS_ICE=[{urls:'stun:stun.cloudflare.com:3478'}];
 // ── Todo lo propio de la transmision (ultimo layout, marquees, plantillas editadas, playlist) se guarda POR USUARIO, nunca compartido en el mismo dispositivo ──
 function bcUk(base){var u=S.user&&(S.user.id||S.user.username);return base+':'+String(u||'anon').replace(/[^\w\-]/g,'').slice(0,64);}
 function bcIsAdmin(){return !!(S.user&&S.user.role==='admin');}
+// Marca de agua "VBS POWER" dentro del video: la exige el modulo del perfil (Perfiles > Modulos). El ADMINISTRADOR puede quitarla o ponerla cuando quiera
+// desde el panel de la transmision (se recuerda para las proximas transmisiones). Los demas perfiles la tienen forzada mientras su perfil la incluya.
+function bcWmOn(){return hasModuleAccess('livestreamwm')&&!(bcIsAdmin()&&bcLsGet('vp_wm_off')==='1');}
+function bcWmToggle(){
+  if(!bcIsAdmin()||!_BC.id)return;
+  var quitar=!!_BC.wm;
+  bcLsSet('vp_wm_off',quitar?'1':'0');
+  _BC.wm=bcWmOn();
+  var st=document.getElementById('bcs-stage'),el=document.getElementById('bcs-wm');
+  if(!_BC.wm&&el)el.remove();
+  if(_BC.wm&&!el&&st){var d=document.createElement('div');d.className='bcs-wm';d.id='bcs-wm';d.innerHTML='VBS <b>POWER</b>';st.appendChild(d);try{bcWmFit();}catch(e){}}
+  if(_BC.wm&&!(_BC.burn&&_BC.burn.on)){try{bcBurnStart();}catch(e){}}   // la marca va DENTRO del video: exige los graficos en el video
+  try{bcBurnPanelRefresh();}catch(e){}
+  toast(_BC.wm?'Marca de agua VBS POWER activada.':'Marca de agua VBS POWER quitada del video.','success');
+}
 // Cambiar el juego de los graficos: el administrador, o un perfil con el permiso "livestreamswitch" (solo entre sus juegos en vivo)
 function bcCanRetarget(){return bcIsAdmin()||(!!S.user&&S.user.role!=='public'&&hasModuleAccess('livestreamswitch'));}
 function bcLsGet(base){
@@ -9806,7 +9821,7 @@ async function bcBurnStart(){
 }
 async function bcBurnStop(auto){
   var b=_BC.burn;if(!b||!b.on)return;
-  if(_BC.wm&&!auto){toast('La marca de agua "VBS POWER" va dentro del video: no se puede desactivar mientras tu perfil la tenga.','info');return;}
+  if(_BC.wm&&!auto){toast(bcIsAdmin()?'La marca de agua VBS POWER va dentro del video: primero quítala con el botón "Quitar marca de agua".':'La marca de agua "VBS POWER" va dentro del video: no se puede desactivar mientras tu perfil la tenga.','info');return;}
   var id=_BC.id;
   bcBurnCleanup(b);_BC.burn=null;
   try{var snd=bcVideoSender(),cur=bcProgramTrack();if(snd&&cur)await snd.replaceTrack(cur);}catch(e){}   // la camara vuelve a ser lo que se envia
@@ -10048,8 +10063,9 @@ function bcBurnSectionHtml(){
     :'Hace que los gráficos e imágenes que pongas viajen <b>dentro del video</b>, para que se vean también en YouTube. Tu PC los dibuja; no usa servidor. Al activarlo, el navegador te pedirá compartir una pestaña: elige <b>Esta pestaña</b>.';
   return'<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-weight:700;font-size:13px;margin-bottom:4px">🎨 Gráficos dentro del video'+(cv?'':' (PC)')+'</div>'
     +'<div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px">'+(on?txOn:txOff)+'</div>'+rows
-    +(ok?((on&&_BC.wm)?'<div class="alert ai" style="font-size:12px">&#127991;&#65039; Tu perfil incluye la marca de agua <b>VBS POWER</b>: va dentro del video (esquina inferior derecha) y no se puede desactivar.</div>':'<button class="btn '+(on?'bs':'bp')+'" style="width:100%" onclick="'+(on?'bcBurnStop(false)':'bcBurnStart()')+'">'+(on?'Desactivar gráficos en el video':'Activar gráficos en el video')+'</button>')
+    +(ok?((on&&_BC.wm)?'<div class="alert ai" style="font-size:12px">&#127991;&#65039; Tu perfil incluye la marca de agua <b>VBS POWER</b>: va dentro del video (esquina inferior derecha)'+(bcIsAdmin()?'. Como administrador puedes quitarla con el botón de abajo.':' y no se puede desactivar.')+'</div>':'<button class="btn '+(on?'bs':'bp')+'" style="width:100%" onclick="'+(on?'bcBurnStop(false)':'bcBurnStart()')+'">'+(on?'Desactivar gráficos en el video':'Activar gráficos en el video')+'</button>')
         :'<div class="alert aw" style="font-size:12px">Este dispositivo o navegador no admite esta función.</div>')
+    +(bcIsAdmin()?'<button class="btn bs" style="width:100%;margin-top:8px" onclick="bcWmToggle()">&#127991;&#65039; '+(_BC.wm?'Quitar':'Poner')+' marca de agua VBS POWER</button>':'')
     +'<button class="btn bs" style="width:100%;margin-top:8px" onclick="bcEcoSet('+(!_BC.eco)+')">&#127807; '+(_BC.eco?'Desactivar':'Activar')+' modo ahorro (menos calor)</button>'
     +'<div style="font-size:11px;color:var(--t3);margin-top:4px">'+(_BC.eco?'Activo: video a '+bcFps()+' cuadros por segundo y gráficos que se refrescan menos.':'Baja los cuadros por segundo y el trabajo de los gráficos para que el celular se caliente menos.')+'</div><div class="bc-fpsbox" style="margin-top:10px">'+bcFpsInner()+'</div></div>';
 }
@@ -10145,7 +10161,7 @@ function openBroadcastM(gid){
     +'<div class="mbd">'
     +'<div style="font-size:13px;color:var(--t2);margin-bottom:12px">'+nfEsc((teamOf(gm.awayTeamId)||{}).name||'Visitante')+' vs '+nfEsc((teamOf(gm.homeTeamId)||{}).name||'Local')+'</div>'
     +'<div class="fr c2"><div class="fg"><label class="fl">Cámara</label><select class="fi" id="bc-cam"><option value="environment">Trasera</option><option value="user">Delantera</option></select></div>'
-    +'<div class="fg"><label class="fl">Calidad</label><select class="fi" id="bc-res"><option value="720" selected>720p (recomendada)</option><option value="1080">1080p</option><option value="480">480p (poca señal)</option></select></div></div>'
+    +'<div class="fg"><label class="fl">Calidad</label><select class="fi" id="bc-res"><option value="720" selected>720p (recomendada)</option><option value="1080">1080p (exige mucho al celular con gráficos en el video)</option><option value="480">480p (poca señal)</option></select></div></div>'
     +'<div class="fg" id="bc-devfg" style="display:none"><label class="fl">Cámara de este equipo (cámara 1)</label><select class="fi" id="bc-dev"><option value="">Automática (según Trasera / Delantera)</option></select></div>'
     +'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-mic" checked style="accent-color:var(--acc);width:16px;height:16px"> Transmitir con micrófono</label>'
     +(canSave?'<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer"><input type="checkbox" id="bc-rec" checked style="accent-color:var(--acc);width:16px;height:16px"> Guardar la transmisión (queda en el módulo Transmisiones)</label>'
@@ -10195,7 +10211,7 @@ async function bcStart(gid){
     toast('No se pudo conectar con el servidor de video. Revisa tu conexión e inténtalo de nuevo.','error');return;
   }
   _BCI.list=null;   // la biblioteca de imágenes es de cada usuario: nunca se arrastra la de otra sesión
-  _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),wm:hasModuleAccess('livestreamwm'),eco:(function(){try{return localStorage.getItem('vp_bc_eco')==='1';}catch(e){return false;}})(),
+  _BC={id:r.stream.id,gameId:gid,stream:stream,pc:pub.pc,res:pub.resource,whip:r.whipUrl,record:!!r.record,canSave:hasModuleAccess('livestreamsave'),wm:bcWmOn(),eco:(function(){try{return localStorage.getItem('vp_bc_eco')==='1';}catch(e){return false;}})(),
     uid:(r.stream&&r.stream.liveUid)||'',gid:gid,layout:(r.layout&&r.layout.length?r.layout:lsDefaultLayout()),t0:Date.now(),cam:cam,dims:dims,mic:mic,muted:false,limitSec:r.limitSec||0,remainSec:r.remainSec||0,warned:false};
   bcWatchPc(pub.pc);
   bcHeatInit();if(_BC.eco){bcEncApply();bcFpsApplyTrack();setTimeout(function(){toast('Modo ahorro activo: el video sale a 20 cuadros por segundo. Toca FPS para subirlo a 30.','info');},1500);}
@@ -10243,7 +10259,7 @@ function bcEncApply(){
     if(f>30)base=Math.round(base*1.5);
     var ad=_BC.adapt||0;   // 0 normal · 1 y 2 = la subida / el celular no daban abasto: menos resolucion y bitrate (ver bcAdapt)
     p.encodings[0].maxBitrate=Math.round((_BC.eco?Math.min(base,1500000):base)/[1,1.6,3][ad]);
-    p.encodings[0].scaleResolutionDownBy=[1,1.5,2][ad];
+    p.encodings[0].scaleResolutionDownBy=(_BC.burn&&_BC.burn.on&&_BC.burn.mode==='canvas')?1:[1,1.5,2][ad];   // con graficos en el video se reduce el propio lienzo (ver bcAdapt)
     p.encodings[0].maxFramerate=f;
     snd.setParameters(p).catch(function(){});
   }catch(e){}
@@ -10419,11 +10435,21 @@ async function bcStats(){
 function bcAdapt(lim,kbps,cs){
   if(cs!=='connected')return;
   var h=_BC.heat||(_BC.heat={n:0,ok:0,hot:false,last:0}),target=((_BC.dims&&_BC.dims[1])>=1080?3500:((_BC.dims&&_BC.dims[1])>=720?2500:1200))/[1,1.6,3][_BC.adapt||0];
-  var bad=(lim==='bandwidth'||lim==='cpu')||(kbps!=null&&kbps<target*0.35);
+  var bad=(lim==='bandwidth'||lim==='cpu')||h.hot||(kbps!=null&&kbps<target*0.35);   // "Celular al limite" tambien cuenta
   h.adN=bad?(h.adN||0)+1:Math.max(0,(h.adN||0)-1);
-  if(h.adN>=5&&(_BC.adapt||0)<2){
-    _BC.adapt=(_BC.adapt||0)+1;h.adN=0;bcEncApply();
-    toast((lim==='cpu'?'El celular no daba abasto':'La subida de internet no daba abasto')+': se bajó la calidad del envío automáticamente para que no se corte.','info');
+  if(h.adN>=4&&(_BC.adapt||0)<2){
+    _BC.adapt=(_BC.adapt||0)+1;h.adN=0;
+    // Con los graficos DENTRO del video el celular dibuja cada cuadro en un lienzo del tamano de la transmision (1920x1080 a 30 cuadros/s): ahi
+    // esta el cuello de botella. Se reduce el lienzo en caliente (la transmision sigue sin reconectar): 1080 -> 720 -> 480.
+    try{
+      var bn=_BC.burn;
+      if(bn&&bn.on&&bn.mode==='canvas'){
+        var nw=_BC.adapt===1?1280:854,nh=_BC.adapt===1?720:480;
+        if(bn.cw>nw){bn.cv.width=nw;bn.cv.height=nh;bn.cw=nw;bn.ch=nh;}
+      }
+    }catch(x){}
+    bcEncApply();
+    toast((lim==='bandwidth'?'La subida de internet no daba abasto':'El celular no daba abasto')+': se bajó la calidad del envío automáticamente para que no se corte.','info');
   }
 }
 function bcStatus(t){var e=document.getElementById('bcf-st');if(e){e.textContent=t;e.className=t==='EN VIVO'?'':'bcf-warn';}}
